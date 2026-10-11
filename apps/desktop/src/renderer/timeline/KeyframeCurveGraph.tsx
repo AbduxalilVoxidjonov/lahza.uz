@@ -13,7 +13,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { AnimTrack, Continuity, Keyframe } from "../ipc";
 import {
-  EXTRAP_GLYPH_GAP_PX,
   extrapolateClass,
   extrapolateGlyph,
   extrapolateLabelKey,
@@ -30,6 +29,10 @@ import {
   type CurveGeom, type Seg, type TimeValue,
 } from "../keyframe/curveGraph";
 import { ContinuityMenu } from "./ContinuityMenu";
+import { uiPixels, uiScaled, useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
+
+const KF = UI_METRICS.timeline.keyframe;
 
 type KeyframedTrack = Extract<AnimTrack<number>, { mode: "Keyframed" }>;
 
@@ -77,6 +80,7 @@ export function KeyframeCurveGraph({
   /// right-click a dot or the curve: open the preset/Smooth menu.
   onOpenMenu: (clientX: number, clientY: number, kfId: string) => void;
 }) {
+  useUiScale(); // tangent handles and extrapolation marks
   const { t } = useTranslation();
   const svgRef = useRef<SVGSVGElement>(null);
   const beginKeyframeDrag = useKeyframeDrag();
@@ -298,7 +302,7 @@ export function KeyframeCurveGraph({
                       }
                     />
                     <circle
-                      cx={at.x} cy={at.y} r={5}
+                      cx={at.x} cy={at.y} r={uiScaled(KF.tangentHandleRadius)}
                       className={`pointer-events-auto cursor-grab kf-handle${auto ? " kf-handle-auto" : ""}`}
                       data-testid="kf-handle"
                       data-kf-id={key.id}
@@ -364,7 +368,8 @@ export function KeyframeCurveGraph({
         const mode = renderTrack.extrapolate[side];
         if (mode === "Hold") return null;
         const k = side === "before" ? first : last;
-        const dx = side === "before" ? -EXTRAP_GLYPH_GAP_PX : EXTRAP_GLYPH_GAP_PX;
+        const gap = uiPixels(KF.extrapGlyphGap);
+        const dx = side === "before" ? -gap : gap;
         return (
           <span
             key={`extrap-${side}`}

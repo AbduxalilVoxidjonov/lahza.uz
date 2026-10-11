@@ -482,8 +482,8 @@
 
 .shots-cut-meter[data-notch]::after {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: calc(-2 * var(--ui-px));
+  bottom: calc(-2 * var(--ui-px));
   left: clamp(0%, calc(var(--notch, 0) * 100%), 100%);
   width: calc(1 * var(--ui-px));
   background: var(--foreground);

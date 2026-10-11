@@ -34,7 +34,8 @@ const stripCssComments = (text: string) =>
 // Hairlines, strokes, shadows, effects and corner radii keep real pixels.
 const FIXED_PX_PROPERTY =
   /^(--)?[\w-]*(border|outline|shadow|radius|stroke|filter|focus-ring|underline-offset)[\w-]*$/;
-const PX = /(?<![\w.-])(\d+(?:\.\d+)?)px\b/g;
+// A leading minus is part of the length: negative offsets centre and overhang.
+const PX = /(?<![\w.])-?(\d+(?:\.\d+)?)px\b/g;
 
 describe('UI sizing follows the layout theme', () => {
   it('uses --ui-px instead of fixed pixel lengths in application CSS', () => {

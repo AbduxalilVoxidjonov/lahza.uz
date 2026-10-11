@@ -192,7 +192,8 @@ baseline: `fine` 9, `micro` 10, `caption` 11, `body` 12, `label` 13, `title` 14,
 `UI_METRICS` covers the Dock strip thickness and group gap, the edge-overflow
 overlay, agent record and log-console bounds, the mixer layout threshold, the
 timeline header column, track heights, trim edge zone, clip label, layer label
-thresholds, ruler label spacing and marker lane, and the preview transform
+thresholds, ruler label spacing, marker lane, keyframe sub-lanes, curve tangent
+handles and extrapolation marks, and the preview transform
 gizmo's handles, rotation knob and anchor target. Per-panel Dock floors stay in
 `workspace/panelRegistry.ts` and resolve the same way. A component that renders
 a themed JS size calls `useUiScale()` so a theme switch re-renders it.

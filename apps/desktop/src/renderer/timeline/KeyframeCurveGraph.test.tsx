@@ -11,6 +11,9 @@ import {
   setKeyframeSelection,
 } from "../keyframe/selectionStore";
 import { KeyframeCurveGraph } from "./KeyframeCurveGraph";
+import { UI_METRICS } from "../settings/uiMetrics";
+
+const EXTRAP_GAP = UI_METRICS.timeline.keyframe.extrapGlyphGap;
 
 // jsdom 25 does not implement PointerEvent; polyfill it so fireEvent.pointerDown
 // creates a MouseEvent-compatible object with a usable .button property.
@@ -358,8 +361,8 @@ describe("KeyframeCurveGraph — extrapolation", () => {
     expect(mark!.textContent).toBe("↻");
     expect(mark!.className).toContain("kf-extrap-loop");
     expect(mark!.getAttribute("title")).toBe("Loop");
-    // 8 px right of the last diamond, no ghost diamonds past it.
-    expect((mark as HTMLElement).style.left).toBe("108px");
+    // One extrapolation gap right of the last diamond, no ghost diamonds past it.
+    expect((mark as HTMLElement).style.left).toBe(`${100 + EXTRAP_GAP}px`);
     expect(container.querySelectorAll(".kf-sublane-diamond").length).toBe(2);
   });
 
@@ -374,7 +377,7 @@ describe("KeyframeCurveGraph — extrapolation", () => {
     const [mark] = marks(container);
     expect(mark!.getAttribute("data-side")).toBe("before");
     expect(mark!.textContent).toBe("↔");
-    expect((mark as HTMLElement).style.left).toBe("92px");
+    expect((mark as HTMLElement).style.left).toBe(`${100 - EXTRAP_GAP}px`);
   });
 
   it("a lone key never extrapolates, so it gets no tail and no mark", () => {

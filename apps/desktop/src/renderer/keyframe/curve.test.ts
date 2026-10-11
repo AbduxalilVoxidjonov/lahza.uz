@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  EXTRAPOLATE_MODES, EXTRAP_GLYPH_GAP_PX, coeffToHandle, extrapolateClass, extrapolateGlyph,
+  EXTRAPOLATE_MODES, coeffToHandle, extrapolateClass, extrapolateGlyph,
   extrapolateLabelKey, handleToCoeff, interpGlyphClass, interpToCoeffs,
 } from "./curve";
 import en from "../i18n/locales/en-US";
+import { UI_METRICS } from "../settings/uiMetrics";
 
 describe("interpGlyphClass", () => {
   it("codes the segment class the NLE way: square = Hold, bare diamond = Linear, circle = every eased class", () => {
@@ -31,8 +32,11 @@ describe("extrapolation marks", () => {
     }
     expect(extrapolateClass("PingPong")).toBe("kf-extrap kf-extrap-ping_pong");
   });
-  it("sits the mark clear of the 7px glyph inside a 24px row", () => {
-    expect(EXTRAP_GLYPH_GAP_PX).toBe(8);
+  it("sits the mark clear of the 9px sub-lane diamond inside a collapsed row", () => {
+    const { extrapGlyphGap, sublaneHeight } = UI_METRICS.timeline.keyframe;
+    // A 45°-rotated square reaches half its diagonal from its centre.
+    expect(extrapGlyphGap).toBeGreaterThan((9 * Math.SQRT2) / 2);
+    expect(extrapGlyphGap).toBeLessThanOrEqual(sublaneHeight / 2);
   });
 });
 

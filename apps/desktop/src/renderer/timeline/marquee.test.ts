@@ -364,7 +364,7 @@ describe("resolveMarqueeSelection", () => {
 });
 
 // A sub-lane row measured at `[SUB_TOP, SUB_TOP + its height)`. The heights are
-// `KF_SUBLANE_H` / `KF_SUBLANE_EXPANDED_H`, as literals because the hit-test is
+// `UI_METRICS.timeline.keyframe` sub-lane baselines, as literals because the hit-test is
 // HANDED a band and reads neither constant.
 const SUB_TOP = 200;
 const COLLAPSED_H = 24;

@@ -3927,7 +3927,7 @@ describe("Timeline marquee", () => {
       selectedLayerId: "keyed-1",
     });
     fireEvent.click(container.querySelector('[data-testid="kf-lane-twirl"]')!);
-    // Focus is what expands the row to `KF_SUBLANE_EXPANDED_H`, and the height
+    // Focus is what expands the row to the expanded sub-lane height, and the height
     // is what spreads the three dots apart.
     act(() => setKeyframeFocus("keyed-1", "opacity"));
     stubMarqueeLayout(container);

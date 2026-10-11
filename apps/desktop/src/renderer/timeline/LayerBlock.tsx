@@ -61,7 +61,6 @@ import {
 import { currentSelection, layerIdsOf, setLayerSelection } from "../state/selectionStore";
 import { useFocusedParamFor } from "../keyframe/focusStore";
 import {
-  EXTRAP_GLYPH_GAP_PX,
   extrapolateClass,
   extrapolateGlyph,
   extrapolateLabelKey,
@@ -781,10 +780,10 @@ export function LayerBlock({
       const first = track.value[0]!;
       const last = track.value[track.value.length - 1]!;
       if (track.extrapolate.before !== "Hold" && inRange(first)) {
-        extrapMarks.push({ side: "before", x: xOf(first) - EXTRAP_GLYPH_GAP_PX, mode: track.extrapolate.before });
+        extrapMarks.push({ side: "before", x: xOf(first) - uiPixels(UI_METRICS.timeline.keyframe.extrapGlyphGap), mode: track.extrapolate.before });
       }
       if (track.extrapolate.after !== "Hold" && inRange(last)) {
-        extrapMarks.push({ side: "after", x: xOf(last) + EXTRAP_GLYPH_GAP_PX, mode: track.extrapolate.after });
+        extrapMarks.push({ side: "after", x: xOf(last) + uiPixels(UI_METRICS.timeline.keyframe.extrapGlyphGap), mode: track.extrapolate.after });
       }
     }
     return { diamonds, extrapMarks };

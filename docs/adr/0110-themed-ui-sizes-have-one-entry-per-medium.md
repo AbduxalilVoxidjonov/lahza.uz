@@ -19,7 +19,8 @@ and the role tokens in `styles/layout-theme.css`. Icons render through
 SVG geometry.
 
 This covers the preview transform gizmo, the timeline header column, trim edge
-zone, clip label and marker lane, ruler label spacing, and track heights. Track
+zone, clip label, marker lane, keyframe sub-lanes and curve handles, ruler label
+spacing, and track heights. Track
 heights persist in baseline units, like the agent record and log console drag
 sizes, so a dragged row keeps its proportion to the text inside it when the
 theme changes; existing saved heights read as baselines, which is identical at

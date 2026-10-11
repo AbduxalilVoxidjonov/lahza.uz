@@ -65,6 +65,18 @@ export const UI_METRICS = {
     /** Target spacing between ruler major labels, in normal and frame mode. */
     rulerMajorSpacing: 100,
     rulerMajorSpacingFrameMode: 80,
+    keyframe: {
+      /** Keyframe sub-lane rows under a track: collapsed, and focused with the
+       * curve editor open. */
+      sublaneHeight: 24,
+      sublaneExpandedHeight: 72,
+      /** Curve editor tangent handle dot: visibly smaller than a key, so the
+       * key reads first. `.kf-handle`'s transparent stroke widens the grab. */
+      tangentHandleRadius: 4,
+      /** End key centre to its extrapolation mark, on the in-clip row and the
+       * sub-lane: clear of the sub-lane diamond, inside a collapsed row. */
+      extrapGlyphGap: 10,
+    },
     marker: {
       /** Marker lane under the ruler: an L plus the name beside it. */
       laneHeight: 20,

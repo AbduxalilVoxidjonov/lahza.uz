@@ -74,11 +74,9 @@ export function extrapolateClass(mode: Extrapolate): string {
   return `kf-extrap kf-extrap-${EXTRAPOLATE_ID[mode]}`;
 }
 
-/// Distance (px) from an end key's centre to its extrapolation mark, on both
-/// the collapsed in-clip row and the sub-lane: clear of the 7px glyph, inside
-/// the reach of a 24px row. No ghost diamonds are drawn beyond the end key —
-/// the mark is the whole announcement.
-export const EXTRAP_GLYPH_GAP_PX = 8;
+/// The distance from an end key's centre to its extrapolation mark is
+/// `UI_METRICS.timeline.keyframe.extrapGlyphGap`. No ghost diamonds are drawn
+/// beyond the end key — the mark is the whole announcement.
 
 /// Spline interp → cubic-bezier control coords for handle placement.
 /// Exhaustive over `SplineInterpolation` — no default arm, so a new kind is a

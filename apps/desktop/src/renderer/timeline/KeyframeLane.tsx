@@ -8,6 +8,8 @@ import {
 import { useTranslation } from "react-i18next";
 import type { AnimTrack, Rgba, TrackSummary } from "../ipc";
 import { keyframeAbsoluteX, trackKeyframeProperties } from "./geometry";
+import { uiPixels, useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 import {
   isHiddenTwinAxis,
   type ParamDescriptor,
@@ -15,7 +17,6 @@ import {
   type RgbaParamDescriptor,
 } from "../keyframe/descriptors";
 import {
-  EXTRAP_GLYPH_GAP_PX,
   extrapolateClass,
   extrapolateGlyph,
   extrapolateLabelKey,
@@ -45,8 +46,11 @@ import { EasingMenu } from "./EasingMenu";
 import { KeyframeNavigator } from "./KeyframeNavigator";
 import { KeyframeValueField } from "./KeyframeValueField";
 
-export const KF_SUBLANE_H = 24;
-export const KF_SUBLANE_EXPANDED_H = 72;
+const KF = UI_METRICS.timeline.keyframe;
+/// Sub-lane row height, collapsed or expanded. Callers subscribe with
+/// `useUiScale()` so a theme switch re-renders them.
+const sublaneHeightPx = (expanded: boolean): number =>
+  uiPixels(expanded ? KF.sublaneExpandedHeight : KF.sublaneHeight);
 
 /// Hands one rendered sub-lane row to the registry the Timeline measures the
 /// marquee against — the keyframe twin of `registerLaneEl`, keyed by
@@ -69,7 +73,7 @@ type OpenInterpMenu = (
 
 /// Header-column rows: each property's keyframe navigator (◄ ◆ ►) on the left,
 /// the property-name label right-aligned. Row-aligned with the body rows below
-/// by sharing trackKeyframeProperties + KF_SUBLANE_H.
+/// by sharing trackKeyframeProperties + sublaneHeightPx.
 export function KeyframeLaneHeaders({
   track,
   compositionId,
@@ -88,6 +92,7 @@ export function KeyframeLaneHeaders({
   onCommitParamTrack: (layerId: string, paramKey: string, t: ParamTrack) => void;
 }) {
   const { t } = useTranslation();
+  useUiScale(); // sub-lane row heights
   // Panel-rate playhead subscription (tier 3, playheadStore.ts): navigator
   // arrows + value readouts follow playback without per-frame re-renders.
   // Projected onto this composition's clock, which is where its keys live.
@@ -107,9 +112,9 @@ export function KeyframeLaneHeaders({
           <div
             key={d.paramKey}
             className="border-b border-border-soft px-1.5 text-[length:var(--font-size-micro)] text-muted-foreground/80"
-            style={{ height: expanded ? KF_SUBLANE_EXPANDED_H : KF_SUBLANE_H }}
+            style={{ height: sublaneHeightPx(expanded) }}
           >
-            <div className="flex items-center justify-between gap-1" style={{ height: KF_SUBLANE_H }}>
+            <div className="flex items-center justify-between gap-1" style={{ height: sublaneHeightPx(false) }}>
               <span className="min-w-0 truncate" title={d.owner ? d.owner.layerLabel + " · " + label : label}>{label}</span>
               <KeyframeNavigator
                 track={track}
@@ -252,7 +257,8 @@ function KeyframeSubLaneRow({
   onOpenInterpMenu: OpenInterpMenu;
 }) {
   const paramKey = desc.paramKey;
-  const height = expanded ? KF_SUBLANE_EXPANDED_H : KF_SUBLANE_H;
+  useUiScale();
+  const height = sublaneHeightPx(expanded);
   const rowRef = useCallback(
     (el: HTMLDivElement | null) =>
       registerSubLaneEl(track.id, paramKey, expanded, el),
@@ -372,6 +378,7 @@ function ColorKeyLane({
   height: number;
   onOpenInterpMenu: OpenInterpMenu;
 }) {
+  useUiScale(); // extrapolation mark gap
   const { t } = useTranslation();
   const paramKey = desc.paramKey;
   const isSelected = useIsKeyframeSelected(layerId, paramKey);
@@ -444,7 +451,8 @@ function ColorKeyLane({
         const mode = renderTrack.extrapolate[side];
         if (mode === "Hold") return null;
         const k = side === "before" ? first : last;
-        const dx = side === "before" ? -EXTRAP_GLYPH_GAP_PX : EXTRAP_GLYPH_GAP_PX;
+        const gap = uiPixels(KF.extrapGlyphGap);
+        const dx = side === "before" ? -gap : gap;
         return (
           <span
             key={`extrap-${side}`}

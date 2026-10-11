@@ -522,11 +522,11 @@
 }
 
 .playhead-row--drop-before::before {
-  top: -5px;
+  top: calc(-5 * var(--ui-px));
 }
 
 .playhead-row--drop-after::after {
-  bottom: -6px;
+  bottom: calc(-6 * var(--ui-px));
 }
 
 @keyframes playhead-slot-line-in {

@@ -124,7 +124,7 @@ export interface MeasuredSubLaneRow {
   top: number;
   bottom: number;
   /// The row's OWN answer — `KeyframeLane`'s `paramKey === focusedParamKey`.
-  /// Never a comparison of `bottom - top` against `KF_SUBLANE_EXPANDED_H`: that
+  /// Never a comparison of `bottom - top` against the expanded sub-lane height: that
   /// would be a second definition of "expanded" for a future height change to
   /// break silently.
   expanded: boolean;

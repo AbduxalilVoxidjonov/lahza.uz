@@ -95,8 +95,8 @@
 
 .mini-playhead {
   position: absolute;
-  top: -2px;
-  bottom: -2px;
+  top: calc(-2 * var(--ui-px));
+  bottom: calc(-2 * var(--ui-px));
   width: 2px; /* fixed-px: playhead line weight */
   background: var(--color-red-500);
   pointer-events: none;
@@ -2147,16 +2147,22 @@
   border-radius: var(--radius-control);
 }
 .kf-diamond-row { position: absolute; left: 0; right: 0; bottom: 1px; height: calc(8 * var(--ui-px)); pointer-events: none; }
-.kf-diamond { position: absolute; width: calc(7 * var(--ui-px)); height: calc(7 * var(--ui-px)); transform: translateX(-50%) rotate(45deg); background: #fff; border: 1px solid rgba(0,0,0,0.5); }
+.kf-diamond { --kf-diamond-size: calc(7 * var(--ui-px)); position: absolute; width: var(--kf-diamond-size); height: var(--kf-diamond-size); transform: translateX(-50%) rotate(45deg); background: #fff; border: 1px solid rgba(0,0,0,0.5); }
 .kf-diamond.is-selected { background: var(--keyframe); box-shadow: 0 0 0 1.5px var(--ring); }
 /* Sub-lane diamonds span the whole track row, vertically centered in the
-   24px sub-lane (vs the in-clip diamonds, which are bottom-pinned in
-   .kf-diamond-row). The base .kf-diamond transform keeps the 45° rotation. */
-.kf-sublane-diamond { top: 50%; margin-top: -3.5px; pointer-events: auto; cursor: pointer; }
+   sub-lane (vs the in-clip diamonds, which are bottom-pinned in
+   .kf-diamond-row). Larger than in-clip ones: here a key is the thing being
+   edited and must out-rank its tangent handles. The base .kf-diamond
+   transform keeps the 45° rotation. */
+.kf-sublane-diamond { --kf-diamond-size: calc(9 * var(--ui-px)); top: 50%; margin-top: calc(var(--kf-diamond-size) / -2); pointer-events: auto; cursor: pointer; }
 /* Interp-coded keyframe glyphs (the Premiere/AE convention: diamond = linear,
    square = hold, circle = eased) — interpolation reads at a glance without
    opening the easing menu. Variants override only rotation/radius so size,
    centering, and selection styling stay shared with the base .kf-diamond. */
+/* A rotated square spans its diagonal, so at the shared size the linear diamond
+   out-sizes the circle and square beside it. Shrink its side until the three
+   read as one size; centring follows the variable. */
+.kf-sublane-diamond:not(.kf-interp-hold):not(.kf-interp-eased) { --kf-diamond-size: calc(7.5 * var(--ui-px)); }
 .kf-diamond.kf-interp-hold { transform: translateX(-50%); border-radius: 1px; }
 .kf-diamond.kf-interp-eased { transform: translateX(-50%); border-radius: 50%; }
 /* Extrapolation mark beside a track's end key (renderer/keyframe/curve.ts
@@ -2178,7 +2184,9 @@
    grabbable, because the grab is what converts the key to Free (After Effects'
    auto → continuous bezier). A key's two stems read as one through-line when
    its continuity is Smooth and as two independent stems when Broken. */
-.kf-handle { fill: var(--ring, #6b6bff); }
+/* The transparent stroke is hit-testable but unpainted: it widens the grab
+   target past the small dot (UI_METRICS.timeline.keyframe.tangentHandleRadius). */
+.kf-handle { fill: var(--ring, #6b6bff); stroke: transparent; stroke-width: calc(4 * var(--ui-px)); }
 .kf-handle.kf-handle-auto { fill: var(--muted-foreground, #9ca3af); opacity: 0.6; }
 .kf-handle-stem { stroke: var(--ring, #6b6bff); stroke-width: 1; opacity: 0.7; }
 .kf-handle-stem.kf-handle-stem-auto { stroke: var(--muted-foreground, #9ca3af); opacity: 0.5; }
