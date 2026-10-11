@@ -1,6 +1,6 @@
 import { test, expect, type ElectronApplication } from '@playwright/test'
 
-import { launchApp, newProject, tmpDir } from './helpers/driver'
+import { invokeCmd, launchApp, newProject, tmpDir } from './helpers/driver'
 
 // The main window's macOS caption chrome: `titleBarStyle: 'hidden'` keeps the
 // OS-drawn traffic lights, and the renderer insets its own titlebars to clear
@@ -55,6 +55,48 @@ test('window appearance is pinned dark, so macOS draws legible traffic lights', 
   await app.close()
 })
 
+test('startup caption keeps its edge inset and groups its actions across layout themes', async () => {
+  const { app, page } = await launchApp()
+  try {
+    await expect(page.locator('.startup-titlebar-actions')).toBeVisible()
+    for (const [layout_theme, scale] of [
+      ['1080p-standard', 1], ['1080p-wide', 1.1],
+      ['2k-standard', 1.2], ['2k-wide', 1.32],
+      ['4k-standard', 1.5], ['4k-wide', 1.65],
+    ] as const) {
+      await invokeCmd(page, 'app_settings_set', { patch: { layout_theme } })
+      await expect(page.locator('html')).toHaveAttribute('data-layout-theme', layout_theme)
+      const metrics = await page.locator(TITLEBAR).evaluate(bar => {
+        const rect = bar.getBoundingClientRect()
+        const style = getComputedStyle(bar)
+        const settings = bar.querySelector('.startup-settings-toggle')!.getBoundingClientRect()
+        const report = bar.querySelector('.startup-report-toggle')!.getBoundingClientRect()
+        const last = bar.querySelector('.window-controls') ?? bar.querySelector('.startup-locale-toggle')!
+        return {
+          inset: parseFloat(style.getPropertyValue('--app-chrome-inset')),
+          padLeft: parseFloat(style.paddingLeft),
+          left: settings.left - rect.left,
+          gap: report.left - settings.right,
+          right: rect.right - last.getBoundingClientRect().right,
+        }
+      })
+      expect(metrics.inset).toBe(16)
+      // Chromium can round bounding boxes at fractional display scales.
+      expect(Math.abs(metrics.left - metrics.padLeft)).toBeLessThan(0.5)
+      expect(Math.abs(metrics.gap - 4 * scale)).toBeLessThan(0.5)
+      if (isDarwin) {
+        expect(metrics.padLeft).toBeGreaterThan(60)
+        expect(Math.abs(metrics.right - metrics.inset)).toBeLessThan(0.5)
+      } else {
+        expect(metrics.padLeft).toBe(metrics.inset)
+        expect(Math.abs(metrics.right)).toBeLessThan(0.5)
+      }
+    }
+  } finally {
+    await app.close()
+  }
+})
+
 test.describe('macOS traffic-light inset @serial', () => {
   // Traffic lights and the overlay env vars exist only on macOS; elsewhere the
   // window is fully frameless and the renderer draws its own caption buttons.
@@ -71,6 +113,8 @@ test.describe('macOS traffic-light inset @serial', () => {
         return {
           overlayVisible: navigator.windowControlsOverlay?.visible,
           padLeft: parseFloat(cs.paddingLeft),
+          padRight: parseFloat(cs.paddingRight),
+          inset: parseFloat(cs.getPropertyValue('--app-chrome-inset')),
           height: parseFloat(cs.height),
         }
       }, selector)
@@ -84,6 +128,7 @@ test.describe('macOS traffic-light inset @serial', () => {
     // Chromium's own safe-content edge — ~86px for our trafficLightPosition.
     // Asserted as a floor, not a constant: it is the OS's number, not ours.
     expect(normal.padLeft).toBeGreaterThan(60)
+    expect(normal.padRight).toBe(normal.inset)
     // The strip must CONTAIN the button band or the buttons hang onto content.
     expect(normal.height).toBeGreaterThanOrEqual(34)
 
@@ -99,11 +144,13 @@ test.describe('macOS traffic-light inset @serial', () => {
       BrowserWindow.getAllWindows()[0]!.getWindowButtonPosition(),
     )
 
-    // --- fullscreen hides the buttons: the inset must collapse to its fallback
+    // Fullscreen hides the traffic lights, but keeps the shared caption inset.
     await setFullScreen(app, true)
     await page.waitForFunction(() => navigator.windowControlsOverlay?.visible === false)
     const fullscreen = await measure(TITLEBAR)
-    expect(fullscreen.padLeft).toBe(0)
+    expect(fullscreen.inset).toBeGreaterThan(0)
+    expect(fullscreen.padLeft).toBe(fullscreen.inset)
+    expect(fullscreen.padRight).toBe(fullscreen.inset)
 
     // --- arm the capture BEFORE triggering the exit, so there is no race between
     // installing the listener and the transition starting.
@@ -124,8 +171,8 @@ test.describe('macOS traffic-light inset @serial', () => {
     // START of the exit animation while 'leave-full-screen' fires only once it
     // has FINISHED, so this value is read the instant the buttons come back —
     // before that event. An IPC-driven inset would still be reporting the
-    // fullscreen value (0) here, which is exactly the frame where the title
-    // overlaps the buttons.
+    // fullscreen value (the shared inset) here, which is exactly the frame
+    // where the title overlaps the buttons.
     const insetOnReturn = await page.evaluate(() => window.__insetWhenOverlayReturned)
     expect(insetOnReturn).toBeGreaterThan(60)
 
