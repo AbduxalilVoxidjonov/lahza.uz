@@ -7,6 +7,9 @@ import { cn } from "@/lib/utils";
 export interface AppSelectOption {
   value: string;
   label: ReactNode;
+  /// Trailing popup-only annotation (e.g. a "Recommended" tag). The trigger
+  /// shows `label` alone.
+  detail?: ReactNode;
   disabled?: boolean;
 }
 
@@ -80,6 +83,7 @@ export function AppSelect({
                 <Select.ItemText className="app-menu-item-label">
                   {o.label}
                 </Select.ItemText>
+                {o.detail}
               </Select.Item>
             ))}
           </Select.Popup>

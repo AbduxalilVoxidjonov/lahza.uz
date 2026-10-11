@@ -186,7 +186,17 @@ as their CSS. Keep native window chrome, editing coordinates, borders and shadow
 outside this conversion; do not apply a global zoom to the canvas or timeline.
 
 The names are user-selected density presets, not automatic physical-resolution
-detection. CSS pixels / Electron DIPs already include OS scaling; do not apply
+detection. Inside the open preset list, Settings tags the preset that suits the
+display currently showing the window (`recommendLayoutTheme` in
+`shared/layout-theme.ts`); the tag's tooltip names the display's DIP size and
+scaling. The closed selector and settings page show no notice, so a deliberate
+Relaxed or larger choice is never nagged. The recommendation is advisory. It
+reads the display's DIP size from `window.screen`: effective height is
+`min(height, width × 0.75)`, interpolated through the 1080 → 1, 1440 → 1.2 and
+2160 → 1.5 text-scale anchors to the nearest preset (ties pick the smaller),
+skipping presets whose native minimum window does not fit the work area. So a
+4K display at 150% scaling (2560 × 1440 DIPs) suggests 2K standard, and an
+ultrawide 3440 × 1440 also suggests 2K standard. CSS pixels / Electron DIPs already include OS scaling; do not apply
 `devicePixelRatio` again. Root tokens update on initial settings hydration and
 every committed settings snapshot, including portal dialogs and other windows.
 

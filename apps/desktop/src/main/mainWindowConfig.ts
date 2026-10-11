@@ -1,8 +1,8 @@
-import { LAYOUT_THEMES, DEFAULT_LAYOUT_THEME, readLayoutTheme } from '../shared/layout-theme';
+import { LAYOUT_THEMES, DEFAULT_LAYOUT_THEME, LAYOUT_MINIMUM_WINDOW, readLayoutTheme } from '../shared/layout-theme';
 
 export const MAIN_WINDOW_MINIMUM_SIZE = {
-  minWidth: 960,
-  minHeight: 640,
+  minWidth: LAYOUT_MINIMUM_WINDOW.width,
+  minHeight: LAYOUT_MINIMUM_WINDOW.height,
 } as const;
 
 /// Size for a first launch, or whenever the saved geometry is unusable (stale

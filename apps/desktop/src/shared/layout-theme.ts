@@ -22,3 +22,55 @@ export function isLayoutTheme(value: unknown): value is LayoutTheme {
 export function readLayoutTheme(value: unknown): LayoutTheme {
   return isLayoutTheme(value) ? value : DEFAULT_LAYOUT_THEME;
 }
+
+/** Native window floor before preset scaling (see main/mainWindowConfig.ts). */
+export const LAYOUT_MINIMUM_WINDOW = { width: 960, height: 640 } as const;
+
+/** Logical display height → target text scale. Text grows sub-linearly so
+ * larger logical displays also gain working room. Anchors match the presets. */
+const RECOMMENDATION_ANCHORS: ReadonlyArray<readonly [height: number, scale: number]> = [
+  [1080, 1],
+  [1440, 1.2],
+  [2160, 1.5],
+];
+
+/** Interpolates between anchors; past the last one the final segment extends. */
+function targetFontScale(height: number): number {
+  const anchors = RECOMMENDATION_ANCHORS;
+  if (height <= anchors[0][0]) return anchors[0][1];
+  let i = 1;
+  while (i < anchors.length - 1 && height > anchors[i][0]) i++;
+  const [h0, s0] = anchors[i - 1];
+  const [h1, s1] = anchors[i];
+  return s0 + ((height - h0) * (s1 - s0)) / (h1 - h0);
+}
+
+interface Size { width: number; height: number }
+
+/** Advisory only: the user's saved preset is never changed automatically.
+ * Inputs are DIPs for the display showing the window, so OS scaling is already
+ * applied. Height drives the text scale; width only limits it below 4:3 (for
+ * example portrait displays). Presets whose minimum window cannot fit the work
+ * area are skipped. */
+export function recommendLayoutTheme(display: Size, workArea: Size): LayoutTheme {
+  const effectiveHeight = Math.min(display.height, display.width * 0.75);
+  const target = targetFontScale(effectiveHeight);
+  const fits = (id: LayoutTheme) => {
+    const { fontScale, widthScale } = LAYOUT_THEMES[id];
+    return Math.round(LAYOUT_MINIMUM_WINDOW.width * widthScale) <= workArea.width
+      && Math.round(LAYOUT_MINIMUM_WINDOW.height * fontScale) <= workArea.height;
+  };
+  const ladder = [...LAYOUT_THEME_IDS].sort((a, b) => LAYOUT_THEMES[a].fontScale - LAYOUT_THEMES[b].fontScale);
+  let best: LayoutTheme = DEFAULT_LAYOUT_THEME;
+  let bestDistance = Infinity;
+  for (const id of ladder) {
+    if (!fits(id)) continue;
+    const distance = Math.abs(LAYOUT_THEMES[id].fontScale - target);
+    // Strictly closer only, so a tie keeps the smaller preset.
+    if (distance < bestDistance - 1e-6) {
+      best = id;
+      bestDistance = distance;
+    }
+  }
+  return best;
+}

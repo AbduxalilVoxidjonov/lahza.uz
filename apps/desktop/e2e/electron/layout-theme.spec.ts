@@ -179,7 +179,9 @@ test('layout themes resize typography and portal dialogs, fit a small window and
     ] as const;
     for (const [id, label, width, fontSize] of presets) {
       await chooser.click();
-      await first.page.getByRole('option', { name: label, exact: true }).click();
+      // The preset matching the CI display also carries a "推荐" tag.
+      const name = new RegExp(`^${label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*(推荐)?$`);
+      await first.page.getByRole('option', { name }).click();
       await expect(first.page.locator('html')).toHaveAttribute('data-layout-theme', id);
       await expect(chooser).toHaveCSS('font-size', `${fontSize}px`);
       await expect.poll(async () => Math.round((await dialog.boundingBox())!.width)).toBe(width);

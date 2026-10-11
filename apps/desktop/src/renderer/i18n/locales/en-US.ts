@@ -1921,6 +1921,8 @@ const enUS = {
     auto_install_updates_on_quit: 'Automatically install available updates when closing the app',
     layout_theme: 'Layout theme',
     layout_theme_hint: 'Apply preset text sizes and dialog dimensions. Relaxed layouts provide more horizontal room and slightly larger text.',
+    layout_theme_recommended: 'Recommended',
+    layout_theme_recommended_detail: 'Suits this display: {{width}}×{{height}} at {{scale}}% scaling',
     layout_themes: {
       '1080p-standard': '1080p · Standard',
       '1080p-wide': '1080p · Relaxed',

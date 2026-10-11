@@ -218,6 +218,18 @@
   min-width: calc(168 * var(--ui-px));
 }
 
+/* Layout theme: popup-only tag on the preset suiting the current display. */
+.layout-theme-recommended {
+  flex: none;
+  margin-left: calc(12 * var(--ui-px));
+  padding: 0 calc(5 * var(--ui-px));
+  font-size: var(--font-size-micro);
+  line-height: var(--line-height-body);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 40%, transparent);
+  border-radius: 999px;
+}
+
 .settings-performance-processing {
   min-width: 0;
   width: calc(126 * var(--ui-px));

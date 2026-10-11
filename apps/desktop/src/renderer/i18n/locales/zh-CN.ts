@@ -1689,6 +1689,8 @@ const zhCN: Resources = {
     auto_install_updates_on_quit: '关闭应用时自动安装可用更新',
     layout_theme: '布局主题',
     layout_theme_hint: '统一应用预设字号和对话框尺寸。宽松主题提供更多横向空间，文字略大。',
+    layout_theme_recommended: '推荐',
+    layout_theme_recommended_detail: '适合当前显示器：{{width}}×{{height}}，缩放 {{scale}}%',
     layout_themes: {
       '1080p-standard': '1080p · 标准',
       '1080p-wide': '1080p · 宽松',

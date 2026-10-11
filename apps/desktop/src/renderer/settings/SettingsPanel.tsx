@@ -24,11 +24,11 @@ import { AppDialog } from "../components/AppDialog";
 import { AppTimecodeField } from "../components/AppTimecodeField";
 import { AppNumberField } from "../components/AppNumberField";
 import { AppSelect } from "../components/AppSelect";
-import { LAYOUT_THEME_IDS, isLayoutTheme } from '../../shared/layout-theme';
 import { AppSlider } from "../components/AppSlider";
 import { AppSwitch } from "../components/AppSwitch";
 import { Button } from "@/components/ui/button";
 import { KeybindingPanel } from "./KeybindingPanel";
+import { LayoutThemeControl } from "./LayoutThemeControl";
 import { AgentSection } from "./AgentSection";
 import { PreviewSection } from "./PreviewSection";
 import { PerformanceSection } from "./PerformanceSection";
@@ -44,7 +44,6 @@ import {
   useTimelineWheelAxis,
   useAutoDeleteEmptyTracks,
   useDefaultTextFont,
-  useLayoutTheme,
   useAutoInstallUpdatesOnQuit,
 } from "./appSettingsStore";
 import { FontSelect } from "../components/FontSelect";
@@ -160,7 +159,6 @@ export function SettingsPanel({
   const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const defaultTextFont = useDefaultTextFont();
-  const layoutTheme = useLayoutTheme();
   const autoInstallUpdatesOnQuit = useAutoInstallUpdatesOnQuit();
   const [reopenOnLaunch, setReopenOnLaunch] = useState<boolean | null>(null);
   // Project-scoped sections (composition pin, per-project toggles) talk to
@@ -291,19 +289,7 @@ export function SettingsPanel({
                 }} />
                 <span className="settings-toggle-label">{t("settings.auto_install_updates_on_quit")}</span>
               </label>
-              <div className="settings-control-row">
-                <span className="settings-toggle-label">{t("settings.layout_theme")}</span>
-                <AppSelect
-                  className="settings-select"
-                  ariaLabel={t("settings.layout_theme")}
-                  value={layoutTheme}
-                  options={LAYOUT_THEME_IDS.map(value => ({ value, label: t(`settings.layout_themes.${value}`) }))}
-                  onValueChange={value => {
-                    if (isLayoutTheme(value)) void setAppSettings({ layout_theme: value }).catch(err => setError(String(err)));
-                  }}
-                />
-              </div>
-              <p className="settings-toggle-hint">{t("settings.layout_theme_hint")}</p>
+              <LayoutThemeControl onError={setError} />
               <span className="settings-toggle-label">{t("settings.data_location_heading")}</span>
               <p className="settings-toggle-hint">{t("settings.data_location_blurb")}</p>
               <DataLocationSection onError={setError} />
