@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 import "dockview-react/dist/styles/dockview.css";
 
 import { tryMutate } from "../errors/tryMutate";
@@ -118,6 +119,7 @@ import {
   type PanelId,
   type PanelKind,
 } from "./panelRegistry";
+import { AppIcon } from "@/components/AppIcon";
 
 export interface DockPanelContracts {
   summary: ProjectSummary | null;
@@ -721,7 +723,7 @@ function applyGroupConstraints(
 }
 
 /**
- * Hold the strip's Group to `STRIP_THICKNESS` across the axis its own splitter
+ * Hold the strip's Group to `stripThickness()` across the axis its own splitter
  * moves, so the bar reads as chrome instead of a Panel: docked as a column it is
  * pinned that wide, as a row that tall, and — since Dockview disables a sash
  * whose neighbour cannot change size — the splitter against it goes inert. The
@@ -892,7 +894,7 @@ function DockGripTab({
           setMenuAt({ x: event.clientX, y: event.clientY });
         }}
       >
-        <Grip size={12} aria-hidden="true" />
+        <AppIcon icon={Grip} size="body" aria-hidden="true" />
       </div>
       {menuAt ? (
         <PanelTabContextMenu
@@ -985,7 +987,7 @@ function DockPanelTab({
             `.dv-active-tab` — this renderer isn't re-run on activation
             changes, so the marker lives in the DOM of every tab. */}
         <span className="weft-dock-tab-label">{title}</span>
-        <TextAlignStartIcon size={12} className="weft-dock-tab-active-icon" aria-hidden="true" />
+        <AppIcon icon={TextAlignStartIcon} size="body" className="weft-dock-tab-active-icon" aria-hidden="true" />
       </div>
       {menuAt && id ? (
         <PanelTabContextMenu
@@ -1055,7 +1057,7 @@ function TimelineDockTab({
         <span className="weft-dock-tab-label">
           {timelineTabLabel(summary, compositionId, ordinals, panelTitle, t)}
         </span>
-        <TextAlignStartIcon size={12} className="weft-dock-tab-active-icon" aria-hidden="true" />
+        <AppIcon icon={TextAlignStartIcon} size="body" className="weft-dock-tab-active-icon" aria-hidden="true" />
       </div>
       {menuAt ? (
         <TimelineTabContextMenu
@@ -1357,7 +1359,7 @@ function TabStripEdge({
           blurAfterMouseActivation(event);
         }}
       >
-        <Glyph size={16} aria-hidden="true" />
+        <AppIcon icon={Glyph} size="heading" aria-hidden="true" />
       </button>
     </div>
   );
@@ -1386,7 +1388,7 @@ const DOCK_TAB_COMPONENTS = { [DOCK_TAB_COMPONENT_ID]: WeftCutDockTab };
  * `--dv-*` variable defaults; the className stays Abyss's so those base
  * styles keep applying, while the app's own overrides live on
  * `.weft-dockview` (the `className` prop). */
-const WEFT_DOCK_THEME: DockviewTheme = { ...themeAbyss, name: "weft", gap: 6 };
+const WEFT_DOCK_THEME: DockviewTheme = { ...themeAbyss, name: "weft", gap: UI_METRICS.dock.groupGap };
 
 /* Drop-target geometry, tuned so the highlight always equals the layout the
  * drop will produce (a 50/50 split or a full-area tab merge) and targets are
@@ -1432,7 +1434,7 @@ export function DockWorkspace({
 }: DockWorkspaceProps) {
   const { t, i18n } = useTranslation();
   const scale = useUiScale();
-  const theme = useMemo(() => ({ ...WEFT_DOCK_THEME, gap: 6 * scale }), [scale]);
+  const theme = useMemo(() => ({ ...WEFT_DOCK_THEME, gap: UI_METRICS.dock.groupGap * scale }), [scale]);
   const adapterRef = useRef<DockWorkspaceAdapter | null>(null);
   const sectionRef = useRef<HTMLElement | null>(null);
   const messages = useMemo<Partial<DockviewMessages>>(

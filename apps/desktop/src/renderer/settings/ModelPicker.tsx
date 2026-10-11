@@ -3,6 +3,7 @@ import { Menu } from "@base-ui/react/menu";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { ModelView } from "../../shared/inference-models";
+import { AppIcon } from "@/components/AppIcon";
 
 /** Local files can be checked immediately. A service's first use needs its
  * configuration and test-request notice before any network request is sent. */
@@ -30,7 +31,7 @@ export function ModelPicker({ models, activeId, disabled, preparing, onChoose, o
   return <Menu.Root>
     <Menu.Trigger className="app-select settings-model-trigger" disabled={disabled} aria-label={t("models.current_label")}>
       <span>{active ? name(active) : t("models.none_selected")}</span>
-      <ChevronDown size={11} aria-hidden="true" />
+      <AppIcon icon={ChevronDown} size="caption" aria-hidden="true" />
     </Menu.Trigger>
     <Menu.Portal>
       <AppMenuPositioner align="start" sideOffset={4} className="app-popup-positioner">
@@ -38,12 +39,12 @@ export function ModelPicker({ models, activeId, disabled, preparing, onChoose, o
           <div className="settings-model-menu-options">
             <Menu.RadioGroup value={activeId ?? ""}>
               <Menu.RadioItem value="" label={t("models.none_selected")} closeOnClick className="app-menu-item settings-model-option" onClick={() => onChoose("")}>
-                <span className="app-menu-item-check" aria-hidden="true"><Menu.RadioItemIndicator><Check size={12} /></Menu.RadioItemIndicator></span>
+                <span className="app-menu-item-check" aria-hidden="true"><Menu.RadioItemIndicator><AppIcon icon={Check} size="body" /></Menu.RadioItemIndicator></span>
                 <span>{t("models.none_selected")}</span>
               </Menu.RadioItem>
               {models.map(m => <Menu.RadioItem key={m.id} value={m.id} label={name(m)} closeOnClick
                 className="app-menu-item settings-model-option" onClick={() => onChoose(m.id)}>
-                <span className="app-menu-item-check" aria-hidden="true"><Menu.RadioItemIndicator><Check size={12} /></Menu.RadioItemIndicator></span>
+                <span className="app-menu-item-check" aria-hidden="true"><Menu.RadioItemIndicator><AppIcon icon={Check} size="body" /></Menu.RadioItemIndicator></span>
                 <span className="settings-model-option-text"><span>{name(m)}</span>
                   <span className="settings-model-option-detail">{m.custom && `${t("models.custom")} · `}{t(m.locality === "local" ? "models.local" : "models.online")}{host(m)}</span>
                 </span>
@@ -52,7 +53,7 @@ export function ModelPicker({ models, activeId, disabled, preparing, onChoose, o
             </Menu.RadioGroup>
           </div>
           <Menu.Separator className="menu-separator" />
-          <Menu.Item className="app-menu-item" disabled={preparing} onClick={onAdd}><Plus size={12} />{t("models.add_model")}</Menu.Item>
+          <Menu.Item className="app-menu-item" disabled={preparing} onClick={onAdd}><AppIcon icon={Plus} size="body" />{t("models.add_model")}</Menu.Item>
         </Menu.Popup>
       </AppMenuPositioner>
     </Menu.Portal>

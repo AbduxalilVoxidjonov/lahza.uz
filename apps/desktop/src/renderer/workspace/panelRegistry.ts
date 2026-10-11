@@ -1,5 +1,6 @@
 import i18n from "../i18n";
 import { uiPixels } from '../settings/layoutTheme';
+import { UI_METRICS } from '../settings/uiMetrics';
 
 /** Dockview component ids for the single WeftCut Panel + tab renderers. Kept
  *  here (not in the adapter) so the persistence layer can synthesize Panel
@@ -38,7 +39,8 @@ export interface PanelDefinition {
 const TOOL_MINIMUM = { minimumWidth: 240, minimumHeight: 160 } as const;
 
 /**
- * The Quick Actions bar's thickness across its short axis, and equally the
+ * The Quick Actions bar's thickness across its short axis
+ * (`UI_METRICS.dock.stripThickness`), and equally the
  * floor on both axes: one button plus the drag grip is all the strip ever needs
  * in either direction, and `TOOL_MINIMUM`'s 240 px would pin the bar ~5.5× too
  * wide. Overflow scrolls, so this never hides a command permanently.
@@ -48,8 +50,7 @@ const TOOL_MINIMUM = { minimumWidth: 240, minimumHeight: 160 } as const;
  * `useFixedStripThickness` in DockWorkspace.tsx), which is only legal while the
  * thickness is not below the floor.
  */
-export const STRIP_THICKNESS = 44;
-export const stripThickness = () => uiPixels(STRIP_THICKNESS);
+export const stripThickness = () => uiPixels(UI_METRICS.dock.stripThickness);
 
 /** Registry values stay baseline measurements; resolve at use time so old
  * persisted layouts and newly opened panels pick up the current theme. */
@@ -59,8 +60,8 @@ export function panelMinimum(kind: PanelKind) {
 }
 
 const STRIP_MINIMUM = {
-  minimumWidth: STRIP_THICKNESS,
-  minimumHeight: STRIP_THICKNESS,
+  minimumWidth: UI_METRICS.dock.stripThickness,
+  minimumHeight: UI_METRICS.dock.stripThickness,
 } as const;
 
 /**

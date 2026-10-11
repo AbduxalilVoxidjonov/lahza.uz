@@ -141,8 +141,8 @@
 
 .preview-rebuilding {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: calc(12 * var(--ui-px));
+  right: calc(12 * var(--ui-px));
   display: inline-flex;
   align-items: center;
   gap: calc(6 * var(--ui-px));
@@ -291,8 +291,6 @@
 }
 .audio-playback-status.is-error { color: var(--warning); }
 .audio-playback-status svg {
-  width: calc(14 * var(--ui-px));
-  height: calc(14 * var(--ui-px));
   flex-shrink: 0;
 }
 .audio-playback-status-label {

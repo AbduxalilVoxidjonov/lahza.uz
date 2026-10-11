@@ -74,6 +74,7 @@ import {
   useSelectedMediaId,
 } from "../state/selectionStore";
 import { quickProxyPath } from "../render/decodeRoute";
+import { AppIcon } from "@/components/AppIcon";
 
 function isFileDrag(e: React.DragEvent): boolean {
   return Array.from(e.dataTransfer.types).includes("Files");
@@ -173,7 +174,7 @@ function MediaDragPreview() {
         {active.source === "media" ? (
           <MediaThumbnail mediaId={active.mediaId} mediaKind={active.kind} />
         ) : (
-          <GroupIcon size={16} aria-hidden />
+          <AppIcon icon={GroupIcon} size="heading" aria-hidden />
         )}
       </div>
       <span className="media-drag-preview-name">{active.label}</span>
@@ -347,7 +348,7 @@ export function MediaPool({
           size="lg"
           onClick={() => void onImportMedia()}
         >
-          <FolderInputIcon size={14} aria-hidden />
+          <AppIcon icon={FolderInputIcon} size="title" aria-hidden />
           {t("actions.import_media")}
         </Button>
       </div>
@@ -505,7 +506,7 @@ export function MediaPool({
           aria-label={t("actions.import_media")}
           onClick={() => void onImportMedia()}
         >
-          <FolderInputIcon size={14} aria-hidden />
+          <AppIcon icon={FolderInputIcon} size="title" aria-hidden />
         </button>
         <AppInput
           type="search"
@@ -534,7 +535,7 @@ export function MediaPool({
           aria-label={t("media_pool.unused_filter")}
           onClick={() => setUnusedOnly((on) => !on)}
         >
-          <FilterIcon size={14} aria-hidden />
+          <AppIcon icon={FilterIcon} size="title" aria-hidden />
         </button>
         <div
           className="media-layout-switch"
@@ -550,7 +551,7 @@ export function MediaPool({
               title={t(`media_pool.layout_${mode}`)}
               onClick={() => void setAppSettings({ media_pool_layout: mode })}
             >
-              <Icon size={14} aria-hidden />
+              <AppIcon icon={Icon} size="title" aria-hidden />
             </button>
           ))}
         </div>

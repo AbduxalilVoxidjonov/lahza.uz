@@ -16,6 +16,7 @@ import {
   bindingLabel,
 } from "./KeybindingCapture";
 import { Button } from "@/components/ui/button";
+import { AppIcon } from "@/components/AppIcon";
 
 interface Props {
   /// Current overrides loaded by App.tsx. Missing entries inherit the
@@ -212,7 +213,7 @@ export function KeybindingPanel({
                         aria-label={t("keybindings.remove_hint")}
                         onClick={() => onRemoveChord(id, chord)}
                       >
-                        <XIcon size={11} aria-hidden />
+                        <AppIcon icon={XIcon} size="caption" aria-hidden />
                       </button>
                     </span>
                   ))}

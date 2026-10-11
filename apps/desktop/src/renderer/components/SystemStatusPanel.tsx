@@ -4,6 +4,7 @@ import { XIcon } from "lucide-react";
 import type { AppNotice } from "../../shared/ipc";
 import { CurrentSystemStatus } from "./CurrentSystemStatus";
 import type { SystemSettingsTarget } from "./systemStatus";
+import { AppIcon } from "@/components/AppIcon";
 
 interface Props {
   notices: AppNotice[];
@@ -33,7 +34,7 @@ export function SystemStatusPanel({ notices, onClose, onOpenSettings }: Props) {
         onClick={onClose}
         aria-label={t("log.close")}
       >
-        <XIcon size={14} aria-hidden />
+        <AppIcon icon={XIcon} size="title" aria-hidden />
       </button>
       <CurrentSystemStatus
         notices={notices}

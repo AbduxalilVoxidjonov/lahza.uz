@@ -1,6 +1,7 @@
 import { Children, Fragment, isValidElement, useEffect, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { EditControls } from "./LayerEditing";
+import { AppIcon } from "@/components/AppIcon";
 
 // Session-scoped collapse memory, keyed `${layerKind}:${sectionId}`. An
 // override survives selection changes within the run — expanding Advanced on
@@ -107,7 +108,7 @@ export function PropSection({
         aria-expanded={!collapsed}
         onClick={toggle}
       >
-        {collapsed ? <ChevronRight size={14} aria-hidden /> : <ChevronDown size={14} aria-hidden />}
+        {collapsed ? <AppIcon icon={ChevronRight} size="body" aria-hidden /> : <AppIcon icon={ChevronDown} size="body" aria-hidden />}
         <span className="prop-section-title">{title}</span>
       </button>
       {collapsed ? null : <div className="prop-section-body">{readOnlyChildren(children)}</div>}

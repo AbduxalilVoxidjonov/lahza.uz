@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { pickColor } from "../colorpick/pickColor";
 import type { Rgba } from "../ipc";
+import { AppIcon } from "@/components/AppIcon";
 
 /// The `Rgba` ↔ hex bridge every caller of this field needs, kept beside the
 /// field because the hex string IS its value contract. Alpha never crosses:
@@ -78,7 +79,7 @@ export function AppColorField({
             .catch((e) => console.warn("colorpick:", e));
         }}
       >
-        <Pipette size={12} />
+        <AppIcon icon={Pipette} size="body" />
       </button>
     </span>
   );

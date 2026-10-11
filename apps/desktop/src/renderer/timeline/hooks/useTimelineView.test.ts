@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { viewStateDefaults, type ViewState } from "../../../shared/view-state";
 import { resetViewState } from "../../state/viewState";
-import { DEFAULT_PX_PER_SEC, HEADER_COL_PX, MAX_PX_PER_SEC } from "../geometry";
+import { DEFAULT_PX_PER_SEC, headerColumnPx, MAX_PX_PER_SEC } from "../geometry";
 import { useTimelineView } from "./useTimelineView";
 
 // The view-state read is the hook's one side effect on mount. Left permanently
@@ -45,7 +45,7 @@ function root(laneWidthPx = 1000): {
   };
 } {
   const el = {
-    clientWidth: laneWidthPx + HEADER_COL_PX,
+    clientWidth: laneWidthPx + headerColumnPx(),
     scrollLeft: 0,
     wheel: null as ((e: WheelEvent) => void) | null,
     addEventListener: (_t: string, fn: (e: WheelEvent) => void) => {
@@ -170,7 +170,7 @@ describe("useTimelineView wheel zoom", () => {
     const event = {
       deltaY: -100,
       deltaMode: 0,
-      clientX: HEADER_COL_PX + 500,
+      clientX: headerColumnPx() + 500,
       ctrlKey: false,
       altKey: false,
       preventDefault,

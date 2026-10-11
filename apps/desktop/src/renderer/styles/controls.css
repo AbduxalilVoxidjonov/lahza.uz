@@ -284,7 +284,7 @@
 }
 .app-input-clear {
   position: absolute;
-  right: 4px;
+  right: calc(4 * var(--ui-px));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -322,7 +322,7 @@
 }
 .app-number-steppers {
   position: absolute;
-  right: 2px;
+  right: calc(2 * var(--ui-px));
   top: 1px;
   bottom: 1px;
   display: none;

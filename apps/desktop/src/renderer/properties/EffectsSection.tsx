@@ -40,6 +40,7 @@ import {
 import { AudioRegionRow } from "./AudioRegionRow";
 import { EffectParamFields } from "./EffectParamField";
 import { EffectPicker } from "./EffectPicker";
+import { AppIcon } from "@/components/AppIcon";
 
 interface Props {
   layer: LayerSummary;
@@ -292,7 +293,7 @@ function EffectRow({
           title={t("effects.drag_hint")}
           onPointerDown={(e) => onGripPointerDown(index, e)}
         >
-          <GripVertical size={13} />
+          <AppIcon icon={GripVertical} size="label" />
         </span>
         {/* Chain position. Without it a one-effect chain looks orderless and a
             multi-effect chain gives no handle for "move the 3rd one up". */}
@@ -308,7 +309,7 @@ function EffectRow({
           onClick={() => setCollapsed((next) => !next)}
         >
           <span className="prop-effect-chevron" aria-hidden="true">
-            {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            {collapsed ? <AppIcon icon={ChevronRight} size="body" /> : <AppIcon icon={ChevronDown} size="body" />}
           </span>
           <span className="prop-effect-name">{name}</span>
         </button>
@@ -328,7 +329,7 @@ function EffectRow({
             data-testid={`effect-menu-${index}`}
             aria-label={t("effects.more", { name })}
           >
-            <MoreHorizontal size={14} />
+            <AppIcon icon={MoreHorizontal} size="title" />
           </Menu.Trigger>
           <Menu.Portal>
             <AppMenuPositioner side="bottom" align="end" sideOffset={4} className="app-popup-positioner">
@@ -385,7 +386,7 @@ function EffectRow({
                   aria-label={t("colorpick.pick")}
                   onClick={() => void pickColorGroup(group.params)}
                 >
-                  <Pipette size={12} />
+                  <AppIcon icon={Pipette} size="body" />
                 </button>
               </div>
             </div>

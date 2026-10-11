@@ -12,6 +12,8 @@ import {
 } from "../grid";
 import type { ParamDescriptor } from "../keyframe/descriptors";
 import { keyframedParams } from "../keyframe/channels";
+import { getUiScale, uiPixels } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 
 // Zoom + height bounds. DEFAULT_PX_PER_SEC is the fallback for a timeline
 // `view.json` remembers nothing about — the persisted document's own default,
@@ -35,18 +37,32 @@ export const MIN_TIMELINE_SECONDS = 10;
 // usable in narrow panes and before the first viewport measurement lands.
 export const TIMELINE_END_PADDING_VIEWPORT_RATIO = 0.35;
 export const MIN_TIMELINE_END_PADDING_PX = 240;
-// Taller default row so combined V+A rows fit a thumbnail strip (top half)
-// + waveform strip (bottom half); single-class tracks still fit comfortably.
-export const DEFAULT_TRACK_HEIGHT = 56;
-export const MIN_TRACK_HEIGHT = 24;
-export const MAX_TRACK_HEIGHT = 200;
+// Track rows (UI_METRICS.timeline.trackHeight). The default is tall enough for
+// combined V+A rows to fit a thumbnail strip (top half) + waveform strip (bottom
+// half); single-class tracks still fit comfortably. Per-track heights persist in
+// view.json in baseline units, so a dragged row keeps its proportion to the
+// text inside it when the layout theme changes. Components that render these
+// must call `useUiScale()` so a theme switch re-renders them.
+const TRACK_HEIGHT = UI_METRICS.timeline.trackHeight;
+
+/// CSS-pixel height of a row from its persisted baseline (default when unset).
+export function trackHeightPx(baseline: number = TRACK_HEIGHT.default): number {
+  return uiPixels(baseline);
+}
+
+/// The smallest row a drag can produce, in CSS pixels.
+export const minTrackHeightPx = (): number => uiPixels(TRACK_HEIGHT.min);
+
+/// A dragged row height in CSS pixels → the clamped baseline that persists.
+export function trackHeightBaseline(px: number): number {
+  const baseline = clamp(px / getUiScale(), TRACK_HEIGHT.min, TRACK_HEIGHT.max);
+  return Math.round(baseline * 100) / 100;
+}
 
 export const LAYER_PREVIEW_MIN_PX = 16;
-export const LAYER_LABEL_MIN_PX = 48;
-export const LAYER_FULL_LABEL_MIN_PX = 120;
 
-/// Width of the sticky track-header column.
-export const HEADER_COL_PX = 160;
+/// Width of the sticky track-header column (UI_METRICS.timeline.headerColumn).
+export const headerColumnPx = (): number => uiPixels(UI_METRICS.timeline.headerColumn);
 
 /// Height of the drop strip above the topmost lane (ADR 0042). Its space is
 /// reserved in flow permanently, not conditionally on a drag — a row that
@@ -60,19 +76,6 @@ export const DROP_STRIP_HEIGHT_PX = 14;
 /// groups with the 4 px clip pad. The hairline uses `--border-soft` (dashed)
 /// so it actually splits that void the way a track `border-b` does.
 export const DROP_STRIP_SEAM_OVERLAP_PX = 0;
-
-/// Height of the marker lane under the ruler: an L plus the name beside it,
-/// which is the whole reason the lane exists — a mark whose name is only
-/// reachable by hovering is a mark nobody reads. One height, always: the lane's
-/// names are not a second thing to switch off, so there is no short variant and
-/// no twirl to reach for.
-///
-/// NOT reserved in flow the way the drop strip's row is. `markers_visible`
-/// governs whether this row EXISTS, so the timeline reflows when it flips —
-/// which is the point of the switch rather than a cost of it. Every flip is
-/// user-initiated (`M`, the View menu, the Quick Actions strip), so the reflow
-/// is always one somebody asked for.
-export const MARKER_LANE_HEIGHT_PX = 20;
 
 export function computeTimelineExtent({
   durationUs,
@@ -229,7 +232,7 @@ export function computeLayerSlices(
 /// cedes at the midline is load-bearing rather than decoration: it visually
 /// separates V from A in the combined-row case so the user sees the two are
 /// hit-test independent. The 8 px floors keep a chip off zero height on a lane
-/// squeezed to `MIN_TRACK_HEIGHT` or a height that never went through that clamp.
+/// squeezed to the minimum track height or a height that never went through that clamp.
 export function layerSliceRect(
   laneHeight: number,
   slice: LayerSlice,

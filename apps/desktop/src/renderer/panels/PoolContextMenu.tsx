@@ -8,6 +8,7 @@ import { MenuHeading, MenuItem, MenuSeparator } from "../menu/Menu";
 import { useCursorAnchor } from "../timeline/contextMenuAnchor";
 import type { MediaSummary } from "../ipc";
 import type { GroupPoolItem } from "./poolItems";
+import { AppIcon } from "@/components/AppIcon";
 
 export type MediaProxyMode = "auto" | "proxy" | "original";
 
@@ -144,7 +145,7 @@ function MediaItems({ target }: { target: MediaMenuTarget }) {
                     const Icon = state.checked ? CircleDotIcon : CircleIcon;
                     return (
                       <span {...props}>
-                        <Icon size={10} aria-hidden />
+                        <AppIcon icon={Icon} size="micro" aria-hidden />
                       </span>
                     );
                   }}

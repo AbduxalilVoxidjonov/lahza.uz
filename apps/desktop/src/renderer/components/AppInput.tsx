@@ -4,6 +4,7 @@ import { XIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FOCUS_GROUP_ATTR } from "../focus/focusRegion";
 import { isInTransientWidget } from "../shortcuts/match";
+import { AppIcon } from "@/components/AppIcon";
 
 type NativeInputProps = Omit<
   React.ComponentProps<"input">,
@@ -94,7 +95,7 @@ export const AppInput = forwardRef<HTMLInputElement, AppInputProps>(
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => onValueChange("")}
           >
-            <XIcon size={12} />
+            <AppIcon icon={XIcon} size="body" />
           </button>
         ) : null}
       </span>

@@ -193,7 +193,7 @@ export function TimelineRuler({
          (Timeline.tsx renders it `top-0.5`) still lands inside this
          strip — keep the two coupled.
        - `overflow-hidden` is load-bearing: the major label is
-         `whitespace-nowrap` at `left-[3px]` of an abs-positioned tick,
+         `whitespace-nowrap` at `left-[calc(3*var(--ui-px))]` of an abs-positioned tick,
          so the rightmost major's label would spill past widthPx and
          inflate the parent's scrollWidth, leaving a few px of phantom
          horizontal scroll at fit-zoom that the user can't get rid of by
@@ -231,7 +231,7 @@ export function TimelineRuler({
           style={{ left: tk.xPx }}
         >
           {tk.label !== undefined && (
-            <span className="absolute left-[3px] top-px whitespace-nowrap leading-3">
+            <span className="absolute left-[calc(3*var(--ui-px))] top-px whitespace-nowrap leading-3">
               {tk.label}
             </span>
           )}

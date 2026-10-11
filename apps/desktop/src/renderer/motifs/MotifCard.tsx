@@ -8,6 +8,7 @@ import { getMotifCover, type MotifSummary } from '../ipc';
 import { formatTimecode } from '../frames';
 import { MenuItem, contextMenuFinalFocus } from '../menu/Menu';
 import { useCloseOnAnchorMove, useCursorAnchor } from '../timeline/contextMenuAnchor';
+import { AppIcon } from "@/components/AppIcon";
 
 export function MotifCard({ motif, selected, fpsNum, fpsDen, onSelect, onExport, onDelete }: {
   motif: MotifSummary; selected: boolean; fpsNum: number; fpsDen: number;
@@ -40,7 +41,7 @@ export function MotifCard({ motif, selected, fpsNum, fpsDen, onSelect, onExport,
         <span className="motif-card-meta">{motif.size[0]}×{motif.size[1]} · {formatTimecode(Math.round(motif.default_duration_s * 1_000_000), fpsNum, fpsDen)}</span>
         <Button variant="ghost" size="icon-xs" title={t('motif_picker.export_button')}
           aria-label={t('motif_picker.export_button')} onClick={onExport}>
-          <FolderOutputIcon size={14} aria-hidden />
+          <AppIcon icon={FolderOutputIcon} size="title" aria-hidden />
         </Button>
       </div>
       {menu && <MotifCardMenu motif={motif} {...menu} onClose={closeMenu} onExport={onExport} onDelete={onDelete} />}

@@ -22,7 +22,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
+  padding: 8px 16px; /* fixed-px: window chrome */
   /* macOS: begin content to the RIGHT of the native traffic lights. The inset
      comes from Chromium (titleBarOverlay in src/main/index.ts publishes the real
      button geometry as env(titlebar-area-*)) rather than a hardcoded width, for
@@ -35,7 +35,7 @@
      hidden) and Win/Linux (no traffic lights at all) — so no platform or
      fullscreen selector is needed. max() so a narrow overlay can never shrink
      the header's own padding. */
-  padding-left: max(16px, env(titlebar-area-x, 16px));
+  padding-left: max(16px, env(titlebar-area-x, 16px)); /* fixed-px: window chrome */
   /* The shared chrome band (app.css --app-chrome-height) as a FLOOR: the token
      is this header's own content height, so the sizing here is unchanged — it
      just publishes the number the startup and agent bars match. The token also
@@ -56,13 +56,13 @@
 .app-brand {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 7px; /* fixed-px: window chrome */
 }
 
 .app-header-logo {
   display: block;
-  width: 18px;
-  height: 18px;
+  width: 18px; /* fixed-px: window chrome */
+  height: 18px; /* fixed-px: window chrome */
   flex-shrink: 0;
 }
 

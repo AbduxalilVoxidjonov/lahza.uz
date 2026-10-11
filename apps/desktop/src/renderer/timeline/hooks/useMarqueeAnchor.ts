@@ -15,7 +15,7 @@ import {
   type RefObject,
 } from "react";
 
-import { HEADER_COL_PX } from "../geometry";
+import { headerColumnPx } from "../geometry";
 import { activeTool } from "../../state/toolStore";
 import {
   clearMarquee,
@@ -149,7 +149,7 @@ export function beginMarquee(
     // The left band starts after the sticky header column, which overlays the
     // host's left edge: measured from `rect.left` it would sit under chrome the
     // pointer never reaches while it is over a lane.
-    if (lastClientX < rect.left + HEADER_COL_PX + EDGE_BAND_PX) {
+    if (lastClientX < rect.left + headerColumnPx() + EDGE_BAND_PX) {
       speed = -EDGE_SPEED_PX;
     } else if (lastClientX > rect.right - EDGE_BAND_PX) {
       speed = EDGE_SPEED_PX;

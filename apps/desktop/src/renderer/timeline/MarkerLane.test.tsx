@@ -54,7 +54,7 @@ import {
 import { useAppSettingsStore } from "../settings/appSettingsStore";
 import { setTimelineScrollLeftPx } from "../state/timelineScrollStore";
 import { useSelectionStore } from "../state/selectionStore";
-import { MARKER_LANE_HEIGHT_PX } from "./geometry";
+import { UI_METRICS } from "../settings/uiMetrics";
 import { MarkerLane, MarkerLaneHeader } from "./MarkerLane";
 
 afterEach(cleanup);
@@ -217,7 +217,7 @@ describe("the lane's existence is the visibility switch", () => {
   it("holds its row with no markers in the project", () => {
     const { container } = renderLane();
     expect(lane(container)).not.toBeNull();
-    expect(lane(container).style.height).toBe(`${MARKER_LANE_HEIGHT_PX}px`);
+    expect(lane(container).style.height).toBe(`${UI_METRICS.timeline.marker.laneHeight}px`);
     // No marks and no LAYER either — an empty wrapper would leave "painted
     // transparently" and "not painted" the same picture.
     expect(marks(container)).toHaveLength(0);
@@ -241,14 +241,14 @@ describe("the lane's existence is the visibility switch", () => {
   it("gives the row back when the marks return, on the same mount", () => {
     seed([point()]);
     const { container } = renderLane();
-    expect(lane(container).style.height).toBe(`${MARKER_LANE_HEIGHT_PX}px`);
+    expect(lane(container).style.height).toBe(`${UI_METRICS.timeline.marker.laneHeight}px`);
     act(() => setSettings({ markers_visible: false }));
     expect(
       container.querySelector('[data-testid="timeline-marker-lane"]'),
     ).toBeNull();
     expect(marks(container)).toHaveLength(0);
     act(() => setSettings({ markers_visible: true }));
-    expect(lane(container).style.height).toBe(`${MARKER_LANE_HEIGHT_PX}px`);
+    expect(lane(container).style.height).toBe(`${UI_METRICS.timeline.marker.laneHeight}px`);
     expect(marks(container)).toHaveLength(1);
   });
 
@@ -345,7 +345,7 @@ describe("glyph geometry", () => {
       const top = Number.parseFloat(mark.style.top);
       const height = Number.parseFloat(mark.style.height);
       expect(top).toBeGreaterThanOrEqual(0);
-      expect(top + height).toBeLessThanOrEqual(MARKER_LANE_HEIGHT_PX);
+      expect(top + height).toBeLessThanOrEqual(UI_METRICS.timeline.marker.laneHeight);
     }
   });
 
@@ -578,7 +578,7 @@ describe("the lane header", () => {
       </>,
     );
     expect(header(container).style.height).toBe(lane(container).style.height);
-    expect(header(container).style.height).toBe(`${MARKER_LANE_HEIGHT_PX}px`);
+    expect(header(container).style.height).toBe(`${UI_METRICS.timeline.marker.laneHeight}px`);
   });
 
   it("names the row it heads", () => {

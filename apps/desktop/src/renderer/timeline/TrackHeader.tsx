@@ -11,6 +11,7 @@ import { trackHeaderControls } from "./geometry";
 import { beginTrackRename, endRename, useEditingTrackId } from "./renameStore";
 import { TrackContextMenu } from "./TrackContextMenu";
 import type { TrackMove } from "./trackReorder";
+import { AppIcon } from "@/components/AppIcon";
 
 export interface TrackOrdering {
   disabled: boolean;
@@ -34,7 +35,7 @@ function FlagButton({ active, activeClass, label, onToggle, children }: {
       aria-label={label}
       aria-pressed={active}
       onClick={onToggle}
-      className={`inline-flex size-[18px] items-center justify-center rounded-[4px] text-[length:var(--font-size-fine)] font-semibold transition-colors ${
+      className={`inline-flex size-[calc(18*var(--ui-px))] items-center justify-center rounded-[4px] text-[length:var(--font-size-fine)] font-semibold transition-colors ${
         active ? activeClass : "text-muted-foreground/60 hover:bg-secondary hover:text-foreground"
       }`}
     >
@@ -143,22 +144,22 @@ export function TrackHeader({ compositionId, track, height, isRevealed, isExpand
           aria-label={t("timeline.reorder_track", { name })}
           title={ordering.disabled ? t(track.role === "a-roll" || track.role === "b-roll" ? "timeline.reorder_track_reserved" : "timeline.reorder_track_locked") : t("timeline.reorder_track", { name })}
           onPointerDown={(e) => { e.stopPropagation(); ordering.onDragStart(e); }}>
-          <GripVertical size={12} aria-hidden />
+          <AppIcon icon={GripVertical} size="body" aria-hidden />
         </button>
       )}
       <button
         type="button"
         data-testid="kf-lane-twirl"
-        className="inline-flex size-[14px] shrink-0 items-center justify-center text-muted-foreground/60 disabled:opacity-30"
+        className="inline-flex size-[calc(14*var(--ui-px))] shrink-0 items-center justify-center text-muted-foreground/60 disabled:opacity-30"
         disabled={!hasKeyframes}
         aria-label={t("timeline.toggle_keyframe_lanes", { defaultValue: "Expand keyframe lanes" })}
         aria-expanded={isExpanded}
         onClick={onToggleExpand}
       >
-        {isExpanded ? <ChevronDown size={12} aria-hidden /> : <ChevronRight size={12} aria-hidden />}
+        {isExpanded ? <AppIcon icon={ChevronDown} size="body" aria-hidden /> : <AppIcon icon={ChevronRight} size="body" aria-hidden />}
       </button>
       {isAudioLane && (
-        <Music size={11} aria-hidden className="shrink-0 text-muted-foreground/70" />
+        <AppIcon icon={Music} size="caption" aria-hidden className="shrink-0 text-muted-foreground/70" />
       )}
       {isEditing ? (
         <AppInput
@@ -199,7 +200,7 @@ export function TrackHeader({ compositionId, track, height, isRevealed, isExpand
           label={t("timeline.track_eye_hint", { defaultValue: "Hide this track's output (affects export)" })}
           onToggle={toggle({ enabled: !track.enabled })}
         >
-          {track.enabled ? <Eye size={11} aria-hidden /> : <EyeOff size={11} aria-hidden />}
+          {track.enabled ? <AppIcon icon={Eye} size="caption" aria-hidden /> : <AppIcon icon={EyeOff} size="caption" aria-hidden />}
         </FlagButton>
       )}
       {/* Mute / Solo belong to audio roles in the Role Mixer. The track header
@@ -210,7 +211,7 @@ export function TrackHeader({ compositionId, track, height, isRevealed, isExpand
         label={t("timeline.track_lock_hint", { defaultValue: "Lock this track against edits" })}
         onToggle={toggle({ locked: !track.locked })}
       >
-        {track.locked ? <Lock size={11} aria-hidden /> : <LockOpen size={11} aria-hidden />}
+        {track.locked ? <AppIcon icon={Lock} size="caption" aria-hidden /> : <AppIcon icon={LockOpen} size="caption" aria-hidden />}
       </FlagButton>
       {menu && (
         <TrackContextMenu

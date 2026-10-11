@@ -22,6 +22,7 @@ import { openComposition, focusedCompositionId } from "../state/compositionAncho
 import { GROUP_ORDER, rankEntries, type RankedResult } from "./matcher";
 import { useSearchEntries } from "./searchIndexStore";
 import type { MediaUsage, SearchEntryType } from "./types";
+import { AppIcon } from "@/components/AppIcon";
 
 const VISIBLE_PER_GROUP = 5;
 const RANK_CAP = 50;
@@ -416,7 +417,7 @@ function ResultRow({
           screen reader, hence aria-hidden. */}
       {checked && (
         <span className="search-row-check" aria-hidden="true">
-          <CheckIcon size={12} />
+          <AppIcon icon={CheckIcon} size="body" />
         </span>
       )}
       {accelerator && <kbd className="search-row-kbd">{accelerator}</kbd>}

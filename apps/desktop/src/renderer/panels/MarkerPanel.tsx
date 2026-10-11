@@ -45,6 +45,7 @@ import {
   useProjectStore,
   useProjectSummary,
 } from "../state/projectStore";
+import { AppIcon } from "@/components/AppIcon";
 
 /// The hibernating section's key in the collapse set. Not a composition id, and
 /// it cannot collide with one: compositions are uuids.
@@ -204,12 +205,12 @@ function MarkerDeleteButton({ markerId }: { markerId: string }) {
       type="button"
       title={t("marker_panel.delete")}
       aria-label={t("marker_panel.delete")}
-      className="shrink-0 cursor-pointer rounded-[4px] p-[3px] text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+      className="shrink-0 cursor-pointer rounded-[4px] p-[calc(3*var(--ui-px))] text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
       onClick={() => {
         void tryMutate(() => removeMarker(markerId), "remove_marker");
       }}
     >
-      <Trash2 size={12} aria-hidden />
+      <AppIcon icon={Trash2} size="body" aria-hidden />
     </button>
   );
 }
@@ -282,7 +283,7 @@ const CARD_ROW =
 /// with the delete button rather than with the label. The gutter is a constant,
 /// and a label whose right edge depends on the width of a translated verb is not
 /// something a margin can track.
-const NOTE_INSET = "ml-[15px] mr-[22px]";
+const NOTE_INSET = "ml-[calc(15*var(--ui-px))] mr-[calc(22*var(--ui-px))]";
 
 /// An empty note costs no height until the row is engaged. `group-focus-within`
 /// is not decoration here: the field is `display: none` at rest, so without it
@@ -337,7 +338,7 @@ function TimelineMarkerRow({ row }: { row: PanelMarker }) {
             title={t("marker_panel.anchored")}
             className="shrink-0 text-muted-foreground"
           >
-            <Anchor size={11} />
+            <AppIcon icon={Anchor} size="caption" />
           </span>
         )}
         <MarkerTextField
@@ -451,7 +452,7 @@ function MarkerSectionView({
             onClick={onToggle}
             className="flex w-full cursor-pointer items-center gap-1 px-0.5 py-1.5 text-left text-[length:var(--font-size-caption)] font-semibold uppercase tracking-[0.04em] text-muted-foreground hover:text-foreground"
           >
-            {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
+            {collapsed ? <AppIcon icon={ChevronRight} size="body" /> : <AppIcon icon={ChevronDown} size="body" />}
             {heading}
           </button>
         </h3>

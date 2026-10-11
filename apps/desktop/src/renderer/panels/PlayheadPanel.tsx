@@ -78,6 +78,7 @@ import {
   type RestackReferenceTargets,
   type RestackMenuTargets,
 } from "./playheadItems";
+import { AppIcon } from "@/components/AppIcon";
 
 /// No category checked — the unfiltered state, and the Panel's initial one.
 /// A module constant so the `useMemo` that splits the sections sees a stable
@@ -780,7 +781,7 @@ function PlayheadRow({
             aria-label={t("playhead_panel.restack_grip", { label: primaryLabel })}
             onPointerDown={onGripPointerDown}
           >
-            <GripVerticalIcon size={13} />
+            <AppIcon icon={GripVerticalIcon} size="label" />
           </span>
         )}
         <button
@@ -814,7 +815,7 @@ function PlayheadRow({
               {accent && (
                 <span className="playhead-link-indicator" data-testid="playhead-row-link"
                   role="img" aria-label={t("playhead_panel.linked")} style={{ color: accent }}>
-                  <LinkIcon size={12} aria-hidden="true" />
+                  <AppIcon icon={LinkIcon} size="body" aria-hidden="true" />
                 </span>
               )}
             </span>
@@ -844,7 +845,7 @@ function PlayheadRow({
             title={t("playhead_panel.goto")}
             aria-label={t("playhead_panel.goto")}
           >
-            <CrosshairIcon size={14} />
+            <AppIcon icon={CrosshairIcon} size="title" />
           </button>
         )}
       </div>
@@ -863,10 +864,10 @@ function thumbMediaIdOf(item: PlayheadItem): string | null {
 function iconForCategory(category: PlayheadCategory): ReactNode {
   switch (category) {
     case "video":
-      return <FilmIcon size={14} />;
+      return <AppIcon icon={FilmIcon} size="title" />;
     case "audio":
-      return <MusicIcon size={14} />;
+      return <AppIcon icon={MusicIcon} size="title" />;
     case "text":
-      return <TypeIcon size={14} />;
+      return <AppIcon icon={TypeIcon} size="title" />;
   }
 }

@@ -96,6 +96,7 @@ import { findPanelLayer } from "../panels/panelLayer";
 import { LayerReadOnly } from "./LayerEditing";
 import { layerEditLock } from "../../shared/layerLocks";
 import { layerIsReadOnly } from "../state/layerEditability";
+import { AppIcon } from "@/components/AppIcon";
 
 export interface AttributePanelProps {
   tracks: TrackSummary[];
@@ -355,7 +356,7 @@ function LayerPanel({
       <div className="prop-identity">
         <label className="prop-name-row">
           <span className="prop-name-icon" title={t("property_panel.label")}>
-            <Tag size={15} aria-hidden />
+            <AppIcon icon={Tag} size="title" aria-hidden />
           </span>
           <AppInput
             ref={nameInput}
@@ -393,11 +394,11 @@ function LayerPanel({
         </p>
         <div className="prop-flags">
           <Button size="sm" variant="ghost" className="prop-flag" disabled={env.timingDisabled} aria-label={t("property_panel.enabled")} aria-pressed={layer.enabled} onClick={() => void env.commitFlag({ enabled: !layer.enabled })}>
-            <Power size={13} aria-hidden />
+            <AppIcon icon={Power} size="label" aria-hidden />
             {t(layer.enabled ? "property_panel.flag_enabled" : "property_panel.flag_disabled")}
           </Button>
           <Button size="sm" variant="ghost" className="prop-flag" aria-label={t("property_panel.locked")} aria-pressed={layer.locked} onClick={() => void env.commitFlag({ locked: !layer.locked })}>
-            {layer.locked ? <Lock size={13} aria-hidden /> : <LockOpen size={13} aria-hidden />}
+            {layer.locked ? <AppIcon icon={Lock} size="label" aria-hidden /> : <AppIcon icon={LockOpen} size="label" aria-hidden />}
             {t(layer.locked ? "property_panel.flag_locked" : "property_panel.flag_unlocked")}
           </Button>
         </div>

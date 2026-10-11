@@ -20,6 +20,7 @@ import {
   groupEffects,
   type EffectPickItem,
 } from "./effectPickerMatch";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Translate the catalog into picker rows. Kept separate from the component so
 /// the label/description fallbacks live in one place: an effect with no
@@ -173,7 +174,7 @@ export function EffectPicker({
         data-testid="effect-add"
         disabled={disabled ?? false}
       >
-        <Plus size={13} aria-hidden="true" />
+        <AppIcon icon={Plus} size="label" aria-hidden="true" />
         {t("effects.add")}
       </Popover.Trigger>
       <Popover.Portal>

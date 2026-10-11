@@ -1,4 +1,5 @@
 import { TriangleAlertIcon } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { useTranslation } from "react-i18next";
 import type { PlaybackPhase } from "../render/audio/PreviewAudioEngine";
 
@@ -12,7 +13,7 @@ export function AudioPlaybackStatus({ phase, error }: { phase: PlaybackPhase; er
   return (
     <span className={`audio-playback-status${failed ? " is-error" : ""}`}
       role={failed ? "alert" : "status"} title={detail} aria-label={hint}>
-      {failed && <TriangleAlertIcon aria-hidden="true" />}
+      {failed && <AppIcon icon={TriangleAlertIcon} size="title" aria-hidden="true" />}
       <span className="audio-playback-status-label">{label}</span>
     </span>
   );

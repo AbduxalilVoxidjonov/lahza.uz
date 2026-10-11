@@ -21,6 +21,7 @@ import type {
   DockWorkspaceController,
   DockWorkspaceSnapshot,
 } from "../workspace/dockWorkspaceAdapter";
+import { AppIcon } from "@/components/AppIcon";
 
 interface AppMenuBarProps {
   pong: string;
@@ -141,7 +142,7 @@ export function AppMenuBar({
         onClick={onOpenSearch}
         aria-label={t("actions.open_search")}
       >
-        <SearchIcon size={12} aria-hidden />
+        <AppIcon icon={SearchIcon} size="body" aria-hidden />
         <span className="header-search-label">{t("actions.search")}</span>
         {searchAccelerator && (
           <kbd className="header-search-kbd" aria-hidden>
@@ -162,7 +163,7 @@ export function AppMenuBar({
           title={t("language.switch_label")}
           aria-label={t("language.switch_label")}
         >
-          <GlobeIcon className="globe-icon" size={14} aria-hidden />
+          <AppIcon icon={GlobeIcon} className="globe-icon" size="title" aria-hidden />
           <span className="locale-toggle-label">
             {LOCALE_LABELS[(i18n.resolvedLanguage ?? "en-US") as Locale] ??
               "English"}

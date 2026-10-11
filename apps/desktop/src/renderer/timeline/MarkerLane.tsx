@@ -10,7 +10,7 @@ import { useCompositionMarkers } from "../state/projectStore";
 import { useMarkerDrag } from "./hooks/useMarkerDrag";
 import { MarkerContextMenu } from "./MarkerContextMenu";
 import { openMarkerRenamePrompt } from "./markerRenamePrompt";
-import { MARKER_LANE_HEIGHT_PX } from "./geometry";
+import { UI_METRICS } from "../settings/uiMetrics";
 import { useRulerScrollBlockPx } from "./TimelineRuler";
 import { computeLaneMarkers, type LaneMarker } from "./rulerModel";
 
@@ -56,19 +56,26 @@ const L_STROKE_PX = 2;
 /// Painted width of the whole glyph, stem included — so the foot runs
 /// `L_WIDTH_PX - L_STROKE_PX` to the right of the frame.
 const L_WIDTH_PX = 6;
-/// Where the foot's underside sits, measured up from the lane's bottom border.
-/// Every L in the row rests on this one line, so the feet read as a baseline and
-/// the names sit on a shelf.
-const L_FOOT_INSET_PX = 2;
-/// Stem height, which is the whole anchored/free distinction: an anchored mark
-/// runs nearly the row's full height — it is tied to material several lanes
-/// below and reads as tied — while a free one is a short tick on the same foot.
-/// Ink, not colour, carries the bit; the colour is the author's taxonomy and is
-/// needed for something else.
-const L_STEM_PX = { anchored: 15, free: 8 } as const;
-
-/// Height of a region's capsule: enough to hold the 9 px name inside it.
-const REGION_HEIGHT_PX = 13;
+/// Vertical glyph geometry follows the layout theme with the names it carries
+/// (`UI_METRICS.timeline.marker`); horizontal geometry above stays in time-axis
+/// pixels. The foot inset is where every L rests, so the feet read as a baseline
+/// and the names sit on a shelf. Stem height is the whole anchored/free
+/// distinction: an anchored mark runs nearly the row's full height — it is tied
+/// to material several lanes below and reads as tied — while a free one is a
+/// short tick on the same foot. Ink, not colour, carries the bit; the colour is
+/// the author's taxonomy and is needed for something else.
+///
+/// The lane itself holds an L plus the name beside it, which is the whole reason
+/// the lane exists — a mark whose name is only reachable by hovering is a mark
+/// nobody reads. One height, always: the lane's names are not a second thing to
+/// switch off, so there is no short variant and no twirl to reach for.
+///
+/// NOT reserved in flow the way the drop strip's row is. `markers_visible`
+/// governs whether this row EXISTS, so the timeline reflows when it flips —
+/// which is the point of the switch rather than a cost of it. Every flip is
+/// user-initiated (`M`, the View menu, the Quick Actions strip), so the reflow
+/// is always one somebody asked for.
+const MARKER = UI_METRICS.timeline.marker;
 
 /// Two concentric hairlines around a region's capsule: dark inside, light
 /// outside. A marker's colour is whatever its author chose and the lane sits on
@@ -156,10 +163,10 @@ function MarkerGlyph({
   onBeginDrag: (e: React.PointerEvent) => void;
 }) {
   const scale = useUiScale();
-  const laneHeight = MARKER_LANE_HEIGHT_PX * scale;
+  const laneHeight = MARKER.laneHeight * scale;
   const isRegion = view.shape === "region";
-  const stemPx = L_STEM_PX[view.anchored ? "anchored" : "free"];
-  const height = (isRegion ? REGION_HEIGHT_PX : stemPx) * scale;
+  const stemPx = MARKER.stem[view.anchored ? "anchored" : "free"];
+  const height = (isRegion ? MARKER.regionHeight : stemPx) * scale;
   const label = view.label.trim();
   const openMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -189,7 +196,7 @@ function MarkerGlyph({
           // so anchored and free hang from different heights off one baseline.
           top: isRegion
             ? (laneHeight - height) / 2
-            : laneHeight - L_FOOT_INSET_PX * scale - height,
+            : laneHeight - MARKER.footInset * scale - height,
           width: isRegion ? view.widthPx : L_WIDTH_PX,
           height,
           // The L is drawn as two BORDERS of an empty box — border-box sizing
@@ -240,7 +247,7 @@ function MarkerGlyph({
           }`}
           style={{
             left: labelLeftPx(view),
-            top: (laneHeight - 9 * scale) / 2,
+            top: (laneHeight - MARKER.labelLine * scale) / 2,
             maxWidth:
               view.labelRoomPx === null
                 ? undefined
@@ -270,7 +277,7 @@ export function MarkerLaneHeader() {
     <div
       data-testid="timeline-marker-lane-header"
       className="flex items-center border-b border-border-soft bg-card px-1.5"
-      style={{ height: MARKER_LANE_HEIGHT_PX * scale }}
+      style={{ height: MARKER.laneHeight * scale }}
       // The header column is not a timeline surface: a press here must not reach
       // the root's marquee or seek paths (same guard `TrackHeader` carries).
       onPointerDown={(e) => e.stopPropagation()}
@@ -400,7 +407,7 @@ export function MarkerLane({
       <div
         data-testid="timeline-marker-lane"
         className="relative flex-none select-none overflow-hidden border-b border-border-soft bg-card"
-        style={{ width: widthPx, height: MARKER_LANE_HEIGHT_PX * scale }}
+        style={{ width: widthPx, height: MARKER.laneHeight * scale }}
         // Neither a scrub surface nor a selection surface: the scroll body above
         // starts a marquee on pointerdown, and the ruler seeks. A press on this
         // row is neither, so it stops here rather than becoming one of them.

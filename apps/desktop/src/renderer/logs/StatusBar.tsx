@@ -8,6 +8,7 @@ import { useLogStore } from "./store";
 import { useLinkOverride } from "../state/linkOverrideStore";
 import { MEDIA_JOB_EVENTS, type MediaJobEvent, type LogEntry, type LogLevel } from "../ipc";
 import type { AppNotice } from "../../shared/ipc";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Persistent status bar pinned to the bottom of the editor view.
 /// Shows a severity dot + time + truncated message + source pill on the
@@ -219,9 +220,9 @@ function highestNoticeLevel(notices: AppNotice[]): AppNotice["level"] {
 }
 
 function SystemNoticeIcon({ level }: { level: AppNotice["level"] }) {
-  if (level === "error") return <OctagonAlertIcon size={13} aria-hidden />;
-  if (level === "warn") return <AlertTriangleIcon size={13} aria-hidden />;
-  return <InfoIcon size={13} aria-hidden />;
+  if (level === "error") return <AppIcon icon={OctagonAlertIcon} size="label" aria-hidden />;
+  if (level === "warn") return <AppIcon icon={AlertTriangleIcon} size="label" aria-hidden />;
+  return <AppIcon icon={InfoIcon} size="label" aria-hidden />;
 }
 
 function LevelDot({ level }: { level: LogLevel }) {

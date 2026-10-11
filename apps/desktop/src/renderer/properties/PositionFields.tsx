@@ -15,6 +15,7 @@ import { insertPathNode, setPathNodeMode } from '../../shared/pathGeometry';
 import { AppSelect } from '../components/AppSelect';
 import { progressAtParameter } from '../render/pathProgress';
 import { upsertKeyframe } from '../keyframe/edits';
+import { AppIcon } from "@/components/AppIcon";
 
 /// ADR 0060's node budget. The add/insert actions stop at it rather than
 /// letting the actor refuse a gesture the panel offered.
@@ -170,7 +171,7 @@ export function PositionFields(props: {
           motion on canvas. Path mode always draws it, so the toggle there
           would be a no-op — Edit/Done owns that flag instead. */}
       {!path && <Button size="icon-xs" variant={editing ? 'secondary' : 'ghost'} aria-pressed={editing} aria-label={t('motion_path.show')} title={t('motion_path.show')} onClick={() => edit.setLayer(editing ? null : layer.id)}>
-        <Eye size={13} aria-hidden/>
+        <AppIcon icon={Eye} size="label" aria-hidden/>
       </Button>}
     </InspectorRow>
     <div className="position-fields-body">
@@ -203,7 +204,7 @@ export function PositionFields(props: {
         {selected >= 0 && <>
           <div className="position-path-arrival">
             <Button size="xs" variant="secondary" title={t('motion_path.arrival_hint')} disabled={busy || !props.playheadInSpan} onClick={() => void arriveAtNode()}>
-              <DiamondPlus size={13} aria-hidden/>
+              <AppIcon icon={DiamondPlus} size="label" aria-hidden/>
               {t('motion_path.arrive_here')}
             </Button>
             <p className="prop-hint">{t(props.playheadInSpan ? 'motion_path.arrival_caption' : 'motion_path.arrival_outside')}</p>
@@ -223,11 +224,11 @@ export function PositionFields(props: {
               ? t('motion_path.node_of', { index: selected + 1, count: nodes.length })
               : t('motion_path.select_node')}</span>
             <div className="prop-well-toolbar">
-            <NodeAction label={t('motion_path.add')} disabled={busy || nodes.length >= MAX_NODES} onClick={append}><Plus size={13} aria-hidden/></NodeAction>
+            <NodeAction label={t('motion_path.add')} disabled={busy || nodes.length >= MAX_NODES} onClick={append}><AppIcon icon={Plus} size="label" aria-hidden/></NodeAction>
             {selected >= 0 && <>
-              <NodeAction label={t('motion_path.insert')} disabled={busy || !inSpan || nodes.length >= MAX_NODES} onClick={() => void insert()}><CirclePlus size={13} aria-hidden/></NodeAction>
-              <NodeAction label={t('motion_path.curve')} disabled={busy || !inSpan} onClick={toggleCurve}><Spline size={13} aria-hidden/></NodeAction>
-              <NodeAction label={t('motion_path.remove')} disabled={busy || nodes.length < 2} onClick={() => updateNodes(nodes.filter((_, i) => i !== selected))}><Trash2 size={13} aria-hidden/></NodeAction>
+              <NodeAction label={t('motion_path.insert')} disabled={busy || !inSpan || nodes.length >= MAX_NODES} onClick={() => void insert()}><AppIcon icon={CirclePlus} size="label" aria-hidden/></NodeAction>
+              <NodeAction label={t('motion_path.curve')} disabled={busy || !inSpan} onClick={toggleCurve}><AppIcon icon={Spline} size="label" aria-hidden/></NodeAction>
+              <NodeAction label={t('motion_path.remove')} disabled={busy || nodes.length < 2} onClick={() => updateNodes(nodes.filter((_, i) => i !== selected))}><AppIcon icon={Trash2} size="label" aria-hidden/></NodeAction>
             </>}
             </div>
           </div>

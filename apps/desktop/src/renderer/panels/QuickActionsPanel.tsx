@@ -43,6 +43,7 @@ import {
   type QuickActionSection,
   type QuickActionState,
 } from "./quickActions";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Which way the strip runs. Single row or single column, never wrapped —
 /// overflow scrolls instead.
@@ -236,7 +237,7 @@ function QuickActionButton({
       title={accelerator ? `${label} (${accelerator})` : label}
       onClick={() => void command.run()}
     >
-      <Icon size={16} aria-hidden="true" />
+      <AppIcon icon={Icon} size="heading" aria-hidden="true" />
     </button>
   );
 }

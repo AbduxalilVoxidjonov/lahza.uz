@@ -127,7 +127,7 @@
 /* The grip, parked at the right end so it never sits over the tallest ticks. */
 .shots-threshold::after {
   position: absolute;
-  right: 2px;
+  right: calc(2 * var(--ui-px));
   top: 50%;
   width: calc(7 * var(--ui-px));
   height: calc(7 * var(--ui-px));

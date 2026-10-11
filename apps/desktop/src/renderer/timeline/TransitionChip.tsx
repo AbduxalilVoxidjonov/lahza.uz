@@ -18,6 +18,7 @@ import {
   type TrackTransitionChip,
   type TransitionResizeArgs,
 } from "./transitions";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Matches LayerBlock's EDGE_ZONE_PX so the chip's edges and a clip's edges
 /// feel like one affordance; zones clamp to a third of the chip width so the
@@ -239,7 +240,7 @@ export function TransitionChip({
       }}
     >
       {width >= 18 && (
-        <ArrowLeftRight size={10} strokeWidth={2} aria-hidden />
+        <AppIcon icon={ArrowLeftRight} size="micro" strokeWidth={2} aria-hidden />
       )}
       {edgeZonePx > 0 && (
         <>

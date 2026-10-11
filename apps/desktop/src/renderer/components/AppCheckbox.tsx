@@ -2,6 +2,7 @@ import { Checkbox } from "@base-ui/react/checkbox";
 import { CheckIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { blurAfterMouseActivation } from "./blurAfterMouseActivation";
+import { AppIcon } from "@/components/AppIcon";
 
 interface AppCheckboxProps {
   checked: boolean;
@@ -32,7 +33,7 @@ export function AppCheckbox({
       onClick={blurAfterMouseActivation}
     >
       <Checkbox.Indicator className="app-checkbox-indicator">
-        <CheckIcon size={12} aria-hidden />
+        <AppIcon icon={CheckIcon} size="body" aria-hidden />
       </Checkbox.Indicator>
     </Checkbox.Root>
   );

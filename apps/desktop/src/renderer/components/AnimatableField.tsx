@@ -6,6 +6,7 @@ import { updateLayerParamTrack } from "../ipc";
 import { logMutationFailure } from "../errors/tryMutate";
 import { liftToKeyframed, type TrackValue } from "../keyframe/edits";
 import { setKeyframeFocus } from "../keyframe/focusStore";
+import { AppIcon } from "@/components/AppIcon";
 
 /// How a track answers its value at a time — `resolveAnimated` for a number,
 /// `resolveAnimatedColor` for a colour. Injected rather than chosen here so the
@@ -114,7 +115,7 @@ export function AnimatableField<T extends TrackValue>({
       title={toggleLabel}
       onClick={toggle}
     >
-      <Clock size={12} aria-hidden />
+      <AppIcon icon={Clock} size="body" aria-hidden />
     </button>
   );
 

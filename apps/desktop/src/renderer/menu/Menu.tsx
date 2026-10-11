@@ -8,6 +8,7 @@ import {
 } from "../shortcuts/match";
 import { useEffectiveBindings } from "../shortcuts/bindings-context";
 import type { ActionId } from "../shortcuts/defs";
+import { AppIcon } from "@/components/AppIcon";
 
 /// The menu bar container. Base UI's Menubar makes the triggers one
 /// composite roving-focus stop and coordinates the Menus inside it:
@@ -44,7 +45,7 @@ export function Menu({ label, hint, children }: MenuProps) {
       <MenuPrimitive.Trigger className="menu-trigger" title={hint}>
         <span className="menu-trigger-label">{label}</span>
         <span className="menu-chevron" aria-hidden="true">
-          <ChevronDownIcon size={11} />
+          <AppIcon icon={ChevronDownIcon} size="caption" />
         </span>
       </MenuPrimitive.Trigger>
       <MenuPrimitive.Portal>
@@ -130,7 +131,7 @@ export function MenuItem({
       onBlur={() => onArmedChange?.(false)}
     >
       <span className="app-menu-item-check" aria-hidden="true">
-        {checked ? <CheckIcon size={12} /> : null}
+        {checked ? <AppIcon icon={CheckIcon} size="body" /> : null}
       </span>
       <span className="app-menu-item-label">{label}</span>
       {accelerator && (
@@ -236,7 +237,7 @@ export function SubMenu({ label, hint, disabled, children }: SubMenuProps) {
         <span className="app-menu-item-check" aria-hidden="true" />
         <span className="app-menu-item-label">{label}</span>
         <span className="app-submenu-chevron" aria-hidden="true">
-          <ChevronRightIcon size={12} />
+          <AppIcon icon={ChevronRightIcon} size="body" />
         </span>
       </MenuPrimitive.SubmenuTrigger>
       <MenuPrimitive.Portal>

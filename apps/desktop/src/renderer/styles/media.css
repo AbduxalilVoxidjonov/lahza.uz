@@ -6,9 +6,9 @@
    export panel (bottom-left) when both are open. */
 .import-proxy-dialog {
   left: auto;
-  right: 16px;
+  right: calc(16 * var(--ui-px));
   bottom: auto;
-  top: 16px;
+  top: calc(16 * var(--ui-px));
   padding-bottom: calc(8 * var(--ui-px));
 }
 
@@ -430,7 +430,7 @@
 }
 
 .media-drop-ghost {
-  transform-origin: var(--media-drop-ghost-origin-x, 32px) center;
+  transform-origin: var(--media-drop-ghost-origin-x, calc(32 * var(--ui-px))) center;
   animation: media-drop-ghost-absorb 150ms cubic-bezier(0.2, 0.8, 0.2, 1)
     both;
 }
@@ -459,8 +459,8 @@
 
 .media-kind {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: calc(6 * var(--ui-px));
+  right: calc(6 * var(--ui-px));
   z-index: 2;
   font-size: var(--font-size-caption);
   font-weight: 600;
@@ -607,8 +607,8 @@
    corner, clear of the filename. No per-layout override needed. */
 .media-optimizing-dot {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  top: calc(6 * var(--ui-px));
+  left: calc(6 * var(--ui-px));
   width: calc(8 * var(--ui-px));
   height: calc(8 * var(--ui-px));
   border-radius: 50%;

@@ -545,7 +545,7 @@
 
 /* While the Quick Actions strip is the drag payload (`weft-strip-drag`, set
    by the adapter), the drop highlight is pinned to the strip's real landing
-   thickness — STRIP_THICKNESS, 44px — instead of Dockview's half-of-target
+   thickness — UI_METRICS.dock.stripThickness, 44px baseline — instead of Dockview's half-of-target
    band, which promises a region the bar can never fill. `!important` beats
    the inline geometry renderInPlaceOverlay writes every frame; the selection
    box is relative-positioned, so `calc` pins the far edges. The thin-line
@@ -626,8 +626,9 @@
   /* Load-bearing: `.dv-pre-actions-container` precedes `.dv-tabs-container` in
      the header's DOM, so without this the leading overlay would paint UNDER the
      tabs it is meant to fade. The scroller is `position: relative` at z-index
-     auto, so 2 clears it. Its own extent is set inline from EDGE_OVERLAY_PX —
-     one home for that number, shared with the geometry. */
+     auto, so 2 clears it. Its own extent is set inline from
+     UI_METRICS.edgeOverflowOverlay — one home for that number, shared with the
+     geometry. */
   z-index: 2;
   /* The soft tail must not eat clicks on the tab it is only dimming; the button
      takes them back. */

@@ -61,8 +61,8 @@
     linear-gradient(-45deg, var(--secondary) 25%, transparent 25%),
     linear-gradient(45deg, transparent 75%, var(--secondary) 75%),
     linear-gradient(-45deg, transparent 75%, var(--secondary) 75%);
-  background-size: 12px 12px;
-  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+  background-size: 12px 12px; /* fixed-px: transparency checkerboard */
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0; /* fixed-px: checkerboard */
   /* Input-transparent: the preview sits inside the card <button>; let clicks
      and wheel events fall through to it and bubble to the scrollable list. */
   pointer-events: none;
@@ -302,8 +302,8 @@
 
 .motif-bake-dot {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: calc(4 * var(--ui-px));
+  right: calc(4 * var(--ui-px));
   width: calc(8 * var(--ui-px));
   height: calc(8 * var(--ui-px));
   border-radius: 50%;

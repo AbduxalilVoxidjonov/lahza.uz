@@ -1,4 +1,4 @@
-import { HEADER_COL_PX, trackIdAtClientY, type VisualTrack } from "./geometry";
+import { headerColumnPx, trackIdAtClientY, type VisualTrack } from "./geometry";
 import { SPAWN_TRACK_ID } from "./placement";
 
 /** A visible drop surface. Scrolled-out rows still have DOM rects, so checking
@@ -16,7 +16,7 @@ export function timelineDestination(
 ): { trackId: string; rect: DOMRect } | null {
   const strip = surfaces.strip?.getBoundingClientRect();
   const viewport = surfaces.viewport?.getBoundingClientRect();
-  if (!viewport || clientX < viewport.left + HEADER_COL_PX || clientX >= viewport.right) return null;
+  if (!viewport || clientX < viewport.left + headerColumnPx() || clientX >= viewport.right) return null;
   if (strip && clientX >= strip.left && clientX < strip.right && clientY >= strip.top && clientY < strip.bottom) {
     return { trackId: SPAWN_TRACK_ID, rect: strip };
   }

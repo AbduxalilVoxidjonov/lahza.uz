@@ -9,14 +9,14 @@
 .window-controls {
   display: flex;
   align-self: stretch;
-  margin: -8px -16px -8px 4px;
+  margin: -8px -16px -8px 4px; /* fixed-px: window chrome */
 }
 
 .window-control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 42px;
+  width: 42px; /* fixed-px: window chrome caption button */
   background: transparent;
   border: none;
   color: var(--muted-foreground);
@@ -36,11 +36,11 @@
 .locale-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6 * var(--ui-px));
   background: var(--secondary);
   border: 1px solid var(--border);
   color: var(--color-gray-300);
-  padding: 3px 10px;
+  padding: calc(3 * var(--ui-px)) calc(10 * var(--ui-px));
   font-size: var(--font-size-body);
   border-radius: var(--radius-control);
   cursor: pointer;
@@ -75,7 +75,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: calc(24 * var(--ui-px));
   overflow: hidden;
   background: var(--surface-sunken);
   user-select: none;
@@ -87,7 +87,7 @@
 
 .splash-mark {
   position: relative;
-  width: min(46vw, 290px);
+  width: min(46vw, calc(290 * var(--ui-px)));
   aspect-ratio: 640 / 440;
   filter: drop-shadow(0 18px 44px rgba(0, 0, 0, 0.38));
   animation: splash-mark-settle 2500ms cubic-bezier(0.22, 1, 0.36, 1) both;
@@ -167,16 +167,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 9px;
+  gap: calc(9 * var(--ui-px));
 }
 
 .splash-progress {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  min-height: 17px;
-  max-width: min(76vw, 620px);
+  gap: calc(7 * var(--ui-px));
+  min-height: calc(17 * var(--ui-px));
+  max-width: min(76vw, calc(620 * var(--ui-px)));
   color: var(--muted-foreground);
   font-size: var(--font-size-body);
   line-height: 1.35;
@@ -185,8 +185,8 @@
 }
 
 .splash-progress-dot {
-  width: 5px;
-  height: 5px;
+  width: calc(5 * var(--ui-px));
+  height: calc(5 * var(--ui-px));
   flex: 0 0 auto;
   border-radius: 50%;
   background: #6696e6;
@@ -228,12 +228,12 @@
 }
 
 @keyframes splash-wordmark-in {
-  0%, 51.2963% { opacity: 0; transform: translateY(6px); }
+  0%, 51.2963% { opacity: 0; transform: translateY(6px); } /* fixed-px: motion offset */
   60.2963%, 100% { opacity: 0.78; transform: translateY(0); }
 }
 
 @keyframes splash-progress-in {
-  0%, 48% { opacity: 0; transform: translateY(4px); }
+  0%, 48% { opacity: 0; transform: translateY(4px); } /* fixed-px: motion offset */
   62%, 100% { opacity: 0.78; transform: translateY(0); }
 }
 
@@ -282,14 +282,14 @@
  * started and exited explicitly without restarting Electron. */
 .dev-splash-toggle {
   position: fixed;
-  left: 14px;
-  bottom: 14px;
+  left: calc(14 * var(--ui-px));
+  bottom: calc(14 * var(--ui-px));
   z-index: 1100;
   -webkit-app-region: no-drag;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: calc(6 * var(--ui-px));
+  padding: calc(6 * var(--ui-px)) calc(10 * var(--ui-px));
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-card);
   background: rgba(14, 19, 28, 0.92);
@@ -316,7 +316,7 @@
    * ~24px so the header + actions sit just below visual center. The panel
    * itself is now fixed-height (recents pinned via min-height) so this
    * doesn't reintroduce layout jitter. */
-  padding: 80px 32px 32px;
+  padding: calc(80 * var(--ui-px)) calc(32 * var(--ui-px)) calc(32 * var(--ui-px));
   background: var(--background);
 }
 
@@ -347,7 +347,7 @@
    4px the shared rule puts before the buttons, so the locale toggle clears
    them by the same 16px as in the editor header. */
 .startup-titlebar .window-controls {
-  margin: 0 0 0 4px;
+  margin: 0 0 0 4px; /* fixed-px: window chrome */
 }
 
 /* Top-left settings entry. The titlebar is justify-content: flex-end (the
@@ -358,11 +358,11 @@
 .startup-report-toggle {
   align-self: center;
   margin-right: auto;
-  margin-left: 8px;
+  margin-left: calc(8 * var(--ui-px));
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px;
+  padding: calc(4 * var(--ui-px));
   background: transparent;
   border: none;
   color: var(--muted-foreground);
@@ -386,7 +386,7 @@
   align-self: center;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(6 * var(--ui-px));
   padding: calc(4 * var(--ui-px)) calc(10 * var(--ui-px));
   background: transparent;
   border: 1px solid var(--border-soft);
@@ -467,7 +467,7 @@
 .logo-pulse-glow {
   stroke: rgba(96, 165, 250, 0.72);
   stroke-width: 34;
-  filter: blur(11px);
+  filter: blur(11px); /* fixed-px: glow effect */
 }
 
 .logo-pulse-core {

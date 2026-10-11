@@ -32,6 +32,7 @@ import {
   useIsLayerMoveDragging,
   useLayerDragForStrip,
 } from "./layerDragStore";
+import { AppIcon } from "@/components/AppIcon";
 
 /// One ghost the strip draws for a clip whose destination is the lane this row
 /// spawns. Minted from the LIVE gesture while the pointer is here, and from the
@@ -103,7 +104,7 @@ export function DropStripHeader() {
         data-testid="timeline-drop-strip-add"
         className="relative z-[1] text-muted-foreground/40"
       >
-        <BetweenHorizontalStart size={12} strokeWidth={1.75} aria-hidden />
+        <AppIcon icon={BetweenHorizontalStart} size="body" strokeWidth={1.75} aria-hidden />
       </span>
     </div>
   );

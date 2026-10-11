@@ -97,12 +97,12 @@ import {
   summaryFixture,
 } from "../testing/summaryFixture";
 import {
-  DEFAULT_TRACK_HEIGHT,
+  trackHeightPx,
   DROP_STRIP_HEIGHT_PX,
   DROP_STRIP_SEAM_OVERLAP_PX,
-  HEADER_COL_PX,
-  MARKER_LANE_HEIGHT_PX,
+  headerColumnPx,
 } from "./geometry";
+import { UI_METRICS } from "../settings/uiMetrics";
 
 const ipcMocks = vi.hoisted(() => ({
   addMediaLayer: vi.fn().mockResolvedValue(undefined),
@@ -2986,7 +2986,7 @@ describe("Timeline row alignment", () => {
         expect(header).toBe(lane);
       }
       expect(q(container, "timeline-marker-lane").style.height).toBe(
-        `${MARKER_LANE_HEIGHT_PX}px`,
+        `${UI_METRICS.timeline.marker.laneHeight}px`,
       );
       unmount();
     }
@@ -3026,7 +3026,7 @@ describe("Timeline row alignment", () => {
     );
     const [header, lane] = pairs(container)[0]!;
     expect(header).toBe(lane);
-    expect(lane).toBe(`${MARKER_LANE_HEIGHT_PX}px`);
+    expect(lane).toBe(`${UI_METRICS.timeline.marker.laneHeight}px`);
   });
 });
 
@@ -3246,7 +3246,7 @@ describe("Timeline follow-playhead", () => {
     setTimelineScrollLeftPx(null, 0);
     clientWidth = vi
       .spyOn(HTMLElement.prototype, "clientWidth", "get")
-      .mockReturnValue(LANE_VIEWPORT_PX + HEADER_COL_PX);
+      .mockReturnValue(LANE_VIEWPORT_PX + headerColumnPx());
     useAppSettingsStore.setState((s) => ({
       settings: { ...s.settings, display_mode: "AllTracks", timeline_follow_playhead: true },
     }));
@@ -3313,7 +3313,7 @@ describe("Timeline keyboard zoom", () => {
     setTimelineScrollLeftPx(null, 0);
     clientWidth = vi
       .spyOn(HTMLElement.prototype, "clientWidth", "get")
-      .mockReturnValue(LANE_VIEWPORT_PX + HEADER_COL_PX);
+      .mockReturnValue(LANE_VIEWPORT_PX + headerColumnPx());
   });
   afterEach(() => {
     clientWidth.mockRestore();
@@ -3567,7 +3567,7 @@ describe("Timeline marquee", () => {
     return canvas;
   }
 
-  /// Lay the rendered lanes out as `DEFAULT_TRACK_HEIGHT` bands starting at the
+  /// Lay the rendered lanes out as `trackHeightPx()` bands starting at the
   /// canvas's own top, in VISUAL order — the reverse of the data-model order,
   /// so the first band belongs to the LAST track passed in. The bands therefore
   /// begin at canvas y 0 while their client rects begin at 100, which is the
@@ -3581,8 +3581,8 @@ describe("Timeline marquee", () => {
       stubRect(lane, {
         left: 200,
         right: 1240,
-        top: 100 + i * DEFAULT_TRACK_HEIGHT,
-        bottom: 100 + (i + 1) * DEFAULT_TRACK_HEIGHT,
+        top: 100 + i * trackHeightPx(),
+        bottom: 100 + (i + 1) * trackHeightPx(),
       });
     });
   }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TRACK_HEIGHT, type MeasuredTrackRow } from "./geometry";
+import { trackHeightPx, type MeasuredTrackRow } from "./geometry";
 import {
   marqueeHitClips,
   marqueeHitKeyframes,
@@ -58,7 +58,7 @@ function track(partial: Partial<TrackSummary>): TrackSummary {
 }
 
 // Every y literal below reads against the bands `layerSliceRect` derives for a
-// lane measured at `[ROW_TOP, ROW_TOP + DEFAULT_TRACK_HEIGHT)`:
+// lane measured at `[ROW_TOP, ROW_TOP + trackHeightPx())`:
 //   full   [104, 152)
 //   top    [104, 127)      midline gap [127, 128)
 //   bottom [128, 152)
@@ -68,7 +68,7 @@ const ROW_TOP = 100;
 const PX_PER_SEC = 100;
 
 function row(trackId: string): MeasuredTrackRow {
-  return { trackId, top: ROW_TOP, bottom: ROW_TOP + DEFAULT_TRACK_HEIGHT };
+  return { trackId, top: ROW_TOP, bottom: ROW_TOP + trackHeightPx() };
 }
 
 function box(x0: number, y0: number, x1: number, y1: number): MarqueeBox {
@@ -130,7 +130,7 @@ describe("marqueeHitClips", () => {
     const tall: MeasuredTrackRow = {
       trackId: "t",
       top: ROW_TOP,
-      bottom: ROW_TOP + 2 * DEFAULT_TRACK_HEIGHT,
+      bottom: ROW_TOP + 2 * trackHeightPx(),
     };
     // Below the interior of a default-height lane, inside a doubled one.
     const reachedOnlyWhenTall = box(10, 200, 20, 205);

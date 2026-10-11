@@ -248,8 +248,8 @@
 
 .system-status-panel {
   position: fixed;
-  right: 12px;
-  bottom: 36px;
+  right: calc(12 * var(--ui-px));
+  bottom: calc(36 * var(--ui-px));
   width: min(var(--dialog-width-status), calc(100vw - calc(24 * var(--ui-px))));
   max-height: min(calc(520 * var(--ui-px)), calc(100vh - calc(72 * var(--ui-px))));
   overflow: auto;
@@ -271,8 +271,8 @@
 
 .system-status-close {
   position: absolute;
-  top: 7px;
-  right: 8px;
+  top: calc(7 * var(--ui-px));
+  right: calc(8 * var(--ui-px));
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -12,6 +12,7 @@ import { Button } from "../components/ui/button";
 import { refusalText } from "../errors/tryMutate";
 import { setAppSettings, useAppSettingsLoaded, useAppSettingsStore } from "../settings/appSettingsStore";
 import { InspectorRow } from "./InspectorRow";
+import { AppIcon } from "@/components/AppIcon";
 
 export const PAUSE_BUILTINS = [
   { id: "speech", thresholdDb: -34, minMs: 500 },
@@ -108,7 +109,7 @@ export function PausePresetControl({ values, source, onSourceChange, onApply, di
       <Menu.Root>
         <Menu.Trigger ref={trigger} className="app-select pauses-preset-trigger" aria-label={t("pauses.preset")}
           title={caption} disabled={disabled || saving}>
-          <span>{caption}</span><ChevronDown size={11} aria-hidden />
+          <span>{caption}</span><AppIcon icon={ChevronDown} size="caption" aria-hidden />
         </Menu.Trigger>
         <Menu.Portal>
           <AppMenuPositioner align="start" sideOffset={4} className="app-popup-positioner">
@@ -121,7 +122,7 @@ export function PausePresetControl({ values, source, onSourceChange, onApply, di
                   onSourceChange({ id: p.id, builtin: true, values: next });
                   onApply(next);
                 }}>
-                  <span className="app-menu-item-check">{active?.builtin && active.id === p.id && !modified && <Check size={12} aria-hidden />}</span>
+                  <span className="app-menu-item-check">{active?.builtin && active.id === p.id && !modified && <AppIcon icon={Check} size="body" aria-hidden />}</span>
                   <span className="app-menu-item-label">{t(`pauses.preset_${p.id}`)}</span>
                 </Menu.Item>)}
               </Menu.Group>
@@ -132,7 +133,7 @@ export function PausePresetControl({ values, source, onSourceChange, onApply, di
                   onSourceChange({ id: p.id, builtin: false, values: next });
                   onApply(next);
                 }}>
-                  <span className="app-menu-item-check">{personal?.id === p.id && !modified && <Check size={12} aria-hidden />}</span>
+                  <span className="app-menu-item-check">{personal?.id === p.id && !modified && <AppIcon icon={Check} size="body" aria-hidden />}</span>
                   <span className="app-menu-item-label">{p.name}</span>
                 </Menu.Item>)}
                 {presets.length === 0 && <div className="pauses-preset-empty">{t(loaded ? "pauses.presets_empty" : "pauses.presets_loading")}</div>}
@@ -182,7 +183,7 @@ export function PausePresetControl({ values, source, onSourceChange, onApply, di
               {editor === "save" && <p className="pauses-editor-hint">{t("pauses.preset_values", { ...values })}</p>}
               <div className="pauses-editor-actions">
                 <Button size="sm" variant="ghost" disabled={saving} onClick={() => { if (renameId !== null) setRenameId(null); else setEditor(null); }}>{t("pauses.preset_cancel")}</Button>
-                <Button size="sm" type="submit" disabled={saving || !canSave}>{saving && <LoaderCircle size={12} className="pauses-spinner" aria-hidden />}{t("pauses.preset_save")}</Button>
+                <Button size="sm" type="submit" disabled={saving || !canSave}>{saving && <AppIcon icon={LoaderCircle} size="body" className="pauses-spinner" aria-hidden />}{t("pauses.preset_save")}</Button>
               </div>
             </form>}
             {error && <p className="settings-error" role="alert">{error}</p>}

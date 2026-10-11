@@ -13,6 +13,7 @@ import {
 import { refreshHistoryView } from "../state/historyStore";
 import { openCheckpointPrompt } from "./checkpointPrompt";
 import { formatClock } from "./historyRows";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Named checkpoints, in their OWN section above the stack — never inline pins
 /// (spec decision 9). Two independent reasons:
@@ -86,7 +87,7 @@ export function CheckpointSection({
           onClick={openCheckpointPrompt}
           title={t("history_panel.checkpoint_create_hint")}
         >
-          <Plus size={12} aria-hidden="true" />
+          <AppIcon icon={Plus} size="body" aria-hidden="true" />
           {t("history_panel.checkpoint_create")}
         </Button>
       </header>
@@ -129,9 +130,9 @@ export function CheckpointSection({
                   }
                 >
                   {client === null ? (
-                    <User size={12} aria-hidden="true" />
+                    <AppIcon icon={User} size="body" aria-hidden="true" />
                   ) : (
-                    <Bot size={12} aria-hidden="true" />
+                    <AppIcon icon={Bot} size="body" aria-hidden="true" />
                   )}
                 </span>
                 <span

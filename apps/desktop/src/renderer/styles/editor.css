@@ -1,20 +1,5 @@
 
 
-.timeline-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  width: 100%;
-  padding: 8px 16px;
-}
-
-.timeline-track {
-  background: var(--secondary);
-  padding: 6px 10px;
-  border-radius: var(--radius-control);
-  font-size: var(--font-size-body);
-  color: var(--muted-foreground);
-}
 .timeline { grid-area: timeline; }
 .properties { grid-area: properties; }
 
@@ -41,14 +26,14 @@
 .mini-timeline {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: calc(4 * var(--ui-px));
   height: 100%;
   justify-content: center;
 }
 
 .mini-timeline-ticks {
   position: relative;
-  height: 14px;
+  height: calc(14 * var(--ui-px));
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -64,7 +49,7 @@
 
 .mini-tick-label {
   position: absolute;
-  left: 2px;
+  left: calc(2 * var(--ui-px));
   bottom: -1px;
   font-size: var(--font-size-fine);
   letter-spacing: 0.04em;
@@ -77,12 +62,12 @@
    overflow the pane; hang it off the tick's left side instead. */
 .mini-tick-flip .mini-tick-label {
   left: auto;
-  right: 2px;
+  right: calc(2 * var(--ui-px));
 }
 
 .mini-timeline-strip-real {
   position: relative;
-  height: 36px;
+  height: calc(36 * var(--ui-px));
   background: var(--popover);
   border-radius: var(--radius-control);
   cursor: pointer;
@@ -94,15 +79,15 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 2px; /* fixed-px: marker line weight */
   pointer-events: none;
   opacity: 0.85;
 }
 
 .mini-marker-region {
   position: absolute;
-  top: 4px;
-  bottom: 4px;
+  top: calc(4 * var(--ui-px));
+  bottom: calc(4 * var(--ui-px));
   opacity: 0.35;
   border-radius: 2px;
   pointer-events: none;
@@ -112,7 +97,7 @@
   position: absolute;
   top: -2px;
   bottom: -2px;
-  width: 2px;
+  width: 2px; /* fixed-px: playhead line weight */
   background: var(--color-red-500);
   pointer-events: none;
   /* The dark hairline keeps the red line legible over bright content;
@@ -144,7 +129,7 @@
 
 .row-icon {
   font-size: var(--font-size-label);
-  width: 14px;
+  width: calc(14 * var(--ui-px));
   text-align: center;
 }
 
@@ -168,13 +153,6 @@
   color: var(--color-gray-300);
 }
 
-.row-tool {
-  font-family:
-    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-    "Liberation Mono", monospace;
-  color: #fafafa;
-}
-
 .checkpoint-row {
   background: rgba(96, 165, 250, 0.06);
   border-left-color: var(--color-blue-400);
@@ -183,26 +161,6 @@
 .checkpoint-row .row-checkpoint-label {
   color: #fafafa;
   font-weight: 500;
-}
-
-.row-restore {
-  background: var(--secondary);
-  color: #fafafa;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  padding: 3px 8px;
-  font-size: var(--font-size-micro);
-  cursor: pointer;
-}
-
-.row-restore:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--color-gray-600);
-}
-
-.row-restore:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
 }
 
 .properties {
@@ -529,7 +487,7 @@
 
   /* The console's own widths. Pinned lengths rather than content-sized columns,
      so the Panel's layout threshold is arithmetic and cannot drift with a
-     translation or a font — CONSOLE_LAYOUT_MIN_WIDTH in `MixerPanel.tsx` is
+     translation or a font — UI_METRICS.mixerConsoleMinWidth (`uiMetrics.ts`) is
      these summed with the Panel's inset, and that comment carries the sum.
      Each floor is what the column has to hold: a Role strip's readout and its
      mute/solo/reset row are 58px apiece, the master strip's is its uppercase
@@ -675,8 +633,8 @@
 .mixer-console-fader .app-slider-thumb::after {
   content: "";
   position: absolute;
-  left: 3px;
-  right: 3px;
+  left: calc(3 * var(--ui-px));
+  right: calc(3 * var(--ui-px));
   top: 50%;
   height: calc(1 * var(--ui-px));
   translate: 0 -50%;
@@ -1247,7 +1205,7 @@
 
 .prop-retime-multiplier-suffix {
   position: absolute;
-  inset-inline-end: 6px;
+  inset-inline-end: calc(6 * var(--ui-px));
   top: 50%;
   transform: translateY(-50%);
   color: var(--muted-foreground);
@@ -1316,8 +1274,6 @@
 
 .prop-section-header > svg {
   flex: none;
-  width: calc(12 * var(--ui-px));
-  height: calc(12 * var(--ui-px));
   color: var(--muted-foreground);
 }
 
@@ -1355,7 +1311,7 @@
 .pauses-floor > span { font-variant-numeric: tabular-nums; }
 .pauses-number-control { position: relative; flex: 1; min-width: 0; }
 .pauses-number-control .app-number-input { padding-inline-end: calc(48 * var(--ui-px)); }
-.pauses-unit { position: absolute; inset-inline-end: 21px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted-foreground); font-size: var(--font-size-caption); }
+.pauses-unit { position: absolute; inset-inline-end: calc(21 * var(--ui-px)); top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted-foreground); font-size: var(--font-size-caption); }
 .pauses-summary { display: flex; flex-direction: column; justify-content: center; min-height: calc(38 * var(--ui-px)); gap: calc(2 * var(--ui-px)); margin-top: calc(4 * var(--ui-px)); color: var(--foreground); font-size: var(--font-size-caption); font-variant-numeric: tabular-nums; }
 .pauses-summary > span { display: flex; align-items: center; gap: calc(5 * var(--ui-px)); }
 .pauses-summary-detail { color: var(--muted-foreground); }
@@ -1996,7 +1952,7 @@
 
 @keyframes segmentStatusStripe {
   from { background-position: 0 0; }
-  to   { background-position: 16px 0; }
+  to   { background-position: 16px 0; } /* fixed-px: one period of the 8px stripe gradient */
 }
 .effects-empty {
   display: flex;
@@ -2190,8 +2146,8 @@
   box-shadow: var(--focus-ring);
   border-radius: var(--radius-control);
 }
-.kf-diamond-row { position: absolute; left: 0; right: 0; bottom: 1px; height: 8px; pointer-events: none; }
-.kf-diamond { position: absolute; width: 7px; height: 7px; transform: translateX(-50%) rotate(45deg); background: #fff; border: 1px solid rgba(0,0,0,0.5); }
+.kf-diamond-row { position: absolute; left: 0; right: 0; bottom: 1px; height: calc(8 * var(--ui-px)); pointer-events: none; }
+.kf-diamond { position: absolute; width: calc(7 * var(--ui-px)); height: calc(7 * var(--ui-px)); transform: translateX(-50%) rotate(45deg); background: #fff; border: 1px solid rgba(0,0,0,0.5); }
 .kf-diamond.is-selected { background: var(--keyframe); box-shadow: 0 0 0 1.5px var(--ring); }
 /* Sub-lane diamonds span the whole track row, vertically centered in the
    24px sub-lane (vs the in-clip diamonds, which are bottom-pinned in
@@ -2237,9 +2193,9 @@
    color-mix, per the status-hue convention in app.css. */
 .kf-procedural-badge {
   position: absolute;
-  top: 2px;
+  top: calc(2 * var(--ui-px));
   transform: translateX(-50%);
-  padding: 1px 5px;
+  padding: 1px calc(5 * var(--ui-px));
   border-radius: 999px;
   font-size: var(--font-size-fine);
   line-height: 1.4;
@@ -2262,7 +2218,7 @@
    primary Layer being edited so a multi-selection can't be mistaken for a
    batch edit. */
 .prop-primary-note {
-  margin: 0 0 4px;
+  margin: 0 0 calc(4 * var(--ui-px));
   font-size: var(--font-size-body);
   color: var(--muted-foreground);
 }

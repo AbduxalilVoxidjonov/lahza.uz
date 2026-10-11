@@ -49,6 +49,7 @@ import {
   setPreviewZoom,
   usePreviewViewStore,
 } from "../state/previewViewStore";
+import { AppIcon } from "@/components/AppIcon";
 
 interface PreviewSectionProps {
   previewRef: React.RefObject<PreviewSurfaceHandle | null>;
@@ -139,7 +140,7 @@ export function PreviewSection({
             title={t("transport.to_start_hint")}
             aria-label={t("transport.to_start_hint")}
           >
-            <SkipBackIcon size={16} aria-hidden />
+            <AppIcon icon={SkipBackIcon} size="heading" aria-hidden />
           </button>
           <button
             type="button"
@@ -150,11 +151,11 @@ export function PreviewSection({
             aria-busy={phase === "preparing"}
           >
             {phase === "preparing" ? (
-              <LoaderCircleIcon size={16} className="animate-spin" aria-hidden />
+              <AppIcon icon={LoaderCircleIcon} size="heading" className="animate-spin" aria-hidden />
             ) : phase !== "playing" ? (
-              <PlayIcon size={16} aria-hidden />
+              <AppIcon icon={PlayIcon} size="heading" aria-hidden />
             ) : (
-              <PauseIcon size={16} aria-hidden />
+              <AppIcon icon={PauseIcon} size="heading" aria-hidden />
             )}
           </button>
           <button
@@ -164,7 +165,7 @@ export function PreviewSection({
             aria-label={t("transport.to_end_hint")}
             disabled={!comp || comp.duration_us === 0}
           >
-            <SkipForwardIcon size={16} aria-hidden />
+            <AppIcon icon={SkipForwardIcon} size="heading" aria-hidden />
           </button>
         </div>
         <span className="preview-meta-cell">
@@ -224,7 +225,7 @@ function PreviewZoomControl() {
     <Menu.Root>
       <Menu.Trigger className="app-select preview-zoom-select" aria-label={t("preview.zoom_label")}>
         <span>{zoom === "fit" ? t("preview.zoom_fit") : percent(zoom)}</span>
-        <ChevronDownIcon size={11} aria-hidden="true" />
+        <AppIcon icon={ChevronDownIcon} size="caption" aria-hidden="true" />
       </Menu.Trigger>
       <Menu.Portal>
         <AppMenuPositioner align="start" sideOffset={4} className="app-popup-positioner">
@@ -241,7 +242,7 @@ function PreviewZoomControl() {
                 >
                   <span className="app-menu-item-check" aria-hidden="true">
                     <Menu.RadioItemIndicator>
-                      <CheckIcon size={12} />
+                      <AppIcon icon={CheckIcon} size="body" />
                     </Menu.RadioItemIndicator>
                   </span>
                   <span className="app-menu-item-label">{rung.label}</span>

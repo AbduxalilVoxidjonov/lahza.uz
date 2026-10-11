@@ -6,6 +6,7 @@
 // Shared by the dock tab strip and the Quick Actions strip. ADR 0050.
 
 import { useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 
@@ -18,11 +19,10 @@ import {
   type ItemRange,
 } from "../lib/edgeOverflow";
 
-/// The width (or height) an end overlay covers. Single home for the number: the
-/// overlay renders it inline and the geometry reads it from here, so the paint
-/// and the maths cannot drift. Sized for a 28px strip — a 16px glyph in a 20px
-/// hit box plus a short gradient tail.
-export const EDGE_OVERLAY_PX = 24;
+/// The width (or height) an end overlay covers is `UI_METRICS.edgeOverflowOverlay`.
+/// Single home for the number: the overlay renders it inline and the geometry
+/// reads it from there, so the paint and the maths cannot drift. Sized for a
+/// 28px strip — a 16px glyph in a 20px hit box plus a short gradient tail.
 
 export type EdgeAxis = "horizontal" | "vertical";
 
@@ -98,7 +98,7 @@ export function useEdgeOverflow(
   axis: EdgeAxis,
   itemSelector?: string,
 ): EdgeOverflowHandle {
-  const overlaySize = EDGE_OVERLAY_PX * useUiScale();
+  const overlaySize = UI_METRICS.edgeOverflowOverlay * useUiScale();
   const [state, setState] = useState<EdgeState>(SETTLED);
   // Compared against before every `setState`: scroll fires at frame rate and
   // the answer changes a handful of times per gesture.

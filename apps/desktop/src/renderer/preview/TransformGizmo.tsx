@@ -58,6 +58,8 @@ import { usePrimaryLayerId } from "../state/selectionStore";
 import { endTextEdit, textEditingLayerId } from "../state/textEditingStore";
 import { useActiveTool } from "../state/toolStore";
 import { useAppSettingsStore } from "../settings/appSettingsStore";
+import { uiScaled, useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 import { layerFrameAt, TRANSFORMABLE_KINDS } from "./centerInFrame";
 import {
   anchorCompensation,
@@ -101,49 +103,32 @@ import {
   type SnapTargets,
 } from "./previewSnap";
 
-/// Client-pixel gap between the box's top edge and the rotation knob, and the
-/// disc the knob draws. Screen space, so the affordance is identical on a 4K
-/// composition and a 480p one.
+/// Affordance sizes — rotation knob, anchor target, resize handles — are
+/// `UI_METRICS.gizmo`: client pixels, so they are identical on a 4K composition
+/// and a 480p one, and they follow the layout theme. Strokes stay fixed.
 ///
-/// The disc is a legibility backing, not decoration: it carries a rotate glyph
-/// that says what the handle does, and the preview has no background of its own
-/// to read that glyph against (the same problem the anchor reticle solves with
-/// its dark under-stroke).
-const ROTATE_GAP_PX = 26;
-const ROTATE_KNOB_R = 8;
-/// The glyph inside the disc, and the invisible grab disc around it. Lucide art
-/// is a 24-unit viewBox, so `absoluteStrokeWidth` is what keeps the stroke at
-/// the gizmo's usual ~1.3 px instead of scaling it down to a hairline.
-const ROTATE_GLYPH_PX = 11;
+/// The rotation disc is a legibility backing, not decoration: it carries a
+/// rotate glyph that says what the handle does, and the preview has no
+/// background of its own to read that glyph against (the same problem the anchor
+/// reticle solves with its dark under-stroke). The anchor's arms out-reach its
+/// ring on purpose — the exact centre is the thing being placed, and a bare ring
+/// over busy footage hides it.
+///
+/// Resize handles are ROUND, not square, and that is a design decision rather
+/// than a style one: a circle has no orientation, so the handle needs no
+/// rotation to stay consistent with the box. A square would have to be
+/// re-rotated every frame to match the box's edges — and on a flipped or
+/// non-uniformly scaled layer, where the quad's winding reverses and its edges
+/// stop being perpendicular, there is no single correct angle for it to take.
+/// The direction that IS meaningful is carried by the cursor instead
+/// (`handleOutwardDeg`).
+const GIZMO = UI_METRICS.gizmo;
+/// Lucide art is a 24-unit viewBox, so `absoluteStrokeWidth` is what keeps the
+/// rotate glyph's stroke at the gizmo's usual ~1.3 px instead of scaling it
+/// down to a hairline.
 const ROTATE_GLYPH_STROKE_PX = 1.3;
-const ROTATE_HIT_R = 13;
 /// Shift-constrained rotation grid — the de-facto standard step.
 const ROTATE_SNAP_DEG = 15;
-/// The anchor target: a ring with crosshair arms reaching past it, and an
-/// invisible grab disc. Client pixels for the same reason as the knob. The arms
-/// out-reach the ring on purpose — the exact centre is the thing being placed,
-/// and a bare ring over busy footage hides it.
-const ANCHOR_RING_R = 5.5;
-const ANCHOR_ARM_PX = 9;
-const ANCHOR_HIT_R = 11;
-/// Resize handles: the drawn dot, and the invisible disc that widens it into a
-/// comfortable grab target. Client pixels again — the handle must not shrink
-/// with the composition. The hit disc is kept modest on purpose: every pixel it
-/// claims comes out of the box's interior, which is the MOVE handle.
-///
-/// ROUND, not square, and that is a design decision rather than a style one: a
-/// circle has no orientation, so the handle needs no rotation to stay consistent
-/// with the box. A square would have to be re-rotated every frame to match the
-/// box's edges — and on a flipped or non-uniformly scaled layer, where the quad's
-/// winding reverses and its edges stop being perpendicular, there is no single
-/// correct angle for it to take. The direction that IS meaningful is carried by
-/// the cursor instead (`handleOutwardDeg`).
-const HANDLE_R_PX = 4.5;
-const HANDLE_HIT_R_PX = 8;
-/// Below this, an edge's midpoint handle would sit under the two corners it
-/// lives between. Hide it rather than stack three targets on one spot — the
-/// corners can still scale that axis.
-const EDGE_HANDLE_MIN_PX = 24;
 
 /// The snap guides. Hard-coded rather than a theme token because the app's
 /// palette is deliberately achromatic (`oklch(x 0 0)`) and a guide has to be
@@ -691,6 +676,11 @@ function TransformGizmo({
   /// state (`preview.css` strips the targets' `pointer-events` off this flag).
   inert?: boolean;
 }) {
+  // Re-render the drawn affordances on a theme switch; the per-frame draw loop
+  // reads `uiScaled()` live.
+  useUiScale();
+  const anchorRing = uiScaled(GIZMO.anchorRingRadius);
+  const anchorArm = uiScaled(GIZMO.anchorArm);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const boxRef = useRef<SVGPolygonElement | null>(null);
   const stalkRef = useRef<SVGLineElement | null>(null);
@@ -964,7 +954,7 @@ function TransformGizmo({
         const el = handleEls.current.get(id);
         if (!el) continue;
         const along = id === "t" || id === "b" ? edgeLen.x : edgeLen.y;
-        const on = isCornerHandle(id) || (edges && along >= EDGE_HANDLE_MIN_PX);
+        const on = isCornerHandle(id) || (edges && along >= uiScaled(GIZMO.edgeHandleMinLength));
         el.style.display = on ? "" : "none";
         if (!on) continue;
         el.setAttribute("transform", `translate(${at.x} ${at.y})`);
@@ -1052,7 +1042,7 @@ function TransformGizmo({
       // Client, not SVG-local: pointer events speak client coordinates.
       const pivotClient = compToClient(layerPivot(geom), fit);
       pivotRef.current = pivotClient;
-      const handle = rotateHandle(corners, ROTATE_GAP_PX);
+      const handle = rotateHandle(corners, uiScaled(GIZMO.rotateGap));
       if (!handle) return hide();
       // A Text box's two axes are independent BY CONSTRUCTION — the modes are
       // read off which of them is set (ADR 0049) — so `scale_linked` has no say
@@ -1746,13 +1736,13 @@ function TransformGizmo({
           <circle
             cx={0}
             cy={0}
-            r={HANDLE_R_PX}
+            r={uiScaled(GIZMO.handleRadius)}
             style={{ fill: "var(--background)", stroke: "var(--ring)", strokeWidth: 1.5 }}
           />
           <circle
             cx={0}
             cy={0}
-            r={HANDLE_HIT_R_PX}
+            r={uiScaled(GIZMO.handleHitRadius)}
             style={{ fill: "rgba(0, 0, 0, 0)" }}
           />
         </g>
@@ -1789,16 +1779,16 @@ function TransformGizmo({
         <circle
           cx={0}
           cy={0}
-          r={ROTATE_KNOB_R}
+          r={uiScaled(GIZMO.rotateKnobRadius)}
           style={{ fill: "var(--background)", stroke: "var(--ring)", strokeWidth: 1.5 }}
         />
         {/* A nested <svg>: lucide's own art, positioned and scaled by its
             viewport rather than re-drawn here, so it can't drift from the
             rotate-ccw used everywhere else in the app. */}
         <RotateCcwIcon
-          x={-ROTATE_GLYPH_PX / 2}
-          y={-ROTATE_GLYPH_PX / 2}
-          size={ROTATE_GLYPH_PX}
+          x={-uiScaled(GIZMO.rotateGlyph) / 2}
+          y={-uiScaled(GIZMO.rotateGlyph) / 2}
+          size={uiScaled(GIZMO.rotateGlyph)}
           strokeWidth={ROTATE_GLYPH_STROKE_PX}
           absoluteStrokeWidth
           color="var(--ring)"
@@ -1806,7 +1796,7 @@ function TransformGizmo({
         />
         {/* Invisible but hit-testable, same trick as the box's fill: widens the
             grab target past the drawn disc without drawing anything. */}
-        <circle cx={0} cy={0} r={ROTATE_HIT_R} style={{ fill: "rgba(0, 0, 0, 0)" }} />
+        <circle cx={0} cy={0} r={uiScaled(GIZMO.rotateHitRadius)} style={{ fill: "rgba(0, 0, 0, 0)" }} />
       </g>
       {/* The anchor target, LAST in document order on purpose: it sits inside
           the box, which claims its whole footprint for the move drag, and SVG
@@ -1825,9 +1815,9 @@ function TransformGizmo({
             pointerEvents: "none",
           }}
         >
-          <circle cx={0} cy={0} r={ANCHOR_RING_R} />
-          <line x1={-ANCHOR_ARM_PX} y1={0} x2={ANCHOR_ARM_PX} y2={0} />
-          <line x1={0} y1={-ANCHOR_ARM_PX} x2={0} y2={ANCHOR_ARM_PX} />
+          <circle cx={0} cy={0} r={anchorRing} />
+          <line x1={-anchorArm} y1={0} x2={anchorArm} y2={0} />
+          <line x1={0} y1={-anchorArm} x2={0} y2={anchorArm} />
         </g>
         <g
           style={{
@@ -1837,15 +1827,15 @@ function TransformGizmo({
             pointerEvents: "none",
           }}
         >
-          <circle cx={0} cy={0} r={ANCHOR_RING_R} />
-          <line x1={-ANCHOR_ARM_PX} y1={0} x2={ANCHOR_ARM_PX} y2={0} />
-          <line x1={0} y1={-ANCHOR_ARM_PX} x2={0} y2={ANCHOR_ARM_PX} />
+          <circle cx={0} cy={0} r={anchorRing} />
+          <line x1={-anchorArm} y1={0} x2={anchorArm} y2={0} />
+          <line x1={0} y1={-anchorArm} x2={0} y2={anchorArm} />
         </g>
         <circle
           data-testid="transform-gizmo-anchor-grab"
           cx={0}
           cy={0}
-          r={ANCHOR_HIT_R}
+          r={uiScaled(GIZMO.anchorHitRadius)}
           onPointerDown={beginAnchor}
           onPointerMove={moveAnchor}
           onPointerUp={endAnchor}

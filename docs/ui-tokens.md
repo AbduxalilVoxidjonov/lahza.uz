@@ -176,14 +176,34 @@ multiplied by this unit. Dialog width roles retain the separate width scale to
 provide the additional horizontal room in Relaxed presets. Container breakpoints
 use rem units so their compact layouts switch at the same effective UI width.
 
-JS-owned dimensions use `useUiScale()` / `uiPixels()` from
-`renderer/settings/layoutTheme.ts`. Dock group floors refresh after theme changes,
-layout restoration and resizing; the Quick Actions strip updates both its floor
-and cap. Small viewports reduce group floors toward baseline sizes to preserve
-usable scrolling. Agent record and log-console drag sizes are remembered in
-baseline units. Mixer breakpoints and tab overflow geometry use the same scale
-as their CSS. Keep native window chrome, editing coordinates, borders and shadows
-outside this conversion; do not apply a global zoom to the canvas or timeline.
+Themed sizes enter through one place per medium (ADR 0110):
+
+| Medium | Entry | Rule |
+|---|---|---|
+| CSS | `--ui-px`, role tokens in `styles/layout-theme.css` | `calc(N * var(--ui-px))`; a length that must stay real pixels carries `/* fixed-px: <reason> */` on the same line |
+| Icons | `components/AppIcon.tsx` | `<AppIcon icon={X} size="body" />`; never a pixel `size` |
+| JS geometry | `renderer/settings/uiMetrics.ts` | baselines resolved through `uiPixels()` (boxes, constraints, hit zones) or `uiScaled()` (fractional SVG geometry) from `layoutTheme.ts` |
+
+Icon roles are named after the text role they sit beside and share its
+baseline: `fine` 9, `micro` 10, `caption` 11, `body` 12, `label` 13, `title` 14,
+`heading` 16, `display` 22 (`--icon-size-*`). A glyph drawn in SVG user space
+(the gizmo's rotate glyph) sizes from `UI_METRICS` instead.
+
+`UI_METRICS` covers the Dock strip thickness and group gap, the edge-overflow
+overlay, agent record and log-console bounds, the mixer layout threshold, the
+timeline header column, track heights, trim edge zone, clip label, layer label
+thresholds, ruler label spacing and marker lane, and the preview transform
+gizmo's handles, rotation knob and anchor target. Per-panel Dock floors stay in
+`workspace/panelRegistry.ts` and resolve the same way. A component that renders
+a themed JS size calls `useUiScale()` so a theme switch re-renders it.
+
+Dock group floors refresh after theme changes, layout restoration and resizing;
+the Quick Actions strip updates both its floor and cap. Small viewports reduce
+group floors toward baseline sizes to preserve usable scrolling. Agent record,
+log-console and track heights are remembered in baseline units. Keep native
+window chrome, composition and time-axis coordinates, stroke widths, borders and
+shadows outside this conversion; do not apply a global zoom to the canvas or
+timeline. `settings/uiSizing.test.ts` enforces these rules.
 
 The names are user-selected density presets, not automatic physical-resolution
 detection. Inside the open preset list, Settings tags the preset that suits the

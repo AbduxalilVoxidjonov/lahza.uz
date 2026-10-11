@@ -1,5 +1,6 @@
 import { LAYOUT_THEMES, readLayoutTheme } from '../../shared/layout-theme';
 import { useSyncExternalStore } from 'react';
+import { UI_METRICS } from './uiMetrics';
 
 let uiScale = 1;
 const listeners = new Set<() => void>();
@@ -9,8 +10,12 @@ export function subscribeUiScale(listener: () => void): () => void {
   return () => { listeners.delete(listener); };
 }
 export const useUiScale = () => useSyncExternalStore(subscribeUiScale, getUiScale);
-/** JS-owned layout constraints use the same units as CSS --ui-px. */
+/** JS-owned layout constraints use the same units as CSS --ui-px. Baselines
+ * come from `uiMetrics.ts`. Rounded: boxes, constraints and hit zones. */
 export const uiPixels = (baseline: number) => Math.round(baseline * uiScale);
+/** Fractional variant for SVG geometry (radii, arm lengths). A component that
+ * renders with it must also call `useUiScale()` to re-render on theme changes. */
+export const uiScaled = (baseline: number) => baseline * uiScale;
 
 /** Apply on hydration so boot, setting changes and other windows share a path.
  * Root variables also reach dialogs and menus rendered through portals. */
@@ -24,7 +29,7 @@ export function applyLayoutTheme(value: unknown): void {
     root.dataset.layoutTheme = id;
     root.style.setProperty('--layout-font-scale', String(theme.fontScale));
     root.style.setProperty('--layout-width-scale', String(theme.widthScale));
-    root.style.setProperty('--layout-strip-thickness', `${uiPixels(44)}px`);
+    root.style.setProperty('--layout-strip-thickness', `${uiPixels(UI_METRICS.dock.stripThickness)}px`);
   }
   if (changed) for (const listener of listeners) listener();
 }

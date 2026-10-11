@@ -95,6 +95,7 @@ import {
   wireShotReviewPrefs,
   type ShotApplyVerb,
 } from "./shotsStore";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Stable empty reference — a fresh `[]` per selector call would defeat the
 /// reference-equality bail-out the subject hooks rely on.
@@ -389,7 +390,7 @@ function ShotDescribeAction({
         }
         onClick={() => onDescribe(row)}
       >
-        <Sparkles size={12} aria-hidden />
+        <AppIcon icon={Sparkles} size="body" aria-hidden />
       </Button>
     </div>
   );
@@ -526,7 +527,7 @@ function ShotCandidateRow({
         />
         <span className="shots-cut-seam" aria-hidden>
           <span className="shots-cut-seam-glyph">
-            {accepted ? <Link2 size={10} /> : <Scissors size={10} />}
+            {accepted ? <AppIcon icon={Link2} size="micro" /> : <AppIcon icon={Scissors} size="micro" />}
           </span>
         </span>
         <ShotFrame

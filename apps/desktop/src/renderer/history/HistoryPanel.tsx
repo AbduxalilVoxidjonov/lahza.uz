@@ -21,6 +21,7 @@ import {
   type HistoryGroupItem,
   type HistoryRowState,
 } from "./historyRows";
+import { AppIcon } from "@/components/AppIcon";
 
 /// The History Panel: the project edit stack as a NAVIGABLE timeline
 /// (PS / Premiere semantics — click row *i*, the cursor moves to *i*).
@@ -267,9 +268,9 @@ export function HistoryPanel() {
           }
         >
           {client === null ? (
-            <User size={12} aria-hidden="true" />
+            <AppIcon icon={User} size="body" aria-hidden="true" />
           ) : (
-            <Bot size={12} aria-hidden="true" />
+            <AppIcon icon={Bot} size="body" aria-hidden="true" />
           )}
         </span>
         <span className="history-row-body">
@@ -323,9 +324,9 @@ export function HistoryPanel() {
             onClick={() => toggleGroup(id)}
           >
             {isExpanded ? (
-              <ChevronDown size={12} aria-hidden="true" />
+              <AppIcon icon={ChevronDown} size="body" aria-hidden="true" />
             ) : (
-              <ChevronRight size={12} aria-hidden="true" />
+              <AppIcon icon={ChevronRight} size="body" aria-hidden="true" />
             )}
           </button>
           <button
@@ -353,7 +354,7 @@ export function HistoryPanel() {
               {formatClock(item.entries[0]?.timestamp ?? "")}
             </span>
             <span className="history-row-actor" data-actor="agent">
-              <Bot size={12} aria-hidden="true" />
+              <AppIcon icon={Bot} size="body" aria-hidden="true" />
             </span>
             <span className="history-row-body">
               <span className="history-row-label">{item.client}</span>
@@ -385,7 +386,7 @@ export function HistoryPanel() {
       <CheckpointSection checkpoints={checkpoints} lockReason={lockReason} />
       {lockReason !== null && (
         <div className="history-lock-badge" title={lockReason}>
-          <Lock size={12} aria-hidden="true" />
+          <AppIcon icon={Lock} size="body" aria-hidden="true" />
           <span className="history-lock-reason">
             {t("history_panel.locked_hint", { reason: lockReason })}
           </span>

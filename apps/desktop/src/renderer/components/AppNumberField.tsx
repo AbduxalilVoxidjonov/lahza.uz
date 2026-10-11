@@ -4,6 +4,7 @@ import { ChevronUpIcon, ChevronDownIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FOCUS_GROUP_ATTR } from "../focus/focusRegion";
 import { isInTransientWidget } from "../shortcuts/match";
+import { AppIcon } from "@/components/AppIcon";
 
 // While typing, auto-commit the value once the user pauses, so the change
 // applies to the canvas without needing to blur. Enter / blur / step-end still
@@ -172,10 +173,10 @@ export function AppNumberField({
             Increment/Decrement buttons keep their own button semantics. */}
         <div className="app-number-steppers">
           <NumberField.Increment className="app-number-step">
-            <ChevronUpIcon size={10} />
+            <AppIcon icon={ChevronUpIcon} size="micro" />
           </NumberField.Increment>
           <NumberField.Decrement className="app-number-step">
-            <ChevronDownIcon size={10} />
+            <AppIcon icon={ChevronDownIcon} size="micro" />
           </NumberField.Decrement>
         </div>
       </NumberField.Group>

@@ -6,6 +6,7 @@ import {
   systemSettingsTarget,
   type SystemSettingsTarget,
 } from "./systemStatus";
+import { AppIcon } from "@/components/AppIcon";
 
 interface Props {
   notices: AppNotice[];
@@ -14,12 +15,12 @@ interface Props {
 
 function NoticeIcon({ level }: { level: AppNotice["level"] }) {
   if (level === "error") {
-    return <OctagonAlertIcon size={15} aria-hidden />;
+    return <AppIcon icon={OctagonAlertIcon} size="title" aria-hidden />;
   }
   if (level === "warn") {
-    return <AlertTriangleIcon size={15} aria-hidden />;
+    return <AppIcon icon={AlertTriangleIcon} size="title" aria-hidden />;
   }
-  return <InfoIcon size={15} aria-hidden />;
+  return <AppIcon icon={InfoIcon} size="title" aria-hidden />;
 }
 
 /// Current capability state pinned above System log history. Unlike the log

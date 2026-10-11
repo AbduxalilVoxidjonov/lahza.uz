@@ -25,8 +25,8 @@
 
 .export-panel {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  left: calc(16 * var(--ui-px));
+  bottom: calc(16 * var(--ui-px));
   width: min(var(--dialog-width-confirm), calc(100vw - calc(32 * var(--ui-px))));
   background: var(--background);
   border: 1px solid var(--border);

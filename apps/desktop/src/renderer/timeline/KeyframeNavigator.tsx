@@ -11,6 +11,7 @@ import { snapFrameRound } from "../frames";
 import { transportSeek } from "../state/playbackStore";
 import { selectKeyframe } from "../keyframe/selectionStore";
 import { setKeyframeFocus, useKeyframeFocusStore } from "../keyframe/focusStore";
+import { AppIcon } from "@/components/AppIcon";
 
 function stopPropagation(e: SyntheticEvent): void {
   e.stopPropagation();
@@ -98,7 +99,7 @@ export function KeyframeNavigator({
         aria-label={t("keyframe.nav_prev")}
         onClick={() => prev && seekTo(prev)}
       >
-        <StepBack size={12} aria-hidden />
+        <AppIcon icon={StepBack} size="body" aria-hidden />
       </button>
       <button
         type="button"
@@ -112,7 +113,7 @@ export function KeyframeNavigator({
         aria-label={t("keyframe.nav_set")}
         onClick={onToggle}
       >
-        <CircleSmall size={16} fill={at ? "currentColor" : "none"} aria-hidden />
+        <AppIcon icon={CircleSmall} size="heading" fill={at ? "currentColor" : "none"} aria-hidden />
       </button>
       <button
         type="button"
@@ -123,7 +124,7 @@ export function KeyframeNavigator({
         aria-label={t("keyframe.nav_next")}
         onClick={() => next && seekTo(next)}
       >
-        <StepForward size={12} aria-hidden />
+        <AppIcon icon={StepForward} size="body" aria-hidden />
       </button>
     </div>
   );

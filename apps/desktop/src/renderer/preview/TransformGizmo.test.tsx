@@ -484,7 +484,7 @@ describe("snapping", () => {
 /// The fixture's pivot: a 640×360 layer at (0,0) with a centered anchor is
 /// centered on comp (320,180), which the half-scale canvas puts at (160,90).
 const PIVOT = { x: 160, y: 90 };
-/// The knob, ROTATE_GAP_PX above the box's top edge midpoint (160, 0).
+/// The knob, UI_METRICS.gizmo.rotateGap above the box's top edge midpoint (160, 0).
 const KNOB = { clientX: 160, clientY: -26 };
 
 /// A client point at `deg` around the pivot — angles are measured clockwise

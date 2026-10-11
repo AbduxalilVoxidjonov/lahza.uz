@@ -50,6 +50,7 @@ import { Field } from "./Field";
 import { Button } from "../components/ui/button";
 import { useAppSettingsStore } from "../settings/appSettingsStore";
 import { inferPausePreset, PausePresetControl, type PausePresetSource } from "./PausePresetControl";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Rust's own defaults, as the section states them.
 ///
@@ -563,7 +564,7 @@ function PausesBody({ layer, subject, projectId, recipe }: {
     <div className="pauses-body">
       <Button className="pauses-reset" size="icon-xs" variant="ghost" disabled={controlsDisabled}
         aria-label={t("pauses.reset")} title={t("pauses.reset")} onClick={reset}>
-        <RotateCcw size={12} aria-hidden />
+        <AppIcon icon={RotateCcw} size="body" aria-hidden />
       </Button>
       {layer.id !== subjectId && <p className="prop-hint" data-testid="pauses-delegated">{t("pauses.delegated", { clip: clipName })}</p>}
       <PausePresetControl values={values} source={source} onSourceChange={selectSource} onApply={applyPreset} disabled={controlsDisabled} />
@@ -610,8 +611,8 @@ function PausesBody({ layer, subject, projectId, recipe }: {
         </div>
       </Field>
       <div className="pauses-summary" data-testid="pauses-summary" role="status" aria-live="polite" aria-atomic="true">
-        {phase === "waiting_waveform" ? <span><LoaderCircle size={12} className="pauses-spinner" aria-hidden />{t("pauses.waiting_waveform")}</span>
-          : processing ? <span><LoaderCircle size={12} className="pauses-spinner" aria-hidden />{t("pauses.detecting")}</span>
+        {phase === "waiting_waveform" ? <span><AppIcon icon={LoaderCircle} size="body" className="pauses-spinner" aria-hidden />{t("pauses.waiting_waveform")}</span>
+          : processing ? <span><AppIcon icon={LoaderCircle} size="body" className="pauses-spinner" aria-hidden />{t("pauses.detecting")}</span>
           : phase === "failed" ? <span>{t("pauses.detect_failed")}</span>
           : pauses.length === 0 ? <span>{t("pauses.none")}</span>
           : <>
@@ -626,16 +627,16 @@ function PausesBody({ layer, subject, projectId, recipe }: {
       <div className="pauses-actions">
         <Button size="xs" variant="ghost" disabled={(!canAct || removedUs === 0) && auditionJoins === null} onClick={auditionResult}
           aria-pressed={auditionJoins !== null}>
-          {auditionJoins === null ? <Play size={12} aria-hidden /> : <Square size={12} aria-hidden />}
+          {auditionJoins === null ? <AppIcon icon={Play} size="body" aria-hidden /> : <AppIcon icon={Square} size="body" aria-hidden />}
           {auditionJoins === null ? t("pauses.audition") : t("pauses.audition_stop")}
         </Button>
         <div className="pauses-write-actions">
           <Button size="xs" variant="ghost" disabled={!canAct || removedUs === 0} onClick={() => void remove()}>
-            {busy === "remove" && <LoaderCircle size={12} className="pauses-spinner" aria-hidden />}
+            {busy === "remove" && <AppIcon icon={LoaderCircle} size="body" className="pauses-spinner" aria-hidden />}
             {busy === "remove" ? t("pauses.removing") : t("pauses.remove")}
           </Button>
           <Button size="xs" variant="secondary" disabled={!canAct} onClick={() => void mark()}>
-            {busy === "mark" && <LoaderCircle size={12} className="pauses-spinner" aria-hidden />}
+            {busy === "mark" && <AppIcon icon={LoaderCircle} size="body" className="pauses-spinner" aria-hidden />}
             {busy === "mark" ? t("pauses.marking") : t("pauses.mark")}
           </Button>
         </div>

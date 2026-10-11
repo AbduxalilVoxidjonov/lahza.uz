@@ -1,11 +1,6 @@
 import { useCallback, useState } from "react";
 import { usePointerGesture } from "../../hooks/usePointerGesture";
-import {
-  DEFAULT_TRACK_HEIGHT,
-  MAX_TRACK_HEIGHT,
-  MIN_TRACK_HEIGHT,
-  clamp,
-} from "../geometry";
+import { trackHeightBaseline, trackHeightPx } from "../geometry";
 
 interface HeightDragState {
   trackId: string;
@@ -15,7 +10,8 @@ interface HeightDragState {
 
 /// Track-height resize drag: pointerdown on a lane's resize handle
 /// starts the drag; window-level pointermove/pointerup listeners track
-/// it until release.
+/// it until release. The gesture runs in CSS pixels; the stored height is
+/// its baseline (see `trackHeightBaseline`).
 export function useHeightDrag(opts: {
   trackHeightsRef: React.MutableRefObject<Record<string, number>>;
   setTrackHeights: React.Dispatch<React.SetStateAction<Record<string, number>>>;
@@ -35,13 +31,12 @@ export function useHeightDrag(opts: {
       // A height drag must not also start the lane's selection marquee.
       e.stopPropagation();
       e.preventDefault();
-      const current =
-        trackHeightsRef.current[trackId] ?? DEFAULT_TRACK_HEIGHT;
+      const current = trackHeightPx(trackHeightsRef.current[trackId]);
       const startY = e.clientY;
       const previous = trackHeightsRef.current[trackId];
       beginGesture(e.pointerId, {
         move: (event) => {
-          const next = clamp(Math.round(current + event.clientY - startY), MIN_TRACK_HEIGHT, MAX_TRACK_HEIGHT);
+          const next = trackHeightBaseline(current + event.clientY - startY);
           setTrackHeights((prev) => prev[trackId] === next ? prev : { ...prev, [trackId]: next });
         },
         release: () => setHeightDrag(null),

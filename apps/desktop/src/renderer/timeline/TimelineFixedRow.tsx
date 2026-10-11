@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type ReactNode } from "react";
-import { HEADER_COL_PX } from "./geometry";
+import { headerColumnPx } from "./geometry";
+import { useUiScale } from "../settings/layoutTheme";
 import {
   timelineScrollLeftPx,
   useTimelineScrollStore,
@@ -16,6 +17,7 @@ export function TimelineFixedRow({
   header: ReactNode;
   children: ReactNode;
 }) {
+  useUiScale(); // header column width
   const contentRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const sync = () => {
@@ -27,7 +29,7 @@ export function TimelineFixedRow({
     return useTimelineScrollStore.subscribe(sync);
   }, [compositionId]);
   return (
-    <div className="relative isolate grid min-w-0 overflow-hidden" style={{ gridTemplateColumns: `${HEADER_COL_PX}px minmax(0, 1fr)` }}>
+    <div className="relative isolate grid min-w-0 overflow-hidden" style={{ gridTemplateColumns: `${headerColumnPx()}px minmax(0, 1fr)` }}>
       <div className="border-r border-border bg-card">{header}</div>
       <div className="min-w-0 overflow-hidden">
         <div ref={contentRef} className="relative" style={{ width: widthPx }}>{children}</div>

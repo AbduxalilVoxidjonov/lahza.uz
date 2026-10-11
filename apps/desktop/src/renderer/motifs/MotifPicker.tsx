@@ -28,6 +28,7 @@ import { MotifPropField } from "../properties/MotifPropFields";
 import { captureMotifFramePngBlob } from "../render/motifs/host";
 import { setUserMotifs, type MotifManifest } from "../render/motifs/catalog";
 import { newDraftSource } from "../render/motifs/newDraftSource";
+import { AppIcon } from "@/components/AppIcon";
 
 interface Props {
   onClose: () => void;
@@ -257,7 +258,7 @@ export function MotifPicker({
                   aria-label={t("motif_picker.new_button")}
                   onClick={() => void createDraft()}
                 >
-                  <PlusIcon size={14} aria-hidden />
+                  <AppIcon icon={PlusIcon} size="title" aria-hidden />
                 </Button>
                 <Button
                   variant="ghost"
@@ -266,7 +267,7 @@ export function MotifPicker({
                   aria-label={t("motif_picker.import_button")}
                   onClick={() => void importFile()}
                 >
-                  <FolderInputIcon size={14} aria-hidden />
+                  <AppIcon icon={FolderInputIcon} size="title" aria-hidden />
                 </Button>
               </div>
               <div className="motif-picker-list">

@@ -61,6 +61,7 @@ import {
   describeOpenError,
   isDeadRecentError,
 } from "./openError";
+import { AppIcon } from "@/components/AppIcon";
 
 interface Props {
   /// Called once the user has successfully picked or created a workspace.
@@ -222,11 +223,11 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
           title={t("settings.heading")}
           aria-label={t("settings.heading")}
         >
-          <SettingsIcon size={16} strokeWidth={1.5} aria-hidden />
+          <AppIcon icon={SettingsIcon} size="heading" strokeWidth={1.5} aria-hidden />
         </button>
         <button type="button" className="startup-report-toggle"
           onClick={() => setReportOpen(true)} title={t('help.report_issue')} aria-label={t('help.report_issue')}>
-          <BugIcon size={16} strokeWidth={1.5} aria-hidden />
+          <AppIcon icon={BugIcon} size="heading" strokeWidth={1.5} aria-hidden />
         </button>
         <button
           type="button"
@@ -235,7 +236,7 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
           title={t("language.switch_label")}
           aria-label={t("language.switch_label")}
         >
-          <GlobeIcon className="globe-icon" size={14} aria-hidden />
+          <AppIcon icon={GlobeIcon} className="globe-icon" size="title" aria-hidden />
           <span className="locale-toggle-label">
             {LOCALE_LABELS[(i18n.resolvedLanguage ?? "en-US") as Locale] ??
               "English"}
@@ -285,7 +286,7 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
             onClick={() => setNewProjectOpen(true)}
             disabled={busy}
           >
-            <PlusIcon size={22} strokeWidth={1.5} aria-hidden />
+            <AppIcon icon={PlusIcon} size="display" strokeWidth={1.5} aria-hidden />
             <span className="startup-action-label">{t("startup.new_project")}</span>
           </button>
           <button
@@ -294,7 +295,7 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
             onClick={openWorkspaceFolder}
             disabled={busy}
           >
-            <FolderOpenIcon size={22} strokeWidth={1.5} aria-hidden />
+            <AppIcon icon={FolderOpenIcon} size="display" strokeWidth={1.5} aria-hidden />
             <span className="startup-action-label">{t("startup.open_project")}</span>
           </button>
         </div>
@@ -316,9 +317,9 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
                   aria-hidden="true"
                 >
                   {recentsExpanded ? (
-                    <ChevronUpIcon size={12} />
+                    <AppIcon icon={ChevronUpIcon} size="body" />
                   ) : (
-                    <ChevronDownIcon size={12} />
+                    <AppIcon icon={ChevronDownIcon} size="body" />
                   )}
                 </span>
                 {recentsExpanded
@@ -362,7 +363,7 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
                     title={t("startup.recent_remove_hint")}
                     aria-label={t("startup.recent_remove_hint")}
                   >
-                    <XIcon size={14} aria-hidden />
+                    <AppIcon icon={XIcon} size="title" aria-hidden />
                   </button>
                 </li>
               ))}

@@ -495,7 +495,7 @@
 
 /* Rows at/past the active gap part to open the slot… */
 .playhead-row--parted {
-  transform: translateY(8px);
+  transform: translateY(calc(8 * var(--ui-px)));
 }
 
 /* …and the list opens matching bottom room, so the parted rows (or the
@@ -512,8 +512,8 @@
 .playhead-row--drop-after::after {
   content: "";
   position: absolute;
-  left: 8px;
-  right: 8px;
+  left: calc(8 * var(--ui-px));
+  right: calc(8 * var(--ui-px));
   height: calc(2 * var(--ui-px));
   border-radius: 1px;
   background: var(--selection);

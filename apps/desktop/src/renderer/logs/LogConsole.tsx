@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import { XIcon } from "lucide-react";
 import { open as openInShell } from "@/bridge/shell";
 import { useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 import { AppInput } from "../components/AppInput";
 import {
   logClear,
@@ -22,6 +23,7 @@ import {
 } from "../ipc";
 import { renderLogMessage } from "./renderMessage";
 import { useLogStore } from "./store";
+import { AppIcon } from "@/components/AppIcon";
 
 /// Expanded console overlay — lifts above the editor. Layout decision +
 /// deferred-features list: `docs/status-log.md`.
@@ -63,13 +65,12 @@ type CategoryKind = (typeof CATEGORY_KINDS)[number];
 const SOURCE_KINDS = ["User", "Agent", "System"] as const;
 type SourceKind = (typeof SOURCE_KINDS)[number];
 
-/// Console height bounds. The CSS carries the same guards (min-height /
-/// max-height in log.css) so the pre-drag default — `null`, i.e. the
-/// stylesheet's 40vh — stays in range without JS.
-const CONSOLE_HEIGHT_MIN = 200;
+/// Console height bounds (floor: UI_METRICS.logConsoleMinHeight). The CSS
+/// carries the same guards (min-height / max-height in log.css) so the pre-drag
+/// default — `null`, i.e. the stylesheet's 40vh — stays in range without JS.
 function clampConsoleHeight(height: number, viewportHeight: number, scale: number): number {
   const max = Math.round(viewportHeight * 0.8);
-  const min = Math.min(CONSOLE_HEIGHT_MIN * scale, max);
+  const min = Math.min(UI_METRICS.logConsoleMinHeight * scale, max);
   return Math.round(Math.min(max, Math.max(min, height)));
 }
 
@@ -367,7 +368,7 @@ export const LogConsole = forwardRef<LogConsoleHandle, Props>(function LogConsol
         aria-orientation="horizontal"
         aria-label={t("log.resize")}
         aria-valuenow={heightPx ?? undefined}
-        aria-valuemin={Math.min(CONSOLE_HEIGHT_MIN * scale, window.innerHeight * 0.8)}
+        aria-valuemin={Math.min(UI_METRICS.logConsoleMinHeight * scale, window.innerHeight * 0.8)}
         tabIndex={0}
         onPointerDown={onSashPointerDown}
         onKeyDown={onSashKeyDown}
@@ -457,7 +458,7 @@ export const LogConsole = forwardRef<LogConsoleHandle, Props>(function LogConsol
             onClick={onClose}
             aria-label={t("log.close")}
           >
-            <XIcon size={13} aria-hidden />
+            <AppIcon icon={XIcon} size="label" aria-hidden />
           </button>
         </div>
       </div>

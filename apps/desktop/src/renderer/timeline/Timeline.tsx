@@ -75,9 +75,9 @@ import {
 } from "./selectionCommands";
 import { requestPrebake } from "../render/motifs/prebakeBus";
 import {
-  DEFAULT_TRACK_HEIGHT,
   DROP_STRIP_SEAM_OVERLAP_PX,
-  HEADER_COL_PX,
+  headerColumnPx,
+  trackHeightPx,
   computeTimelineExtent,
   indexLinks,
   indexLinkTabs,
@@ -85,6 +85,7 @@ import {
   visualOrderedTracks,
   type MeasuredTrackRow,
 } from "./geometry";
+import { useUiScale } from "../settings/layoutTheme";
 import {
   marqueeHitClips,
   marqueeHitKeyframes,
@@ -280,6 +281,8 @@ export function Timeline({
   onMutated,
 }: TimelineProps) {
   const { t } = useTranslation();
+  useUiScale(); // header column and row heights follow the layout theme
+  const headerColPx = headerColumnPx();
   // Right-click context-menu state. `null` when closed; otherwise
   // anchors the menu at the cursor and stores the target layer id.
   // `cut` is non-null when the click landed within the tolerance band of a
@@ -360,8 +363,8 @@ export function Timeline({
         const x =
           (localClockUsOf(compositionId, tUs) / 1_000_000) *
           pxPerSecForScrollRef.current;
-        const viewport = root.clientWidth - HEADER_COL_PX;
-        // Center the target time in the lane area (the first HEADER_COL_PX
+        const viewport = root.clientWidth - headerColumnPx();
+        // Center the target time in the lane area (the first headerColumnPx()
         // of the viewport is the sticky track-header column).
         root.scrollLeft = Math.max(0, x - viewport / 2);
         // Publish now rather than waiting for the scroll event's rAF, so the
@@ -1815,13 +1818,13 @@ export function Timeline({
                 }
             }
           >
-            <div ref={(el) => { trackReorder.containerRef.current = el; }} className="relative flex min-h-full flex-col" style={{ width: HEADER_COL_PX + widthPx }}>
+            <div ref={(el) => { trackReorder.containerRef.current = el; }} className="relative flex min-h-full flex-col" style={{ width: headerColPx + widthPx }}>
               <DropStripSeam intoLanePx={dropSeamIntoLanePx} />
               {/* Reserve the first lane's upward link badge inside the viewport.
                   Carry the sticky header through this gap so scrolled badges
                   cannot paint or receive clicks behind the header column. */}
               {firstTrackHasLinkBadge && (
-                <div className="grid h-3 shrink-0" style={{ gridTemplateColumns: `${HEADER_COL_PX}px ${widthPx}px` }}>
+                <div className="grid h-3 shrink-0" style={{ gridTemplateColumns: `${headerColPx}px ${widthPx}px` }}>
                   <div className="sticky left-0 z-10 border-r border-border bg-card" />
                 </div>
               )}
@@ -1835,7 +1838,7 @@ export function Timeline({
                 <div key={track.id} data-testid="timeline-track-row" data-track-id={track.id}
                   data-reordering={trackReorder.drag?.id === track.id || undefined}
                   ref={(el) => trackReorder.setRow(track.id, index, el)}
-                  className="relative grid shrink-0" style={{ gridTemplateColumns: `${HEADER_COL_PX}px ${widthPx}px` }}>
+                  className="relative grid shrink-0" style={{ gridTemplateColumns: `${headerColPx}px ${widthPx}px` }}>
                   {trackReorder.drag?.id === track.id && (
                     <div className="pointer-events-none absolute inset-0 z-20 border border-primary bg-primary/10">
                       <span className="sticky left-1 rounded bg-primary px-2 text-[length:var(--font-size-micro)] text-primary-foreground" role="status">
@@ -1860,7 +1863,7 @@ export function Timeline({
                         onDragStart: (e) => { if (canReorderTrack(track)) trackReorder.startDrag(index, e); },
                         onMove: (move) => trackReorder.move(track.id, move),
                       } : undefined}
-                      height={trackHeights[track.id] ?? DEFAULT_TRACK_HEIGHT}
+                      height={trackHeightPx(trackHeights[track.id])}
                       isRevealed={displayMode === "AbRoll" && track.id === (revealedTrackId ?? null)}
                       isExpanded={expandedTracks.has(track.id)}
                       hasKeyframes={trackKeyframeProperties(track).length > 0}
@@ -1871,7 +1874,7 @@ export function Timeline({
                     compositionId={compositionId}
                     registerLaneEl={registerLaneEl}
                     pxPerSec={pxPerSec}
-                    height={trackHeights[track.id] ?? DEFAULT_TRACK_HEIGHT}
+                    height={trackHeightPx(trackHeights[track.id])}
                     isExpanded={expandedTracks.has(track.id)}
                     selectedLayerId={primaryLayerId}
                     selectedLayerIds={selectedLayerIds}
@@ -1920,14 +1923,14 @@ export function Timeline({
                   )}
                 </div>
               ))}
-              <div className="grid min-h-4 flex-1" style={{ gridTemplateColumns: `${HEADER_COL_PX}px ${widthPx}px` }}>
+              <div className="grid min-h-4 flex-1" style={{ gridTemplateColumns: `${headerColPx}px ${widthPx}px` }}>
                 <div data-testid="timeline-track-header-background" className="sticky left-0 z-10 border-r border-border bg-card" />
                 <div data-testid="timeline-track-background" onPointerDown={(e) => beginMarquee(marqueeAnchor, "clip", e)}>
                   {orderedTracks.length === 0 && <EmptyHint mode={displayMode} />}
                 </div>
               </div>
               <div ref={canvasRef} data-testid="timeline-canvas" className="pointer-events-none absolute inset-y-0"
-                style={{ left: HEADER_COL_PX, width: widthPx }}>
+                style={{ left: headerColPx, width: widthPx }}>
                 {bladePreview && (
                   <BladeCutPreview
                     x={(bladePreview.atUs / 1_000_000) * pxPerSec}

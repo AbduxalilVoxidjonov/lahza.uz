@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { Dialog, DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { XIcon } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 
 interface AppDialogProps {
   /// Rendered as the <h2> inside <header> that the legacy panel CSS
@@ -87,7 +88,7 @@ export function AppDialog({
                 // name is what a screen reader reads twice.
                 aria-label={t("modal.close")}
               >
-                <XIcon size={16} aria-hidden />
+                <AppIcon icon={XIcon} size="heading" aria-hidden />
               </button>
             )}
           </header>

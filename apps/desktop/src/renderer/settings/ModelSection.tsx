@@ -9,6 +9,7 @@ import { DialogDescription } from "@/components/ui/dialog";
 import { AppDialog } from "../components/AppDialog";
 import { canSwitchModel, ModelPicker } from "./ModelPicker";
 import { ModelEditor } from "./ModelEditor";
+import { AppIcon } from "@/components/AppIcon";
 
 type Panel = { kind: "add" } | { kind: "editor"; id: string; mode: "prepare" | "edit" | "new"; backend?: ModelBackend };
 export function modelSize(bytes: number): string {
@@ -156,7 +157,7 @@ export function ModelSection({ family, onError }: { family: ModelFamily; onError
       {/* Between the two cards the arrow says what the setup card is for: the
           model below takes the place of the one above. The cards' own headings
           already carry that in text, so it stays out of the accessible tree. */}
-      <div className="settings-model-swap" aria-hidden="true"><ArrowUpDown size={14} /></div>
+      <div className="settings-model-swap" aria-hidden="true"><AppIcon icon={ArrowUpDown} size="title" /></div>
       <div className="settings-model-card settings-model-candidate">
         <strong>{t("models.setup_model", { name: name(editor) })}</strong>
         {actions(editor, false)}

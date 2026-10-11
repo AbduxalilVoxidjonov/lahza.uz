@@ -899,7 +899,7 @@
   color: var(--color-gray-500);
   /* Optically center the captions on the 16px slider control row, not on
    * the control + tick-labels column they flank. */
-  line-height: 16px;
+  line-height: calc(16 * var(--ui-px));
 }
 
 .settings-resolution-track {
@@ -955,7 +955,7 @@
 .settings-model-section { display: flex; flex-direction: column; gap: calc(12 * var(--ui-px)); }
 .settings-model-selector { display: flex; align-items: center; gap: calc(12 * var(--ui-px)); }
 .settings-model-selector .app-select { flex: 1; min-width: 0; }
-.settings-model-card { border: 1px solid var(--border); border-radius: 8px; padding: calc(16 * var(--ui-px)); display: flex; flex-direction: column; gap: calc(12 * var(--ui-px)); }
+.settings-model-card { border: 1px solid var(--border); border-radius: var(--radius-panel); padding: calc(16 * var(--ui-px)); display: flex; flex-direction: column; gap: calc(12 * var(--ui-px)); }
 .settings-model-card-header { display: flex; align-items: center; flex-wrap: wrap; gap: calc(8 * var(--ui-px)); }
 .settings-model-card-header strong { font-size: var(--font-size-body); margin-right: auto; }
 .settings-model-state { margin: 0; font-size: var(--font-size-caption); color: var(--muted-foreground); }
@@ -987,7 +987,7 @@
 .settings-model-adapters { display: flex; flex-direction: column; gap: calc(10 * var(--ui-px)); }
 .settings-model-adapters > button { justify-content: space-between; height: auto; min-height: calc(44 * var(--ui-px)); }
 .settings-model-adapters > button > span { color: var(--muted-foreground); }
-.settings-model-confirm { border: 1px solid var(--border); border-radius: 6px; padding: calc(14 * var(--ui-px)); font-size: var(--font-size-label); }
+.settings-model-confirm { border: 1px solid var(--border); border-radius: var(--radius-card); padding: calc(14 * var(--ui-px)); font-size: var(--font-size-label); }
 .settings-model-confirm p { margin: calc(10 * var(--ui-px)) 0; }
 .settings-model-address { margin: 0; font-size: var(--font-size-caption); color: var(--muted-foreground); overflow-wrap: anywhere; }
 .settings-model-summary .settings-toggle-hint { margin: 0; }
@@ -1002,7 +1002,7 @@
   right: calc(20 * var(--ui-px));
   bottom: calc(20 * var(--ui-px));
   z-index: var(--layer-status-panel);
-  width: min(calc(380 * var(--ui-px)), calc(100vw - 40px));
+  width: min(calc(380 * var(--ui-px)), calc(100vw - 40px)); /* fixed-px: viewport gutter */;
   padding: calc(16 * var(--ui-px));
   font-size: var(--font-size-body);
   line-height: 1.5;

@@ -19,6 +19,7 @@ import {
 import { reveal as revealInShell } from "@/bridge/shell";
 import { AppInput } from "../components/AppInput";
 import { Button } from "@/components/ui/button";
+import { AppIcon } from "@/components/AppIcon";
 
 const REFRESH_INTERVAL_MS = 1000;
 const MASKED_TOKEN = "••••••••••••••••";
@@ -421,7 +422,7 @@ export function AgentSection() {
         title={label}
         aria-label={label}
       >
-        {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
+        {copied ? <AppIcon icon={CheckIcon} size="body" /> : <AppIcon icon={CopyIcon} size="body" />}
       </Button>
     );
   };
@@ -468,7 +469,7 @@ export function AgentSection() {
           onClick={() => void retrySkill()}
           disabled={retryingSkill}
         >
-          <RotateCcwIcon size={13} />
+          <AppIcon icon={RotateCcwIcon} size="label" />
           {retryingSkill
             ? t("connect.skill_retrying")
             : t("connect.skill_retry")}
@@ -486,7 +487,7 @@ export function AgentSection() {
         title={revealed ? t("connect.hide") : t("connect.reveal")}
         aria-label={revealed ? t("connect.hide") : t("connect.reveal")}
       >
-        {revealed ? <EyeOffIcon size={12} /> : <EyeIcon size={12} />}
+        {revealed ? <AppIcon icon={EyeOffIcon} size="body" /> : <AppIcon icon={EyeIcon} size="body" />}
       </Button>
     </div>
   );
@@ -527,7 +528,7 @@ export function AgentSection() {
           disabled={refreshing}
           title={t("connect.refresh_hint")}
         >
-          <RotateCcwIcon size={13} />
+          <AppIcon icon={RotateCcwIcon} size="label" />
           {refreshing ? t("connect.refreshing") : t("connect.refresh")}
         </Button>
       </div>
@@ -545,9 +546,9 @@ export function AgentSection() {
         <div className="settings-key-input-row">
           <Button size="sm" onClick={() => void copySetupPrompt()}>
             {copiedKey === "prompt" ? (
-              <CheckIcon size={13} />
+              <AppIcon icon={CheckIcon} size="label" />
             ) : (
-              <CopyIcon size={13} />
+              <AppIcon icon={CopyIcon} size="label" />
             )}
             {copiedKey === "prompt"
               ? t("connect.prompt_copied")
@@ -646,9 +647,9 @@ export function AgentSection() {
               aria-expanded={httpOpen}
             >
               {httpOpen ? (
-                <ChevronDownIcon size={13} />
+                <AppIcon icon={ChevronDownIcon} size="label" />
               ) : (
-                <ChevronRightIcon size={13} />
+                <AppIcon icon={ChevronRightIcon} size="label" />
               )}
               {t("connect.http_heading")}
             </Button>

@@ -272,7 +272,7 @@ test("the Quick Actions grip drags the strip, which takes its axis from where it
 
 /**
  * The bar's thickness is not the user's to drag: the strip's Group is held to
- * `STRIP_THICKNESS` across its short axis, which leaves the splitter beside it
+ * `UI_METRICS.dock.stripThickness` across its short axis, which leaves the splitter beside it
  * with nothing to give and so inert.
  *
  * Only a real grid can show this. The cap is a Dockview constraint, and whether

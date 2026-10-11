@@ -21,7 +21,7 @@ import { useTranslation } from "react-i18next";
 import { formatTimecode } from "../frames";
 import type { LayerParamsView } from "../ipc";
 import { useUiScale } from "../settings/layoutTheme";
-import { layerSliceRect, MIN_TRACK_HEIGHT } from "./geometry";
+import { layerSliceRect, minTrackHeightPx } from "./geometry";
 import { timelineLayerTheme } from "./layerTheme";
 import {
   placementRefuses,
@@ -66,8 +66,8 @@ const GHOST_HEAD_CAP_COLOR = "rgb(255 255 255 / 0.92)";
 /// Derived, not chosen. It is the smallest band a LANE can produce, so the rule
 /// it expresses is "a lane labels its ghost, the drop strip cannot" — with no
 /// height in between for the two to disagree about, and no constant to drift out
-/// of step with `MIN_TRACK_HEIGHT`.
-const LABEL_MIN_HEIGHT_PX = layerSliceRect(MIN_TRACK_HEIGHT, "full").height;
+/// of step with the minimum track height. Both follow the layout theme.
+const labelMinHeightPx = (): number => layerSliceRect(minTrackHeightPx(), "full").height;
 
 /// The band a ghost occupies in a row, in that ROW's own coordinates — a caller
 /// positioned elsewhere adds its own origin.
@@ -138,7 +138,8 @@ export function DragGhostChip({
       : validity === "locked"
         ? t("timeline.drop_locked", { defaultValue: "Locked" })
         : null;
-  const labelled = height >= LABEL_MIN_HEIGHT_PX * useUiScale();
+  useUiScale();
+  const labelled = height >= labelMinHeightPx();
   const timecodes = `${formatTimecode(tStartUs, fpsNum, fpsDen)} → ${formatTimecode(tEndUs, fpsNum, fpsDen)}`;
   return (
     <div

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import { type TrackSummary } from "../../ipc";
 import {
   DEFAULT_PX_PER_SEC,
-  HEADER_COL_PX,
+  headerColumnPx,
   MAX_PX_PER_SEC,
   MIN_PX_PER_SEC_FLOOR,
   clamp,
@@ -14,6 +14,7 @@ import {
   zoomedScrollLeft,
 } from "../zoom";
 import { wheelPixels } from "../wheelScroll";
+import { useUiScale } from "../../settings/layoutTheme";
 import {
   loadViewState,
   noteTabZoom,
@@ -27,7 +28,7 @@ import {
 /// tick arriving before the ResizeObserver's re-measure has committed still
 /// anchors against the lane the user is actually looking at.
 function laneWidthPx(root: HTMLDivElement): number {
-  return root.clientWidth - HEADER_COL_PX;
+  return root.clientWidth - headerColumnPx();
 }
 
 /// One timeline Panel's view state: its own zoom (px/sec) and scroll, plus the
@@ -63,6 +64,7 @@ export function useTimelineView(opts: {
   const { compositionId, rootRef, eventRef = rootRef, tracks, durationUs } = opts;
   const [pxPerSec, setPxPerSec] = useState<number>(DEFAULT_PX_PER_SEC);
   const [trackHeights, setTrackHeights] = useState<Record<string, number>>({});
+  const uiScale = useUiScale();
   // Track ids whose keyframe sub-lanes are expanded. Persisted to view.json.
   const [expandedTracks, setExpandedTracks] = useState<Set<string>>(new Set());
   const [viewportWidthPx, setViewportWidthPx] = useState(0);
@@ -133,7 +135,7 @@ export function useTimelineView(opts: {
     const root = rootRef.current;
     if (!root) return;
     const measure = () => {
-      setViewportWidthPx(Math.max(0, root.clientWidth - HEADER_COL_PX));
+      setViewportWidthPx(Math.max(0, root.clientWidth - headerColumnPx()));
     };
     measure();
     const observer =
@@ -144,7 +146,8 @@ export function useTimelineView(opts: {
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [rootRef]);
+    // The header column follows the layout theme without resizing the root.
+  }, [rootRef, uiScale]);
   useEffect(() => {
     pxPerSecRef.current = pxPerSec;
   }, [pxPerSec]);
@@ -227,7 +230,7 @@ export function useTimelineView(opts: {
       // the anchor by definition, wherever it is. Over the header column it
       // reads negative, which anchors a time just left of the lane — and that
       // is the honest answer for a gesture the user aimed there.
-      const cursorXInViewport = e.clientX - rect.left - HEADER_COL_PX;
+      const cursorXInViewport = e.clientX - rect.left - headerColumnPx();
       // deltaMode varies by device — normalise lines/pages to pixels before
       // computing the zoom factor. Shared with the scroll gesture's mapping
       // (`timeline/wheelScroll.ts`) so a notch means the same travel in both.

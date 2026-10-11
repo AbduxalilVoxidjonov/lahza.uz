@@ -5,6 +5,7 @@ import { setScaleLinked, type LayerSummary } from "../ipc";
 import { SCALE, SCALE_X, SCALE_Y } from "../keyframe/descriptors";
 import { InspectorAnimField } from "./InspectorAnimField";
 import { InspectorRow } from "./InspectorRow";
+import { AppIcon } from "@/components/AppIcon";
 
 /// The scale block every transform-bearing section renders: ONE "Scale" row
 /// either way — a single field + closed chain while linked, the X and Y axes
@@ -44,7 +45,7 @@ export function ScaleFields({
         );
       }}
     >
-      {scaleLinked ? <Link2 size={12} aria-hidden /> : <Link2Off size={12} aria-hidden />}
+      {scaleLinked ? <AppIcon icon={Link2} size="body" aria-hidden /> : <AppIcon icon={Link2Off} size="body" aria-hidden />}
     </button>
   );
   const axes = scaleLinked

@@ -16,15 +16,14 @@ import {
   Type,
 } from "lucide-react";
 import { getAudioEffect } from "../../shared/audioEffects/catalog";
-import { useUiScale } from "../settings/layoutTheme";
+import { uiPixels, useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 import { TEXT_NAME_MAX, textSnippet } from "../../shared/textSnippet";
 import { adjacentFrameBoundaryUs, formatTimecode } from "../frames";
 import { groupDisplayName, layerDisplayName } from "../lib/layerName";
 import { AppInput } from "../components/AppInput";
 import {
-  HEADER_COL_PX,
-  LAYER_FULL_LABEL_MIN_PX,
-  LAYER_LABEL_MIN_PX,
+  headerColumnPx,
   linkHue,
   keyframeHitTest,
   keyframeXWithinClip,
@@ -83,6 +82,7 @@ import {
 import { timelineLayerTheme } from "./layerTheme";
 import { placementRefuses, previewTrackId } from "./placement";
 import { useLayerDragFor, type DragKind, type DragSeed } from "./layerDragStore";
+import { AppIcon } from "@/components/AppIcon";
 
 export interface PendingLayerPlacement {
   layerId: string;
@@ -94,8 +94,10 @@ export interface PendingLayerPlacement {
   tEndUs: number;
 }
 
+const CLIP_LABEL = UI_METRICS.timeline.clipLabel;
+
 const LAYER_ICON_PROPS = {
-  size: 10,
+  size: "micro",
   strokeWidth: 2,
   "aria-hidden": true,
 } as const;
@@ -177,7 +179,7 @@ function GroupMarkerBadge({
         openComposition(compositionId, layerId);
       }}
     >
-      <Flag size={9} strokeWidth={2.5} aria-hidden="true" />
+      <AppIcon icon={Flag} size="fine" strokeWidth={2.5} aria-hidden="true" />
       {count}
     </button>
   );
@@ -262,22 +264,22 @@ function shortLayerLabel(label: string): string {
 function LayerKindIcon({ kind }: { kind: LayerSummary["params"]["kind"] }) {
   switch (kind) {
     case "VideoClip":
-      return <Film {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={Film} {...LAYER_ICON_PROPS} />;
     case "Audio":
-      return <AudioWaveform {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={AudioWaveform} {...LAYER_ICON_PROPS} />;
     case "ImageOverlay":
-      return <ImageIcon {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={ImageIcon} {...LAYER_ICON_PROPS} />;
     case "Text":
-      return <Type {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={Type} {...LAYER_ICON_PROPS} />;
     case "Motif":
-      return <Sparkles {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={Sparkles} {...LAYER_ICON_PROPS} />;
     case "Color":
-      return <Palette {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={Palette} {...LAYER_ICON_PROPS} />;
     // The one glyph that names a container rather than a medium — the same
     // `Group` lucide gives the strip's Group button, so the button and the clip
     // it makes carry one mark.
     case "CompositionRef":
-      return <GroupIcon {...LAYER_ICON_PROPS} />;
+      return <AppIcon icon={GroupIcon} {...LAYER_ICON_PROPS} />;
   }
 }
 
@@ -537,18 +539,17 @@ export function LayerBlock({
     (dragPreviewTrackId !== null && dragPreviewTrackId !== trackId) ||
     (isPendingPlacement && pendingPlacement.trackId !== trackId);
 
-  // Edge-hover trim: pointerdown within EDGE_ZONE_PX of the layer's
+  // Edge-hover trim: pointerdown within the trim edge zone of the layer's
   // left/right edge dispatches trim-start/trim-end; everywhere else
   // dispatches a move. The zone clamps to a third of the chip's width
   // so the two edges never overlap on a narrow clip.
-  const EDGE_ZONE_PX = 6;
   const [edgeHover, setEdgeHover] = useState<"left" | "right" | null>(null);
 
   const edgeZoneFor = (
     clientX: number,
     rect: DOMRect,
   ): "left" | "right" | null => {
-    const zone = Math.min(EDGE_ZONE_PX, Math.floor(rect.width / 3));
+    const zone = Math.min(uiPixels(UI_METRICS.timeline.trimEdgeZone), Math.floor(rect.width / 3));
     if (zone <= 0) return null;
     const rel = clientX - rect.left;
     if (rel < zone) return "left";
@@ -699,8 +700,12 @@ export function LayerBlock({
 
   const layerWidthPx = Math.max(width, 4);
   const uiScale = useUiScale();
-  const showLabel = layerWidthPx >= LAYER_LABEL_MIN_PX * uiScale;
-  const showFullAffordances = layerWidthPx > LAYER_FULL_LABEL_MIN_PX * uiScale;
+  const showLabel = layerWidthPx >= UI_METRICS.timeline.layerLabelMin * uiScale;
+  const showFullAffordances = layerWidthPx > UI_METRICS.timeline.layerFullLabelMin * uiScale;
+  const labelCap = showFullAffordances ? CLIP_LABEL.maxWidth : CLIP_LABEL.compactMaxWidth;
+  const labelReserve = !locked
+    ? CLIP_LABEL.edgeReserve
+    : layer.kind === "Motif" ? CLIP_LABEL.lockedReserveMotif : CLIP_LABEL.lockedReserve;
   const visibleLabel = showFullAffordances ? label : shortLayerLabel(label);
   const layerTheme = timelineLayerTheme(layer.params.kind, layer.color_hint);
 
@@ -968,10 +973,10 @@ export function LayerBlock({
           title={lockHint}
           // Reserve the rightmost column for the lock. Stay inside the clip
           // and below its selection border, including short A/V half-slices.
-          className="pointer-events-none absolute right-[3px] top-[3px] z-[2] flex items-center justify-center overflow-hidden rounded-sm bg-black/65 text-amber-200/70 transition-colors data-[emphasized=true]:bg-amber-400 data-[emphasized=true]:text-black"
+          className="pointer-events-none absolute right-[calc(3*var(--ui-px))] top-[calc(3*var(--ui-px))] z-[2] flex items-center justify-center overflow-hidden rounded-sm bg-black/65 text-amber-200/70 transition-colors data-[emphasized=true]:bg-amber-400 data-[emphasized=true]:text-black"
           style={{ width: Math.max(0, Math.min(14, layerWidthPx - 8)), height: Math.max(0, Math.min(14, sliceHeight - 8)) }}
         >
-          <Lock size={10} className="max-h-full max-w-full shrink-0" aria-hidden="true" />
+          <AppIcon icon={Lock} size="micro" className="max-h-full max-w-full shrink-0" aria-hidden="true" />
         </span>
       )}
       {isSelected && !dragIsInvalid && !previewOnly && (
@@ -1102,11 +1107,11 @@ export function LayerBlock({
       {showLinkGlyph && (
         <span
           data-testid="link-glyph"
-          className="pointer-events-none absolute left-[3px] top-1/2 z-[1] -translate-y-1/2"
+          className="pointer-events-none absolute left-[calc(3*var(--ui-px))] top-1/2 z-[1] -translate-y-1/2"
           style={{ color: `hsl(${linkHueValue} 75% 72% / ${linkAccentAlpha})` }}
           aria-hidden="true"
         >
-          <Link2 size={10} strokeWidth={2} />
+          <AppIcon icon={Link2} size="micro" strokeWidth={2} />
         </span>
       )}
       {linkTab !== null && linkHueValue !== null && !previewOnly && (
@@ -1136,7 +1141,7 @@ export function LayerBlock({
           // Width pinned inline because .app-input's width:100% would beat a
           // `w-40` utility class.
           className="sticky z-[2]"
-          style={{ left: HEADER_COL_PX + 4, width: "10rem", maxWidth: "100%" }}
+          style={{ left: headerColumnPx() + uiPixels(CLIP_LABEL.headerInset), width: "10rem", maxWidth: "100%" }}
           value={draft}
           // Named only when it is the composition-name editor: the two editors
           // share this slot, and "Group name" on a clip's own label field would
@@ -1158,7 +1163,7 @@ export function LayerBlock({
             }
           }}
         />
-      ) : showLabel && sliceHeight >= 10 * uiScale + 2 ? (
+      ) : showLabel && sliceHeight >= (CLIP_LABEL.line + CLIP_LABEL.slack) * uiScale ? (
         <span
           // Sticky so the label stays readable while scrolling a long clip:
           // it pins just past the sticky track-header column and slides along
@@ -1166,14 +1171,13 @@ export function LayerBlock({
           // width (capped) so it can actually slide; clips itself with ellipsis.
           className="sticky z-[2] flex items-center gap-1 overflow-hidden text-ellipsis whitespace-nowrap rounded-sm bg-gradient-to-r from-black/65 via-black/40 to-transparent py-1 pl-1.5 pr-3 text-[length:var(--font-size-micro)] leading-none text-white"
           style={{
-            left: HEADER_COL_PX + 4,
+            left: headerColumnPx() + uiPixels(CLIP_LABEL.headerInset),
             maxHeight: "100%",
-            paddingBlock: Math.max(0, Math.min(4 * uiScale, (sliceHeight - 10 * uiScale - 2) / 2)),
-            maxWidth: locked
-              ? `min(calc(100% - ${layer.kind === "Motif" ? 36 : 24}px), ${(showFullAffordances ? 240 : 120) * uiScale}px)`
-              : showFullAffordances
-              ? "min(calc(100% - 8px), calc(240 * var(--ui-px)))"
-              : "min(calc(100% - 8px), calc(120 * var(--ui-px)))",
+            paddingBlock: Math.max(0, Math.min(
+              CLIP_LABEL.padding * uiScale,
+              (sliceHeight - (CLIP_LABEL.line + CLIP_LABEL.slack) * uiScale) / 2,
+            )),
+            maxWidth: `min(calc(100% - ${labelReserve * uiScale}px), ${labelCap * uiScale}px)`,
           }}
         >
           <span

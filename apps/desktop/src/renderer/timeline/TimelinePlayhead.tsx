@@ -8,7 +8,8 @@ import {
   timelineScrollLeftPx,
   useTimelineScrollStore,
 } from "../state/timelineScrollStore";
-import { HEADER_COL_PX, playheadFrameShadowPx } from "./geometry";
+import { headerColumnPx, playheadFrameShadowPx } from "./geometry";
+import { useUiScale } from "../settings/layoutTheme";
 
 /** One overlay spans the timeline shell, so the head, line, gradient and frame
  * shadow are painted once. It clips at the time area's edges, ignores pointer
@@ -27,6 +28,7 @@ export function TimelinePlayhead({
   fpsDen: number;
   visible: boolean;
 }) {
+  useUiScale(); // header column offset
   const axisRef = useRef<HTMLDivElement>(null);
   const lineRef = useRef<HTMLDivElement>(null);
   const shadowRef = useRef<HTMLDivElement>(null);
@@ -62,7 +64,7 @@ export function TimelinePlayhead({
     <div
       data-testid="timeline-playhead-overlay"
       className="pointer-events-none absolute inset-y-0 right-0 z-20 overflow-hidden"
-      style={{ left: HEADER_COL_PX }}
+      style={{ left: headerColumnPx() }}
     >
       <div ref={axisRef} className="absolute inset-0"
         style={{ transform: `translateX(${-timelineScrollLeftPx(compositionId)}px)` }}>

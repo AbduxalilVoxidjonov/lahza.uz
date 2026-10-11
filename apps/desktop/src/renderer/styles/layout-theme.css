@@ -7,6 +7,7 @@
   /* Shared logical UI unit for constraints, controls, spacing and chrome.
    * Keep world-space preview/timeline geometry in actual CSS pixels. */
   --ui-px: calc(1px * var(--layout-font-scale));
+  /* Baseline until JS applies the theme: UI_METRICS.dock.stripThickness. */
   --layout-strip-thickness: 44px;
   --font-size-fine: calc(9px * var(--layout-font-scale));
   --font-size-micro: calc(10px * var(--layout-font-scale));
@@ -17,6 +18,15 @@
   --font-size-heading: calc(16px * var(--layout-font-scale));
   --font-size-display: calc(22px * var(--layout-font-scale));
   --font-size-hero: calc(28px * var(--layout-font-scale));
+  /* Icon roles pair with the text role of the same name (components/AppIcon). */
+  --icon-size-fine: calc(9 * var(--ui-px));
+  --icon-size-micro: calc(10 * var(--ui-px));
+  --icon-size-caption: calc(11 * var(--ui-px));
+  --icon-size-body: calc(12 * var(--ui-px));
+  --icon-size-label: calc(13 * var(--ui-px));
+  --icon-size-title: calc(14 * var(--ui-px));
+  --icon-size-heading: calc(16 * var(--ui-px));
+  --icon-size-display: calc(22 * var(--ui-px));
   --line-height-tight: 1.2;
   --line-height-body: 1.4;
   /* Inherited UI text and rem-based controls follow the same preset. */
@@ -41,6 +51,17 @@
 /* Last-resort containment also covers content-sized prompts. Inner scrolling
  * remains owned by each dialog's body. This includes all portal dialogs. */
 .app-dialog {
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
+  max-width: calc(100vw - 32px); /* fixed-px: viewport gutter */
+  max-height: calc(100vh - 32px); /* fixed-px: viewport gutter */
 }
+
+/* AppIcon roles. Single-class specificity, so a context rule may still adjust a
+ * glyph, but sizing an icon should go through its role instead. */
+.app-icon-fine { width: var(--icon-size-fine); height: var(--icon-size-fine); }
+.app-icon-micro { width: var(--icon-size-micro); height: var(--icon-size-micro); }
+.app-icon-caption { width: var(--icon-size-caption); height: var(--icon-size-caption); }
+.app-icon-body { width: var(--icon-size-body); height: var(--icon-size-body); }
+.app-icon-label { width: var(--icon-size-label); height: var(--icon-size-label); }
+.app-icon-title { width: var(--icon-size-title); height: var(--icon-size-title); }
+.app-icon-heading { width: var(--icon-size-heading); height: var(--icon-size-heading); }
+.app-icon-display { width: var(--icon-size-display); height: var(--icon-size-display); }

@@ -22,6 +22,7 @@ import { AgentPanel } from "./AgentPanel";
 import { Button } from "@/components/ui/button";
 import { WindowControls } from "../components/WindowControls";
 import { useUiScale } from '../settings/layoutTheme';
+import { UI_METRICS } from '../settings/uiMetrics';
 
 /// Lightweight viewing layout, selected locally or on a new MCP work session.
 /// Switching back to the editor does not end work or release the undo lock.
@@ -39,18 +40,16 @@ interface AgentModeProps {
   onExit: () => void;
 }
 
-/// Record-panel width bounds (px).
-const RECORD_WIDTH_DEFAULT = 360;
-const RECORD_WIDTH_MIN = 280;
-const RECORD_WIDTH_MAX = 720;
+/// Record-panel width bounds, in baseline units (UI_METRICS.agent).
+const AGENT = UI_METRICS.agent;
 
 function clampRecordWidth(width: number, viewportWidth: number, scale: number): number {
-  // Keep at least 480 px for the preview column so the video never
-  // collapses to a sliver on narrow windows.
-  const min = Math.min(RECORD_WIDTH_MIN * scale, viewportWidth * 0.45);
+  // Keep the preview column's minimum width so the video never collapses to
+  // a sliver on narrow windows.
+  const min = Math.min(AGENT.recordWidth.min * scale, viewportWidth * 0.45);
   const max = Math.max(
     min,
-    Math.min(RECORD_WIDTH_MAX * scale, viewportWidth - 480 * scale),
+    Math.min(AGENT.recordWidth.max * scale, viewportWidth - AGENT.previewMinWidth * scale),
   );
   return Math.round(Math.min(max, Math.max(min, width)));
 }
@@ -69,7 +68,7 @@ export const AgentMode = forwardRef(function AgentMode(
   // project-wide fields (layer_count, history).
   const comp = useOpenComposition();
   const scale = useUiScale();
-  const [recordWidthBase, setRecordWidth] = useState(RECORD_WIDTH_DEFAULT);
+  const [recordWidthBase, setRecordWidth] = useState<number>(AGENT.recordWidth.default);
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   useEffect(() => {
     const resize = () => setViewportWidth(window.innerWidth);

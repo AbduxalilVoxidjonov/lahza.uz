@@ -20,8 +20,8 @@
 }
 
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: calc(8 * var(--ui-px));
+  height: calc(8 * var(--ui-px));
 }
 
 *::-webkit-scrollbar-track {
@@ -118,7 +118,7 @@ input.preview-timecode {
   border: 1px solid var(--border-on-dark);
   border-radius: var(--radius-control);
   color: var(--foreground);
-  padding: 1px 4px;
+  padding: 1px calc(4 * var(--ui-px));
   outline: none;
   width: 13ch;
 }

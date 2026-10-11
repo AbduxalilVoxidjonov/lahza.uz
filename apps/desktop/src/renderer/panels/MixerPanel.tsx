@@ -18,6 +18,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useUiScale } from "../settings/layoutTheme";
+import { UI_METRICS } from "../settings/uiMetrics";
 import { AppNumberField } from "../components/AppNumberField";
 import { AppSlider } from "../components/AppSlider";
 import { tryMutate } from "../errors/tryMutate";
@@ -41,6 +42,7 @@ import {
   clearRoleGainOverride,
   setRoleGainOverride,
 } from "../render/audio/roleGainOverrides";
+import { AppIcon } from "@/components/AppIcon";
 
 // Role gain range and step mirror the per-layer GAIN_DB descriptor so the mixer
 // and the inspector agree on the same scale. 0 dB is the neutral/unity value the
@@ -68,13 +70,13 @@ const UNITY_TICK_FRACTION = gainFraction(NEUTRAL_GAIN_DB);
 /// ticks on purpose: it is the line all four faders share.
 const DB_SCALE_TICKS = [20, 10, 0, -10, -20, -30];
 
-// Root width at or above which the Panel is a console. It is the console's own
+// Root width at or above which the Panel is a console
+// (UI_METRICS.mixerConsoleMinWidth, in baseline units). It is the console's own
 // floor, and it is arithmetic rather than an estimate because `editor.css` pins
 // every console column: four 66px Role strips, the 58px master strip, the 26px
 // dB gutter, five 4px gaps and the Panel's own 12px inset on each side. Below
 // it the card list is the only layout that fits, and the card list is legible
 // all the way down to `TOOL_MINIMUM`'s 240px, so there is no third branch.
-const CONSOLE_LAYOUT_MIN_WIDTH = 392;
 
 // The fill scale every meter on the Panel reads: -60 dBFS is the visual floor
 // (0% fill) and 0 dBFS is full scale, for the master output and the per-Role
@@ -110,7 +112,7 @@ function MixerFlagButton({ active, activeClass, label, onToggle, children }: {
       aria-label={label}
       aria-pressed={active}
       onClick={onToggle}
-      className={`inline-flex size-[18px] items-center justify-center rounded-[4px] text-[length:var(--font-size-fine)] font-semibold transition-colors ${
+      className={`inline-flex size-[calc(18*var(--ui-px))] items-center justify-center rounded-[4px] text-[length:var(--font-size-fine)] font-semibold transition-colors ${
         active ? activeClass : "text-muted-foreground/60 hover:bg-secondary hover:text-foreground"
       }`}
     >
@@ -326,9 +328,9 @@ function RoleResetButton({ roleLabel, onReset }: {
       title={label}
       aria-label={label}
       onClick={onReset}
-      className="inline-flex size-[18px] items-center justify-center rounded-[4px] text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
+      className="inline-flex size-[calc(18*var(--ui-px))] items-center justify-center rounded-[4px] text-muted-foreground/60 transition-colors hover:bg-secondary hover:text-foreground"
     >
-      <RotateCcwIcon size={11} />
+      <AppIcon icon={RotateCcwIcon} size="caption" />
     </button>
   );
 }
@@ -380,7 +382,7 @@ function RoleChannel({ role, mix, silencedBySolo, onMutated }: RoleControlProps)
       onKeyDown={gain.cancelOnEscape}
     >
       <div className="mixer-card-head">
-        <Glyph className="mixer-role-glyph" size={13} aria-hidden />
+        <AppIcon icon={Glyph} className="mixer-role-glyph" size="label" aria-hidden />
         <span className="mixer-role-name">{roleLabel}</span>
         <GainReadout
           label={t("mixer.gain_db", { role: roleLabel })}
@@ -441,7 +443,7 @@ function RoleStrip({ role, mix, silencedBySolo, onMutated }: RoleControlProps) {
       onKeyDown={gain.cancelOnEscape}
     >
       <div className="mixer-strip-head">
-        <Glyph className="mixer-role-glyph" size={13} aria-hidden />
+        <AppIcon icon={Glyph} className="mixer-role-glyph" size="label" aria-hidden />
         <span className="mixer-role-name">{roleLabel}</span>
       </div>
       <div className="mixer-strip-fader">
@@ -737,7 +739,7 @@ export function RoleMixerPanel({ onMutated, visible = true }: RoleMixerPanelProp
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
-  const layout: MixerLayout = width >= CONSOLE_LAYOUT_MIN_WIDTH * scale ? "console" : "cards";
+  const layout: MixerLayout = width >= UI_METRICS.mixerConsoleMinWidth * scale ? "console" : "cards";
 
   // The per-Role tap samples fast enough to read as a meter, so it runs only
   // while someone is looking at it: a Panel nobody has open spends no frame

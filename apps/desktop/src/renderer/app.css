@@ -122,7 +122,7 @@
        LANDMINE: src/main/index.ts derives trafficLightPosition.y from this same
        number ((H - 14) / 2). Change one, recompute the other — the e2e
        window-chrome spec fails if they drift apart. */
-    --app-chrome-height: max(42.5px, env(titlebar-area-height, 0px));
+    --app-chrome-height: max(42.5px, env(titlebar-area-height, 0px)); /* fixed-px: window chrome */
 
     /* Spacing between the items a caption bar carries (search box, locale
        toggle, agent-mode's exit pill). The caption buttons add 4px of their own
@@ -131,7 +131,7 @@
        whichever surface it is on. Horizontal counterpart to
        --app-chrome-height: the three bars share the rhythm, not just the
        height. */
-    --app-chrome-gap: 12px;
+    --app-chrome-gap: 12px; /* fixed-px: window chrome */
 
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);

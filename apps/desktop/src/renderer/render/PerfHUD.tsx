@@ -36,6 +36,7 @@ import {
   PERF_MONITOR_WINDOW_LABEL,
   PERF_MONITOR_WINDOW_OPENED_EVENT,
 } from "./performanceMonitorWindow";
+import { AppIcon } from "@/components/AppIcon";
 
 interface TelemetryProps {
   /// Live Compositor ref. The HUD calls `getPerfSnapshot()` on it.
@@ -346,7 +347,7 @@ function PerfDashboard({
           title="Reset peaks"
           aria-label="Reset performance peaks"
         >
-          <RotateCcwIcon size={13} aria-hidden="true" />
+          <AppIcon icon={RotateCcwIcon} size="label" aria-hidden="true" />
         </button>
       </header>
 

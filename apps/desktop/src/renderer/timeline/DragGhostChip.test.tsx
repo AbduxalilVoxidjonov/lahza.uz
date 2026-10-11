@@ -9,9 +9,9 @@ import {
   GHOST_HEAD_CAP_PX,
 } from "./DragGhostChip";
 import {
-  DEFAULT_TRACK_HEIGHT,
+  trackHeightPx,
   DROP_STRIP_HEIGHT_PX,
-  MIN_TRACK_HEIGHT,
+  minTrackHeightPx,
   layerSliceRect,
 } from "./geometry";
 import { SPAWN_TRACK_ID, type PlacementValidity } from "./placement";
@@ -53,16 +53,16 @@ describe("dragGhostBand", () => {
       top: 0,
       height: DROP_STRIP_HEIGHT_PX,
     });
-    expect(dragGhostBand(DEFAULT_TRACK_HEIGHT, "t-1")).toEqual(
-      layerSliceRect(DEFAULT_TRACK_HEIGHT, "full"),
+    expect(dragGhostBand(trackHeightPx(), "t-1")).toEqual(
+      layerSliceRect(trackHeightPx(), "full"),
     );
   });
 
   it("labels every lane band and no strip band, with no height in between", () => {
-    // The threshold is derived from `MIN_TRACK_HEIGHT`, so the split falls
+    // The threshold is derived from `minTrackHeightPx()`, so the split falls
     // exactly on lane-versus-strip: there is no row height at which the two
     // surfaces could disagree about whether a ghost carries text.
-    const smallestLane = mountChip(dragGhostBand(MIN_TRACK_HEIGHT, "t-1"));
+    const smallestLane = mountChip(dragGhostBand(minTrackHeightPx(), "t-1"));
     expect(smallestLane.textContent).toContain("Beach");
     cleanup();
 
@@ -75,7 +75,7 @@ describe("dragGhostBand", () => {
 
   it("wears the refusal a lane wears, and drops the badge with the label", () => {
     const lane = mountChip(
-      dragGhostBand(DEFAULT_TRACK_HEIGHT, "t-1"),
+      dragGhostBand(trackHeightPx(), "t-1"),
       "collision",
     );
     expect(lane.textContent).toContain("Overlap");
@@ -105,7 +105,7 @@ describe("dragGhostBand", () => {
   it("marks the head, at the landing itself and through a refusal", () => {
     // The head is the number a drop SENDS; every other edge is derived from it.
     // A uniformly bordered box says none of that, which is why the cap exists.
-    const lane = mountChip(dragGhostBand(DEFAULT_TRACK_HEIGHT, "t-1"));
+    const lane = mountChip(dragGhostBand(trackHeightPx(), "t-1"));
     expect(lane.style.borderLeftWidth).toBe(`${GHOST_HEAD_CAP_PX}px`);
     // `border-box`, so the cap grows inward and its OUTER edge is still the
     // landing time — 1 s at 80 px/s. A cap that pushed the box right would put
@@ -117,7 +117,7 @@ describe("dragGhostBand", () => {
     // is a shorthand, so it has to be assigned ABOVE the cap's longhands — below
     // them, this assertion is what fails.
     const refused = mountChip(
-      dragGhostBand(DEFAULT_TRACK_HEIGHT, "t-1"),
+      dragGhostBand(trackHeightPx(), "t-1"),
       "collision",
     );
     expect(refused.style.borderLeftColor).toBe("rgba(255, 255, 255, 0.92)");
@@ -129,7 +129,7 @@ describe("dragGhostBand", () => {
     // and the label too — every part of a ghost that has to read as a crisp line
     // over a dark lane. This is the assertion that a fix for "the edge is hard to
     // see" cannot be undone by reaching for `opacity` again.
-    const lane = mountChip(dragGhostBand(DEFAULT_TRACK_HEIGHT, "t-1"));
+    const lane = mountChip(dragGhostBand(trackHeightPx(), "t-1"));
     expect(lane.style.opacity).toBe("");
     expect(lane.style.backgroundColor).toContain("color-mix");
   });

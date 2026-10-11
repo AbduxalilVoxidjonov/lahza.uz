@@ -33,6 +33,7 @@ import {
   TRANSITION_DIRECTIONS,
   type TransitionKindName,
 } from "../timeline/transitions";
+import { AppIcon } from "@/components/AppIcon";
 
 // Direction glyphs are per KIND: a wipe's boundary sweeps (plain arrow), a
 // slide's incoming capture travels (arrow with a tail line). Both depict the
@@ -148,7 +149,7 @@ export function TransitionsPanel({
                     )
                   }
                 >
-                  <card.icon size={16} aria-hidden="true" />
+                  <AppIcon icon={card.icon} size="heading" aria-hidden="true" />
                   <span className="text-xs">
                     {card.direction
                       ? t(`transitions.direction_${card.direction}`)

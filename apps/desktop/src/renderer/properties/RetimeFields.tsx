@@ -17,6 +17,7 @@ import type { RetimeTarget } from '../../shared/timeMapping';
 
 import { planRetime, type RetimeClip } from '../retimePlan';
 import { gridForLayerKind } from '../grid';
+import { AppIcon } from "@/components/AppIcon";
 
 export function RetimeFields({ layer, disabled, onMutated, fpsNum, fpsDen }: {
   layer: LayerSummary; disabled: boolean; onMutated: () => void | Promise<void>;
@@ -184,7 +185,7 @@ export function RetimeFields({ layer, disabled, onMutated, fpsNum, fpsDen }: {
         <Button size="icon-xs" variant="ghost" aria-label={t('retime.reset')} title={t('retime.reset')}
           disabled={disabled || busy}
           onClick={() => void apply({ kind: 'Rate', value: { num: 1, den: 1 } })}>
-          <RotateCcwIcon size={12} aria-hidden="true" />
+          <AppIcon icon={RotateCcwIcon} size="body" aria-hidden="true" />
         </Button>
       </Field>
     </div>

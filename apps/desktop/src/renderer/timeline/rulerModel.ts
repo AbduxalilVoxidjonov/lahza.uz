@@ -7,6 +7,7 @@ import {
   timeUsAtFrame,
 } from "../frames";
 import { formatRulerLabel } from "./geometry";
+import { UI_METRICS } from "../settings/uiMetrics";
 
 /// View model for the two rows that measure TIME rather than content — the
 /// ruler's ticks and the marker lane's glyphs — for one (rate, zoom, viewport)
@@ -35,8 +36,6 @@ const NICE_STEPS_SEC = [
   0.1, 0.2, 0.5, 1, 2, 5, 10, 30, 60, 120, 300, 600,
 ] as const;
 const NICE_STEPS_FRAMES = [1, 2, 5, 10, 30] as const;
-const TARGET_MAJOR_PX = 100;
-const TARGET_MAJOR_PX_FRAME_MODE = 80;
 const SUBDIVISIONS = 5;
 const FRAME_MODE_THRESHOLD_PX = 12;
 const US_PER_SEC = 1_000_000;
@@ -119,7 +118,7 @@ export interface RulerModelInput {
   /// Painted row extent in seconds (`computeTimelineExtent().totalSec`).
   totalSec: number;
   /// Row-local px offset of the visible lane area's left edge. The sticky
-  /// track-header column covers the first `HEADER_COL_PX` of the scroll
+  /// track-header column covers the first `headerColumnPx()` of the scroll
   /// viewport, which makes the scroll root's `scrollLeft` exactly this offset —
   /// the same identity `registerScrollToTime` centres a time with.
   scrollLeftPx: number;
@@ -172,7 +171,7 @@ export function computeRulerModel(input: RulerModelInput): RulerModel {
     // assign any element of NICE_STEPS_FRAMES below.
     let stride: number = NICE_STEPS_FRAMES[0]!;
     for (let i = NICE_STEPS_FRAMES.length - 1; i >= 0; i--) {
-      if (NICE_STEPS_FRAMES[i]! * pxPerFrame >= TARGET_MAJOR_PX_FRAME_MODE * (input.uiScale ?? 1)) {
+      if (NICE_STEPS_FRAMES[i]! * pxPerFrame >= UI_METRICS.timeline.rulerMajorSpacingFrameMode * (input.uiScale ?? 1)) {
         stride = NICE_STEPS_FRAMES[i]!;
       }
     }
@@ -208,7 +207,7 @@ export function computeRulerModel(input: RulerModelInput): RulerModel {
     return { mode: "frame", ticks, majorSec: 0, strideFrames: stride };
   }
 
-  const targetSec = TARGET_MAJOR_PX * (input.uiScale ?? 1) / pxPerSec;
+  const targetSec = UI_METRICS.timeline.rulerMajorSpacing * (input.uiScale ?? 1) / pxPerSec;
   let major = NICE_STEPS_SEC[NICE_STEPS_SEC.length - 1] ?? 1;
   for (const s of NICE_STEPS_SEC) {
     if (s >= targetSec) {
