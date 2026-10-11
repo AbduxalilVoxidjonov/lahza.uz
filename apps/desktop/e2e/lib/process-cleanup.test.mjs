@@ -7,6 +7,20 @@ import os from 'node:os'
 import path from 'node:path'
 import { ownProcessTree, closeProcessTree } from './process-cleanup.mjs'
 
+test('owned process output cannot block work or graceful shutdown', { timeout: 5000 }, async () => {
+  const child = spawn(process.execPath, ['-e', `
+    const fs = require('node:fs');
+    const output = Buffer.alloc(1024 * 1024, 'x');
+    fs.writeSync(1, output);
+    fs.writeSync(2, output);
+  `], { detached: process.platform !== 'win32', stdio: ['ignore', 'pipe', 'pipe'] })
+  const owner = ownProcessTree(child)
+  try {
+    await closeProcessTree(owner, () => owner.reaped, 2000)
+    assert.equal(child.exitCode, 0)
+  } finally { owner.force() }
+})
+
 test('blocked graceful close kills descendants that retain the leader stdio', { timeout: 5000 }, async () => {
   const program = `
     const {spawn} = require('node:child_process');

@@ -9,12 +9,14 @@ function processGroup(pid) {
 /** Capture ownership while the leader is alive. Electron is detached on POSIX;
  * its isolated group survives leader exit while children still hold pipes. */
 export function ownProcessTree(child) {
+  // Keep output flowing even when no caller prints it. A full pipe can block
+  // Electron/native work and then prevent the same process from quitting.
+  child.stdout?.resume()
+  child.stderr?.resume()
   const pid = child.pid
   const group = process.platform === 'win32' || !pid ? null : processGroup(pid)
   const workerGroup = process.platform === 'win32' ? null : processGroup(process.pid)
   const isolated = group === pid && workerGroup !== null && group !== workerGroup
-  console.log('[DEBUG-ci-shutdown] ownership', { pid, group, workerGroup, isolated })
-  child.once('exit', (code, signal) => console.log('[DEBUG-ci-shutdown] exit', { pid, code, signal }))
   let closed = false
   const killOwnedGroup = () => {
     if (!isolated || workerGroup === group) return
@@ -35,8 +37,6 @@ export function ownProcessTree(child) {
   return {
     reaped,
     force() {
-      console.log('[DEBUG-ci-shutdown] force', { pid, closed, exitCode: child.exitCode, signalCode: child.signalCode })
-      if (process.platform !== 'win32') console.log('[DEBUG-ci-shutdown] processes', spawnSync('ps', ['-axo', 'pid=,ppid=,pgid=,rss=,comm='], { encoding: 'utf8', timeout: 1000 }).stdout)
       if (!pid || closed) return
       if (process.platform === 'win32') {
         spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 })
