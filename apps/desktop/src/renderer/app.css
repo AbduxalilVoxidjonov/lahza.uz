@@ -133,6 +133,14 @@
        height. */
     --app-chrome-gap: 12px; /* fixed-px: window chrome */
 
+    /* Distance from a caption bar's outer edge to its first/last item. The
+       left edge always takes it (or the macOS traffic-light band, whichever is
+       wider); the right edge takes it only on macOS, where no caption buttons
+       fill that corner — off macOS the buttons sit flush against the window
+       edge instead. One number so the editor header, the startup strip, agent
+       mode and the perf HUD all leave the same margin. */
+    --app-chrome-inset: 16px; /* fixed-px: window chrome */
+
     --background: oklch(1 0 0);
     --foreground: oklch(0.145 0 0);
     --card: oklch(1 0 0);

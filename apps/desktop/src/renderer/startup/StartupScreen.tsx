@@ -216,19 +216,21 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
         {/* Top-left app-level affordances: settings apply below-project
             scope, so they're reachable before a workspace exists. The
             locale toggle + caption buttons stay on the right. */}
-        <button
-          type="button"
-          className="startup-settings-toggle"
-          onClick={() => setSettingsOpen(true)}
-          title={t("settings.heading")}
-          aria-label={t("settings.heading")}
-        >
-          <AppIcon icon={SettingsIcon} size="heading" strokeWidth={1.5} aria-hidden />
-        </button>
-        <button type="button" className="startup-report-toggle"
-          onClick={() => setReportOpen(true)} title={t('help.report_issue')} aria-label={t('help.report_issue')}>
-          <AppIcon icon={BugIcon} size="heading" strokeWidth={1.5} aria-hidden />
-        </button>
+        <div className="startup-titlebar-actions">
+          <button
+            type="button"
+            className="startup-settings-toggle"
+            onClick={() => setSettingsOpen(true)}
+            title={t("settings.heading")}
+            aria-label={t("settings.heading")}
+          >
+            <AppIcon icon={SettingsIcon} size="heading" strokeWidth={1.5} aria-hidden />
+          </button>
+          <button type="button" className="startup-report-toggle"
+            onClick={() => setReportOpen(true)} title={t('help.report_issue')} aria-label={t('help.report_issue')}>
+            <AppIcon icon={BugIcon} size="heading" strokeWidth={1.5} aria-hidden />
+          </button>
+        </div>
         <button
           type="button"
           className="startup-locale-toggle"

@@ -9,7 +9,16 @@
 .window-controls {
   display: flex;
   align-self: stretch;
-  margin: -8px -16px -8px 4px; /* fixed-px: window chrome */
+  margin: -8px calc(-1 * var(--app-chrome-inset)) -8px 4px; /* fixed-px: window chrome */
+}
+
+/* macOS: WindowControls renders nothing and the traffic lights sit on the
+ * LEFT, so the bars that count on the caption buttons to fill their right
+ * corner would leave their last item flush against the window edge. Give
+ * them the shared inset there instead — the same margin .app-header keeps
+ * through its own padding. */
+html.platform-mac :is(.startup-titlebar, .agent-titlebar, .perf-titlebar) {
+  padding-right: var(--app-chrome-inset);
 }
 
 .window-control {
@@ -338,7 +347,7 @@
   /* Keep the settings button clear of the traffic lights. Mirrors .app-header:
      Chromium's own safe-content edge, which also restores itself as the
      leave-fullscreen animation starts rather than after it finishes. */
-  padding-left: env(titlebar-area-x, 0px);
+  padding-left: max(var(--app-chrome-inset), env(titlebar-area-x, var(--app-chrome-inset)));
   user-select: none;
   z-index: 10;
 }
@@ -350,15 +359,21 @@
   margin: 0 0 0 4px; /* fixed-px: window chrome */
 }
 
-/* Top-left settings entry. The titlebar is justify-content: flex-end (the
- * locale toggle + caption buttons cluster right), so margin-right: auto
- * pins this one to the left edge. Borderless: the icon itself is the
- * button — no pill chrome. */
+/* Top-left app-level entries (settings, issue report). The titlebar is
+ * justify-content: flex-end (the locale toggle + caption buttons cluster
+ * right), so margin-right: auto pins the group to the left edge. The icons
+ * sit close together as one cluster — the bar's --app-chrome-gap separates
+ * groups, not the buttons inside one. */
+.startup-titlebar-actions {
+  display: flex;
+  align-items: center;
+  gap: calc(4 * var(--ui-px));
+  margin-right: auto;
+}
+
+/* Borderless: the icon itself is the button — no pill chrome. */
 .startup-settings-toggle,
 .startup-report-toggle {
-  align-self: center;
-  margin-right: auto;
-  margin-left: calc(8 * var(--ui-px));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -374,12 +389,6 @@
 .startup-settings-toggle:hover,
 .startup-report-toggle:hover {
   color: var(--foreground);
-}
-
-/* Settings and reporting form one left-aligned group. Only the last button
-   supplies the flexible gap before the locale picker. */
-.startup-settings-toggle:has(+ .startup-report-toggle) {
-  margin-right: 0;
 }
 
 .startup-locale-toggle {

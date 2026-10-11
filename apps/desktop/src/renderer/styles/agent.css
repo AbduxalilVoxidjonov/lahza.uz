@@ -58,6 +58,9 @@
   display: flex;
   align-items: stretch;
   justify-content: flex-end;
+  /* The bar rhythm sits BETWEEN items, so on macOS — no caption buttons — the
+     exit pill ends at the shared right inset rather than a trailing gap. */
+  gap: var(--app-chrome-gap);
   background: var(--background);
   user-select: none;
 }
@@ -76,7 +79,6 @@
   align-self: center;
   height: calc(22 * var(--ui-px));
   padding-block: 0;
-  margin-right: var(--app-chrome-gap);
 }
 
 /* This row has no padding for the negative margins to cancel — but keep the
