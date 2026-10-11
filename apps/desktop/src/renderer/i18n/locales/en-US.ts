@@ -105,8 +105,6 @@ const enUS = {
       "Transition": "This change would invalidate an existing transition.",
       "Collision": "The new duration overlaps another clip. Shorten it or increase the rate."
     },
-    "sampling": "Frame sampling",
-    "sampling_hint": "Preview and export use frame sampling. Frame blending and optical flow are not available.",
     "rate": "Speed",
     "duration": "Target duration",
     "reset": "Reset to 1×",
@@ -131,32 +129,29 @@ const enUS = {
   models: {
     current_label: "Current model", none_selected: "None", none_active: "No model selected",
     switch_hint: "Select a model to switch automatically. Downloads and first-time setup require an extra step.",
-    switching: "Switching to {{name}}…", switch_failed: "Could not switch to {{name}}.", still_using: "Still using {{name}}.",
     needs_download: "Download required…", needs_configuration: "Setup required…", setup_model: "Set up {{name}}",
-    custom: "Custom", add_model: "Add custom model…", manage: "Model library…", edit_model: "Model settings…",
+    custom: "Custom", add_model: "Add custom model…", edit_model: "Model settings…",
     custom_type_hint: "Choose the adapter that matches your model or service.",
-    add_use: "Add and use", save_use: "Save and use", configure_use: "Configure and use", done: "Done",
+    add_use: "Add and use", configure_use: "Configure and use",
     files_missing: "Local files are missing. Check the model settings.",
-    model: "Model", local: "Local", online: "Online", online_model: "Online model",
-    current: "In use", current_model: "In use: {{name}}", ready: "Ready", not_verified: "Not verified", not_downloaded: "Not downloaded",
+    local: "Local", online: "Online", online_model: "Online model",
+    current: "In use", ready: "Ready", not_verified: "Not verified", not_downloaded: "Not downloaded",
     downloading: "Preparing downloads…", verifying: "Checking model…", error: "Preparation failed",
     needs_components: "A Windows runtime component is required", installing_components: "Installing runtime components…",
     install_components: "Install runtime components", download_size: "Download: {{size}}", unsupported: "Automatic downloads are unavailable on this platform. Add a custom model with compatible local files.",
     cpu_state: "Verified on CPU · Processing may be slower", online_notice: "Saving or using sends a small test request that may incur a charge. Processing sends media to this service.",
-    download_use: "Download and use", verify_use: "Verify and use", use: "Use", configure: "Configure model", retry: "Retry", cancel: "Cancel",
-    advanced: "Advanced settings", customized: "Customized", name: "Custom model name", runtime: "Runtime adapter",
-    device_auto: "Automatic (blank); cpu or a device identifier", restore: "Restore automatic configuration", add_custom: "Save as custom model",
+    download_use: "Download and use", retry: "Retry", cancel: "Cancel",
+    name: "Custom model name",
+    device_auto: "Automatic (blank); cpu or a device identifier", restore: "Restore automatic configuration",
     custom_identity: "Changing a built-in model’s files or endpoint creates a named custom model. The built-in configuration is kept.",
     remove: "Remove custom entry", confirm_remove: "Confirm removal",
     empty_hint: "Choose a model from the list when you need it. Models are downloaded only after you confirm.",
     edit: "Edit",
-    library_hint: "View saved models, edit configurations and free up downloaded storage. Browsing does not change the current model.",
     editor_hint: "Configuration is checked before saving. Closing this window keeps any preparation running.",
     save: "Save settings",
     add_only: "Add without selecting",
     download_save: "Download and save",
     details: "View progress",
-    back_library: "Back to model library",
     clear_downloads: "Clear downloads",
     clear_hint: "Remove this model’s app-managed downloads. Shared files needed by other models and files you selected yourself are kept.",
     remove_hint: "Remove this custom configuration and its saved API key. Local files are kept.",
@@ -391,8 +386,6 @@ const enUS = {
     canvas: "{{width}}×{{height}} · {{fps}}",
     fps_simple: "{{fps}}fps",
     fps_rational: "{{fps}}fps",
-    tracks_one: "{{count}} track",
-    tracks_other: "{{count}} tracks",
     duration: "{{value}}",
     derivatives_pending_one: "Generating {{count}} derivative…",
     derivatives_pending_other: "Generating {{count}} derivatives…",
@@ -849,11 +842,6 @@ const enUS = {
     describe_all_described: "Every shot in this list already has a description",
     describe_running: "A description is already running",
     describe_sweep_running: "A shot-by-shot description pass is already running",
-    // The tool's own precondition, said before the press: sampling maps window
-    // time onto source time with no speed factor, so a re-timed clip's segments
-    // would be stamped at source times its frames never show.
-    describe_speed_not_one:
-      "Split off a speed-1 segment first — a re-timed clip cannot be described",
   },
   actions: {
     add_color_layer: "Color clip",
@@ -1067,8 +1055,6 @@ const enUS = {
     missing_hint: "Source file not found: {{path}}",
     proxy_pending: "Preparing…",
     proxy_pending_hint: "Preview is being prepared…",
-    proxy_failed: "Preview failed",
-    proxy_failed_hint: "Preview could not be prepared. Re-import to retry.",
     optimizing: "Optimizing in background",
     optimizing_hint:
       "Editable now · optimized media is building in the background; export waits for it automatically.",
@@ -1223,18 +1209,11 @@ const enUS = {
     rename_track_label: "Rename {{label}}",
     enable_layer: "Enable clip",
     disable_layer: "Disable clip",
-    // The row's label when the toggle fans out across the link: the count says
-    // what one click will touch. `_one` never renders (a fan-out is ≥ 2) but
-    // completes the plural pair.
-    enable_linked_layers_one: "Enable {{count}} linked clip",
     enable_layers_one: "Enable {{count}} clip",
     enable_layers_other: "Enable {{count}} clips",
     disable_layers_one: "Disable {{count}} clip",
     disable_layers_other: "Disable {{count}} clips",
     enabled_tracks_locked: "Unlock the affected clips and tracks to enable or disable them",
-    enable_linked_layers_other: "Enable {{count}} linked clips",
-    disable_linked_layers_one: "Disable {{count}} linked clip",
-    disable_linked_layers_other: "Disable {{count}} linked clips",
     bake_dot_queued: "Pre-bake queued",
     bake_dot_paused: "Pre-bake paused",
     bake_dot_retrying: "Retrying pre-bake",
@@ -1522,19 +1501,12 @@ const enUS = {
   }
 },
   agent_mode: {
-    client_label: "Agent: {{client}}",
     exit: "Exit to editor",
     exit_hint: "Return to the full editor. The work session and undo lock remain unchanged.",
-    empty_waiting: "Waiting for agent…",
     restore: "Restore",
-    restoring: "Restoring…",
     restore_hint: "Revert the project to this checkpoint — the restore is undoable.",
-    restore_locked_hint: "Locked by agent: {{reason}}",
-    lock_hint: "Undo is locked. Use Unlock undo in the agent panel to release it.",
     running_pill: "Agent: {{count}} running",
     running_pill_hint: "Agent operations are still finishing in the background.",
-    restored_to: "Restored to \"{{label}}\"",
-    manual_reason: "Manual session",
     resize_record_panel: "Resize record panel",
   },
   errors: {
@@ -1994,7 +1966,6 @@ const enUS = {
     pin_composition_duration_hint:
       "Holds it at the value below. Can only be set ≥ {{floor}} (content end).",
     composition_duration_label: "Duration",
-    composition_duration_invalid: "Invalid timecode.",
     composition_duration_below_floor: "Must be ≥ {{floor}} (content end).",
     duration_wall_clock:
       "This rate is non-drop-frame: {{tc}} is {{wall}} of real time.",
@@ -2021,64 +1992,22 @@ const enUS = {
     decode_unsupported_generate_proxy: "Generate proxy",
     keybindings_blurb:
       "Manage your keyboard shortcut configuration table.",
-    configured: "Configured",
-    not_configured: "Not configured",
     placeholder_set: "Replace key…",
     placeholder_unset: "Paste API key",
-    save: "Save",
-    saving: "Saving…",
-    clear: "Clear",
-    clearing: "Clearing…",
-    saved: "Saved!",
-    cleared: "Cleared!",
-    test: "Test",
-    testing: "Testing…",
-    test_hint:
-      "Run a cheap API call to confirm the saved key works. Surfaces InvalidKey / rate-limit errors before your first cloud-backed agent call.",
     speech_blurb:
       "Turn speech in audio and video into text for subtitles and media search. Supports local models and online services.",
-    speech_engine: "Transcription engine",
-    speech_engine_auto: "Automatic",
-    speech_engine_soon: "coming soon",
-    speech_engine_active: "Active engine: {{engine}}",
-    speech_engine_none:
-      "No engine configured — add an API key or a local engine's binary + model below.",
-    speech_available: "Available",
-    speech_needs_key: "Needs API key",
-    speech_needs_binary: "Needs binary",
-    speech_needs_model: "Needs model",
     speech_binary: "Binary",
-    speech_binary_placeholder: "Path to the engine CLI (e.g. whisper-cli)",
     speech_model: "Model",
-    speech_model_placeholder: "Path to the model file (e.g. ggml-base.bin)",
     speech_tokens: "Tokens",
-    speech_tokens_placeholder: "Path to tokens.txt (FunASR / sherpa-onnx)",
     speech_device: "Device",
-    speech_device_placeholder: "optional (e.g. cpu, cuda)",
     speech_threads: "Threads",
     speech_browse: "Browse…",
-    speech_pick_binary: "Choose the engine binary",
-    speech_pick_model: "Choose the model file",
-    speech_pick_tokens: "Choose the tokens file",
-    speech_test_hint:
-      "Check the binary runs and the model file is present, without transcribing anything.",
-    speech_test_unsaved_hint:
-      "Save the paths first — Test checks the saved configuration.",
-    speech_exact_words: "exact word timing",
-    speech_exact_words_hint:
-      "This engine reports precise per-word timestamps itself; cloud Whisper approximates them from subtitle cue spans.",
     vlm_blurb:
       "Describe video frames to help AI understand and search your media. Supports local models and online services.",
-    vlm_engine: "Video-understanding engine",
-    vlm_engine_auto: "Automatic",
-    vlm_engine_soon: "coming soon",
-    vlm_engine_active: "Active engine: {{engine}}",
-    vlm_engine_none:
-      "No engine configured — download or point to a local engine below, or add an OpenAI-compatible endpoint.",
     // Named for what it controls rather than for the wire field (`fps`): what a
     // user is choosing is how closely the model looks — so the unit has to ride
     // in the row, beside the number, or nothing on screen says what the count
-    // counts. (`vlm_sampling_hint` below is not rendered anywhere today.)
+    // counts.
     vlm_sampling: "Sample",
     vlm_sampling_unit: "fps",
     vlm_sampling_hint:
@@ -2093,28 +2022,9 @@ const enUS = {
     // two would leave a language switch looking like lost data.
     vlm_view_note:
       "Descriptions are cached per engine, model, sampling, focus and interface language. Changing any of them switches to another description view and keeps the existing one — switch back and it is there.",
-    vlm_privacy_note:
-      "Frames are only ever sent to an engine you configure. Automatic prefers on-device engines and reaches an endpoint last; asking for a specific engine never falls back to a different one.",
-    vlm_available: "Available",
-    vlm_needs_binary: "Needs binary",
-    vlm_needs_model: "Needs model",
-    vlm_needs_endpoint: "Needs endpoint URL",
-    vlm_binary: "Binary",
-    vlm_binary_placeholder: "Path to llama-mtmd-cli",
-    vlm_model: "Model",
-    vlm_model_placeholder: "Path to the model GGUF",
     vlm_mmproj: "Projector",
-    vlm_mmproj_placeholder: "Path to the mmproj GGUF (required for vision)",
-    vlm_pick_binary: "Choose the llama-mtmd-cli binary",
-    vlm_pick_model: "Choose the model GGUF",
-    vlm_pick_mmproj: "Choose the mmproj (vision projector) GGUF",
     vlm_endpoint_url: "URL",
-    vlm_endpoint_url_placeholder:
-      "http://localhost:8080/v1/chat/completions",
     vlm_endpoint_model: "Model",
-    vlm_endpoint_model_placeholder: "Model name the server serves",
-    vlm_endpoint_key: "API key",
-    vlm_endpoint_key_placeholder: "optional — only if the server requires one",
     content_whisper_runtime: "whisper.cpp engine (v1.9.1)",
     content_whisper_model_base: "Whisper Base model (multilingual)",
     content_funasr_runtime: "sherpa-onnx engine (v1.13.4)",
@@ -2931,10 +2841,6 @@ const enUS = {
     // linear on a logarithmic quantity, so one step of it is 6 dB at the bottom
     // of the range and 0.4 dB at the top. The section converts.
     db: "{{db}} dB",
-    // The two ends say what the directions MEAN. A dB number is a referent only
-    // to someone who already knows the room.
-    threshold_low: "true silence only",
-    threshold_high: "allow room noise",
     // Measured from the clip's own peaks, which is what makes Auto worth a
     // button: it knows something about this recording that the user does not.
     noise_floor: "Noise floor ≈ {{db}} dB",

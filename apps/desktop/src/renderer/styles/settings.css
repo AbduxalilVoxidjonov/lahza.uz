@@ -966,7 +966,7 @@
 .settings-model-section > .settings-blurb, .settings-model-section > .settings-toggle-hint { margin: 0; }
 .settings-model-dialog { width: min(var(--dialog-width-model), calc(100vw - calc(40 * var(--ui-px)))); max-width: calc(100vw - calc(40 * var(--ui-px))); max-height: min(var(--dialog-height-model), calc(100vh - calc(64 * var(--ui-px)))); overflow: hidden; }
 .settings-model-dialog-body { overflow-y: auto; display: flex; flex-direction: column; gap: calc(16 * var(--ui-px)); padding: calc(18 * var(--ui-px)); font-size: var(--font-size-body); }
-.settings-model-summary > strong, .settings-analysis-options > strong { font-size: var(--font-size-label); }
+.settings-model-summary > strong { font-size: var(--font-size-label); }
 .settings-model-editor, .settings-model-fields { display: flex; flex-direction: column; gap: calc(14 * var(--ui-px)); min-width: 0; }
 .settings-model-editor .settings-slider-label { min-width: calc(100 * var(--ui-px)); }
 .settings-model-editor .settings-key-input-row > input { min-width: 0; flex: 1; }

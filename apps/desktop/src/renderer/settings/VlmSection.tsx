@@ -28,20 +28,29 @@ function DescribeSettings({ onError }: { onError(msg: string): void }) {
     finally { setBusy(false); }
   };
   return <section className="settings-section settings-model-fields settings-analysis-options">
-    <strong>{t("models.analysis_options")}</strong>
+    <h3>{t("models.analysis_options")}</h3>
     {/* Narrowed from the field's default full-row width so the unit lands next
         to the digits rather than at the far edge of the panel — a rate of at
         most 30 needs no more room than the export dialog's Mbps fields. */}
-    <div className="settings-key-input-row"><span className="settings-slider-label">{t("settings.vlm_sampling")}</span>
-      <AppNumberField value={fps} min={VLM_DESCRIBE_FPS_MIN} max={VLM_DESCRIBE_FPS_MAX} step={VLM_DESCRIBE_FPS_STEP}
-        className="settings-input-narrow"
-        disabled={busy} ariaLabel={t("settings.vlm_sampling")} onValueChange={setFps} onCommit={value => { void save({ fps: value }); }} />
-      <span className="settings-slider-unit">{t("settings.vlm_sampling_unit")}</span>
+    <div>
+      <div className="settings-key-input-row"><span className="settings-slider-label">{t("settings.vlm_sampling")}</span>
+        <AppNumberField value={fps} min={VLM_DESCRIBE_FPS_MIN} max={VLM_DESCRIBE_FPS_MAX} step={VLM_DESCRIBE_FPS_STEP}
+          className="settings-input-narrow"
+          disabled={busy} ariaLabel={t("settings.vlm_sampling")} onValueChange={setFps} onCommit={value => { void save({ fps: value }); }} />
+        <span className="settings-slider-unit">{t("settings.vlm_sampling_unit")}</span>
+      </div>
+      <p className="settings-toggle-hint">{t("settings.vlm_sampling_hint")}</p>
     </div>
-    <div className="settings-key-input-row"><span className="settings-slider-label">{t("settings.vlm_focus")}</span>
-      <AppSelect value={focus} disabled={busy} ariaLabel={t("settings.vlm_focus")}
-        options={[{ value: "general", label: t("settings.vlm_focus_general") }, { value: "shot-type", label: t("settings.vlm_focus_shot_type") }]}
-        onValueChange={value => void save({ focus: value as VlmDescribeFocus })} />
+    <div>
+      <div className="settings-key-input-row"><span className="settings-slider-label">{t("settings.vlm_focus")}</span>
+        <AppSelect value={focus} disabled={busy} ariaLabel={t("settings.vlm_focus")}
+          options={[{ value: "general", label: t("settings.vlm_focus_general") }, { value: "shot-type", label: t("settings.vlm_focus_shot_type") }]}
+          onValueChange={value => void save({ focus: value as VlmDescribeFocus })} />
+      </div>
+      <p className="settings-toggle-hint">{t("settings.vlm_focus_hint")}</p>
     </div>
+    {/* Without this, changing any input to the description cache reads as the
+        old descriptions vanishing — they are kept, under another view. */}
+    <p className="settings-toggle-hint">{t("settings.vlm_view_note")}</p>
   </section>;
 }
