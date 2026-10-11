@@ -20,6 +20,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MCP_TOOL_DEFS } from '../mcp-commands'
+import { EXPORT_TOOL_DEFS } from '../../mcp/exportTools'
 import { MOTIF_TOOL_DEFS, MOTIF_RESOURCE_DEFS } from '../../mcp/motifToolDefs'
 import { HOST_RESOURCE_DEFS } from '../../mcp/hostResources'
 
@@ -40,6 +41,7 @@ const toolNames = new Set([
   ...rust.tools.map((t) => t.name),
   ...MCP_TOOL_DEFS.map((d) => d.name),
   ...MOTIF_TOOL_DEFS.map((d) => d.name),
+  ...EXPORT_TOOL_DEFS.map(d => d.name),
 ])
 const resourceUris = new Set([
   ...rust.resources.map((r) => r.uri),
@@ -53,6 +55,7 @@ const promptNames = new Set(rust.prompts.map((p) => p.name))
 // Every entry must occur in the sources (pruned below) and must never collide
 // with a live tool name (checked below).
 const KNOWN_NON_TOOLS = new Set([
+  'request_id', 'awaiting_retry', 'output_path', 'filename',
   // SKILL.md — tool params
   'pad_us', 't_start_us', 'segments', 'word_timing', 'source_us', 'playback_rate', 'time_fraction', 't_local_us', 'preset_id', 'src_out_us',
   // SKILL.md — fields of a mutator's committed record (mcp-results.ts)

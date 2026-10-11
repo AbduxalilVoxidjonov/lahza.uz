@@ -1,5 +1,6 @@
 //! Shared preview/export renderer. Every scope stretches once. Child role stems
 //! are mixed before a Group's pitch policy is applied; role gain stays outside.
+use super::fx::{check_cancelled, Cancellation};
 use super::{
     conform_reader::ConformReader,
     envelope::{sample_gain, sample_pan, Envelope},
@@ -82,7 +83,9 @@ async fn stretch(
     src_out: i64,
     duration: i64,
     dir: &Path,
+    cancel: &Cancellation,
 ) -> Result<PathBuf> {
+    check_cancelled(cancel)?;
     stretch_window(
         source,
         timing,
@@ -90,6 +93,7 @@ async fn stretch(
         timing.source_end(src_out),
         duration,
         dir,
+        cancel,
     )
     .await
 }
@@ -101,7 +105,9 @@ async fn stretch_window(
     end_us: f64,
     duration: i64,
     dir: &Path,
+    cancel: &Cancellation,
 ) -> Result<PathBuf> {
+    check_cancelled(cancel)?;
     let frames = us_to_frame(duration).max(0) as u64;
     let start = start_us / 1e6;
     let end = end_us / 1e6;
@@ -117,15 +123,16 @@ async fn stretch_window(
                 layers: Vec::new(),
             };
             let target = dest.clone();
-            tokio::task::spawn_blocking(move || write_mix(empty, &target)).await??;
+            let cancel = cancel.clone();
+            tokio::task::spawn_blocking(move || write_mix(empty, &target, &cancel)).await??;
         } else {
-            super::fx::render(source, &graph, &dest, Some(frames)).await?;
+            super::fx::render_cancellable(source, &graph, &dest, Some(frames), cancel).await?;
         }
     }
     Ok(dest)
 }
 
-fn write_mix(plan: MixPlan, dest: &Path) -> Result<()> {
+fn write_mix(plan: MixPlan, dest: &Path, cancel: &Cancellation) -> Result<()> {
     use crate::jobs::conform::{CONFORM_FORMAT_VERSION, CONFORM_SAMPLE_RATE, MAGIC};
     let tmp = crate::cache::claim_temp(dest)?;
     let result = (|| -> Result<()> {
@@ -142,6 +149,7 @@ fn write_mix(plan: MixPlan, dest: &Path) -> Result<()> {
             .collect::<Result<Vec<_>>>()?;
         let mut at = 0;
         while at < plan.window_end_frame {
+            check_cancelled(cancel)?;
             let n = MIX_BLOCK_FRAMES.min((plan.window_end_frame - at) as usize);
             let mut samples = vec![0.0; n * 2];
             mix_block(&plan, &mut readers, at, n, &mut samples)?;
@@ -168,8 +176,10 @@ fn composition<'a>(
     dir: &'a Path,
     signature: &'a str,
     depth: usize,
+    cancel: &'a Cancellation,
 ) -> Pin<Box<dyn Future<Output = Result<Vec<Stem>>> + Send + 'a>> {
     Box::pin(async move {
+        check_cancelled(cancel)?;
         anyhow::ensure!(depth <= 32, "audio composition nesting exceeds 32");
         let comp = project
             .composition(&id)
@@ -195,9 +205,16 @@ fn composition<'a>(
                             .get(&layer.id)
                             .or(media.conform_path.as_ref())
                             .context("audio conform or effect bake not ready")?;
-                        let path =
-                            stretch(source, &p.timing, p.src_in_us, p.src_out_us, duration, dir)
-                                .await?;
+                        let path = stretch(
+                            source,
+                            &p.timing,
+                            p.src_in_us,
+                            p.src_out_us,
+                            duration,
+                            dir,
+                            cancel,
+                        )
+                        .await?;
                         roles.entry(p.role).or_default().push(MixLayer {
                             label: layer.id.to_string(),
                             conform_path: path,
@@ -222,6 +239,7 @@ fn composition<'a>(
                             dir,
                             signature,
                             depth + 1,
+                            cancel,
                         )
                         .await?
                         {
@@ -232,6 +250,7 @@ fn composition<'a>(
                                 p.timing.content_time(p.src_in_us, duration as f64),
                                 duration,
                                 dir,
+                                cancel,
                             )
                             .await?;
                             roles.entry(child.role).or_default().push(MixLayer {
@@ -263,7 +282,8 @@ fn composition<'a>(
                     layers,
                 };
                 let dest = path.clone();
-                tokio::task::spawn_blocking(move || write_mix(plan, &dest)).await??;
+                let cancel = cancel.clone();
+                tokio::task::spawn_blocking(move || write_mix(plan, &dest, &cancel)).await??;
             }
             stems.push(Stem {
                 role,
@@ -280,10 +300,21 @@ pub async fn prepare(
     id: Uuid,
     overrides: &HashMap<Uuid, PathBuf>,
 ) -> Result<Vec<Stem>> {
+    prepare_cancellable(project, id, overrides, None).await
+}
+pub async fn prepare_cancellable(
+    project: &Project,
+    id: Uuid,
+    overrides: &HashMap<Uuid, PathBuf>,
+    cancel: Cancellation,
+) -> Result<Vec<Stem>> {
     // Concurrent preview/export requests share immutable files. Serialize cache
     // publication; a cancelled request releases this lock and ffmpeg on drop.
     static LOCK: OnceLock<tokio::sync::Mutex<()>> = OnceLock::new();
-    let _guard = LOCK.get_or_init(Default::default).lock().await;
+    let _guard = tokio::select! {
+        _ = super::fx::cancelled(&cancel) => anyhow::bail!("export cancelled"),
+        guard = LOCK.get_or_init(Default::default).lock() => guard,
+    };
     let Some(dir) = project
         .media_pool
         .values()
@@ -294,7 +325,7 @@ pub async fn prepare(
     let signature_project = project.clone();
     let sorted: std::collections::BTreeMap<_, _> = overrides.iter().collect();
     let signature = digest(&(2, &signature_project, sorted))?;
-    composition(project, id, overrides, dir, &signature, 0).await
+    composition(project, id, overrides, dir, &signature, 0, &cancel).await
 }
 
 pub fn stem_plan(project: &Project, stems: Vec<Stem>, window: Option<(i64, i64)>) -> MixPlan {
@@ -331,6 +362,31 @@ mod tests {
     use super::*;
     use crate::audio::conform_reader::write_vconf;
     use crate::state::timing::{Fraction, TimeMap};
+    #[test]
+    fn cancelling_a_mix_joins_its_work_and_removes_the_partial_cache() {
+        use std::sync::{
+            atomic::{AtomicUsize, Ordering},
+            Arc,
+        };
+        let dir = tempfile::tempdir().unwrap();
+        let dest = dir.path().join("cancelled.vconf");
+        let calls = Arc::new(AtomicUsize::new(0));
+        let count = calls.clone();
+        let cancel: Cancellation = Some(Arc::new(move || count.fetch_add(1, Ordering::SeqCst) > 0));
+        let result = write_mix(
+            MixPlan {
+                window_start_frame: 0,
+                window_end_frame: 48_000_000,
+                layers: vec![],
+            },
+            &dest,
+            &cancel,
+        );
+        assert!(result.unwrap_err().to_string().contains("cancelled"));
+        assert!(calls.load(Ordering::SeqCst) >= 2);
+        assert!(!dest.exists());
+        assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+    }
 
     fn timing(num: i64, den: i64, pitch: bool) -> TimingFields {
         TimingFields {
@@ -353,6 +409,7 @@ mod tests {
             3_000_000.0,
             1_000_000,
             dir.path(),
+            &None,
         )
         .await
         .unwrap();
@@ -393,6 +450,7 @@ mod tests {
                 2_000_000,
                 1_000_000,
                 dir.path(),
+                &None,
             )
             .await
             .unwrap();
@@ -409,6 +467,7 @@ mod tests {
                 1_000_000,
                 2_000_000,
                 dir.path(),
+                &None,
             )
             .await
             .unwrap();

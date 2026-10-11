@@ -31,6 +31,8 @@ pub struct Backend {
     #[cfg(feature = "jobs")]
     pub(crate) audio_meter: crate::commands::media::AudioMeterState,
     #[cfg(feature = "export")]
+    pub(crate) export_cancel: crate::export::cancellation::ExportCancellation,
+    #[cfg(feature = "export")]
     pub(crate) video_sink: crate::export::videosink::VideoSinkState,
     #[cfg(feature = "export")]
     pub(crate) encoder_registry: crate::export::EncoderRegistry,
@@ -83,6 +85,8 @@ fn build_backend(events: Arc<dyn EventSink>, config_dir: String, cache_dir: Stri
         import_queue,
         #[cfg(feature = "jobs")]
         audio_meter: crate::commands::media::AudioMeterState::default(),
+        #[cfg(feature = "export")]
+        export_cancel: crate::export::cancellation::ExportCancellation::default(),
         #[cfg(feature = "export")]
         video_sink: crate::export::videosink::VideoSinkState::default(),
         #[cfg(feature = "export")]
@@ -1064,9 +1068,11 @@ impl Backend {
             }
             #[cfg(feature = "export")]
             "export_project_audio_only" => {
+                let _stage = self.export_cancel.stage()?;
                 let a: crate::commands::ExportAudioOnlyArgs =
                     serde_json::from_str(args).map_err(|e| e.to_string())?;
                 ser(crate::commands::export::export_project_audio_only(
+                    self,
                     a.project,
                     a.output_path,
                     a.audio,
@@ -1078,14 +1084,17 @@ impl Backend {
             }
             #[cfg(feature = "export")]
             "mux_export" => {
+                let _stage = self.export_cancel.stage()?;
                 let a: crate::commands::MuxExportArgs =
                     serde_json::from_str(args).map_err(|e| e.to_string())?;
                 ser(crate::commands::export::mux_export(
+                    self,
                     a.video_path,
                     a.audio_path,
                     a.output_path,
                     a.finalization_id,
                     a.audio_required,
+                    a.staging_output,
                 )
                 .await)
             }
@@ -1100,22 +1109,52 @@ impl Backend {
             }
             #[cfg(feature = "export")]
             "export_video_sink_start" => {
+                let _stage = self.export_cancel.stage()?;
                 #[derive(serde::Deserialize)]
                 struct A {
                     args: crate::export::videosink::VideoSinkStartArgs,
                 }
                 let a: A = serde_json::from_str(args).map_err(|e| e.to_string())?;
-                ser(crate::export::videosink::export_video_sink_start(
-                    &self.video_sink,
-                    &self.encoder_registry,
-                    &self.log_slot,
-                    a.args,
+                ser(
+                    crate::export::videosink::export_video_sink_start_cancellable(
+                        &self.video_sink,
+                        &self.encoder_registry,
+                        &self.log_slot,
+                        a.args,
+                        &self.export_cancel,
+                    )
+                    .await,
                 )
-                .await)
             }
             #[cfg(feature = "export")]
             "export_video_sink_finish" => {
+                let _stage = self.export_cancel.stage()?;
                 ser(crate::export::videosink::export_video_sink_finish(&self.video_sink).await)
+            }
+            #[cfg(feature = "export")]
+            "export_begin" => ser(self.export_cancel.begin()),
+            #[cfg(feature = "export")]
+            "export_cancel" => {
+                self.export_cancel.cancel();
+                crate::export::videosink::export_video_sink_cancel(&self.video_sink).await?;
+                self.export_cancel.drained().await;
+                // A start admitted before cancellation may have finished spawning.
+                ser(crate::export::videosink::export_video_sink_cancel(&self.video_sink).await)
+            }
+            #[cfg(feature = "export")]
+            "export_prepare_output" => {
+                #[derive(serde::Deserialize)]
+                struct A {
+                    output: std::path::PathBuf,
+                }
+                let a: A = serde_json::from_str(args).map_err(|e| e.to_string())?;
+                ser(crate::export::publication::prepare(&a.output).map_err(|e| format!("{e:#}")))
+            }
+            #[cfg(feature = "export")]
+            "export_publish_output" => {
+                self.export_cancel.check().map_err(|e| e.to_string())?;
+                let a = serde_json::from_str(args).map_err(|e| e.to_string())?;
+                ser(crate::export::publication::publish(a).map_err(|e| format!("{e:#}")))
             }
             #[cfg(feature = "export")]
             "export_video_sink_cancel" => {

@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { createRef } from "react";
+import { createRef, useState, useMemo } from "react";
+import type { ExportSettings } from "../render/exportSettings";
+import type { ExportState } from "../panels/ExportPanel";
+import type { TFunction } from "i18next";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import enUS from "../i18n/locales/en-US";
@@ -45,7 +48,7 @@ vi.mock("@/bridge/events", () => ({
       );
     };
   }),
-  emit: vi.fn(async () => {}),
+  emit: vi.fn(async () => { }),
 }));
 
 vi.mock("@/bridge/path", () => ({
@@ -55,27 +58,27 @@ vi.mock("@/bridge/path", () => ({
 
 vi.mock("@/bridge/window", () => ({
   ProgressBarStatus: { None: 0, Normal: 1, Error: 2 },
-  SecondaryWindow: class {},
+  SecondaryWindow: class { },
   getCurrentWindow: () => ({
-    onCloseRequested: () => () => {},
+    onCloseRequested: () => () => { },
     isFocused: async () => true,
-    setProgressBar: async () => {},
-    setTitle: async () => {},
+    setProgressBar: async () => { },
+    setTitle: async () => { },
   }),
 }));
 
 vi.mock("@/bridge/notification", () => ({
   isPermissionGranted: async () => false,
   requestPermission: async () => "denied",
-  sendNotification: () => {},
+  sendNotification: () => { },
 }));
 
 vi.mock("@/bridge/fs", () => ({
-  remove: vi.fn(async () => {}),
-  writeFile: async () => {},
+  remove: vi.fn(async () => { }),
+  writeFile: async () => { },
 }));
 
-vi.mock("@/bridge/shell", () => ({ reveal: async () => {} }));
+vi.mock("@/bridge/shell", () => ({ reveal: async () => { } }));
 
 /// Resolves the real en-US copy for a dotted key and interpolates it, so the
 /// assertions below read the shipped sentence rather than a stand-in.
@@ -99,7 +102,7 @@ vi.mock("react-i18next", () => ({
   useTranslation: () => ({ t: translate, i18n: { resolvedLanguage: "en-US" } }),
 }));
 
-import { useExportFlow } from "./useExportFlow";
+import { createExportRunner } from "./exportRunner";
 
 const AUDIO_LAYER: LayerSummary = {
   id: "layer-vo",
@@ -178,20 +181,32 @@ function summary(tracks: TrackSummary[]) {
 }
 
 function mount(previewRef = createRef<PreviewSurfaceHandle>()) {
-  return renderHook(() =>
-    useExportFlow({
-      previewRef,
-      proxyStateRef: { current: new Map() },
-      decodeProbeMemo: { current: new Map() },
-    }),
-  );
+  let output = '';
+  const controller = new AbortController();
+  return renderHook(() => {
+    const [exportState, setState] = useState<ExportState | null>(null);
+    const runner = useMemo(() => createExportRunner({
+previewRef, proxyStateRef: { current: new Map() }, decodeProbeMemo: { current: new Map() },
+      t: translate as TFunction, onState: setState, cancel: () => controller.abort(), publish: async () => output
+}), []);
+    return {
+exportState, runExportWithSettings: async (settings: ExportSettings, path: string, range?: { startUs: number; endUs: number }) => {
+        output = path;
+        await runner.run({ job_id: 'test', state: 'preparing', filename: 'out.mp4', renderer_token: 'test', agent: false, settings, range: range ?? { startUs: 0, endUs: 2_000_000 }, output_path: path, staging_path: path, encoded_video_path: '/tmp/video.mp4', encoded_audio_path: '/tmp/audio.m4a' }, controller);
+      }
+};
+  });
 }
 
-describe("useExportFlow", () => {
+describe("exportRunner", () => {
   beforeEach(() => {
-    Object.defineProperty(window, 'api', { configurable: true, value: { resources: {
-      planExport: vi.fn(async () => 0), onExportWaiting: () => () => {}, release: vi.fn(),
-    } } });
+    Object.defineProperty(window, 'api', {
+      configurable: true, value: {
+        resources: {
+          planExport: vi.fn(async () => 0), onExportWaiting: () => () => { }, release: vi.fn(),
+        }
+      }
+    });
     bridge.answers.clear();
     bridge.log.length = 0;
     bridge.handlers.clear();
@@ -252,7 +267,7 @@ describe("useExportFlow", () => {
     bridge.answers.set("project_summary", () => project);
     const encode = vi.fn(async () => ({ framesEncoded: 60, totalFrames: 60, fpsNum: 30, fpsDen: 1 }));
     const previewRef = createRef<PreviewSurfaceHandle>();
-    previewRef.current = { suspendForExport: () => () => {}, runPixiExport: encode } as unknown as PreviewSurfaceHandle;
+    previewRef.current = { suspendForExport: () => () => { }, runPixiExport: encode } as unknown as PreviewSurfaceHandle;
     const mux = vi.fn().mockRejectedValueOnce(new Error("Resources are busy")).mockResolvedValue(undefined);
     bridge.answers.set("mux_export", mux);
     const { result } = mount(previewRef);
@@ -290,10 +305,12 @@ describe("useExportFlow", () => {
     const mux = vi.fn().mockRejectedValue(new Error("disk full"));
     bridge.answers.set("mux_export", mux);
     const previewRef = createRef<PreviewSurfaceHandle>();
-    previewRef.current = { suspendForExport: () => () => {}, runPixiExport: encode } as unknown as PreviewSurfaceHandle;
+    previewRef.current = { suspendForExport: () => () => { }, runPixiExport: encode } as unknown as PreviewSurfaceHandle;
     const { result } = mount(previewRef);
-    const settings = { ...DEFAULT_EXPORT_SETTINGS, encoderEngine: "native" as const, includeVideo: true,
-      audio: { ...DEFAULT_EXPORT_SETTINGS.audio, include: true } };
+    const settings = {
+      ...DEFAULT_EXPORT_SETTINGS, encoderEngine: "native" as const, includeVideo: true,
+      audio: { ...DEFAULT_EXPORT_SETTINGS.audio, include: true }
+    };
     await act(async () => result.current.runExportWithSettings(settings, "/out/movie.mp4"));
     const failed = result.current.exportState;
     if (failed?.kind !== "error" || !failed.onRetry || !failed.onDiscard) throw new Error("retry missing");

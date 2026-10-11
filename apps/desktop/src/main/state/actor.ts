@@ -143,6 +143,7 @@ export interface ActorLogEntry {
 }
 
 export interface ActorOptions {
+  assertWritable?: () => void
   initial: Project; idGen: IdGen; clock?: Clock; actor?: Actor; motifCatalog?: MotifCatalog
   /** Live app preference, sampled for each edit and dry-run; never part of history. */
   autoDeleteEmptyTracks?: () => boolean
@@ -254,6 +255,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
    *  checked against it, which is what stops a callback naming an id the recipe
    *  never returned. */
   function commit<T>(summary: HistorySummary, affected: EntityRef[] | ((value: T) => EntityRef[]), diff: DiffHint, recipe: (draft: Project) => T): T {
+    opts.assertWritable?.()
     let value!: T
     let droppedTransitions: DroppedTransition[] = []
     let droppedMarkers: DroppedMarker[] = []
@@ -557,12 +559,14 @@ export function createActor(opts: ActorOptions): ActorHandle {
     runValidate(probe)
     if (probe === cur) return // nothing actually moved → no op_id, no broadcast
 
+    opts.assertWritable?.()
     history.replaceCompositionEverywhere((p) => produce(p, buildProbe))
     broadcastUnrecorded(compositionSummary(fpsChanged, canvasChanges, durationChange !== undefined),
       current(), { kind: 'Composition' })
   }
 
   function fitCompositionToLayers(compositionId: Uuid | undefined): null {
+    opts.assertWritable?.()
     const probe = produce(current(), (d) => applyFitComposition(d, compositionId))
     runValidate(probe)
     if (probe === current()) return null // already unpinned and fitted → no event
@@ -594,6 +598,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
 
   // ── meta ──
   function undo(): void {
+    opts.assertWritable?.()
     const reason = history.lockReason()
     if (reason !== null) throw new CommandFailure({ error: 'HistoryLocked', reason })
     const snap = history.undo()
@@ -601,6 +606,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
     broadcastUnrecorded('Undo', snap)
   }
   function redo(): void {
+    opts.assertWritable?.()
     const reason = history.lockReason()
     if (reason !== null) throw new CommandFailure({ error: 'HistoryLocked', reason })
     const snap = history.redo()
@@ -618,6 +624,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
    *  to the CURRENT index is not a rejection — it succeeds and broadcasts, which
    *  costs one no-op refetch and keeps the arm free of a second no-op branch. */
   function jumpTo(index: number): void {
+    opts.assertWritable?.()
     const reason = history.lockReason()
     if (reason !== null) throw new CommandFailure({ error: 'HistoryLocked', reason }) // 0 ids
     const snap = history.jumpTo(index)
@@ -630,10 +637,12 @@ export function createActor(opts: ActorOptions): ActorHandle {
   //    checkpoint mints 1 id, no op/broadcast; restore success = 2 ids
   //    (entry op_id then broadcast op_id); CheckpointNotFound/HistoryLocked = 0. ──
   function checkpoint(label: string, cpActor: Actor = who()): Uuid {
+    opts.assertWritable?.()
     const id = idGen() // the checkpoint's own id — no commit, no broadcast
     return history.checkpoint(label, cpActor, id, clock())
   }
   function restoreCheckpoint(id: Uuid): void {
+    opts.assertWritable?.()
     const reason = history.lockReason()
     if (reason !== null) throw new CommandFailure({ error: 'HistoryLocked', reason }) // 0 ids
     if (!history.hasCheckpoint(id)) throw new CommandFailure({ error: 'CheckpointNotFound', checkpoint: id }) // 0 ids — peek BEFORE mint
@@ -651,6 +660,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
    *  jump_to / restore_checkpoint — docs/features.md #undo-stack-scope) and this
    *  reverts nothing. */
   function deleteCheckpoint(id: Uuid): void {
+    opts.assertWritable?.()
     if (!history.deleteCheckpoint(id)) throw new CommandFailure({ error: 'CheckpointNotFound', checkpoint: id }) // 0 ids
   }
   function listCheckpoints(): Array<{ id: Uuid; label: string; actor: Actor; created_at: string }> {
@@ -671,6 +681,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
   //    TrackNotFound first; then replace-everywhere + broadcast (burns one id,
   //    matching broadcast_unrecorded so the det counter stays aligned). ──
   function updateTrackFlags(id: Uuid, patch: TrackFlagsPatch): void {
+    opts.assertWritable?.()
     // Any composition: the history patch below searches them all too.
     if (!Object.values(current().compositions).some((c) => c.tracks.some((t) => t.id === id))) throw new CommandFailure({ error: 'TrackNotFound', track: id })
     history.replaceTrackFlagsEverywhere(id, patch)
@@ -682,6 +693,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
   //    then replace the pool EVERYWHERE (durable across undo) + broadcast (burns
   //    one id). No HistoryEntry. ──
   function addMediaItem(item: MediaItem): Uuid {
+    opts.assertWritable?.()
     const cur = current()
     const nextPool = { ...cur.media_pool, [item.id]: item }
     runValidate({ ...cur, media_pool: nextPool })
@@ -723,6 +735,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
   //    one thing the MediaInUse refusal tells the agent to do — dies in
   //    validate. A locked lane refuses as TrackLocked, as delete_layers would. ──
   function removeMedia(id: Uuid, force: boolean): void {
+    opts.assertWritable?.()
     const cur = current()
     if (!(id in cur.media_pool)) throw new CommandFailure({ error: 'MediaNotFound', media: id })
     const referencing = referencingLayers(cur, id)
@@ -756,6 +769,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
   //    updateTrackFlags). Patch mute/solo into EVERY snapshot + broadcast (burns
   //    one id). Roles always exist (default-filled), so no not-found branch. ──
   function updateRoleFlags(role: string, patch: RoleFlagsPatch): void {
+    opts.assertWritable?.()
     history.replaceRoleFlagsEverywhere(role, patch)
     broadcastUnrecorded('Updated role flags', current())
   }
@@ -770,6 +784,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
     shot_review?: { sensitivity: number; min_shot_us: number } | null
     pause_review?: { threshold_amp: number; min_pause_us: number; pad_us: number } | null
   }): void {
+    opts.assertWritable?.()
     // Validated whole or refused whole, against the SAME bounds
     // `reduce_shot_report` enforces at the napi boundary — so a pair that
     // persists is a pair next session's reduce will accept, and a bad one is
@@ -836,6 +851,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
   //    (reset op_id + broadcast event id); a caller that built `next` via
   //    blankProject already spent its 4 ids → 6 total. ──
   function replaceState(next: Project): void {
+    opts.assertWritable?.()
     runValidate(next)                              // throws CommandFailure(ValidationFailed); no id spent
     history.reset(next, actor, idGen(), clock())   // +1 id (the 'Initial' op_id)
     broadcastUnrecorded('Replaced project state', current())  // +1 id (the event op_id)

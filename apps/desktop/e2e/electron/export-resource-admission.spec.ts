@@ -30,7 +30,7 @@ test('resource rejection explains recovery and opens performance settings withou
     await expect(panel.locator('.export-progress-status')).toContainText('请等待其他处理任务结束后重试')
     await expect(panel.locator('.export-progress-status')).toContainText('内存使用目标')
     await expect(panel.locator('.export-progress-status')).not.toContainText('resources:acquire')
-    await expect(panel.locator('details')).not.toHaveAttribute('open', '')
+    await expect(panel.locator('.export-error-details')).not.toHaveAttribute('open', '')
     await panel.getByText('技术详情', { exact: true }).click()
     await expect(panel.locator('pre')).toContainText('resource-capacity-exceeded')
     await page.screenshot({ path: testInfo.outputPath('resource-recovery.png') })

@@ -1,4 +1,5 @@
 import { open as openDialog } from "@/bridge/dialog";
+import { invoke } from "@/bridge/ipc";
 import { documentDir, join } from "@/bridge/path";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
@@ -107,6 +108,7 @@ interface Props {
     settings: ExportSettings,
     path: string,
     range: { startUs: number; endUs: number },
+    overwrite?: boolean,
   ) => void;
 }
 
@@ -121,6 +123,20 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
   const [settings, setSettings] = useState<ExportSettings | null>(null);
   const [location, setLocation] = useState<string>("");
   const [filename, setFilename] = useState<string>("weftcut-export");
+  const [pathCheck, setPathCheck] = useState<'checking' | 'free' | 'exists' | 'error'>('checking');
+  const [overwrite, setOverwrite] = useState(false);
+  const outputExtension = settings ? exportOutputExtension(settings) : '';
+  useEffect(() => {
+    let stale = false;
+    setOverwrite(false);
+    setPathCheck('checking');
+    if (!location || !filename.trim() || !outputExtension) return;
+    void join(location, `${filename.trim()}.${outputExtension}`)
+      .then(path => invoke<boolean>('export_job_path_exists', {path}))
+      .then(exists => { if (!stale) setPathCheck(exists ? 'exists' : 'free'); })
+      .catch(() => { if (!stale) setPathCheck('error'); });
+    return () => { stale = true; };
+  }, [location, filename, outputExtension]);
   /// True once a one-frame WebCodecs smoke-encode confirms the current
   /// codec/dims/fps combo actually encodes; false if it fails; null while
   /// checking. Purely informational (which branch encodes is decided by
@@ -346,9 +362,13 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
     try {
       const ext = exportOutputExtension(settings);
       const out = await join(location, `${filename.trim()}.${ext}`);
+      if (await invoke<boolean>('export_job_path_exists', {path:out}) && !overwrite) {
+        setPathCheck('exists'); submittingRef.current = false; return;
+      }
       await exportSettingsSet(settings).catch(() => {});
-      onConfirm(settings, out, chosenRange);
+      onConfirm(settings, out, chosenRange, overwrite);
     } catch {
+      setPathCheck('error');
       // Launch never reached onConfirm (e.g. path join failed) — unlatch so
       // the user can retry rather than being stuck on a dead dialog.
       submittingRef.current = false;
@@ -375,6 +395,8 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
   }
 
   const canExport =
+    pathCheck !== 'checking' && pathCheck !== 'error' && (pathCheck !== 'exists' || overwrite) &&
+    !/[<>:"/\\|?*\u0000-\u001f]/.test(filename) &&
     !!location &&
     filename.trim().length > 0 &&
     // Need at least one stream; video (if included) needs its WebCodecs probe
@@ -488,6 +510,13 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
                   </span>
                 </div>
 
+                <p role="status" className="settings-blurb">
+                  {t(pathCheck === 'exists' ? 'export_dialog.file_exists' : pathCheck === 'checking' ? 'export_dialog.checking_path' : pathCheck === 'error' ? 'export_dialog.path_check_failed' : 'export_dialog.path_available')}
+                </p>
+                {pathCheck === 'exists' && <label className="export-row">
+                  <AppCheckbox checked={overwrite} onCheckedChange={setOverwrite} />
+                  {t('export_dialog.overwrite_completed')}
+                </label>}
                 {settings.includeVideo && (
                   <div className="export-row">
                     <span className="settings-toggle-label">

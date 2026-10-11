@@ -1186,13 +1186,13 @@ export async function muxExport(
   videoPath: string,
   audioPath: string,
   outputPath: string,
-  finalization?: { token?: string | undefined; audioRequired: boolean },
+  finalization?: { token?: string | undefined; audioRequired: boolean; stagingOutput?: boolean },
 ): Promise<void> {
   return invoke<void>("mux_export", {
     videoPath,
     audioPath,
     outputPath,
-    ...(finalization ? { finalizationToken: finalization.token, audioRequired: finalization.audioRequired } : {}),
+    ...(finalization ? { finalizationToken: finalization.token, audioRequired: finalization.audioRequired, stagingOutput: finalization.stagingOutput } : {}),
   });
 }
 

@@ -1,33 +1,33 @@
+import { invoke } from "@/bridge/ipc";
 // NOTE: do NOT import "pixi.js/unsafe-eval" here. Its no-eval shader polyfill
 // renders every filtered object EMPTY on the WebGPU backend (the per-layer
 // effects subsystem would be dead on the preview). We instead let PixiJS use
 // its real `new Function()` codegen and allow `'unsafe-eval'` in the packaged
 // CSP (see electron.vite.config.ts). Filters then work on WebGPU + WebGL alike.
-import React, { useCallback, useEffect, useState } from "react";
-import ReactDOM from "react-dom/client";
-import { getCurrentWindow } from "@/bridge/window";
 import { listen } from "@/bridge/events";
-import { PROJECT_OPENED_EVENT, type ProjectOpenedPayload } from "../shared/project-events";
+import { getCurrentWindow } from "@/bridge/window";
+import React,{ useCallback,useEffect,useState } from "react";
+import ReactDOM from "react-dom/client";
+import { PROJECT_OPENED_EVENT,type ProjectOpenedPayload } from "../shared/project-events";
 import { App } from "./App";
 import { PreviousSessionReport } from './app/DiagnosticReport';
 import { UpdateNotification } from './app/UpdateNotification';
+import { initEval } from "./eval";
 import { useFocusRegions } from "./focus/useFocusRegions";
-import { StartupScreen } from "./startup/StartupScreen";
-import { SplashScreen } from "./startup/SplashScreen";
+import "./i18n";
 import {
-  startRendererInitialization,
-  type StartupProgress,
-} from "./startup/initializeRenderer";
+recentsGetReopenOnLaunch,
+recentsMostRecent
+} from "./ipc";
+import { isMac } from "./platform";
 import { PerformanceMonitorWindow } from "./render/PerfHUD";
 import { wireAppSettingsStream } from './settings/appSettingsStore';
+import { SplashScreen } from "./startup/SplashScreen";
+import { StartupScreen } from "./startup/StartupScreen";
 import {
-  projectOpen,
-  recentsGetReopenOnLaunch,
-  recentsMostRecent,
-} from "./ipc";
-import { initEval } from "./eval";
-import { isMac } from "./platform";
-import "./i18n";
+startRendererInitialization,
+type StartupProgress,
+} from "./startup/initializeRenderer";
 // Tailwind entry first; styles.css stays unlayered so its legacy rules win
 // over Tailwind's layered output wherever both match (see app.css header).
 import "./app.css";
@@ -103,12 +103,17 @@ function Root() {
   useEffect(() => {
     let cancelled = false;
     let unlisten: (() => void) | null = null;
+    let received = false;
     void listen<ProjectOpenedPayload>(PROJECT_OPENED_EVENT, () => {
+      received = true;
       setProjectEpoch((n) => n + 1);
       setStage("editor");
     }).then((u) => {
       if (cancelled) u();
-      else unlisten = u;
+      else {
+        unlisten = u;
+        void invoke<{dir:string}|null>("project_open_state").then(opened => { if (!cancelled && !received && opened) setStage("editor"); });
+      }
     });
     return () => {
       cancelled = true;
@@ -201,35 +206,35 @@ function Root() {
         if (resume) {
           if (resume.path) {
             try {
-              await projectOpen(resume.path);
-              if (!cancelled) setStage("editor");
+              const opened = await invoke("project_startup_open", {dir:resume.path});
+              if (!cancelled) setStage(current => opened ? "editor" : current === "editor" ? current : "startup");
             } catch (error) {
               console.warn("Update project restore failed", error);
-              if (!cancelled) setStage("startup");
+              if (!cancelled) setStage(current => current === "editor" ? current : "startup");
             }
-          } else if (!cancelled) setStage("startup");
+          } else if (!cancelled) setStage(current => current === "editor" ? current : "startup");
           return;
         }
         const enabled = await recentsGetReopenOnLaunch();
         if (!enabled) {
-          if (!cancelled) setStage("startup");
+          if (!cancelled) setStage(current => current === "editor" ? current : "startup");
           return;
         }
         const recent = await recentsMostRecent();
         if (!recent) {
-          if (!cancelled) setStage("startup");
+          if (!cancelled) setStage(current => current === "editor" ? current : "startup");
           return;
         }
         try {
-          await projectOpen(recent.path);
-          if (!cancelled) setStage("editor");
+          const opened = await invoke("project_startup_open", {dir:recent.path});
+          if (!cancelled) setStage(current => opened ? "editor" : current === "editor" ? current : "startup");
         } catch (err) {
           console.warn("reopen-on-launch failed; falling back to startup", err);
-          if (!cancelled) setStage("startup");
+          if (!cancelled) setStage(current => current === "editor" ? current : "startup");
         }
       } catch (err) {
         console.warn("startup pref read failed:", err);
-        if (!cancelled) setStage("startup");
+        if (!cancelled) setStage(current => current === "editor" ? current : "startup");
       }
     })();
     return () => {

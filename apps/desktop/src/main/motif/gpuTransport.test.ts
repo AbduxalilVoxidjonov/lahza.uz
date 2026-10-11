@@ -22,6 +22,28 @@ function fixture(concurrency = 1) {
 }
 
 describe('Motif GPU leases', () => {
+  it('reuses an idle export lane without requiring another pool while Chromium retains references', async () => {
+    const {owner,transport,buffers,create}=fixture(3);
+    let finalReference!:()=>void;
+    vi.mocked(sharedTexture.importSharedTexture).mockImplementationOnce(({allReferencesReleased})=>{
+      finalReference=allReferencesReleased!;
+      return {release:vi.fn()} as unknown as ReturnType<typeof sharedTexture.importSharedTexture>;
+    });
+    const reserve=buffers.reserve.bind(buffers);
+    vi.spyOn(buffers,'reserve').mockImplementation((kind,bytes,parent)=>{
+      // The minimum export plan admits one GPU pool. Retiring it does not
+      // release its credit until Chromium delivers the final-reference event.
+      if(parent===42 && buffers.snapshot().used_bytes>0) throw new Error('resource-capacity-exceeded');
+      return reserve(kind,bytes,parent);
+    });
+    const first=await transport.read(owner,'first',1920,1080,42);
+    transport.release(owner,first.token);
+    const second=await transport.read(owner,'second',1920,1080,42);
+    expect(second.key).toBe(first.key);
+    expect(create).toHaveBeenCalledOnce();
+    transport.release(owner,second.token); transport.closeExport(owner,42); finalReference();
+    expect(buffers.snapshot().used_bytes).toBe(0);
+  });
   it('cancelling an export during GPU import cannot leave a late resident pool', async () => {
     const {owner, transport, buffers, pools}=fixture();
     let finish!: () => void;

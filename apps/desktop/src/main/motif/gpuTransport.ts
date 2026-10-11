@@ -45,8 +45,9 @@ export class MotifGpuTransport {
     this.freeLanes = Array.from({ length: concurrency }, (_, lane) => lane)
   }
 
-  private acquireLane(): Promise<number> {
-    const lane = this.freeLanes.shift()
+  private acquireLane(preferred?: number): Promise<number> {
+    const index = preferred === undefined ? -1 : this.freeLanes.indexOf(preferred)
+    const lane = index < 0 ? this.freeLanes.shift() : this.freeLanes.splice(index, 1)[0]
     return lane === undefined ? new Promise(resolve => this.laneWaiters.push(resolve)) : Promise.resolve(lane)
   }
 
@@ -139,7 +140,12 @@ export class MotifGpuTransport {
     }
     // Independent leases let native reading/upload overlap the preceding
     // consumer's GPU read. A lane still cannot overwrite an unacknowledged slot.
-    const lane = await this.acquireLane()
+    // Reuse an idle pool before rotating lanes. Retirement keeps its memory
+    // charged until Chromium releases every reference; needless rotation would
+    // require a second pool even for a one-frame export plan.
+    const prefix = `${owner.id}:${finalizationId ?? "preview"}:${width}:${height}:${format}:`
+    const reusable = this.freeLanes.find(lane => this.sessions.has(`${prefix}${lane}`))
+    const lane = await this.acquireLane(reusable)
     const unlock = (): void => this.releaseLane(lane)
     let active: Session | undefined
     const address = `${owner.id}:${finalizationId ?? "preview"}:${width}:${height}:${format}:${lane}`

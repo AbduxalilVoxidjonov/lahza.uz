@@ -1244,14 +1244,15 @@ export function App({ onCloseProject }: AppProps) {
             (m) => m.kind === "Video" && tenBitExportCapable(m),
           )}
           onCancel={() => setExportDialogOpen(false)}
-          onConfirm={(settings, path, range) => {
+          onConfirm={(settings, path, range, overwrite) => {
             // Don't close — the progress panel takes over the same overlay.
-            void runExportWithSettings(settings, path, range);
+            void runExportWithSettings(settings, path, range, overwrite);
           }}
         />
       )}
       {exportState && !settingsOpen && (
         <ExportPanel
+          key={exportState.job?.job_id}
           state={exportState}
           onClose={() => {
             setExportState(null);

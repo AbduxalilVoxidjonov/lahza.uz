@@ -10,8 +10,9 @@
 // dialog reads are stubbed to their empty state (no project summary ⇒ the
 // decode-routing readout is skipped, which is not what these tests are about).
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { invoke } from '@/bridge/ipc';
 
 const ipc = vi.hoisted(() => ({
   exportSettingsGet: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock("../ipc", async (importActual) => {
   const actual = await importActual<typeof import("../ipc")>();
   return { ...actual, ...ipc };
 });
+vi.mock("@/bridge/ipc", () => ({ invoke: vi.fn(async () => false) }));
 vi.mock("@/bridge/dialog", () => ({ open: vi.fn() }));
 vi.mock("@/bridge/path", () => ({
   documentDir: vi.fn().mockResolvedValue("C:/docs"),
@@ -143,6 +145,7 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 beforeEach(async () => {
+  vi.mocked(invoke).mockReset().mockResolvedValue(false);
   await i18n.changeLanguage("en-US");
   onConfirm.mockReset();
   onCancel.mockReset();
@@ -152,6 +155,24 @@ beforeEach(async () => {
 });
 
 describe("export dialog accessibility", () => {
+  it('requires explicit overwrite consent and clears it when the filename changes', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab',{name:'General'}));
+    vi.mocked(invoke).mockResolvedValue(true);
+    const name = screen.getByLabelText('File name');
+    fireEvent.change(name,{target:{value:'existing'}});
+    await screen.findByText('This file exists. Change its name or explicitly allow replacement.');
+    expect(exportButton().disabled).toBe(true);
+    await user.click(screen.getByRole('checkbox',{name:'Replace the existing file only after export completes'}));
+    expect(exportButton().disabled).toBe(false);
+    fireEvent.change(name,{target:{value:'existing-other'}});
+    await waitFor(()=>expect(exportButton().disabled).toBe(true));
+    await user.click(screen.getByRole('checkbox',{name:'Replace the existing file only after export completes'}));
+    await user.click(exportButton());
+    await waitFor(()=>expect(onConfirm).toHaveBeenCalledOnce());
+    expect(onConfirm.mock.calls[0]![3]).toBe(true);
+  });
   // The dialog labels each row with a plain sibling <span>, which names nothing
   // as far as assistive tech is concerned — a screen reader reading the Video
   // pane got a column of unnamed dropdowns. Every AppSelect therefore passes

@@ -5,6 +5,21 @@ project's glossary — the canonical word for each domain concept. It holds no
 implementation detail; the shape of the data lives in [`docs/data-model.md`](docs/data-model.md)
 and the decisions in [`docs/adr/`](docs/adr/).
 
+## Export
+
+**Export job**:
+One application-session task that produces a rendered file, shared by the user
+interface and MCP. It owns the project edit lock until completion, failure or
+drained cancellation. A disconnected agent can reconnect to the same job.
+
+**Finalization**:
+Finishing an already encoded export: muxing streams and publishing the completed
+file. A failed finalization can be retried without encoding again.
+
+**Publication**:
+The atomic operation that makes a completed export visible at its final path.
+The reported filename is the one publication actually used.
+
 ## Time remapping
 
 **Time remapping**:

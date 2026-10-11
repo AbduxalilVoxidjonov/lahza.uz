@@ -23,7 +23,7 @@ WeftCut is a desktop video editor; the user watches the same project live, and e
 4. Times are microseconds on the composition's frame grid: an off-grid time is snapped and echoed, a time outside its layer is refused.
 5. Call `create_checkpoint` before your first edit. For a batch (a rough cut, a pause pass, a caption track): ask the user, then `begin_agent_session`, `set_history_lock` around the batch, `dry_run` where supported, and `end_agent_session` when done, on failure too.
 6. The user or another agent may edit concurrently; when a commit fails for that reason, re-read and reapply.
-7. Export is not a tool: point the user to the app's Export UI.
+7. Export: `start_export`; poll `get_export_status` for the completed output_path.
 8. Project tools refuse while no project is open: `open_project` or `create_project` the one the user asked for, else ask which.
 The weftcut skill (Settings > Agent) carries the longer etiquette, the common flows and the Motif authoring contract.
 
@@ -55,8 +55,18 @@ The weftcut skill (Settings > Agent) carries the longer etiquette, the common fl
    options. Pick one; never retry a rejected call verbatim.
 6. A commit can also fail because the user (or another agent) edited
    concurrently — re-read the resource and reapply.
-7. Export is deliberately not a tool. When the user wants a rendered file,
-   point them to the app's Export UI.
+7. Export with `get_export_options`, then `start_export`. Generate one unique
+   `request_id` per export intent and reuse it after a reconnect. Poll
+   `get_export_status` until completion, failure or `awaiting_retry`; a transport
+   disconnect does not cancel the job. Report the completed `output_path` and
+   `filename`. An omitted path uses the project's output folder; conflicts
+   add a number by default. Use `on_conflict: "fail"` for a strict name.
+   Settings use snake_case and override only this job. Editing stays locked
+   while exporting or awaiting retry. Use `retry_export` to retry finalization,
+   optionally with a new same-directory filename, or `cancel_export` to
+   discard. UI and MCP can control each other's jobs. Native encoder failure
+   returns an error; choose changed settings for a new request rather than
+   waiting for an interactive fallback prompt.
 
 ## Working rhythm
 

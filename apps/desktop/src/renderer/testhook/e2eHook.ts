@@ -106,6 +106,7 @@ type RunExport = (
   settings: ExportSettings,
   outputPath: string,
   range?: { startUs: number; endUs: number },
+  overwrite?: boolean,
 ) => Promise<void>;
 
 export interface E2EHook {
@@ -1245,7 +1246,7 @@ export function installExportHook(
   };
 
   hookSlot().exportTimeline = async ({ outputAbsPath, settings, range }) => {
-    await runExport(mergeSettings(settings ?? null), outputAbsPath, range);
+    await runExport(mergeSettings(settings ?? null), outputAbsPath, range, true);
     const outputExists = await exists(outputAbsPath);
     // Atomic mux preserves an older destination on failure. Existence alone
     // therefore cannot certify this run; observe the real terminal state too.
@@ -1349,7 +1350,7 @@ export function installExportHook(
       // exportHandleKey), so they cost nothing — and leaving them on keeps
       // these audio scenarios doubling as overlap-export regression cover.
     }
-    await runExport(mergeSettings(settings ?? null), outputAbsPath, range);
+    await runExport(mergeSettings(settings ?? null), outputAbsPath, range, true);
     const outputExists = await exists(outputAbsPath);
     // Atomic mux preserves an older destination on failure. Existence alone
     // therefore cannot certify this run; observe the real terminal state too.

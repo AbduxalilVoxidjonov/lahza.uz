@@ -16,6 +16,22 @@ function fresh() {
 }
 
 describe('actor commit pipeline', () => {
+  it('guards recorded, unrecorded and history writes at the core boundary', () => {
+    const idGen = seededGen();
+    const initial = blankProject(idGen, 'export');
+    let locked = false;
+    const actor = createActor({initial,idGen,assertWritable:()=>{if(locked) throw new Error('ExportInProgress');}});
+    actor.dispatch('add_layer',{track:root(initial).tracks[0].id,kind:'color',t_start_us:0,t_end_us:1_000_000});
+    const before = actor.snapshot();
+    locked = true;
+    for (const write of [
+      () => actor.dispatch('add_layer',{track:root(initial).tracks[1].id,kind:'color',t_start_us:0,t_end_us:1_000_000}),
+      () => actor.dispatch('update_track_flags',{track:root(initial).tracks[0].id,patch:{enabled:false}}),
+      () => actor.dispatch('undo',{}), () => actor.replaceState(initial), () => actor.checkpoint('blocked'),
+    ]) expect(write).toThrow('ExportInProgress');
+    expect(actor.snapshot()).toBe(before);
+    expect(actor.historyView(10).len).toBeGreaterThan(0);
+  });
   it('seeds the initial history entry with one id (#4); first add_layer is #5', () => {
     const { actor, aRoll } = fresh()
     const r = actor.dispatch('add_layer', { track: aRoll, kind: 'color', t_start_us: 0, t_end_us: 1_000_000 })

@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { AppInput } from "../components/AppInput";
 import { resourceFailureReason } from '../../shared/export-resources';
 import { useTranslation } from "react-i18next";
 
@@ -19,7 +21,8 @@ export interface ExportComplete {
   durationUs: number;
 }
 
-export type ExportState =
+export type ExportState = ExportPhase & { job?: import('../../shared/exportJob').ExportJob; onCancel?: () => void };
+type ExportPhase =
   // Readiness waits and frame export provide their own cancellation handler.
   | { kind: "starting" }
   | { kind: "preparing"; labels: string[]; onCancel?: () => void }
@@ -32,7 +35,7 @@ export type ExportState =
   // step makes both the user's wait and the probe's stall budget honest.
   | { kind: "finalizing"; step: FinalizeStep }
   | { kind: "complete"; payload: ExportComplete }
-  | { kind: "error"; detail: string; onRetry?: () => Promise<void>; onDiscard?: () => Promise<void> };
+  | { kind: "error"; detail: string; onRetry?: (filename?: string) => Promise<void>; onDiscard?: () => Promise<void> };
 
 /// Ordered as they run. `sink` only occurs on the native-encode path.
 export type FinalizeStep = "sink" | "audio" | "mux";
@@ -74,6 +77,8 @@ export function ExportPanel({
   onOpenSettings?: () => void;
 }) {
   const { t } = useTranslation();
+  const [retryFilename, setRetryFilename] = useState("");
+  const [actionError, setActionError] = useState("");
   // Modal during work: no dismiss/close affordance until complete/error (the
   // "preparing" wait has its own Cancel). This also blocks UI interaction.
   // Stated as the terminal set, not as "not running": a new running phase then
@@ -166,6 +171,18 @@ export function ExportPanel({
         <div className="settings-body">
           <div className="settings-card">
             {body}
+            {state.job?.settings.audio && <details className="settings-blurb"><summary>{t('export.actual_settings')}</summary>
+              <p>{state.job.output_path}</p>
+              {state.job.settings.includeVideo && <dl>
+                <dt>{t('export_dialog.codec')}</dt><dd>{state.job.settings.codec.toUpperCase()} · {state.job.settings.bitDepth}-bit</dd>
+                <dt>{t('export_dialog.resolution')}</dt><dd>{state.job.settings.resolutionHeight ? `${state.job.settings.resolutionHeight}p` : t('export_dialog.follow_comp')}</dd>
+                <dt>{t('export_dialog.fps')}</dt><dd>{state.job.settings.fps ?? t('export_dialog.follow_comp')}</dd>
+                <dt>{t('export_dialog.quality')}</dt><dd>{t(`export_dialog.quality_${state.job.settings.quality}`)}</dd>
+              </dl>}
+              <p>{state.job.settings.includeAudio ? `${state.job.settings.audio.codec.toUpperCase()} · ${state.job.settings.audio.bitrate / 1000} kbps` : t('export_dialog.audio_excluded')}</p>
+            </details>}
+            {retryable && <AppInput value={retryFilename} onValueChange={setRetryFilename} placeholder={state.job?.filename ?? ''} ariaLabel={t('export.retry_filename')} />}
+            {actionError && <p role="alert">{actionError}</p>}
             <div
               className={`progress-track ${
                 state.kind === "error" ? "is-error" : ""
@@ -176,20 +193,20 @@ export function ExportPanel({
                 style={{ width: `${state.kind === "error" ? 100 : percent}%` }}
               />
             </div>
-            {(((state.kind === "preparing" || state.kind === "progress") && state.onCancel) || dismissable) && (
+            {(state.onCancel || dismissable) && (
               <div className="export-actions">
                 {state.kind === "error" && state.onRetry && (
-                  <Button size="lg" onClick={() => void state.onRetry?.()}>{t("export.retry_finalize")}</Button>
+                  <Button size="lg" onClick={() => { setActionError(""); void state.onRetry?.(retryFilename.trim() || undefined).catch(e => setActionError(String(e))); }}>{t("export.retry_finalize")}</Button>
                 )}
                 {state.kind === "error" && state.onDiscard && (
-                  <Button variant="outline" size="lg" onClick={() => void state.onDiscard?.()}>{t("export.discard_pending")}</Button>
+                  <Button variant="outline" size="lg" onClick={() => { setActionError(""); void state.onDiscard?.().catch(e => setActionError(String(e))); }}>{t("export.discard_pending")}</Button>
                 )}
                 {resourceError && onOpenSettings && (
                   <Button size="lg" onClick={onOpenSettings}>
                     {t("export.open_settings")}
                   </Button>
                 )}
-                {(state.kind === "preparing" || state.kind === "progress") && state.onCancel && (
+                {!dismissable && state.onCancel && (
                   <Button size="lg" onClick={state.onCancel}>
                     {t("export.preparing_cancel")}
                   </Button>

@@ -766,10 +766,9 @@ process heartbeat. Connection settings reuse Settings → Agent.
 
 ### Render
 
-Export is UI-driven through backend commands + the `export:*` event stream
-— there are intentionally no `render_export` / `cancel_render` MCP
-tools. Agents that need a render either ask the user, or read
-`project://compiled` to inspect what the audio export would produce.
+Export uses application-session jobs shared with the UI (ADR 0111).
+Use the export tools below; `project://compiled` remains available to inspect
+the audio composition before rendering.
 
 ### Prompts (MCP "prompts")
 
@@ -1109,3 +1108,22 @@ Video, Audio, animated ImageOverlay, Motif and CompositionRef support retiming. 
 For retimed clips, `extract_clip_audio` returns source-time WAV data and a
 `playback_rate`; project a WAV offset with `t_start_us + offset / playback_rate`.
 `transcribe_clip` performs this projection for segment and word timestamps.
+
+### Export jobs
+
+- `get_export_options {}`: saved defaults, composition limits, settings schema and compatibility.
+- `start_export { request_id?, output_path?, on_conflict?, settings?, range?, allow_experimental_10bit? }`: admits one asynchronous job. Settings use snake_case. Range is a half-open `{ start_us, end_us }` in microseconds. Overrides do not change saved defaults.
+- `get_export_status { job_id? }`: query a session record; omit the id to discover the current UI or MCP job. With none active, returns `{ job: null }`.
+- `retry_export { job_id, filename? }`: retry an `awaiting_retry` finalization, optionally changing only the basename (including its matching extension).
+- `cancel_export { job_id }`: cancel running work or discard retained output; poll until drained and terminal.
+
+Use a unique request id for each intended export, and reuse it when uncertain
+whether a request reached the app. Reusing it with different arguments fails.
+The default conflict policy is `rename`; `fail` requires the exact name.
+Neither MCP policy overwrites. The default path is the open project's output
+folder and sanitized project name. Explicit output directories must exist.
+Only completed status certifies the actual `output_path` and `filename`.
+Export locks editing and project switching until terminal, including while
+awaiting finalization retry. Closing MCP has no effect on the job. Application
+restart does not restore jobs. The app's export progress UI exposes the same
+task and allows cancellation and retry from either entry point.

@@ -8,6 +8,7 @@
 import { PRODUCTION_OPS } from './commands'
 
 export type Route =
+  | { kind: 'exportJob' }
   | { kind: 'command' }       // actor.command(channel, args)
   | { kind: 'summary' }       // buildProjectSummary
   | { kind: 'historyView' }   // actor.historyView(cap) — the whole edit stack, READ-only
@@ -152,6 +153,7 @@ export const PERSISTENCE: ReadonlySet<string> = new Set([
 ])
 
 export function routeChannel(channel: string): Route {
+  if (EXPORT_JOB_CHANNELS.has(channel)) return {kind:'exportJob'}
   if (PRODUCTION_OPS.has(channel)) return { kind: 'command' }
   if (HYBRID_CHANNELS.has(channel)) return { kind: 'hybrid', tool: channel }
   if (CLIP_COMPUTE_CHANNELS.has(channel)) return { kind: 'clipCompute' }
@@ -201,3 +203,5 @@ export function routeChannel(channel: string): Route {
     return { kind: 'rust' }
   return { kind: 'reject', reason: 'unclassified channel — classify in router.ts' }
 }
+
+export const EXPORT_JOB_CHANNELS: ReadonlySet<string> = new Set(["export_job_start","export_job_session","export_job_ready","export_job_detaching","export_job_update","export_job_publish","export_job_status","export_job_cancel","export_job_retry","export_job_path_exists","project_open_state","project_startup_open"]);

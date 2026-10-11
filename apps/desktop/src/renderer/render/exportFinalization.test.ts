@@ -30,10 +30,14 @@ it('defers disposal until an in-flight mux settles and never reports completion 
   const cleanup = vi.fn(async () => {}), onComplete = vi.fn(), onFailure = vi.fn();
   const job = createExportFinalization({ mux: () => new Promise<void>(resolve => { finish = resolve; }), cleanup, onRunning: vi.fn(), onComplete, onFailure });
   const pending = job.retry();
-  await job.discard();
+  let discarded = false;
+  const discarding = job.discard().then(() => { discarded = true; });
+  await Promise.resolve();
+  expect(discarded).toBe(false);
   expect(cleanup).not.toHaveBeenCalled();
   finish();
   await pending;
+  await discarding;
   expect(cleanup).toHaveBeenCalledOnce();
   expect(onComplete).not.toHaveBeenCalled();
   expect(onFailure).not.toHaveBeenCalled();

@@ -31,6 +31,7 @@ import type { RecentsStore } from '../recents'
 import type { WorkspaceStore } from '../workspace'
 
 export interface TsActorHostDeps {
+  exportJobs?: import("../exportJobs").ExportJobs
   beginImport?: HybridDeps['beginImport']
   onWorkspaceChanging?: () => void
   onWorkspaceOpened?: () => void
@@ -131,6 +132,8 @@ export interface ProjectStatus {
 export interface ProjectOpened { name: string; dir: string; replaced: string | null }
 
 export interface TsActorHost {
+  exportJobs?: import("../exportJobs").ExportJobs
+  projectOperationPending?: () => boolean
   actor: ActorHandle
   agent: AgentActivityService
   /** The project the user has open, or null on the start screen. What the MCP
@@ -207,6 +210,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   const store = deps.motifStore
   const motifCatalog = new MotifCatalog(store ? (id) => store.getMotif(id)?.manifest ?? null : undefined)
   const actor = createActor({
+    assertWritable: () => deps.exportJobs?.assertWritable(),
     initial: blankProject(idGen, 'untitled'), idGen, clock: () => new Date().toISOString(), motifCatalog,
     autoDeleteEmptyTracks: () => deps.appSettings?.get().auto_delete_empty_tracks ?? true,
     defaultTextFont: () => deps.appSettings?.get().default_text_font,
@@ -317,6 +321,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   // Serialize all cache-root/session changes, including Save As and Close.
   let persistenceTail: Promise<unknown> = Promise.resolve()
   const replaceWorkspace = <T>(replace: () => Promise<T>): Promise<T> => {
+    deps.exportJobs?.assertWritable()
     // Invalidate immediately, before a flush or another lifecycle call yields.
     importGeneration++
     workspaceTransitions++
@@ -327,7 +332,10 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
       try { await autosave.forceFlush(); return await replace() }
       catch (error) { if (opened !== null) deps.onWorkspaceOpened?.(); throw error }
     })
-    const settled = next.finally(() => { workspaceTransitions-- })
+    const settled = next.finally(() => {
+      workspaceTransitions--
+      if (workspaceTransitions === 0) deps.exportJobs?.workspaceSettled()
+    })
     persistenceTail = settled.catch(() => {})
     return settled
   }
@@ -353,6 +361,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     // project until the next Open / New replaces it, and the workspace slot
     // keeps its folder; what stops an agent writing into it is the MCP gate.
     close: async () => {
+      deps.exportJobs?.assertWritable()
       opened = null
       await replaceWorkspace(async () => { opened = null; await deps.napi.endWorkspace?.() })
     },
@@ -385,6 +394,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   }
 
   function runMotif(name: string, args: Record<string, unknown>): unknown {
+    if (!["list_motifs", "read_motif", "read_file_transfer", "motif_staleness_report"].includes(name)) deps.exportJobs?.assertWritable()
     if (!deps.motifStore) throw new Error('motifTool: motifStore not configured')
     const motifToolDeps: MotifToolDeps = {
       store: deps.motifStore,
@@ -540,6 +550,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
       // Compatibility for the old local channel: it now requests a view only.
       case 'agentSessionBegin': deps.send(AGENT_VIEW_EVENT, { workspace_id: agent.snapshot().workspace_id }); return null
       case 'hybrid': {
+        deps.exportJobs?.assertWritable()
         const hybridResult = await runHybrid(route.tool, args, hybridDeps)
         return hybridResult
       }
@@ -644,6 +655,8 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   return {
     actor,
     agent,
+    ...(deps.exportJobs ? { exportJobs: deps.exportJobs } : {}),
+    projectOperationPending: () => workspaceTransitions > 0 || quitting,
     openedProject: () => opened,
     projects: agentProjects,
     shutdown: async () => {

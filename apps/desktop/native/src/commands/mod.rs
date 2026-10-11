@@ -68,6 +68,8 @@ pub struct ExportAudioOnlyArgs {
 #[serde(rename_all = "camelCase")]
 pub struct MuxExportArgs {
     #[serde(default)]
+    pub staging_output: bool,
+    #[serde(default)]
     pub finalization_id: Option<u32>,
     #[serde(default)]
     pub audio_required: bool,

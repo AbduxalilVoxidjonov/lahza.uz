@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   routeChannel,
   HYBRID_CHANNELS, SLICE_INJECTED_READS, PURE_NATIVE, PERSISTENCE, MOTIF_CHANNELS,
-  CLIP_COMPUTE_CHANNELS, DIRECT_NAPI_READS, AUDIO_FX_CHANNELS,
+  CLIP_COMPUTE_CHANNELS, DIRECT_NAPI_READS, AUDIO_FX_CHANNELS, EXPORT_JOB_CHANNELS,
 } from './router'
 import { PRODUCTION_OPS } from './commands'
 
@@ -73,6 +73,9 @@ const RUST_ALLOWLIST: ReadonlySet<string> = new Set<string>([
 ])
 
 describe('router partition gate', () => {
+  it('export lifecycle channels are main-owned and never native fallthrough', () => {
+    for (const channel of EXPORT_JOB_CHANNELS) expect(routeChannel(channel).kind).toBe('exportJob');
+  });
   it('every renderer channel is classified; no project-touching channel routes to rust', () => {
     for (const ch of ALL_CHANNELS) {
       const r = routeChannel(ch)

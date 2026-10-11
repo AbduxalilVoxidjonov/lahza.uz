@@ -10,15 +10,18 @@ export function createExportFinalization(deps: {
   let busy = false;
   let discarded = false;
   let cleaned = false;
+  let settled: Promise<void> = Promise.resolve();
   const cleanup = async () => {
     if (cleaned) return;
-    cleaned = true;
     await deps.cleanup();
+    cleaned = true;
   };
   return {
     async retry() {
       if (busy || discarded || cleaned) return;
       busy = true;
+      let resolve!: () => void;
+      settled = new Promise<void>(done => { resolve = done; });
       deps.onRunning();
       try {
         await deps.mux();
@@ -28,13 +31,14 @@ export function createExportFinalization(deps: {
         if (!discarded) deps.onFailure(error instanceof Error ? error.message : String(error));
       } finally {
         busy = false;
-        if (discarded) await cleanup();
+        try { if (discarded) await cleanup(); } finally { resolve(); }
       }
     },
     async discard() {
       discarded = true;
       // A running ffmpeg still reads the files. Cleanup follows its settlement.
-      if (!busy) await cleanup();
+      await settled;
+      await cleanup();
     },
   };
 }

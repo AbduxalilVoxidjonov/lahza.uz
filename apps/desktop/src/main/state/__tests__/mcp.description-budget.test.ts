@@ -1,3 +1,4 @@
+import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
 // apps/desktop/src/main/state/__tests__/mcp.description-budget.test.ts
 // The context budget of the advertised MCP catalog — the one number an agent
 // pays on every session before it has done anything.
@@ -28,7 +29,7 @@ const rust = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown>, annotations: t.annotations as ToolAnnotations | undefined })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
 )
 
 /** Per-tool description ceiling, in characters. */
@@ -57,7 +58,9 @@ const PROPERTY_DESCRIPTION_CAP = 260
 // measured onset/energy candidates with explicit source-time semantics.
 // +6 KB: Motif source unions, revision-safe file transactions and bounded generic
 // upload/download contracts replace HTML-only drafting (ADR 0094).
-const CATALOG_BYTE_BUDGET = 134_000
+// +6 KB: five export-job tools and typed per-job settings, units, conflict and
+// null-reset semantics (ADR 0111). The encode controls need no prose guessing.
+const CATALOG_BYTE_BUDGET = 140_000
 
 function compact(v: unknown): string { return JSON.stringify(v) }
 

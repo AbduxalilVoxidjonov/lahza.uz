@@ -1,3 +1,7 @@
+import { EXPORT_TOOL_DEFS, EXPORT_TOOLS, exportSettingsSchema } from "./exportTools";
+import { ExportJobError } from "../exportJobs";
+import { ExportValidationError } from "../../shared/exportValidation";
+import { exportWire } from "../../shared/exportJob";
 import { beginModelUse } from "../model-usage";
 import { randomUUID } from 'node:crypto'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
@@ -235,7 +239,7 @@ function readOnlyTools(backend: Backend): Promise<Set<string>> {
   let p = readOnlySets.get(backend)
   if (!p) {
     const names = (rust: ReadonlyArray<{ name: string; annotations?: ToolAnnotations }>): Set<string> =>
-      new Set(mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS]).filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name))
+      new Set(mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS]).filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name))
     // A backend that throws synchronously (no catalog method at all, as some
     // test doubles have) is the same case as one whose catalog rejects.
     const attempt = Promise.resolve().then(() => rustCatalog(backend)).then((c) => names(c.tools))
@@ -282,6 +286,8 @@ export async function handleCallTool(
     // at the first await (see its window-integrity cases).
     return await dispatchTool(backend, getTsHost, route, name, args, getPreferredEngine, getVlm, peaksPathFor, client)
   } catch (e) {
+    if (e instanceof ExportValidationError) return toolErrorResult({code:'invalid_params',message:e.message});
+    if (e instanceof ExportJobError) return {isError:true, content:[{type:"text",text:JSON.stringify({error:{code:e.code,message:e.message,data:e.data}})}], structuredContent:{error:{code:e.code,message:e.message,data:e.data}}};
     if (e instanceof UnknownToolError) throw e
     // The motif store's failures are the caller's — an unknown draft, an id
     // already installed — so a plain message there is `invalid_params`. A
@@ -298,7 +304,7 @@ function noProjectOpen(tsHost: TsActorHost | null): boolean {
 }
 
 async function isKnownTool(backend: Backend, name: string): Promise<boolean> {
-  if (MCP_TOOLS.has(name) || HYBRID_TOOLS.has(name) || routeMcpTool(name) === 'motif') return true
+  if (EXPORT_TOOLS.has(name) || MCP_TOOLS.has(name) || HYBRID_TOOLS.has(name) || routeMcpTool(name) === 'motif') return true
   return (await rustCatalog(backend)).tools.some((t) => t.name === name)
 }
 
@@ -314,6 +320,23 @@ async function dispatchTool(
   client: string | undefined,
 ): Promise<ServerResult> {
   const tsHost = getTsHost()
+  if (route === 'export') {
+    const jobs = tsHost?.exportJobs;
+    if (!jobs) throw new ExportJobError('export_unavailable', 'Export jobs are unavailable');
+    const definition = EXPORT_TOOL_DEFS.find(d => d.name === name);
+    if (!definition) throw new UnknownToolError(name);
+    const properties = definition.inputSchema.properties as Record<string,unknown>;
+    if (Object.keys(args).some(key => !(key in properties))) throw new ExportJobError('invalid_params','Unknown export argument');
+    for (const field of ['job_id','filename']) if (args[field] !== undefined && (typeof args[field] !== 'string' || !args[field])) throw new ExportJobError('invalid_params',`${field} must be a nonempty string`);
+    if (['cancel_export','retry_export'].includes(name) && typeof args.job_id !== 'string') throw new ExportJobError('invalid_params','job_id is required');
+    const result = name === 'get_export_options' ? {...await jobs.options() as Record<string,unknown>, settings_schema:exportSettingsSchema()}
+      : name === 'start_export' ? await jobs.start(args)
+      : name === 'get_export_status' ? jobs.status(args.job_id as string | undefined)
+      : name === 'retry_export' ? await jobs.retry(args.job_id as string, args.filename as string | undefined)
+      : await jobs.cancel(args.job_id as string);
+    const record = (name === 'get_export_options' ? result : exportWire(result, true)) ?? {job:null};
+    return {content:[{type:'text',text:JSON.stringify(record)}],structuredContent:record} as ServerResult;
+  }
   if (tsHost?.agent && ['begin_agent_session', 'end_agent_session', 'set_history_lock'].includes(name)) {
     try {
       // Every arm reads its args through the tool's own parser, so a refusal
@@ -383,6 +406,7 @@ async function dispatchTool(
       return r.result as unknown as ServerResult
     }
     if (route === 'hybrid') {
+      tsHost.exportJobs?.assertWritable()
       const refused = await refuseBadArgs(backend, name, args)
       if (refused) return refused
       // Native-compute → TS-write. `runHybrid` answers a string (the renderer's
@@ -729,7 +753,7 @@ export function buildMcpServer(backend: Backend, opts: McpServerOptions = {}): S
   // tool logged with nothing to remember. See `docs/status-log.md`.
   server.setRequestHandler(ListToolsRequestSchema, track('tools/list', async () => {
     const rust = (await rustCatalog(backend)).tools
-    return { tools: mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS]) } as unknown as ServerResult
+    return { tools: mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS]) } as unknown as ServerResult
   }, log, clientInfo))
   // A retired tool name is rewritten to the advertised one BEFORE `track`, so
   // the log row, the activity service's read/write split and the dispatcher all

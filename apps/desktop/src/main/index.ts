@@ -1,3 +1,4 @@
+import { ExportJobs } from "./exportJobs";
 import path from 'node:path'
 import { diagnosticOwner, recordDiagnostic, recordProjectDiagnostic } from './diagnostics'
 import { sourceSignature } from './state/mutations/textCorrection.js'
@@ -948,8 +949,14 @@ app.whenReady().then(async () => {
     dir: app.getPath('userData'),
   })
 
+  const exportJobs = new ExportJobs({ host: () => tsHost, send: emitToRenderer,
+    generation: () => workspaceEvents.requireCurrent(),
+    native: async (channel, args) => JSON.parse(await backend!.invoke(channel, JSON.stringify(args))),
+  });
   tsHost = createTsActorHost({
+    exportJobs,
     onWorkspaceChanging: () => {
+      exportJobs.forgetRenderer();
       motifAdmissionOpen = false
       emitToRenderer('project:workspace-changing', {})
       importDiagnostics?.reset()
@@ -1247,6 +1254,7 @@ app.whenReady().then(async () => {
         updateResume.save(version, tsHost?.openedProject()?.dir ?? null)
         workspaceStore?.flush()
         windowGeometryStore?.flush()
+        if (!await confirmExportQuit()) throw new Error("Update restart cancelled while export is active");
         await tsHost?.shutdown()
         quitFlushed = true
       } catch (error) {
@@ -1264,7 +1272,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('updates:restart', () => updates.restart())
   ipcMain.handle('updates:resume', () => resumeAfterUpdate)
   app.once('quit', (_event, exitCode) => updates.installOnQuit(exitCode))
-  app.once('before-quit', () => updates.stop())
+  app.once('will-quit', () => updates.stop())
 
   // Clip compute for the renderer: the MCP host's own tool function plus the
   // channel set that selects for it. Awaited here beside the host rather than
@@ -1300,8 +1308,8 @@ app.whenReady().then(async () => {
     publish: snapshot => emitToRenderer('motif:bake', snapshot),
   })
   const offBakeResources = onBackgroundResourceChange(() => motifBakes?.wake())
-  app.once('before-quit', () => { offBakeResources(); motifBakes?.dispose(); motifBakes = null })
-  app.once('before-quit', () => motifCapture.dispose())
+  app.once('will-quit', () => { offBakeResources(); motifBakes?.dispose(); motifBakes = null })
+  app.once('will-quit', () => motifCapture.dispose())
   const currentMotifStore = () => wsCache ? motifBakes!.store() : motifFrames
   const motifConsumers = new WeakMap<Electron.WebContents, { document: object | null }>()
   const trackMotifConsumer = (owner: Electron.WebContents, frame: Electron.WebFrameMain | null): (() => boolean) => {
@@ -1372,7 +1380,29 @@ app.whenReady().then(async () => {
   })
   await motifCovers.prune([...motifBuiltins.map(m => m.id), ...motifStore.publishedIds(), ...motifStore.listDraftIds()])
   ipcMain.handle('backend:invoke', async (_e, { channel, args }) => {
+    if (channel.startsWith('export_job_')) {
+      if (_e.sender !== mainWindow?.webContents) throw new Error('Export jobs require the editor window');
+      const a = args ?? {};
+      switch (channel) {
+        case 'export_job_start': return exportJobs.start(a, false);
+        case 'export_job_ready': return exportJobs.rendererReady(a.renderer_token, a.root_id, a.generation);
+        case 'export_job_session': return exportJobs.rendererSession();
+        case 'export_job_detaching': return exportJobs.rendererGone(a.renderer_token);
+        case 'export_job_update': return exportJobs.update(a.job_id, a.renderer_token, a.update);
+        case 'export_job_publish': return exportJobs.publish(a.job_id, a.renderer_token);
+        case 'export_job_status': return exportJobs.status(a.job_id);
+        case 'export_job_cancel': return exportJobs.cancel(a.job_id);
+        case 'export_job_retry': return exportJobs.retry(a.job_id, a.filename);
+        case 'export_job_path_exists': return fs.existsSync(a.path);
+      }
+    }
+    if (channel === 'project_open_state') return tsHost!.openedProject();
+    if (channel === 'project_startup_open') {
+      if (!tsHost!.openedProject() && !tsHost!.projectOperationPending?.()) await tsHost!.handleInvoke('project_open', {path:args.dir});
+      return tsHost!.openedProject();
+    }
     if (channel === IMPORT_DIAGNOSTIC_MILESTONE) { importDiagnostics?.milestone(args); return null }
+    if (['export_begin','export_cancel','export_prepare_output','export_publish_output'].includes(channel)) throw new Error('Native export lifecycle is main-owned');
     if (channel === 'export_video_sink_start') {
       const { finalizationToken, finalizationId: _id, finalization_id: _alias, ...rest } = args?.args ?? {};
       args = { ...args, args: { ...rest, finalizationId: resolveExportFinalization(_e.sender.id, finalizationToken) } };
@@ -2652,6 +2682,12 @@ app.whenReady().then(async () => {
   })
 
   const win = await createWindow()
+  win.webContents.on('render-process-gone', () => { void exportJobs.rendererGone().catch(console.error); });
+  win.on('close', event => {
+    if (!exportJobs.isActive()) return;
+    event.preventDefault();
+    void confirmExportQuit().then(confirmed => { if (confirmed && !win.isDestroyed()) win.close(); }).catch(console.error);
+  });
 
   win.once('ready-to-show', () => win.show())
   updates.start()
@@ -2678,6 +2714,11 @@ app.on('window-all-closed', () => app.quit())
 // A null tsHost early-returns: nothing to flush before whenReady constructs the host.
 let quitFlushed = false
 app.on('before-quit', (event) => {
+  if (tsHost?.exportJobs?.isActive()) {
+    event.preventDefault();
+    void confirmExportQuit().then(confirmed => { if (confirmed) app.quit(); }).catch(console.error);
+    return;
+  }
   motifWatcher?.close(); motifWatcher = null
   // Abort an in-flight content download so its file handle closes at a chunk
   // boundary. The partial and the persisted queue both stay: the next boot
@@ -2707,3 +2748,20 @@ app.on('before-quit', (event) => {
     .catch((e) => console.warn('[main] autosave quit-flush failed', e))
     .finally(() => app.quit())
 })
+
+let exportQuitPrompt: Promise<boolean> | undefined;
+function confirmExportQuit(): Promise<boolean> {
+  if (exportQuitPrompt) return exportQuitPrompt;
+  const jobs = tsHost?.exportJobs;
+  if (!jobs?.isActive()) return Promise.resolve(true);
+  exportQuitPrompt = (async () => {
+    const zh = app.getLocale().startsWith('zh');
+    const result = await dialog.showMessageBox({type:'question',
+      message:zh ? '导出尚未完成，是否取消并退出？' : 'An export is unfinished. Cancel it and quit?',
+      detail:zh ? '等待重试的导出也会被丢弃。退出前将等待清理完成。' : 'Pending export results will be discarded. Cleanup must finish before quitting.',
+      buttons:zh ? ['留在应用','取消导出并退出'] : ['Stay','Cancel export and quit'], defaultId:0,cancelId:0});
+    if (result.response !== 1) return false;
+    await jobs.drainForQuit(); return true;
+  })().finally(() => { exportQuitPrompt = undefined; });
+  return exportQuitPrompt;
+}

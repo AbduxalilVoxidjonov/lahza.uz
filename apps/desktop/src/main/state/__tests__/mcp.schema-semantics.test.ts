@@ -1,3 +1,4 @@
+import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
 // apps/desktop/src/main/state/__tests__/mcp.schema-semantics.test.ts
 // The schema carries the semantics: every property described, a `null` arm
 // only where null means something, `update_layer_params.patch` one variant per
@@ -30,7 +31,7 @@ const rust = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown> })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
 )
 
 /** Every (path, property schema) pair under a tool schema, `oneOf` / `anyOf`
@@ -138,6 +139,9 @@ describe('null arms are advertised only where null means something omission does
   // return a text-box axis to auto, fall back to a detector's defaults, remove
   // an effect param. Growing this list is a review decision.
   const KEEP_NULL = new Set([
+    // Omission inherits the saved value; null explicitly restores automatic
+    // composition/codec defaults or clears an optional rate constraint.
+    ...['resolution_height','fps','custom_bitrate','max_bitrate','buffer_size','crf','audio.sample_rate','audio.channels'].map(k => `start_export.settings.${k}`),
     'rename_track.label', 'update_layer.patch.label', 'rename_composition.label',
     'update_marker.patch.label', 'update_marker.patch.note',
     'update_composition.patch.duration_us',

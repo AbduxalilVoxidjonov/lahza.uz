@@ -198,12 +198,37 @@ impl Drop for TempGuard {
 /// whole design rests on (`ConformReader` reads the sibling at the raw
 /// conform's frame offsets), so a length change fails the bake instead of
 /// landing a misaligned artifact.
+pub(super) type Cancellation = Option<Arc<dyn Fn() -> bool + Send + Sync>>;
+pub(super) fn check_cancelled(cancel: &Cancellation) -> Result<()> {
+    if cancel.as_ref().is_some_and(|f| f()) {
+        anyhow::bail!("export cancelled");
+    }
+    Ok(())
+}
+pub(super) async fn cancelled(cancel: &Cancellation) {
+    if cancel.is_none() {
+        std::future::pending::<()>().await;
+    }
+    while check_cancelled(cancel).is_ok() {
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+}
 pub(super) async fn render(
     conform_path: &Path,
     filter_complex: &str,
     dest: &Path,
     expected_frames: Option<u64>,
 ) -> Result<PathBuf> {
+    render_cancellable(conform_path, filter_complex, dest, expected_frames, &None).await
+}
+pub(super) async fn render_cancellable(
+    conform_path: &Path,
+    filter_complex: &str,
+    dest: &Path,
+    expected_frames: Option<u64>,
+    cancel: &Cancellation,
+) -> Result<PathBuf> {
+    check_cancelled(cancel)?;
     if !ffmpeg_is_installed() {
         anyhow::bail!("ffmpeg not installed; cannot bake audio effects");
     }
@@ -214,9 +239,23 @@ pub(super) async fn render(
     let mut temp = TempGuard::arm(dest);
     let tmp = claim_temp(dest)?;
 
-    let _resources = crate::resources::interactive(128)
+    let _resources = tokio::select! {
+        _ = cancelled(cancel) => anyhow::bail!("export cancelled"),
+        permit = crate::resources::interactive(128) => permit.map_err(anyhow::Error::msg)?,
+    };
+    // Finish fallible output setup before starting a child. Once spawned, every
+    // error/cancellation path below explicitly kills and reaps it.
+    let mut f = tokio::fs::File::create(&tmp)
         .await
-        .map_err(anyhow::Error::msg)?;
+        .with_context(|| format!("create {}", tmp.display()))?;
+    let mut head = Vec::with_capacity(HEADER_LEN as usize);
+    head.extend_from_slice(MAGIC);
+    head.extend_from_slice(&CONFORM_FORMAT_VERSION.to_le_bytes());
+    head.extend_from_slice(&src.sample_rate.to_le_bytes());
+    head.extend_from_slice(&src.channels.to_le_bytes());
+    head.extend_from_slice(&0u64.to_le_bytes()); // frame_count patched below
+    f.write_all(&head).await.context("write bake header")?;
+    check_cancelled(cancel)?;
     let mut child = crate::ffmpeg::command()
         .no_console_window()
         // Reap on future-drop so a cancelled bake takes its ffmpeg with it;
@@ -244,37 +283,45 @@ pub(super) async fn render(
 
     let mut stdout = child.stdout.take().expect("stdout was piped");
 
-    let mut f = tokio::fs::File::create(&tmp)
-        .await
-        .with_context(|| format!("create {}", tmp.display()))?;
-    let mut head = Vec::with_capacity(HEADER_LEN as usize);
-    head.extend_from_slice(MAGIC);
-    head.extend_from_slice(&CONFORM_FORMAT_VERSION.to_le_bytes());
-    head.extend_from_slice(&src.sample_rate.to_le_bytes());
-    head.extend_from_slice(&src.channels.to_le_bytes());
-    head.extend_from_slice(&0u64.to_le_bytes()); // frame_count patched below
-    f.write_all(&head).await.context("write bake header")?;
-
-    let mut total_bytes: u64 = 0;
-    let mut buf = vec![0u8; 256 * 1024];
-    loop {
-        let n = stdout.read(&mut buf).await.context("read ffmpeg stdout")?;
-        if n == 0 {
-            break;
+    let stderr = child.stderr.take().expect("stderr was piped");
+    let stderr_task = tokio::spawn(async move {
+        let mut bytes = Vec::new();
+        let mut stderr = stderr;
+        let _ = tokio::io::AsyncReadExt::read_to_end(&mut stderr, &mut bytes).await;
+        bytes
+    });
+    let stream = async {
+        let mut total_bytes = 0u64;
+        let mut buf = vec![0u8; 256 * 1024];
+        loop {
+            let n = stdout.read(&mut buf).await.context("read ffmpeg stdout")?;
+            if n == 0 {
+                break;
+            }
+            f.write_all(&buf[..n]).await.context("write bake data")?;
+            total_bytes += n as u64;
         }
-        f.write_all(&buf[..n]).await.context("write bake data")?;
-        total_bytes += n as u64;
+        Ok::<u64, anyhow::Error>(total_bytes)
+    };
+    let stream_result = tokio::select! {
+        _ = cancelled(cancel) => Err(anyhow::anyhow!("export cancelled")),
+        result = stream => result,
+    };
+    if stream_result.is_err() {
+        let _ = child.start_kill();
     }
-
-    let output = child
-        .wait_with_output()
-        .await
-        .context("await ffmpeg for audio fx bake")?;
-    if !output.status.success() {
+    let status = tokio::select! {
+        _ = cancelled(cancel) => { let _ = child.start_kill(); child.wait().await },
+        result = child.wait() => result,
+    };
+    let stderr = stderr_task.await.unwrap_or_default();
+    check_cancelled(cancel)?;
+    let total_bytes = stream_result?;
+    let status = status.context("await ffmpeg for audio fx bake")?;
+    if !status.success() {
         anyhow::bail!(
-            "ffmpeg exited with {} for audio fx bake: {}",
-            output.status,
-            String::from_utf8_lossy(&output.stderr).trim()
+            "ffmpeg exited with {status} for audio fx bake: {}",
+            String::from_utf8_lossy(&stderr).trim()
         );
     }
 

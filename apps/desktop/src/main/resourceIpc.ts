@@ -141,5 +141,5 @@ export function installResourceIpc(onDiagnostic?: (snapshot: { status: ResourceS
     finally { if (ownsQuery) sampling = false; }
   };
   const timer = setInterval(sample, 1000); timer.unref(); sample();
-  app.once('before-quit', () => { quitting = true; clearInterval(timer); });
+  app.once('will-quit', () => { quitting = true; clearInterval(timer); });
 }

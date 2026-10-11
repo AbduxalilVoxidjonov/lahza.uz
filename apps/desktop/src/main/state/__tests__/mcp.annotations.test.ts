@@ -1,3 +1,4 @@
+import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
 // apps/desktop/src/main/state/__tests__/mcp.annotations.test.ts
 // Annotations are the single source of the read/write and destructive split:
 // every def carries `annotations`, `tools/list` emits them, and the activity
@@ -26,7 +27,7 @@ const rust = JSON.parse(RUST_CATALOG) as {
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown>, annotations: t.annotations as ToolAnnotations | undefined })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
 )
 type Ann = { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean }
 const ann = (name: string): Ann => {
