@@ -25,6 +25,8 @@ const SOURCE = fixture('test_1080p_30fps_audio.mp4')
 // Fixtures come from global-setup. The envelope + role suites assert ONLY
 // audio, so they export with includeVideo:false — on the GPU-less CI legs the
 // incidental 1080p video lane (software raster) was 5-8x the test's real cost.
+// AAC audio-only output uses .m4a, matching the UI's filename and the shared
+// export job's extension validation; .mp4 is reserved here for A/V cases.
 
 // ─── 1. Audio conformance matrix ─────────────────────────────────────────────
 // Audio conformance across the matrix: source frame rate (video-grid-vs-audio
@@ -214,7 +216,7 @@ test.describe('audio envelope conformance (Electron)', () => {
     // 1 s linear fade-in: window RMS deltas vs the loudest window are
     // 20·log10(t) — −12.04 dB at 0.25 s, −6.02 at 0.5 s, −2.50 at 0.75 s, 0 in
     // the body. ±1.5 dB bound absorbs AAC + the −1 dB limiter ceiling.
-    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'fadein.mp4')
+    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'fadein.m4a')
     await bootAndExport({ output, audioPatches: [{ fade_in_us: 1_000_000 }] })
 
     const report = analyzeAudioEnvelope({
@@ -235,7 +237,7 @@ test.describe('audio envelope conformance (Electron)', () => {
     // −6 dB static gain + 1 s fade-out on a 10 s clip: the loudest window is the
     // body (uniform gain is delta-independent); the tail ramps down −6.02 dB at
     // 9.5 s, −12.04 dB at 9.75 s.
-    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'fadeout.mp4')
+    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'fadeout.m4a')
     await bootAndExport({ output, audioPatches: [{ gain_db: -6, fade_out_us: 1_000_000 }] })
 
     const report = analyzeAudioEnvelope({
@@ -254,7 +256,7 @@ test.describe('audio envelope conformance (Electron)', () => {
     test.setTimeout(220000)
     // The same clip stacked twice (0 dB + −6 dB). The summed peak must never
     // exceed the alimiter ceiling (−1 dB ≈ −0.9 dBFS with codec slop).
-    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'overlap.mp4')
+    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'overlap.m4a')
     await bootAndExport({ output, audioPatches: [{}, { gain_db: -6 }] })
 
     const report = analyzeAudioEnvelope({
@@ -270,7 +272,7 @@ test.describe('audio envelope conformance (Electron)', () => {
   test('pan -0.8 lands the equal-power L/R energy ratio', async () => {
     test.setTimeout(220000)
     // Equal-power law for pan = −0.8: L−R = 20·log10(cot(0.05π)) ≈ +16.0 dB.
-    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'pan.mp4')
+    const output = path.join(tmpDir('weftcut-e2e-audio-env-out-'), 'pan.m4a')
     await bootAndExport({ output, audioPatches: [{ pan: -0.8 }] })
 
     const report = analyzeAudioPan({ output, expectLrDb: 16.0 })
@@ -332,7 +334,7 @@ test.describe('audio role mixing conformance (Electron)', () => {
 
   test('muting the music role drops the music layer while dialogue remains', async () => {
     test.setTimeout(300000)
-    const output = path.join(tmpDir('weftcut-e2e-role-out-'), 'role-mute.mp4')
+    const output = path.join(tmpDir('weftcut-e2e-role-out-'), 'role-mute.m4a')
 
     await newProject(page, {
       parentFolder: tmpDir('weftcut-e2e-audio-roles-proj-'),
@@ -358,7 +360,7 @@ test.describe('audio role mixing conformance (Electron)', () => {
     })
 
     // Sanity: both roles audible ⇒ symmetric stereo field (L−R ≈ 0 dB).
-    const baselineOut = path.join(tmpDir('weftcut-e2e-role-out-'), 'role-baseline.mp4')
+    const baselineOut = path.join(tmpDir('weftcut-e2e-role-out-'), 'role-baseline.m4a')
     const AUDIO_ONLY = { includeVideo: false, includeAudio: true }
     let r = await driveExport(page, { outputAbsPath: baselineOut, settings: AUDIO_ONLY }, { hook: 'exportTimeline' })
     if (!r.done.ok) throw new Error(`baseline export failed: ${r.done.error}`)
@@ -399,8 +401,8 @@ test.describe('audio role mixing conformance (Electron)', () => {
     // file's absolute sample peak scales by the same factor: −12 dB ⇒ ×0.251.
     const ROLE_GAIN_DB = -12
     const outDir = tmpDir('weftcut-e2e-role-gain-out-')
-    const out0 = path.join(outDir, 'role-gain-0.mp4')
-    const outDown = path.join(outDir, 'role-gain-down.mp4')
+    const out0 = path.join(outDir, 'role-gain-0.m4a')
+    const outDown = path.join(outDir, 'role-gain-down.m4a')
     // A trivial always-true expectation just to populate a report; we read
     // peak_dbfs (the loudest window vs itself is 0 dB by construction).
     const expects = [{ t_s: 5.0, expect_rms_db_delta: 0.0 }]
