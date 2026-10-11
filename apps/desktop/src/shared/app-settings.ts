@@ -31,6 +31,8 @@ export type MediaPoolLayout = "large" | "grid" | "list";
 export type TimelineWheelAxis = "horizontal" | "vertical";
 
 export interface AppSettings {
+  /** Remember the UI export collision policy across projects; MCP uses its own policy. */
+  export_auto_overwrite?: boolean;
   /** Install a downloaded application update on normal exit. Defaults on. */
   auto_install_updates_on_quit?: boolean;
   /** One app-wide typography and dialog sizing preset; absent in old files. */
@@ -144,6 +146,7 @@ export interface AppSettings {
 /// this for one-field flips (e.g., `{ display_mode: "AllTracks" }`) instead of
 /// round-tripping the whole struct.
 export interface AppSettingsPatch {
+  export_auto_overwrite?: boolean;
   auto_install_updates_on_quit?: boolean;
   layout_theme?: LayoutTheme;
   resource_policy?: import('./resource-policy').ResourcePolicyPatch | null;
@@ -183,6 +186,7 @@ export interface AppSettingsPatch {
 }
 
 export const APP_SETTINGS_DEFAULTS: AppSettings = {
+  export_auto_overwrite: false,
   auto_install_updates_on_quit: true,
   layout_theme: DEFAULT_LAYOUT_THEME,
   resource_policy: { ...DEFAULT_RESOURCE_POLICY },

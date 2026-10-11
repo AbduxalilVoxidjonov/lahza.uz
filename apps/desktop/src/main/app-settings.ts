@@ -85,6 +85,7 @@ export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: 
     const policy = readPerformancePolicy(parsed.performance_policy)
       ?? (parsed.performance_policy === null || budgets || parsed.performance ? null : DEFAULT_PERFORMANCE_POLICY)
     return project({
+      export_auto_overwrite: parsed.export_auto_overwrite === true,
       auto_install_updates_on_quit: typeof parsed.auto_install_updates_on_quit === 'boolean'
         ? parsed.auto_install_updates_on_quit : true,
       layout_theme: readLayoutTheme(parsed.layout_theme),
@@ -269,6 +270,10 @@ export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: 
         }
       }
       project(current)
+      if (patch.export_auto_overwrite !== undefined) {
+        if (typeof patch.export_auto_overwrite !== 'boolean') throw new Error('Invalid export overwrite preference')
+        current.export_auto_overwrite = patch.export_auto_overwrite
+      }
       if (patch.auto_install_updates_on_quit !== undefined) {
         if (typeof patch.auto_install_updates_on_quit !== 'boolean') throw new Error('Invalid update preference')
         current.auto_install_updates_on_quit = patch.auto_install_updates_on_quit

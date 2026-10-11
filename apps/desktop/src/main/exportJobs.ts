@@ -30,8 +30,19 @@ export function exportBasename(name: string): string {
   const safe = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '').slice(0, 120);
   return !safe || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(safe) ? 'weftcut-export' : safe;
 }
-async function exists(file: string): Promise<boolean> {
+/** A missing entry is safe to report as absent; unreadable entries are not. */
+export async function exportPathExists(file: string): Promise<boolean> {
   try { await fs.lstat(file); return true; } catch (e) { if ((e as NodeJS.ErrnoException).code === 'ENOENT') return false; throw e; }
+}
+
+/** Suggest only: the UI adopts the name explicitly and publication rechecks it. */
+export async function suggestExportName(file: string): Promise<string | null> {
+  const { dir, name, ext } = path.parse(file);
+  for (let suffix = 1; suffix <= 10_000; suffix++) {
+    const candidate = `${name} (${suffix})`;
+    if (!await exportPathExists(path.join(dir, `${candidate}${ext}`))) return candidate;
+  }
+  return null;
 }
 
 /** Application-session authority. No transport, React or encoder ownership. */
@@ -132,7 +143,7 @@ export class ExportJobs {
         if (!agent) await fs.mkdir(path.dirname(destination), { recursive: true });
       }
       if (path.extname(destination).toLowerCase() !== `.${resolved.extension}`) throw new ExportValidationError(`output_path must end in .${resolved.extension}`);
-      if (j.policy === 'fail' && await exists(destination)) throw new ExportJobError('output_conflict', 'Output already exists; choose another filename');
+      if (j.policy === 'fail' && await exportPathExists(destination)) throw new ExportJobError('output_conflict', 'Output already exists; choose another filename');
       j.view.output_path = destination; j.view.filename = path.basename(destination);
       j.staging = await this.deps.native('export_prepare_output', { output: destination }) as string;
       await this.deps.native('export_begin', {});

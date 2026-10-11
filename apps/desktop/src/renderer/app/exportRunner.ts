@@ -512,7 +512,7 @@ export function createExportRunner(deps: {
       let nativeSink = target.engine === "native";
       let sinkTarget = target.engine === "native" ? target : null;
 
-      setExportState({ kind: "preparing", labels: [t("export.plan_resources")], onCancel });
+      setExportState({ kind: "preparing", labels: [t("export.plan_resources")], message: t("export.plan_resources"), onCancel });
       const resourcePlans = await prepareExportResourcePlans({
         summary, media: useProjectStore.getState().mediaById,
         routing: decodeRouting, ...exportRange, bitDepth: compositeBitDepth(settings), nativeEncoder: nativeSink,
@@ -522,7 +522,7 @@ export function createExportRunner(deps: {
       // Finish audio before video production. Once encoding completes, retry
       // needs only immutable files and cannot accidentally mix a newer timeline.
       if (settings.audio.include) {
-        setExportState({ kind: "preparing", labels: [t("export.prepare_audio")] });
+        setExportState({ kind: "preparing", labels: [t("export.prepare_audio")], message: t("export.finalize_audio") });
         audioProduced = await exportProjectAudioOnly(tempAudioPath, {
           codec: settings.audio.codec, bitrate: settings.audio.bitrate,
           sampleRate: settings.audio.sampleRate, channels: settings.audio.channels,
@@ -530,7 +530,10 @@ export function createExportRunner(deps: {
       }
 
       const finalizationReservation = await admitExportResources(resourcePlans, nativeSink, exportController.signal,
-        reason => setExportState({ kind: "preparing", labels: [t(reason === 'host-pressure' || reason === 'pressure' ? "export.wait_memory" : "export.wait_resources")], onCancel }));
+        reason => {
+          const message = t(reason === 'host-pressure' || reason === 'pressure' ? "export.wait_memory" : "export.wait_resources");
+          setExportState({ kind: "preparing", labels: [message], message, onCancel });
+        });
       releaseFinalization = finalizationReservation.release;
 
       // Native-sink path: start the native-encode video sink (ffmpeg, frames

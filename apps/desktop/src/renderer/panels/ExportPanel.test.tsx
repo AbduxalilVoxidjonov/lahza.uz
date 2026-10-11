@@ -17,6 +17,7 @@ vi.mock("@/platform", async (importActual) => {
 
 import i18n from "../i18n";
 import { ExportPanel, type ExportState } from "./ExportPanel";
+import { DEFAULT_EXPORT_SETTINGS } from "../../shared/exportSettings";
 
 const OUTPUT = "C:/Users/me/Videos/final.mp4";
 const COMPLETE: ExportState = {
@@ -33,7 +34,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-/// The action row under the progress bar. Scoped because the dialog's ✕ is
+/// The fixed footer. Scoped because the dialog's ✕ is
 /// also labelled "Close" — "关闭" in zh-CN, the same word as Dismiss there.
 function actions() {
   const row = document.querySelector(".export-actions");
@@ -111,4 +112,50 @@ it("keeps a recoverable export modal and offers translated retry and discard act
   expect(onRetry).toHaveBeenCalledOnce();
   await userEvent.click(actions().getByRole("button", { name: "放弃导出" }));
   expect(onDiscard).toHaveBeenCalledOnce();
+});
+
+it("only renames a retry when the user chooses to edit the filename", async () => {
+  const onRetry = vi.fn(async () => {});
+  render(<ExportPanel state={{
+    kind: "error", detail: "Output already exists", onRetry,
+    job: { job_id: "retry", state: "awaiting_retry", filename: "final.mp4", output_path: OUTPUT,
+      settings: DEFAULT_EXPORT_SETTINGS, range: { startUs: 0, endUs: 6_000_000 }, agent: false },
+  }} onClose={vi.fn()} />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(screen.queryByRole("progressbar")).toBeNull();
+  expect(screen.queryByText("Export settings")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Change filename" }));
+  const input = screen.getByRole("textbox", { name: "New filename" });
+  await userEvent.clear(input);
+  expect(actions().getByRole("button", { name: "Retry finishing export" }).hasAttribute("disabled")).toBe(true);
+  await userEvent.type(input, "new-name.mp4");
+  await userEvent.click(actions().getByRole("button", { name: "Retry finishing export" }));
+  expect(onRetry).toHaveBeenLastCalledWith("new-name.mp4");
+  await userEvent.click(screen.getByRole("button", { name: "Keep original filename" }));
+  await userEvent.click(actions().getByRole("button", { name: "Retry finishing export" }));
+  expect(onRetry).toHaveBeenLastCalledWith(undefined);
+});
+
+it("shows the actual published filename and keeps finishing work indeterminate", () => {
+  const { rerender } = render(<ExportPanel state={{ kind: "finalizing", step: "audio" }} onClose={vi.fn()} />);
+  expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBeNull();
+  expect(screen.getByText("Rendering audio…")).toBeTruthy();
+  rerender(<ExportPanel state={{ ...COMPLETE, job: {
+    job_id: "done", state: "completed", filename: "request.mp4", output_path: "C:/request.mp4",
+    settings: DEFAULT_EXPORT_SETTINGS, range: { startUs: 0, endUs: 6_000_000 }, agent: false,
+  } }} onClose={vi.fn()} />);
+  expect(screen.getByText("final.mp4")).toBeTruthy();
+  expect(screen.queryByText("request.mp4")).toBeNull();
+  expect(screen.queryByRole("progressbar")).toBeNull();
+});
+
+it("shows cancellation while cleanup drains, with no retry or repeated cancel action", () => {
+  const onClose = vi.fn();
+  render(<ExportPanel state={{ kind: "error", detail: "Output is busy", onRetry: vi.fn(), onDiscard: vi.fn(),
+    job: { job_id: "cancel", state: "awaiting_retry", phase: "cancelling", filename: "final.mp4", output_path: OUTPUT,
+      settings: DEFAULT_EXPORT_SETTINGS, range: { startUs: 0, endUs: 6_000_000 }, agent: false },
+  }} onClose={onClose} />);
+  expect(screen.getByRole("status").textContent).toBe("Cancelling export…");
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBeNull();
 });

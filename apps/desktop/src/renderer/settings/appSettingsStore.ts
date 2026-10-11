@@ -128,6 +128,8 @@ export const useLanguage = (): string | undefined =>
   useAppSettingsStore((s) => s.settings.language);
 export const useAppSettingsLoaded = (): boolean =>
   useAppSettingsStore((s) => s.loaded);
+export const useExportAutoOverwrite = (): boolean =>
+  useAppSettingsStore((s) => s.settings.export_auto_overwrite === true);
 export const useDefaultTextFont = (): string | undefined =>
   useAppSettingsStore((s) => s.settings.default_text_font);
 

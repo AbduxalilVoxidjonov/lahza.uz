@@ -131,6 +131,39 @@
   text-align: left;
 }
 
+.export-path-status {
+  margin: calc(4 * var(--ui-px)) 0 calc(12 * var(--ui-px));
+  color: var(--muted-foreground);
+  font-size: var(--font-size-caption);
+  line-height: 1.5;
+  text-align: right;
+}
+
+.export-path-status-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: calc(4 * var(--ui-px)) calc(8 * var(--ui-px));
+}
+
+.export-path-status p {
+  margin: 0;
+}
+
+.export-path-status .export-check {
+  margin-top: calc(8 * var(--ui-px));
+  font-size: var(--font-size-body);
+}
+
+.export-use-name {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
 
 
 .export-actions {
@@ -157,55 +190,176 @@
 
 
 
-/* Export progress modal — reuses the settings popup chrome; these style the
- * status line and a taller, more prominent progress bar. */
-.export-progress-status {
-  margin: 0;
+/* Status, destination, optional details, fixed actions. Independent of the
+ * settings form's card and row spacing. */
+.settings-panel.export-progress-panel {
+  width: min(calc(480 * var(--ui-px)), calc(100vw - calc(32 * var(--ui-px))));
+}
+
+.export-progress-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: calc(20 * var(--ui-px));
+  display: flex;
+  flex-direction: column;
+  gap: calc(16 * var(--ui-px));
+  font-size: var(--font-size-body);
+  line-height: 1.5;
+}
+
+.export-phase-row {
   display: flex;
   align-items: baseline;
-  gap: calc(10 * var(--ui-px));
-  font-size: var(--font-size-label);
+  justify-content: space-between;
+  gap: calc(16 * var(--ui-px));
+}
+
+.export-progress-status {
+  margin: 0;
   color: var(--foreground);
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
-.export-progress-status strong {
+.export-work .export-progress-status {
+  display: flex;
+  align-items: center;
+  gap: calc(8 * var(--ui-px));
+  font-size: var(--font-size-label);
+  font-weight: 500;
+}
+
+.export-percent {
+  font-size: var(--font-size-title);
   font-weight: 600;
-}
-
-.export-progress-detail {
-  color: var(--muted-foreground);
   font-variant-numeric: tabular-nums;
 }
 
-.export-progress-status.error {
-  color: var(--destructive);
+.export-progress-detail {
+  margin: calc(8 * var(--ui-px)) 0 0;
+  color: var(--muted-foreground);
+  font-size: var(--font-size-body);
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.export-destination {
+  min-width: 0;
+  user-select: text;
+}
+
+.export-output-name {
+  margin: calc(4 * var(--ui-px)) 0;
+  font-size: var(--font-size-label);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.export-output-directory {
+  margin: 0;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+.export-failure {
+  padding-left: calc(12 * var(--ui-px));
+  border-left: calc(2 * var(--ui-px)) solid var(--warning);
 }
 
 .export-error-details {
-  margin-top: calc(12 * var(--ui-px));
   color: var(--muted-foreground);
-  font-size: var(--font-size-label);
+  font-size: var(--font-size-body);
 }
 
 .export-error-details summary {
   cursor: pointer;
+  width: fit-content;
+}
+
+.export-error-details summary:hover {
+  color: var(--foreground);
+}
+
+.export-error-details summary:focus-visible {
+  outline: calc(2 * var(--ui-px)) solid var(--ring);
+  outline-offset: calc(2 * var(--ui-px));
+  border-radius: var(--radius-control);
 }
 
 .export-error-details pre {
+  margin: calc(8 * var(--ui-px)) 0 0;
+  padding: calc(10 * var(--ui-px));
+  background: var(--surface-sunken);
+  border-radius: var(--radius-control);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  max-height: calc(160 * var(--ui-px));
+  max-height: calc(120 * var(--ui-px));
   overflow-y: auto;
+  user-select: text;
+  font-size: var(--font-size-caption);
+}
+
+.export-rename {
+  margin-top: calc(8 * var(--ui-px));
+}
+
+.export-rename > button {
+  padding-left: 0;
+}
+
+.export-rename-field {
+  display: flex;
+  flex-direction: column;
+  gap: calc(6 * var(--ui-px));
+  margin-top: calc(8 * var(--ui-px));
+}
+
+.export-rename-field p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: var(--font-size-caption);
+}
+
+.export-action-error {
+  margin: 0;
+  color: var(--destructive);
+  overflow-wrap: anywhere;
 }
 
 .export-progress-panel .progress-track {
-  height: calc(8 * var(--ui-px));
+  height: calc(6 * var(--ui-px));
+  margin-top: calc(10 * var(--ui-px));
   border-radius: var(--radius-control);
-  margin-top: calc(14 * var(--ui-px));
   overflow: hidden;
 }
 
 .export-progress-panel .progress-fill {
-  border-radius: var(--radius-control);
+  height: 100%;
+  border-radius: inherit;
+}
+
+.export-wait {
+  display: inline-flex;
+  flex: none;
+  color: var(--muted-foreground);
+}
+
+.export-spinner {
+  animation: export-wait-spin 1s linear infinite;
+}
+
+@keyframes export-wait-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .export-spinner {
+    animation: none;
+  }
+}
+
+.export-progress-footer {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: calc(12 * var(--ui-px)) calc(20 * var(--ui-px));
 }

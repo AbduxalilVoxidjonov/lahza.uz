@@ -18,6 +18,7 @@ const ipc = vi.hoisted(() => ({
   exportSettingsGet: vi.fn(),
   exportSettingsSet: vi.fn(),
   workspaceDir: vi.fn(),
+  appSettingsSet: vi.fn(),
 }));
 
 vi.mock("../ipc", async (importActual) => {
@@ -47,6 +48,8 @@ vi.mock("../settings/decodeComponentStore", () => ({
 import i18n from "../i18n";
 import type { ExportSettings } from "../render/exportSettings";
 import { ExportSettingsDialog } from "./ExportSettingsDialog";
+import { APP_SETTINGS_DEFAULTS } from '../../shared/app-settings';
+import { useAppSettingsStore } from '../settings/appSettingsStore';
 
 // jsdom has no PointerEvent; Base UI's Select reads MouseEvent's client coords.
 (window as unknown as { PointerEvent: unknown }).PointerEvent = window.MouseEvent;
@@ -145,6 +148,8 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 beforeEach(async () => {
+  useAppSettingsStore.setState({ settings: { ...APP_SETTINGS_DEFAULTS }, loaded: true });
+  ipc.appSettingsSet.mockReset().mockImplementation(async patch => ({ ...useAppSettingsStore.getState().settings, ...patch }));
   vi.mocked(invoke).mockReset().mockResolvedValue(false);
   await i18n.changeLanguage("en-US");
   onConfirm.mockReset();
@@ -155,23 +160,139 @@ beforeEach(async () => {
 });
 
 describe("export dialog accessibility", () => {
-  it('requires explicit overwrite consent and clears it when the filename changes', async () => {
+  it('keeps overwrite off if saving fails and allows retrying the preference', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    ipc.appSettingsSet.mockRejectedValueOnce(new Error('disk unavailable'));
+    const checkbox = screen.getByRole('checkbox', { name: 'Automatically overwrite files with the same name on export' });
+    await user.click(checkbox);
+    await screen.findByRole('alert');
+    expect(checkbox.getAttribute('aria-checked')).toBe('false');
+    await user.click(checkbox);
+    await waitFor(() => expect(checkbox.getAttribute('aria-checked')).toBe('true'));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('hides collision information while automatic overwrite is enabled', async () => {
+    useAppSettingsStore.setState({ settings: { ...APP_SETTINGS_DEFAULTS, export_auto_overwrite: true } });
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    vi.mocked(invoke).mockImplementation(async (channel, args) => {
+      if (channel === 'export_job_suggest_name') return 'existing (1)';
+      return String(args?.path).endsWith('/existing.mp4');
+    });
+    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'existing' } });
+    await waitFor(() => expect(exportButton().disabled).toBe(false));
+    expect(document.querySelector('.export-path-status-line')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Use “existing (1)”' })).toBeNull();
+    expect(screen.getByRole('checkbox', { name: 'Automatically overwrite files with the same name on export' }).getAttribute('aria-checked')).toBe('true');
+    expect(ipc.appSettingsSet).not.toHaveBeenCalled();
+  });
+
+  it('always shows overwrite and keeps the Export button label when it is checked', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    const checkbox = screen.getByRole('checkbox', { name: 'Automatically overwrite files with the same name on export' });
+    expect(checkbox.getAttribute('aria-checked')).toBe('false');
+    expect(document.querySelector('.export-path-status-line')).toBeNull();
+    await user.click(checkbox);
+    expect(exportButton().textContent).toBe('Export');
+    expect(exportButton().disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'another' } });
+    await waitFor(() => expect(exportButton().disabled).toBe(false));
+    expect(checkbox.getAttribute('aria-checked')).toBe('true');
+    fireEvent.change(screen.getByLabelText('Location'), { target: { value: 'C:/another-project/output' } });
+    await waitFor(() => expect(exportButton().disabled).toBe(false));
+    expect(checkbox.getAttribute('aria-checked')).toBe('true');
+    cleanup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    expect(screen.getByRole('checkbox', { name: 'Automatically overwrite files with the same name on export' }).getAttribute('aria-checked')).toBe('true');
+    expect(ipc.appSettingsSet).toHaveBeenCalledExactlyOnceWith({ export_auto_overwrite: true });
+  });
+
+  it('adopts a suggested filename only when clicked, and exports without overwrite consent', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    vi.mocked(invoke).mockImplementation(async (channel, args) => {
+      if (channel === 'export_job_suggest_name') return 'existing (2)';
+      return String(args?.path).endsWith('/existing.mp4');
+    });
+    const field = screen.getByLabelText('File name') as HTMLInputElement;
+    fireEvent.change(field, { target: { value: 'existing' } });
+    const rename = await screen.findByRole('button', { name: 'Use “existing (2)”' });
+    expect(field.value).toBe('existing');
+    expect(exportButton().disabled).toBe(true);
+    await user.click(rename);
+    await waitFor(() => expect(exportButton().disabled).toBe(false));
+    expect(field.value).toBe('existing (2)');
+    expect(screen.getByRole('checkbox', { name: 'Automatically overwrite files with the same name on export' }).getAttribute('aria-checked')).toBe('false');
+    await user.click(exportButton());
+    await waitFor(() => expect(onConfirm).toHaveBeenCalledOnce());
+    expect(onConfirm.mock.calls[0]![1]).toBe('C:/ws/output/existing (2).mp4');
+    expect(onConfirm.mock.calls[0]![3]).toBe(false);
+  });
+
+  it('ignores a late name suggestion after the user edits the target', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    let resolveName!: (name: string) => void;
+    const suggestion = new Promise<string>(resolve => { resolveName = resolve; });
+    vi.mocked(invoke).mockImplementation(async (channel, args) => {
+      if (channel === 'export_job_suggest_name') return suggestion;
+      return String(args?.path).endsWith('/existing.mp4');
+    });
+    const field = screen.getByLabelText('File name') as HTMLInputElement;
+    fireEvent.change(field, { target: { value: 'existing' } });
+    await waitFor(() => expect(invoke).toHaveBeenCalledWith('export_job_suggest_name', { path: 'C:/ws/output/existing.mp4' }));
+    fireEvent.change(field, { target: { value: 'chosen-name' } });
+    await waitFor(() => expect(exportButton().disabled).toBe(false));
+    resolveName('existing (1)');
+    await suggestion;
+    expect(screen.queryByRole('button', { name: 'Use “existing (1)”' })).toBeNull();
+    expect(field.value).toBe('chosen-name');
+  });
+
+  it('blocks collisions by default and retains the enabled preference after renaming', async () => {
     const user = userEvent.setup();
     await renderDialog(user);
     await user.click(screen.getByRole('tab',{name:'General'}));
     vi.mocked(invoke).mockResolvedValue(true);
     const name = screen.getByLabelText('File name');
     fireEvent.change(name,{target:{value:'existing'}});
-    await screen.findByText('This file exists. Change its name or explicitly allow replacement.');
+    await screen.findByText('A file with this name exists');
     expect(exportButton().disabled).toBe(true);
-    await user.click(screen.getByRole('checkbox',{name:'Replace the existing file only after export completes'}));
+    await user.click(screen.getByRole('checkbox',{name:'Automatically overwrite files with the same name on export'}));
+    await waitFor(() => expect(document.querySelector('.export-path-status-line')).toBeNull());
     expect(exportButton().disabled).toBe(false);
     fireEvent.change(name,{target:{value:'existing-other'}});
-    await waitFor(()=>expect(exportButton().disabled).toBe(true));
-    await user.click(screen.getByRole('checkbox',{name:'Replace the existing file only after export completes'}));
+    await waitFor(()=>expect(exportButton().disabled).toBe(false));
     await user.click(exportButton());
     await waitFor(()=>expect(onConfirm).toHaveBeenCalledOnce());
     expect(onConfirm.mock.calls[0]![3]).toBe(true);
+  });
+  it('keeps export disabled after a failed filename check and can recheck the same path', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await user.click(screen.getByRole('tab', { name: 'General' }));
+    vi.mocked(invoke).mockRejectedValueOnce(new Error('EACCES: permission denied'));
+    fireEvent.change(screen.getByLabelText('File name'), { target: { value: 'unreadable' } });
+    await screen.findByText('Could not check whether a file with this name exists.');
+    expect(exportButton().disabled).toBe(true);
+    expect(onConfirm).not.toHaveBeenCalled();
+    // The folder becomes readable; rechecking discovers a collision, so the
+    // retry must not bypass explicit overwrite consent.
+    vi.mocked(invoke).mockResolvedValue(true);
+    await user.click(screen.getByRole('button', { name: 'Check again' }));
+    await screen.findByText('A file with this name exists');
+    expect(exportButton().disabled).toBe(true);
+    await user.click(screen.getByRole('checkbox', { name: 'Automatically overwrite files with the same name on export' }));
+    expect(exportButton().disabled).toBe(false);
   });
   // The dialog labels each row with a plain sibling <span>, which names nothing
   // as far as assistive tech is concerned — a screen reader reading the Video

@@ -45,6 +45,22 @@ function memFs(seed: Record<string, string> = {}) {
 const store = (seed?: Record<string, string>) => createAppSettingsStore({ ...memFs(seed), path: PATH, dir: DIR })
 
 describe('app-settings store', () => {
+  it.each([undefined, null, 'true', 1, false])('defaults export overwrite off for absent or invalid saved value %s', value => {
+    expect(store({ [PATH]: JSON.stringify({ export_auto_overwrite: value }) }).get().export_auto_overwrite).toBe(false);
+  });
+
+  it('remembers export overwrite across restart, including opt-out, and rejects invalid writes', () => {
+    const { fs, files } = memFs();
+    const deps = { fs, path: PATH, dir: DIR };
+    expect(createAppSettingsStore(deps).get().export_auto_overwrite).toBe(false);
+    createAppSettingsStore(deps).apply({ export_auto_overwrite: true, language: 'zh-CN' });
+    expect(createAppSettingsStore(deps).get()).toMatchObject({ export_auto_overwrite: true, language: 'zh-CN' });
+    createAppSettingsStore(deps).apply({ export_auto_overwrite: false });
+    expect(createAppSettingsStore(deps).get().export_auto_overwrite).toBe(false);
+    const before = files.get(PATH);
+    expect(() => createAppSettingsStore(deps).apply({ export_auto_overwrite: 'true' as never })).toThrow();
+    expect(files.get(PATH)).toBe(before);
+  });
   it('defaults update-on-quit on for old files and persists an explicit opt-out', () => {
     const { fs } = memFs({ [PATH]: JSON.stringify({ language: 'zh-CN' }) })
     const deps = { fs, path: PATH, dir: DIR }

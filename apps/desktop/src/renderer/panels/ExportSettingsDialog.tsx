@@ -30,6 +30,7 @@ import {
   useDecodeComponentReason,
 } from "../settings/decodeComponentStore";
 import { decodeEngineOptions } from "../settings/decodeEngineOptions";
+import { setAppSettings, useAppSettingsLoaded, useExportAutoOverwrite } from "../settings/appSettingsStore";
 import {
   type BitDepth,
   type CodecId,
@@ -124,19 +125,44 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
   const [location, setLocation] = useState<string>("");
   const [filename, setFilename] = useState<string>("weftcut-export");
   const [pathCheck, setPathCheck] = useState<'checking' | 'free' | 'exists' | 'error'>('checking');
-  const [overwrite, setOverwrite] = useState(false);
+  const [pathCheckRevision, setPathCheckRevision] = useState(0);
+  const [suggestedName, setSuggestedName] = useState<string | null>(null);
+  const overwrite = useExportAutoOverwrite();
+  const preferencesLoaded = useAppSettingsLoaded();
+  const [savingOverwrite, setSavingOverwrite] = useState(false);
+  const [overwriteSaveFailed, setOverwriteSaveFailed] = useState(false);
+  const saveOverwrite = async (next: boolean) => {
+    setSavingOverwrite(true);
+    setOverwriteSaveFailed(false);
+    try {
+      await setAppSettings({ export_auto_overwrite: next });
+    } catch {
+      setOverwriteSaveFailed(true);
+    } finally {
+      setSavingOverwrite(false);
+    }
+  };
   const outputExtension = settings ? exportOutputExtension(settings) : '';
   useEffect(() => {
     let stale = false;
-    setOverwrite(false);
     setPathCheck('checking');
+    setSuggestedName(null);
     if (!location || !filename.trim() || !outputExtension) return;
     void join(location, `${filename.trim()}.${outputExtension}`)
-      .then(path => invoke<boolean>('export_job_path_exists', {path}))
-      .then(exists => { if (!stale) setPathCheck(exists ? 'exists' : 'free'); })
+      .then(async path => {
+        const exists = await invoke<boolean>('export_job_path_exists', {path});
+        if (stale) return;
+        setPathCheck(exists ? 'exists' : 'free');
+        if (exists) {
+          // A suggestion is optional. If it cannot be read, manual renaming
+          // and explicit overwrite remain available for the known collision.
+          const suggestion = await invoke<string | null>('export_job_suggest_name', {path}).catch(() => null);
+          if (!stale) setSuggestedName(suggestion);
+        }
+      })
       .catch(() => { if (!stale) setPathCheck('error'); });
     return () => { stale = true; };
-  }, [location, filename, outputExtension]);
+  }, [location, filename, outputExtension, pathCheckRevision]);
   /// True once a one-frame WebCodecs smoke-encode confirms the current
   /// codec/dims/fps combo actually encodes; false if it fails; null while
   /// checking. Purely informational (which branch encodes is decided by
@@ -352,7 +378,7 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
   }
 
   async function doExport() {
-    if (!settings || !location || !filename.trim()) return;
+    if (!settings || !location || !filename.trim() || !preferencesLoaded || savingOverwrite) return;
     // Unreachable through the UI (`canExport` gates on the same value), but
     // this is the one place a bad range would reach the encoder, so it refuses
     // rather than substituting one.
@@ -363,7 +389,8 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
       const ext = exportOutputExtension(settings);
       const out = await join(location, `${filename.trim()}.${ext}`);
       if (await invoke<boolean>('export_job_path_exists', {path:out}) && !overwrite) {
-        setPathCheck('exists'); submittingRef.current = false; return;
+        setPathCheck('exists'); setPathCheckRevision(revision => revision + 1);
+        submittingRef.current = false; return;
       }
       await exportSettingsSet(settings).catch(() => {});
       onConfirm(settings, out, chosenRange, overwrite);
@@ -395,6 +422,7 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
   }
 
   const canExport =
+    preferencesLoaded && !savingOverwrite &&
     pathCheck !== 'checking' && pathCheck !== 'error' && (pathCheck !== 'exists' || overwrite) &&
     !/[<>:"/\\|?*\u0000-\u001f]/.test(filename) &&
     !!location &&
@@ -510,13 +538,26 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
                   </span>
                 </div>
 
-                <p role="status" className="settings-blurb">
-                  {t(pathCheck === 'exists' ? 'export_dialog.file_exists' : pathCheck === 'checking' ? 'export_dialog.checking_path' : pathCheck === 'error' ? 'export_dialog.path_check_failed' : 'export_dialog.path_available')}
-                </p>
-                {pathCheck === 'exists' && <label className="export-row">
-                  <AppCheckbox checked={overwrite} onCheckedChange={setOverwrite} />
-                  {t('export_dialog.overwrite_completed')}
-                </label>}
+                <div className="export-path-status" data-state={pathCheck}>
+                  {(pathCheck === 'error' || (pathCheck === 'exists' && !overwrite)) && <div className="export-path-status-line">
+                    <p role="status">
+                      {t(pathCheck === 'error' ? 'export_dialog.path_check_failed' : 'export_dialog.file_exists')}
+                    </p>
+                    {pathCheck === 'error' && <Button variant="ghost" size="xs" onClick={() => setPathCheckRevision(revision => revision + 1)}>
+                      {t('export_dialog.check_again')}
+                    </Button>}
+                    {pathCheck === 'exists' && suggestedName && <Button variant="ghost" size="xs"
+                      className="export-use-name" title={t('export_dialog.use_available_name', { name: suggestedName })}
+                      onClick={() => setFilename(suggestedName)}>
+                      {t('export_dialog.use_available_name', { name: suggestedName })}
+                    </Button>}
+                  </div>}
+                  <label className="export-check">
+                    <AppCheckbox checked={overwrite} disabled={!preferencesLoaded || savingOverwrite} onCheckedChange={next => void saveOverwrite(next)} />
+                    {t('export_dialog.overwrite_completed')}
+                  </label>
+                  {overwriteSaveFailed && <p role="alert">{t('export_dialog.overwrite_save_failed')}</p>}
+                </div>
                 {settings.includeVideo && (
                   <div className="export-row">
                     <span className="settings-toggle-label">

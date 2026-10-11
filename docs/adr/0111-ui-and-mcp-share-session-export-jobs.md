@@ -27,15 +27,22 @@ all permits and finalization reservations.
 Native code probes the destination directory before rendering, allocates one
 same-directory staging file, and publishes only a complete file. No-overwrite
 publication uses a hard link, falling back to the platform's atomic no-replace
-rename. There is no copy fallback. UI replacement requires explicit consent and
-atomically replaces the old file only after completion. MCP defaults to numbered
-names or can require a strict name; neither policy overwrites.
+rename. There is no copy fallback. UI replacement follows the user's app-level
+`export_auto_overwrite` preference, defaulting off. The export dialog always
+shows this checkbox and remembers explicit changes across projects and restarts;
+changing the filename or directory does not clear it. Only a collision with
+automatic overwrite disabled shows a hint and an optional available-name suggestion
+that is adopted only on click. Successful checks and enabled overwrite show no
+status text; failed checks retain the retry action. Publication atomically
+replaces the old file only after completion. MCP defaults to numbered names or can require a strict name;
+neither policy overwrites or inherits the UI preference.
 
 Completed encoding is immutable. Mux or publication failure retains it and its
 reservation as `awaiting_retry`. Retrying a publication failure reuses the muxed
 file; retrying a mux failure consumes the encoded streams. A new basename must
-stay in the same directory and retain the extension. Changing a UI filename
-removes earlier overwrite consent.
+stay in the same directory and retain the extension. Renaming during finalization
+retry clears that job's earlier overwrite consent, without changing the saved
+preference for future UI exports.
 
 Cancellation is latched through gaps between native stages. Native children,
 mixing tasks and renderer work drain before admission is released. Cancellation
@@ -55,7 +62,8 @@ hardware-to-software candidate selection remains part of the native engine.
 
 Five tools expose options, start, status, retry and cancel. Wire settings use
 snake_case; one mapping feeds the shared settings validator. The ExportPanel
-shows the same progress, actual settings and result for either entry point.
+shows the same phase, progress, destination and result for either entry point;
+encoding parameters stay in the export settings dialog.
 Agents must poll and report the completed `output_path`, rather than assuming
 that their candidate filename was used.
 

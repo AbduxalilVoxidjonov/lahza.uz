@@ -2,12 +2,36 @@ import { afterEach, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { ExportJobs, exportBasename } from './exportJobs';
+import { ExportJobs, exportBasename, exportPathExists, suggestExportName } from './exportJobs';
 import { blankProject, rootComposition } from './state/model';
 import type { TsActorHost } from './state/ts-actor-host';
 import type { ExportRun } from '../shared/exportJob';
 
 const cleanup: string[] = [];
+it('suggests an unused numbered name without creating or replacing any file', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-export-name-'));
+  cleanup.push(dir);
+  for (const name of ['clip.mp4', 'clip (1).mp4', 'clip (2).mp4', 'clip (3).mov']) {
+    await fs.writeFile(path.join(dir, name), 'existing output');
+  }
+  expect(await suggestExportName(path.join(dir, 'clip.mp4'))).toBe('clip (3)');
+  expect(await exportPathExists(path.join(dir, 'clip (3).mp4'))).toBe(false);
+  expect(await fs.readFile(path.join(dir, 'clip.mp4'), 'utf8')).toBe('existing output');
+});
+it('distinguishes absent output files from filesystem failures during filename checks', async () => {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-filename-check-'));
+  cleanup.push(dir);
+  const output = path.join(dir, 'clip.mp4');
+  expect(await exportPathExists(output)).toBe(false);
+  await fs.writeFile(output, 'existing output');
+  expect(await exportPathExists(output)).toBe(true);
+  for (const code of ['EACCES', 'EIO', 'ENOTDIR']) {
+    const error = Object.assign(new Error('Cannot read output entry'), { code });
+    const stat = vi.spyOn(fs, 'lstat').mockRejectedValueOnce(error);
+    try { await expect(exportPathExists(output)).rejects.toBe(error); }
+    finally { stat.mockRestore(); }
+  }
+});
 afterEach(async () => { vi.useRealTimers(); await Promise.all(cleanup.splice(0).map(p => fs.rm(p, { recursive: true, force: true }))); });
 async function setup() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-export-test-')); cleanup.push(dir);
