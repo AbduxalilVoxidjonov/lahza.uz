@@ -96,6 +96,22 @@ test(`Motif pre-bake survives a cold app restart and captures only missing frame
     if (missingFrame !== null) await fs.unlink(path.join(baked.hashDir, `${missingFrame}.wfrm`))
     running = await launchApp({ userDataDir, env: { WEFTCUT_MOTIF_CAPTURE: 'png' } })
     await waitForHook(running.page, 'motifReopenProject')
+    // Install before opening the project: the new renderer has no cached or
+    // in-flight frame reads yet. Clearing L0 after prewarming is insufficient,
+    // because an existing broker request can refill it and bypass this IPC.
+    // Replay a stale disk miss although frame 0 is already persisted. Main
+    // must recheck the committed address instead of capturing it again.
+    await running.app.evaluate(({ ipcMain }, hash) => {
+      const read = ipcMain._invokeHandlers.get('motif:read')!
+      ;(globalThis as any).__staleMotifMissDelivered = false
+      ipcMain._invokeHandlers.set('motif:read', (event: any, args: any) => {
+        if (args.hash === hash && args.frame === 0 && !(globalThis as any).__staleMotifMissDelivered) {
+          ;(globalThis as any).__staleMotifMissDelivered = true
+          return null
+        }
+        return read(event, args)
+      })
+    }, hashCacheKey(key))
     await invokeCmd(running.page, 'motif_capture_diagnostics', { reset: true })
     await running.page.evaluate(path => (window as any).__weftcutTest.motifReopenProject({ path }), projectPath)
     await waitForHook(running.page, 'weftcutSampleComposite')
@@ -121,28 +137,6 @@ test(`Motif pre-bake survives a cold app restart and captures only missing frame
     await running.page.keyboard.down('Control')
     await running.page.mouse.wheel(0, -1200)
     await running.page.keyboard.up('Control')
-    // Replay a renderer miss whose reply arrives after background persistence
-    // completed. Main must recheck the committed address, not capture again
-    // merely because there is no longer an in-flight background receipt.
-    await running.app.evaluate(({ ipcMain }, hash) => {
-      const read = ipcMain._invokeHandlers.get('motif:read')!
-      ;(globalThis as any).__staleMotifMissDelivered = false
-      ipcMain._invokeHandlers.set('motif:read', (event: any, args: any) => {
-        if (args.hash === hash && args.frame === 0 && !(globalThis as any).__staleMotifMissDelivered) {
-          ;(globalThis as any).__staleMotifMissDelivered = true
-          return null
-        }
-        return read(event, args)
-      })
-    }, hashCacheKey(key))
-    await running.page.evaluate(async key => {
-      const hook = (window as any).__weftcutTest
-      hook.clearMotifCacheKey(key)
-      await hook.renderMotifSpriteFrames({
-        motifId: 'countdown', fpsNum: 30, fpsDen: 1, durationUs: 1_000_000, props: { seconds: 1 },
-        times: [{ tInLayerUs: 0 }],
-      })
-    }, key)
     const dot = running.page.locator(`[data-layer-id="${layerId}"] .motif-bake-dot`)
     for (const us of [900_000, 100_000, 700_000, 0]) {
       await running.page.evaluate(({ key, us }) => {
