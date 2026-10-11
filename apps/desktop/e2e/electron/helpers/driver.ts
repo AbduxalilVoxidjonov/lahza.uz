@@ -309,6 +309,8 @@ export async function launchApp(
     } as Record<string, string>,
   })
   liveApps.set(app, mintedUserDataDir)
+  app.process().stderr?.on('data', data => console.log('[DEBUG-ci-shutdown] stderr', String(data)))
+  app.on('console', msg => { if (msg.text().includes('[DEBUG-ci-shutdown]')) console.log(msg.text()) })
   processTrees.set(app, ownProcessTree(app.process()))
   app.close = wrapClose(app)
   try {
@@ -320,6 +322,9 @@ export async function launchApp(
     }
     await page.waitForLoadState('domcontentloaded')
     await installResourceDiagnostics(app, page)
+    await app.evaluate(({ app, BrowserWindow }) => {
+      for (const name of ['before-quit', 'will-quit', 'quit', 'window-all-closed']) app.on(name as any, () => console.log('[DEBUG-ci-shutdown]', name, BrowserWindow.getAllWindows().map(w => w.id)))
+    })
     stopJournals.set(app, startResourceJournal(page, test.info().outputPath(`resource-lifecycle-${app.process().pid}.jsonl`)))
     return { app, page }
   } catch (e) {

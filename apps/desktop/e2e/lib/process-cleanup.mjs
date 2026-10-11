@@ -13,6 +13,8 @@ export function ownProcessTree(child) {
   const group = process.platform === 'win32' || !pid ? null : processGroup(pid)
   const workerGroup = process.platform === 'win32' ? null : processGroup(process.pid)
   const isolated = group === pid && workerGroup !== null && group !== workerGroup
+  console.log('[DEBUG-ci-shutdown] ownership', { pid, group, workerGroup, isolated })
+  child.once('exit', (code, signal) => console.log('[DEBUG-ci-shutdown] exit', { pid, code, signal }))
   let closed = false
   const killOwnedGroup = () => {
     if (!isolated || workerGroup === group) return
@@ -33,6 +35,8 @@ export function ownProcessTree(child) {
   return {
     reaped,
     force() {
+      console.log('[DEBUG-ci-shutdown] force', { pid, closed, exitCode: child.exitCode, signalCode: child.signalCode })
+      if (process.platform !== 'win32') console.log('[DEBUG-ci-shutdown] processes', spawnSync('ps', ['-axo', 'pid=,ppid=,pgid=,rss=,comm='], { encoding: 'utf8', timeout: 1000 }).stdout)
       if (!pid || closed) return
       if (process.platform === 'win32') {
         spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', timeout: 5000 })
