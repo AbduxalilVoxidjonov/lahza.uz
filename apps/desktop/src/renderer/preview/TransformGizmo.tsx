@@ -75,7 +75,6 @@ import {
   layerQuad,
   resizeCursorForDeg,
   rotateHandle,
-  scaleCompensation,
   scaleFromUniformT,
   scaleHandlePoints,
   SCALE_HANDLE_IDS,
@@ -389,8 +388,7 @@ interface ScaleDrag extends DragBase {
   /// un-rotates the cursor through.
   frame: LayerQuadInput;
   /// The pivot in COMPOSITION pixels, frozen: the point this gesture pins. It
-  /// stays truthful for the whole drag because the compensation below is exactly
-  /// what holds it there.
+  /// stays fixed because scale never changes Position.
   pivotComp: Pt;
   /// Where the grabbed handle sat at pointerdown, composition pixels. The solve
   /// targets `handleComp + cursor delta` rather than the raw cursor, so grabbing
@@ -418,18 +416,6 @@ interface ScaleDrag extends DragBase {
   box: { base: TextBox; live: TextBox } | null;
   dScaleX: number;
   dScaleY: number;
-  /// The `x`/`y` that keeps the pivot still (`scaleCompensation`). Committed in
-  /// the same batch for the same reason as the anchor gesture's: applying the
-  /// scale without it is a visible jump.
-  ///
-  /// Always ZERO on a box gesture, and not by accident: `scaleCompensation`
-  /// returns `{0, 0}` whenever `origin === "anchor"`, `originFor` returns
-  /// `"anchor"` for Text, and a box resize does not move `x`/`y` in the first
-  /// place — Text's `x`/`y` IS the pivot, so there is nothing for a fix to pin.
-  /// LANDMINE: a reader who assumes symmetry with the media kinds' resize will
-  /// add a phantom `positionFix` here and slide the layer on every box drag.
-  compDx: number;
-  compDy: number;
 }
 
 type Drag = MoveDrag | RotateDrag | AnchorDrag | ScaleDrag;
@@ -525,12 +511,7 @@ function bumpEntry(
   return [key, bumpTrack(base, key, fallback, tInLayerUs, delta)];
 }
 
-/// The `x`/`y` half of a gesture that has to hold the picture (or the pivot)
-/// still, PER AXIS — an axis whose compensation is exactly zero is left out.
-/// Both compensating gestures hit that case constantly (an unrotated media
-/// layer needs none at all for an anchor drag; a single-axis resize needs one
-/// axis), and writing the zero anyway would stamp a redundant keyframe on a
-/// track the gesture never moved.
+/// Anchor drags compensate Position; omit unchanged axes to avoid redundant keys.
 function positionFix(
   base: CommitBase,
   tInLayerUs: number,
@@ -567,8 +548,8 @@ function deltaOf(drag: Drag): TransformDelta {
       // ledger) that this pure function cannot see.
       if (drag.box) return { dx: 0, dy: 0 };
       return {
-        dx: drag.compDx,
-        dy: drag.compDy,
+        dx: 0,
+        dy: 0,
         dscaleX: drag.dScaleX,
         dscaleY: drag.dScaleY,
       };
@@ -1069,7 +1050,7 @@ function TransformGizmo({
       // Everything above is arithmetic and the two refs the pointer handlers
       // read; everything below writes to the DOM. Same inputs ⇒ every write
       // would be a no-op that still dirties layout for the next reader.
-      const signature = `${geom.x},${geom.y},${geom.anchorX},${geom.anchorY},${geom.naturalW},${geom.naturalH},${geom.scaleX},${geom.scaleY},${geom.rotationDeg},${geom.origin};${fit.scale},${fit.offX},${fit.offY};${own.left},${own.top};${comp.width}x${comp.height};${edges ? 1 : 0};${stroke};${live.x},${live.y}`;
+      const signature = `${geom.x},${geom.y},${geom.anchorX},${geom.anchorY},${geom.naturalW},${geom.naturalH},${geom.scaleX},${geom.scaleY},${geom.rotationDeg};${fit.scale},${fit.offX},${fit.offY};${own.left},${own.top};${comp.width}x${comp.height};${edges ? 1 : 0};${stroke};${live.x},${live.y}`;
       const visibleSignature = `${signature};${JSON.stringify(geom.visibleRect)};${geom.flipX},${geom.flipY}`;
       if (visibleSignature === drawn) return;
       drawn = visibleSignature;
@@ -1369,9 +1350,7 @@ function TransformGizmo({
       bumpEntry(base, "anchor_y", DEFAULT_ANCHOR, drag.tInLayerUs, drag.dAnchorY),
     ];
     // The pan-behind compensation rides the SAME batch — one undo step for the
-    // whole gesture. Skipped when it is exactly zero, which is the common case
-    // (an unrotated, unflipped media layer): writing it anyway would stamp a
-    // redundant key on `x`/`y` for a gesture that never moved the picture.
+    // whole gesture. Skip unchanged axes to avoid redundant position keys.
     entries.push(...positionFix(base, drag.tInLayerUs, drag.compDx, drag.compDy));
     commitEntries(base.layer.id, entries, "anchor");
   };
@@ -1407,8 +1386,6 @@ function TransformGizmo({
       box: layerRef.current.params.kind === TEXT_KIND ? { base: box, live: box } : null,
       dScaleX: 0,
       dScaleY: 0,
-      compDx: 0,
-      compDy: 0,
     };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
@@ -1521,9 +1498,6 @@ function TransformGizmo({
     }
     drag.dScaleX = next.scaleX - drag.frame.scaleX;
     drag.dScaleY = next.scaleY - drag.frame.scaleY;
-    const fix = scaleCompensation(drag.frame, next.scaleX, next.scaleY);
-    drag.compDx = fix.x;
-    drag.compDy = fix.y;
     applyOverride(drag);
   };
 
@@ -1590,10 +1564,7 @@ function TransformGizmo({
         entries.push(bumpEntry(base, "scale_y", 1, drag.tInLayerUs, drag.dScaleY));
       }
     }
-    // Scaling about the anchor moves `x`/`y`, because the composed position
-    // carries a `pivot·|scale|` term — the exact mirror of the anchor gesture,
-    // where the media kinds needed no fix and Text always did.
-    entries.push(...positionFix(base, drag.tInLayerUs, drag.compDx, drag.compDy));
+    // Position already names the pivot; scaling writes only scale tracks.
     commitEntries(l.id, entries, "scale");
   };
 

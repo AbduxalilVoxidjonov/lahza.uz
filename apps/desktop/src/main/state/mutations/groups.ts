@@ -103,7 +103,7 @@ export function applyGroupsCreate(p: Project, idGen: IdGen, layerIds: readonly U
   const laneId = collides ? (pickFreeOverlayTrack(parent, t0, tEnd) ?? applyAddTrack(p, idGen, null, undefined, parent.id)) : topFormerId
   const params: CompositionRefParams = {
     kind: 'CompositionRef', composition: child.id, src_in_us: 0, src_out_us: child.duration_us,
-    transform: defaultTransform(), opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal',
+    transform: defaultTransform(child.width / 2, child.height / 2), opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal',
   }
   const layerId = idGen()
   insertSorted(parent.tracks.find((t) => t.id === laneId)!, {
@@ -181,11 +181,11 @@ function isStatic(a: Animated<number>, value: number): boolean { return a.mode =
 /** Why a Group layer is not plain, or null when it is. Plain = identity
  *  transform (including the `scale_linked` default), static opacity 1, no
  *  effects, Normal blend — exactly what ungroup could not carry onto the members. */
-export function groupNotPlainReason(layer: Layer): GroupNotPlainReason | null {
+export function groupNotPlainReason(layer: Layer, source: Pick<Composition, 'width' | 'height'>): GroupNotPlainReason | null {
   const pa = layer.params as CompositionRefParams
   const ident: Transform = defaultTransform()
   const identity = ANIMATED_TRANSFORM_KEYS.every((k) => isStatic(pa.transform[k], (ident[k] as { value: number }).value))
-    && pa.transform.position.mode === 'XY' && isStatic(pa.transform.position.x, 0) && isStatic(pa.transform.position.y, 0)
+    && pa.transform.position.mode === 'XY' && isStatic(pa.transform.position.x, source.width / 2) && isStatic(pa.transform.position.y, source.height / 2)
     && pa.transform.scale_linked === ident.scale_linked
   if (!identity) return 'transform'
   if (!isStatic(pa.opacity, 1)) return 'opacity'
@@ -218,7 +218,7 @@ export function applyGroupsUngroup(p: Project, idGen: IdGen, layerId: Uuid): voi
   const pa = ref.layer.params
   if (pa.kind !== 'CompositionRef') throw new CommandFailure({ error: 'WrongLayerKind', layer: layerId, expected: 'CompositionRef' })
   if (layerRateNumber(pa) !== 1) throw new CommandFailure({ error: 'InvalidArgument', field: 'layer', detail: 'Reset the Group rate to 1 before ungrouping' })
-  const reason = groupNotPlainReason(ref.layer)
+  const reason = groupNotPlainReason(ref.layer, compositionOf(p, pa.composition))
   if (reason !== null) throw new CommandFailure({ error: 'GroupNotPlain', layer: layerId, reason })
   const parent = ref.comp
   const child = compositionOf(p, pa.composition)

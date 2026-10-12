@@ -4,22 +4,22 @@ import { quadAabb } from './previewSnap';
 import { scaleToFrame } from './scaleToFrame';
 
 const base: LayerQuadInput = { x: 213, y: -45, naturalW: 640, naturalH: 360,
-  scaleX: 1, scaleY: 1, anchorX: 0.5, anchorY: 0.5, rotationDeg: 0, origin: 'top-left' };
+  scaleX: 1, scaleY: 1, anchorX: 0.5, anchorY: 0.5, rotationDeg: 0, };
 
 describe('scaleToFrame', () => {
   it('fits a landscape source in a portrait frame without clipping', () => {
     const result = scaleToFrame(base, 360, 640, 'fit')!;
     expect(result.scaleX).toBe(360 / 640);
     expect(result.scaleY).toBe(result.scaleX);
-    expect(result.x).toBeCloseTo(0);
-    expect(result.y).toBeCloseTo((640 - 360 * result.scaleY) / 2);
+    expect(result.x).toBeCloseTo(180);
+    expect(result.y).toBeCloseTo(320);
   });
 
   it('fills a portrait frame without leaving gaps', () => {
     const result = scaleToFrame(base, 360, 640, 'fill')!;
     expect(result.scaleX).toBe(640 / 360);
-    expect(result.y).toBeCloseTo(0);
-    expect(result.x).toBeCloseTo((360 - 640 * result.scaleX) / 2);
+    expect(result.y).toBeCloseTo(320);
+    expect(result.x).toBeCloseTo(180);
   });
 
   it.each([0, 31, 90, 137])('fits cropped, mirrored content at %s degrees with an off-center anchor', rotationDeg => {

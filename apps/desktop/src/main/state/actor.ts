@@ -12,7 +12,7 @@ import { HISTORY_SUMMARY, groupAddMembersSummary, groupCreateSummary, layersEnab
 import { CommandFailure, ValidationFailure, type CommandError } from './errors'
 import { validate, reconcileMarkers, reconcileTransitions, type DroppedMarker, type DroppedTransition } from './validate'
 import { gridForLayerKind, snapFrameCeil, snapFrameRound, snapOnGrid } from './snap'
-import { applyAddGroupLayer, applyAddLayer, applyAddMarker, applyAddTrack, colorParams, defaultTransform, textParamsDefault } from './mutations/add'
+import { applyAddGroupLayer, applyAddLayer, applyAddMarker, applyAddTrack, colorParams, textParamsDefault } from './mutations/add'
 import { applyMoveLayer, applyMoveLayers, applyMoveLayersToNewTrack, type MovePlacement } from './mutations/move'
 import { applyShiftLayers, applyShiftLayersFrom, type ShiftLayersResult } from './mutations/shift'
 import { formatSrt, formatVtt } from '../../shared/subtitleFormat'
@@ -34,7 +34,7 @@ import { applyAttachMarker, applyDetachMarker, applyUpdateMarker, applyRemoveMar
 import { applyDeleteTrack, applyMoveTrack, applyRenameTrack } from './mutations/tracks'
 import { applyAddEffect, applyUpdateEffect, applyMoveEffect, applyRemoveEffect, type EffectPatch } from './mutations/effects'
 import { applyAddTransition, applyRemoveTransition, applyUpdateTransition, type TransitionBounce } from './mutations/transitions'
-import { videoClipParams, audioParams, imageOverlayParams, applySeparateAudio, mediaItemTemplate,
+import { videoClipParams, audioParams, imageOverlayParams, mediaExtent, applySeparateAudio, mediaItemTemplate,
   applySetMediaDerivatives, applySetMediaWorkspacePaths, applySetMediaHash, referencingLayers,
   type MediaDerivativesPatch, type WorkspacePaths } from './mutations/media'
 import type { MediaItem } from './model'
@@ -923,15 +923,15 @@ export function createActor(opts: ActorOptions): ActorHandle {
           switch (kind) {
             case 'text': params = textParamsDefault('hello', into()); break
             case 'color': { const c = into(); params = colorParams({ r: 255, g: 0, b: 0, a: 255 }, c.width, c.height); break }
-            case 'video': params = videoClipParams(a.media as Uuid, parseNum(a.src_in_us, 'src_in_us'), parseNum(a.src_out_us, 'src_out_us')); break
+            case 'video': params = videoClipParams(a.media as Uuid, parseNum(a.src_in_us, 'src_in_us'), parseNum(a.src_out_us, 'src_out_us'), mediaExtent(current().media_pool[a.media as Uuid])); break
             // Optional `role` override (default 'music'): mirrors the add-layer-site
             // role stamp at actor.ts add_media_layer auto-pair (role:'dialogue') and the
             // synthesize_speech hybrid (role:'voiceover').
             case 'audio': params = a.role
               ? { ...audioParams(a.media as Uuid, parseNum(a.src_in_us, 'src_in_us'), parseNum(a.src_out_us, 'src_out_us')), role: a.role as AudioRole }
               : audioParams(a.media as Uuid, parseNum(a.src_in_us, 'src_in_us'), parseNum(a.src_out_us, 'src_out_us')); break
-            case 'image': params = imageOverlayParams(a.media as Uuid); break
-            case 'Motif': params = { kind: 'Motif', motif_id: a.motif_id as string, motif_version: a.motif_version as number, props: (a.props ?? {}) as Record<string, unknown>, src_in_us: 0, transform: defaultTransform(), opacity: { mode: 'Static', value: 1 } }; break
+            case 'image': params = imageOverlayParams(a.media as Uuid, mediaExtent(current().media_pool[a.media as Uuid])); break
+            case 'Motif': params = motifLayerParams(a.motif_id as string, a.motif_version as number, (a.props ?? {}) as Record<string, unknown>, motifCatalog.get(a.motif_id as string)?.size); break
             default: return { ok: false, error: { error: 'InvalidArgument', field: 'kind', detail: `unknown kind ${kind}` } }
           }
           const id = commit(HISTORY_SUMMARY.layerAdd, layerRef, { kind: 'Coarse' }, (d) => applyAddLayer(d, idGen, a.track as Uuid, params, parseNum(a.t_start_us, 't_start_us'), parseNum(a.t_end_us, 't_end_us')))
@@ -1710,7 +1710,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
           const tEndUsRaw = parseNumOpt(wireArgs.tEndUs, 'tEndUs') ?? null
           const resolvedEnd = resolveMotifTEndUs(tStartUs, tEndUsRaw, manifest.default_duration_s, resolveMotifMaxDurUs(manifest, canonicalProps))
           if (resolvedEnd <= tStartUs) return { ok: false, error: { error: 'InvalidArgument', field: 't_end_us', detail: `t_end_us ${resolvedEnd} must be greater than t_start_us ${tStartUs}` } }
-          const params = motifLayerParams(manifest.id, manifest.version, canonicalProps)
+          const params = motifLayerParams(manifest.id, manifest.version, canonicalProps, manifest.size)
           // Two-commit: if no track_id → spawn the track FIRST (in the named
           // composition, root by default), THEN the Motif layer.
           const scope = scopeComposition(current(), wireCompositionId(wireArgs))
@@ -1755,7 +1755,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
         // The wet arm's rule too: an Image ignores the source window, a Video
         // needs one.
         if (kind !== 'Image' && (srcIn === null || srcOut === null)) throw new McpArgError(`src_in_us and src_out_us are required for Video media ${media}; only an Image may omit them`, 'src_in_us')
-        const params = kind === 'Image' ? imageOverlayParams(media) : videoClipParams(media, srcIn as number, srcOut as number)
+        const params = kind === 'Image' ? imageOverlayParams(media, mediaExtent(current().media_pool[media])) : videoClipParams(media, srcIn as number, srcOut as number, mediaExtent(current().media_pool[media]))
         return { kind: 'AddLayer', track_id: parseUuid(spec.track_id, 'track_id'),
           params,
           t_start_us: parseNum(spec.t_start_us, 't_start_us'), t_end_us: parseNum(spec.t_end_us, 't_end_us') }
@@ -1870,7 +1870,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
               : `media ${media} is a subtitle document, not a picture. Use apply_subtitles to lay its cues onto the caption tracks, or add_text_layer for a single title.` } }
           }
           if (item.kind === 'Image') {
-            const imageId = commit(HISTORY_SUMMARY.layerAdd, layerRef, { kind: 'Coarse' }, (d) => applyAddLayer(d, idGen, track, imageOverlayParams(media), t0, t1))
+            const imageId = commit(HISTORY_SUMMARY.layerAdd, layerRef, { kind: 'Coarse' }, (d) => applyAddLayer(d, idGen, track, imageOverlayParams(media, mediaExtent(current().media_pool[media])), t0, t1))
             return { ok: true, result: toolRecord(addedVideo(imageId, null, null, p)) }
           }
           // An Image never needed them, so the schema stopped requiring them;
@@ -1879,7 +1879,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
           if (srcIn === null || srcOut === null) {
             return { ok: false, error: { code: 'invalid_params', message: `src_in_us and src_out_us are required for Video media ${media}: they are the in/out points in the source; only an Image may omit them` } }
           }
-          const vParams = videoClipParams(media, srcIn, srcOut)
+          const vParams = videoClipParams(media, srcIn, srcOut, mediaExtent(item))
           const shouldPair = (snap.settings.auto_pair_audio_on_import === true) && (item.kind === 'Video') && (item.metadata.audio != null)
           if (!shouldPair) {
             const videoId = commit(HISTORY_SUMMARY.layerAdd, layerRef, { kind: 'Coarse' }, (d) => applyAddLayer(d, idGen, track, vParams, t0, t1))
@@ -2279,7 +2279,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
           const tEndUsRaw = (p.t_end_us as number | null | undefined) ?? null
           const resolvedEnd = resolveMotifTEndUs(tStartUs, tEndUsRaw, manifest.default_duration_s, resolveMotifMaxDurUs(manifest, canonicalProps))
           if (resolvedEnd <= tStartUs) return { ok: false, error: { code: 'invalid_params', message: `t_end_us ${resolvedEnd} must be greater than t_start_us ${tStartUs}` } }
-          const params = motifLayerParams(manifest.id, manifest.version, canonicalProps)
+          const params = motifLayerParams(manifest.id, manifest.version, canonicalProps, manifest.size)
           const trackId = (p.track_id as string | null | undefined) ?? null
           const compositionId = p.composition_id as string | null
           if (trackId !== null) checkTrackInComposition(trackId, compositionId)

@@ -7,7 +7,7 @@
 
 import type { LayerParams, Project, Rgba } from './model'
 import { textParamsDefault } from './mutations/add'
-import { videoClipParams, audioParams, imageOverlayParams } from './mutations/media'
+import { videoClipParams, audioParams, imageOverlayParams, mediaExtent } from './mutations/media'
 import { McpArgError, parseRgba, parseNumOpt, parseStr, parseStrOpt } from './mcp-commands'
 import { staticPosition } from '../../shared/position'
 
@@ -90,13 +90,13 @@ export function prodMediaLayer(
       const autoPair = item.metadata.audio != null && project.settings.auto_pair_audio_on_import
         ? { ...audioParams(mediaId, 0, totalSrc), role: 'dialogue' as const }
         : null
-      return { params: videoClipParams(mediaId, 0, totalSrc), durationUs: totalSrc, autoPairAudio: autoPair }
+      return { params: videoClipParams(mediaId, 0, totalSrc, mediaExtent(item)), durationUs: totalSrc, autoPairAudio: autoPair }
     }
     case 'Audio':
       return { params: audioParams(mediaId, 0, totalSrc), durationUs: totalSrc, autoPairAudio: null }
     case 'Image': {
       const span = imageLayerSpanUs(item.metadata as { duration_us: number | null; video?: { nb_frames?: number | null } | null })
-      return { params: imageOverlayParams(mediaId), durationUs: span, autoPairAudio: null }
+      return { params: imageOverlayParams(mediaId, mediaExtent(item)), durationUs: span, autoPairAudio: null }
     }
     default:
       throw new Error(`unsupported media kind for add_media_layer: ${item.kind}`)

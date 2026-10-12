@@ -1599,7 +1599,7 @@ function GroupFields({
     }
   };
 
-  const notPlain: GroupNotPlainReason | null = groupNotPlainReason(layer);
+  const notPlain: GroupNotPlainReason | null = groupNotPlainReason(layer, composition);
   const ungroupHint =
     notPlain === null
       ? undefined

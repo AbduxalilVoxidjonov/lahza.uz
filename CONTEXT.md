@@ -156,6 +156,19 @@ _Avoid_: placement enum, extend flag, handle-consumption mode
 
 ## Transform
 
+**Position**:
+The transform anchor's location in composition pixels, for every transformed
+visual clip (schema v4). Both XY animation and Path nodes describe this same
+point. Scaling and rotation hold Position fixed. A plain Group's Position is
+half the referenced composition dimensions. See ADR 0112.
+_Avoid_: top-left position (the retired media semantics)
+
+**Transform anchor**:
+The normalized pivot within the full source or Text layout box, default (0.5,
+0.5), allowed outside the box. Inspector edits move content around Position;
+dragging the on-canvas anchor also changes Position to keep content stationary.
+Distinct from a tab Anchor or an anchored marker.
+
 **Crop**:
 The retained rectangular area of a VideoClip, in normalized source coordinates
 before its transform. It changes visibility without changing position, scale,

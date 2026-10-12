@@ -1,20 +1,8 @@
-// `Transform.anchor` → the Pixi pivot + the position that keeps `x`/`y`
-// meaning what stored projects already mean by it. Pure: the one place the
-// rule lives, so the three media kinds can't drift apart.
-// Rule: docs/data-model.md#transform
+// All visual layers store the anchor position in composition pixels (schema v4).
+// Pixi: world = position + R·S·(local − pivot).
 
-/// Pixi composes `world = position + R·S·(local − pivot)`, so putting the
-/// pivot at the anchor makes rotation and flip turn around the anchor — but it
-/// also drags the content by `pivot·scale` unless the position compensates.
-/// Compensating with the ABSOLUTE scale is what makes a flip mirror in place:
-/// with the signed scale the anchor itself would move, and the layer would jump
-/// to the other side of `x`.
-///
-/// Consequence worth stating: at `rotation_deg = 0` with no flip, local (0,0)
-/// lands exactly on `(x, y)` for ANY scale. That is what keeps `x`/`y` meaning
-/// the unrotated top-left; only a rotated or flipped layer sees the pivot at all.
 export interface AnchorPivotInput {
-  /// Layer transform, composition pixels — the unrotated top-left.
+  /// Anchor position in composition pixels.
   x: number;
   y: number;
   /// Normalized pivot, `(0.5, 0.5)` = center. Optional-at-runtime on purpose:
@@ -26,10 +14,7 @@ export interface AnchorPivotInput {
   /// `(x, y)` instead of NaN.
   texW: number | null;
   texH: number | null;
-  /// The scale the sprite actually renders at, INCLUDING any source-vs-proxy
-  /// correction. Sign is ignored (see above) — pass it signed or not.
-  effScaleX: number;
-  effScaleY: number;
+
 }
 
 export interface AnchorPivotResult {
@@ -60,11 +45,6 @@ function pivotAxis(anchor: number | undefined, tex: number | null): number {
   return anchorOr(anchor) * tex;
 }
 
-function positionAxis(coord: number, pivot: number, effScale: number): number {
-  const s = Number.isFinite(effScale) ? Math.abs(effScale) : 0;
-  return coord + pivot * s;
-}
-
 /// Spread-in helper for the sprite call sites: a texture's local extent as the
 /// `texW`/`texH` pair. Structurally typed on purpose — this module stays
 /// renderer-free so the geometry can be unit-tested without Pixi.
@@ -84,7 +64,7 @@ export function anchorPivot(i: AnchorPivotInput): AnchorPivotResult {
   return {
     pivotX,
     pivotY,
-    posX: positionAxis(i.x, pivotX, i.effScaleX),
-    posY: positionAxis(i.y, pivotY, i.effScaleY),
+    posX: i.x,
+    posY: i.y,
   };
 }

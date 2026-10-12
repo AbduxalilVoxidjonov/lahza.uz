@@ -46,7 +46,7 @@ describe('every shipped generation has a frozen fixture', () => {
     // different generation than it claims and the coverage above is a lie.
     expect(wire.schema_version).toBe(v)
 
-    const { wire: upgraded } = upgradeWire(wire, v, SCHEMA_VERSION)
+    const { wire: upgraded } = upgradeWire(wire, v, SCHEMA_VERSION, undefined, { mediaSize: () => [640, 360] })
     expect(upgraded.schema_version).toBe(SCHEMA_VERSION)
     // parseProject + validate are the real load path's two judges: the structural
     // cast plus the same invariant check `replaceState` runs. A step that produces

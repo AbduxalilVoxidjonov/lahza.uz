@@ -57,7 +57,7 @@ export function withGroup(p: Project, idGen: IdGen, build?: (g: Composition, vie
   const srcOut = Math.max(g.duration_us, 1_000_000)
   const refLayerId = applyAddLayer(next, idGen, trackId, {
     kind: 'CompositionRef', composition: g.id, src_in_us: 0, src_out_us: srcOut,
-    transform: defaultTransform(), opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal',
+    transform: defaultTransform(width / 2, height / 2), opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal',
   }, 0, srcOut)
   return { p: next, groupId: g.id, refLayerId }
 }

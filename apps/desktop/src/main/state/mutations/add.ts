@@ -43,9 +43,9 @@ export function textParamsDefault(content: string, comp: { width: number; height
     box_w: null, box_h: null, valign: 'Middle', line_height: 0, letter_spacing: 0,
   }
 }
-export function defaultTransform() {
+export function defaultTransform(x = 0, y = 0) {
   const s = (v: number) => ({ mode: 'Static' as const, value: v })
-  return { position: staticPosition(), scale_x: s(1), scale_y: s(1), rotation_deg: s(0), anchor_x: s(0.5), anchor_y: s(0.5), scale_linked: true }
+  return { position: staticPosition(x, y), scale_x: s(1), scale_y: s(1), rotation_deg: s(0), anchor_x: s(0.5), anchor_y: s(0.5), scale_linked: true }
 }
 
 /** Snaps both edges onto the new layer's OWN grid — the 48 kHz sample lattice for an
@@ -134,7 +134,7 @@ export function applyAddGroupLayer(p: Project, idGen: IdGen, sourceCompositionId
     throw new CommandFailure({ error: 'InvalidArgument', field: 'source_composition_id', detail: `composition ${source.id} holds no content` })
   const params: LayerParams = {
     kind: 'CompositionRef', composition: source.id, src_in_us: 0, src_out_us: source.duration_us,
-    transform: defaultTransform(), opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal',
+    transform: defaultTransform(source.width / 2, source.height / 2), opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal',
   }
   return applyAddLayer(p, idGen, trackId, params, tStartUs, tStartUs + source.duration_us)
 }

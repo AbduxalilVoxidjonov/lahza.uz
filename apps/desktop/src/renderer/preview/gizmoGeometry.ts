@@ -8,18 +8,13 @@
 //   composition → CLIENT pixels        (the canvas' object-fit: contain box)
 // Spec: docs/features.md#on-canvas-transform-gizmo
 
-import { anchorOr, anchorPivot } from "../render/anchorPivot";
+import { anchorOr } from "../render/anchorPivot";
 import { FULL_CROP, type CropRect } from '../../shared/crop';
 
 export interface Pt {
   x: number;
   y: number;
 }
-
-/// Which point `x`/`y` names — the kind asymmetry documented in
-/// docs/data-model.md#transform. Media kinds store the unrotated top-left;
-/// Text stores the anchor point itself.
-export type TransformOrigin = "top-left" | "anchor";
 
 export interface LayerQuadInput {
   x: number;
@@ -35,7 +30,6 @@ export interface LayerQuadInput {
   scaleX: number;
   scaleY: number;
   rotationDeg: number;
-  origin: TransformOrigin;
   /// Visible source rectangle; the full source still defines the transform pivot.
   visibleRect?: CropRect | null;
   /// Media flip flags are independent of the editable scale parameters.
@@ -54,35 +48,18 @@ function quadFrame(i: LayerQuadInput): {
   map: (lx: number, ly: number) => Pt;
 } {
   const { naturalW: w, naturalH: h } = i;
-  // Anchor origin: the content hangs off the anchor point, so its local rect
-  // starts at −anchor·size and the pivot is already at (0,0) — exactly how
-  // Pixi's `anchor` behaves for Text. Top-left origin: the pivot sits at the
-  // anchor and the position compensates for it (anchorPivot.ts).
-  const anchored = i.origin === "anchor";
-  const p = anchored
-    ? { pivotX: 0, pivotY: 0, posX: i.x, posY: i.y }
-    : anchorPivot({
-        x: i.x,
-        y: i.y,
-        anchorX: i.anchorX,
-        anchorY: i.anchorY,
-        texW: w,
-        texH: h,
-        effScaleX: i.scaleX,
-        effScaleY: i.scaleY,
-      });
   const rad = (i.rotationDeg * Math.PI) / 180;
   const cos = Math.cos(rad);
   const sin = Math.sin(rad);
   return {
-    left: anchored ? -anchorOr(i.anchorX) * w : 0,
-    top: anchored ? -anchorOr(i.anchorY) * h : 0,
-    pivotX: p.pivotX,
-    pivotY: p.pivotY,
+    left: -anchorOr(i.anchorX) * w,
+    top: -anchorOr(i.anchorY) * h,
+    pivotX: 0,
+    pivotY: 0,
     map: (lx: number, ly: number): Pt => {
-      const dx = (lx - p.pivotX) * i.scaleX * (i.flipX ? -1 : 1);
-      const dy = (ly - p.pivotY) * i.scaleY * (i.flipY ? -1 : 1);
-      return { x: p.posX + dx * cos - dy * sin, y: p.posY + dx * sin + dy * cos };
+      const dx = lx * i.scaleX * (i.flipX ? -1 : 1);
+      const dy = ly * i.scaleY * (i.flipY ? -1 : 1);
+      return { x: i.x + dx * cos - dy * sin, y: i.y + dx * sin + dy * cos };
     },
   };
 }
@@ -135,17 +112,6 @@ export function compDeltaToLocal(d: Pt, i: LayerQuadInput): Pt | null {
 /// `(dAnchorX, dAnchorY)` — i.e. what makes an on-canvas anchor drag behave like
 /// After Effects' pan-behind tool instead of swinging the layer.
 ///
-/// Moving the anchor moves the pivot, and the pivot enters the composed position
-/// twice. Writing `q = (dAnchorX·naturalW, dAnchorY·naturalH)` for the pivot
-/// change in local pixels, the content's placement shifts by:
-///
-///   anchor origin (Text)   −R·S·q          (the local rect starts at −anchor·size)
-///   top-left origin (media) |S|·q − R·S·q  (position also adds pivot·|scale| back)
-///
-/// so the compensation is the negation of each. Two consequences worth knowing:
-/// at `rotation_deg = 0` with no flip the media case is exactly ZERO — the pivot
-/// moves and nothing else does — while Text ALWAYS needs compensation, because
-/// its `x`/`y` IS the anchor point and the glyphs hang off it.
 export function anchorCompensation(i: LayerQuadInput, dAnchorX: number, dAnchorY: number): Pt {
   const qx = dAnchorX * i.naturalW;
   const qy = dAnchorY * i.naturalH;
@@ -154,35 +120,10 @@ export function anchorCompensation(i: LayerQuadInput, dAnchorX: number, dAnchorY
   const sin = Math.sin(rad);
   const sx = qx * i.scaleX * (i.flipX ? -1 : 1);
   const sy = qy * i.scaleY * (i.flipY ? -1 : 1);
-  // R·S·q — the term both origins share.
+  // R·S·q keeps the picture still when the local pivot moves.
   const rx = sx * cos - sy * sin;
   const ry = sx * sin + sy * cos;
-  if (i.origin === "anchor") return { x: rx, y: ry };
-  return { x: rx - qx * Math.abs(i.scaleX), y: ry - qy * Math.abs(i.scaleY) };
-}
-
-/// The `x`/`y` change that holds the PIVOT still while the scale goes from the
-/// frame's `scaleX`/`scaleY` to `(nextScaleX, nextScaleY)` — what makes a resize
-/// handle scale about the anchor the way After Effects and Premiere do, instead
-/// of about the unrotated top-left (which is what writing scale alone does).
-///
-/// It falls out of `anchorPivot.ts` in one line: the pivot lands at
-/// `pos = (x, y) + |S|·p`, so pinning it is `Δ = p·(|S₀| − |S₁|)`. Note there is
-/// NO rotation term — `pos` never had one — which is why this compensation, unlike
-/// the anchor drag's, is exact at any angle without a frozen-time caveat on
-/// rotation. `|S|` and not `S` for the same reason as everywhere else in that
-/// module: a flip must mirror the content in place rather than move the pivot.
-///
-/// The mirror image of `anchorCompensation`: there the media kinds usually needed
-/// nothing and Text always did. Here Text needs NOTHING (its `pos` is `x`/`y`
-/// outright, so scale cannot move it) and a media layer always does, unless its
-/// anchor sits on the top-left corner it scales from anyway.
-export function scaleCompensation(i: LayerQuadInput, nextScaleX: number, nextScaleY: number): Pt {
-  if (i.origin === "anchor") return { x: 0, y: 0 };
-  return {
-    x: anchorOr(i.anchorX) * i.naturalW * (Math.abs(i.scaleX) - Math.abs(nextScaleX)),
-    y: anchorOr(i.anchorY) * i.naturalH * (Math.abs(i.scaleY) - Math.abs(nextScaleY)),
-  };
+  return { x: rx, y: ry };
 }
 
 /// The `object-fit: contain` placement of a composition inside a client box —

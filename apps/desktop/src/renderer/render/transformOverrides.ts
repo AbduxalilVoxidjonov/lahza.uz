@@ -29,10 +29,8 @@ export interface TransformDelta {
   /// halves on the same frame or the layer visibly jumps mid-drag.
   danchorX?: number;
   danchorY?: number;
-  /// Added to the resolved scale pair (additive, same reason as `dx`/`dy`). A
-  /// resize handle pairs these with a compensating `dx`/`dy` — the pivot's
-  /// composed position carries a `|scale|` term (`anchorPivot.ts`), so scaling
-  /// about the anchor moves `x`/`y`.
+  /// Added to the resolved scale pair. Position already is the pivot, so
+  /// resize gestures leave dx/dy unchanged and author only scale tracks.
   dscaleX?: number;
   dscaleY?: number;
   /// The Text layout box, ABSOLUTE composition pixels — the only channel here

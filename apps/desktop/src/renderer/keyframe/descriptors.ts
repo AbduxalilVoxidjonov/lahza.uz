@@ -74,10 +74,8 @@ export const ROTATION: NumberParamDescriptor = { valueKind: "number", paramKey: 
 /// (no min/max): a pivot outside the layer's own box is a legitimate authoring
 /// choice, e.g. swinging a layer about a point off-screen.
 ///
-/// LANDMINE: writing this field moves the picture whenever the layer is rotated
-/// or is a Text layer (its `x`/`y` IS the anchor point). That asymmetry is
-/// intentional and matches AE — the on-canvas target compensates `x`/`y` so the
-/// picture stays put, the number field does not.
+/// The numeric field moves the picture around the fixed Position. The on-canvas
+/// anchor target also compensates Position so the picture stays still.
 export const ANCHOR_X: NumberParamDescriptor = { valueKind: "number", paramKey: "anchor_x", labelKey: "property_panel.anchor_x", fallback: 0.5, step: 0.01, widgets: ["number"] };
 export const ANCHOR_Y: NumberParamDescriptor = { valueKind: "number", paramKey: "anchor_y", labelKey: "property_panel.anchor_y", fallback: 0.5, step: 0.01, widgets: ["number"] };
 export const OPACITY: NumberParamDescriptor = { valueKind: "number", paramKey: "opacity", labelKey: "property_panel.opacity", fallback: 1, step: 0.01, min: 0, max: 1, widgets: ["slider", "number"] };

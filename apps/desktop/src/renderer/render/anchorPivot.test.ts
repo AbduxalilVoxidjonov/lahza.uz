@@ -5,7 +5,7 @@ import { anchorOr, anchorPivot, DEFAULT_ANCHOR } from "./anchorPivot";
 /// Where the four corners of a `texW×texH` quad land once Pixi applies
 /// `world = position + R·S·(local − pivot)`. The assertions below are about
 /// RENDERED geometry, not about the intermediate pivot/position pair — that is
-/// the only way to state "unchanged for unrotated layers" as a real invariant.
+/// the invariant is scaling and rotation around the stored Position.
 function worldCorners(
   r: { pivotX: number; pivotY: number; posX: number; posY: number },
   texW: number,
@@ -32,8 +32,6 @@ const base = {
   anchorY: 0.5,
   texW: 200,
   texH: 100,
-  effScaleX: 1,
-  effScaleY: 1,
 };
 
 describe("anchorPivot", () => {
@@ -43,27 +41,27 @@ describe("anchorPivot", () => {
     expect(r.pivotY).toBe(50);
   });
 
-  it("keeps the unrotated top-left on (x, y) at any scale", () => {
+  it("scales around the stored anchor position", () => {
     for (const s of [0.25, 1, 2.5]) {
-      const r = anchorPivot({ ...base, effScaleX: s, effScaleY: s });
+      const r = anchorPivot(base);
       const [tl] = worldCorners(r, base.texW, base.texH, s, s);
-      expect(tl).toEqual([100, 50]);
+      expect(tl).toEqual([100 - 100 * s, 50 - 50 * s]);
     }
   });
 
-  it("keeps the unrotated top-left on (x, y) for non-uniform scale", () => {
-    const r = anchorPivot({ ...base, effScaleX: 3, effScaleY: 0.5 });
+  it("keeps the anchor fixed for non-uniform scale", () => {
+    const r = anchorPivot(base);
     const [tl] = worldCorners(r, base.texW, base.texH, 3, 0.5);
-    expect(tl).toEqual([100, 50]);
+    expect(tl).toEqual([-200, 25]);
   });
 
   it("mirrors a flip in place instead of moving the box", () => {
     // flip_h ⇒ the sprite renders at negative scale_x. The box must still
-    // occupy [x, x+w].
-    const r = anchorPivot({ ...base, effScaleX: -1 });
+    // occupy the same centered footprint.
+    const r = anchorPivot(base);
     const xs = worldCorners(r, base.texW, base.texH, -1, 1).map(([cx]) => cx);
-    expect(Math.min(...xs)).toBe(100);
-    expect(Math.max(...xs)).toBe(300);
+    expect(Math.min(...xs)).toBe(0);
+    expect(Math.max(...xs)).toBe(200);
   });
 
   it("rotates about the anchor, not the top-left", () => {
@@ -72,14 +70,14 @@ describe("anchorPivot", () => {
     // 180° about the center swaps opposite corners: the box is unmoved.
     const xs = corners.map(([cx]) => cx);
     const ys = corners.map(([, cy]) => cy);
-    expect(Math.min(...xs)).toBeCloseTo(100, 9);
-    expect(Math.max(...xs)).toBeCloseTo(300, 9);
-    expect(Math.min(...ys)).toBeCloseTo(50, 9);
-    expect(Math.max(...ys)).toBeCloseTo(150, 9);
+    expect(Math.min(...xs)).toBeCloseTo(0, 9);
+    expect(Math.max(...xs)).toBeCloseTo(200, 9);
+    expect(Math.min(...ys)).toBeCloseTo(0, 9);
+    expect(Math.max(...ys)).toBeCloseTo(100, 9);
   });
 
   it("degrades to the old pivot-less transform at anchor (0, 0)", () => {
-    const r = anchorPivot({ ...base, anchorX: 0, anchorY: 0, effScaleX: 2, effScaleY: 2 });
+    const r = anchorPivot({ ...base, anchorX: 0, anchorY: 0});
     expect(r).toEqual({ pivotX: 0, pivotY: 0, posX: 100, posY: 50 });
   });
 
@@ -101,9 +99,4 @@ describe("anchorPivot", () => {
     expect(anchorOr(0)).toBe(0);
   });
 
-  it("never emits NaN for a non-finite scale", () => {
-    const r = anchorPivot({ ...base, effScaleX: Number.NaN, effScaleY: Number.POSITIVE_INFINITY });
-    expect(r.posX).toBe(100);
-    expect(r.posY).toBe(50);
-  });
 });

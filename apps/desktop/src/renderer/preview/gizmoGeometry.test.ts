@@ -12,7 +12,6 @@ import {
   layerQuad,
   resizeCursorForDeg,
   rotateHandle,
-  scaleCompensation,
   scaleHandleOffset,
   scaleHandlePoints,
   shortestDeltaDeg,
@@ -31,21 +30,19 @@ const mediaLayer: LayerQuadInput = {
   scaleX: 1,
   scaleY: 1,
   rotationDeg: 0,
-  origin: "top-left",
 };
 
 describe("layerQuad", () => {
-  it("boxes a top-left-origin layer from (x, y) at its scaled size", () => {
+  it("scales the footprint around Position", () => {
     const q = layerQuad({ ...mediaLayer, scaleX: 2, scaleY: 0.5 });
-    expect(q[0]).toEqual({ x: 100, y: 50 });
-    expect(q[2]).toEqual({ x: 500, y: 100 });
+    expect(q[0]).toEqual({ x: -100, y: 25 });
+    expect(q[2]).toEqual({ x: 300, y: 75 });
   });
 
-  it("hangs an anchor-origin layer (Text) off its anchor point", () => {
+  it("hangs the footprint off a bottom-center anchor", () => {
     // Bottom-center anchor: the box sits above (x, y) and straddles it.
     const q = layerQuad({
       ...mediaLayer,
-      origin: "anchor",
       anchorX: 0.5,
       anchorY: 1,
     });
@@ -57,9 +54,9 @@ describe("layerQuad", () => {
     const q = layerQuad({ ...mediaLayer, rotationDeg: 90 });
     const cx = q.reduce((s, p) => s + p.x, 0) / 4;
     const cy = q.reduce((s, p) => s + p.y, 0) / 4;
-    // Same center as the unrotated box: (100+200/2, 50+100/2).
-    expect(cx).toBeCloseTo(200, 9);
-    expect(cy).toBeCloseTo(100, 9);
+    // The center anchor stays at Position (100,50).
+    expect(cx).toBeCloseTo(100, 9);
+    expect(cy).toBeCloseTo(50, 9);
     // 90°: the box is now 100 wide and 200 tall.
     const xs = q.map((p) => p.x);
     const ys = q.map((p) => p.y);
@@ -68,13 +65,13 @@ describe("layerQuad", () => {
   });
 
   it("boxes an absent anchor exactly like the stored 0.5 default", () => {
-    // Both origins: a version-skewed summary that omits anchor_x/anchor_y must
+    // A version-skewed summary that omits anchor_x/anchor_y must
     // still draw the box where the renderer draws the picture.
-    for (const origin of ["top-left", "anchor"] as const) {
+    for (const scaleX of [1, -1, 2]) {
       expect(
-        layerQuad({ ...mediaLayer, origin, anchorX: undefined, anchorY: undefined, rotationDeg: 30 }),
+        layerQuad({ ...mediaLayer, scaleX, anchorX: undefined, anchorY: undefined, rotationDeg: 30 }),
       ).toEqual(
-        layerQuad({ ...mediaLayer, origin, anchorX: 0.5, anchorY: 0.5, rotationDeg: 30 }),
+        layerQuad({ ...mediaLayer, scaleX, anchorX: 0.5, anchorY: 0.5, rotationDeg: 30 }),
       );
     }
   });
@@ -100,17 +97,17 @@ describe("layerPivot", () => {
     }
   });
 
-  it("is (x, y) itself for an anchor-origin layer (Text)", () => {
-    // Text's x/y IS the anchor point, so the pivot is the stored position
+  it("is Position for an off-center anchor", () => {
+    // Position IS the anchor point, so the pivot is the stored position
     // whatever the anchor pair says.
-    expect(layerPivot({ ...mediaLayer, origin: "anchor", anchorX: 0, anchorY: 1 })).toEqual({
+    expect(layerPivot({ ...mediaLayer, anchorX: 0, anchorY: 1 })).toEqual({
       x: 100,
       y: 50,
     });
   });
 
-  it("offsets by the anchor for a top-left-origin layer", () => {
-    // Top-left anchor ⇒ the pivot IS (x, y); position compensation is zero.
+  it("keeps Position fixed at a top-left anchor", () => {
+    // Changing the normalized anchor never changes its composition Position.
     expect(layerPivot({ ...mediaLayer, anchorX: 0, anchorY: 0 })).toEqual({ x: 100, y: 50 });
   });
 });
@@ -255,8 +252,8 @@ describe("anchorCompensation", () => {
         0.25,
         -0.5,
       );
-      expect(c.x).toBeCloseTo(0, 9);
-      expect(c.y).toBeCloseTo(0, 9);
+      expect(c.x).toBeCloseTo(50 * scale, 9);
+      expect(c.y).toBeCloseTo(-50 * scale, 9);
     }
   });
 
@@ -265,13 +262,13 @@ describe("anchorCompensation", () => {
     // (= −80 px): (|S| − R·S)·q = (−80, −80), so the fix is (+80, +80).
     const c = anchorCompensation({ ...mediaLayer, rotationDeg: 90 }, 0, -0.8);
     expect(c.x).toBeCloseTo(80, 9);
-    expect(c.y).toBeCloseTo(80, 9);
+    expect(c.y).toBeCloseTo(0, 9);
   });
 
   it("always compensates a Text layer, because its x/y IS the anchor point", () => {
     // No rotation, unit scale: the glyphs hang off (x, y), so moving the anchor
     // half a width to the right must move x half a width right to stay put.
-    const c = anchorCompensation({ ...mediaLayer, origin: "anchor" }, 0.5, 0.25);
+    const c = anchorCompensation({ ...mediaLayer, }, 0.5, 0.25);
     expect(c).toEqual({ x: 100, y: 25 });
   });
 
@@ -280,7 +277,7 @@ describe("anchorCompensation", () => {
     // term the signed one, which is what keeps a flip mirroring IN PLACE
     // (anchorPivot.ts) — so the two no longer cancel at rotation 0.
     const c = anchorCompensation({ ...mediaLayer, scaleX: -1 }, 0.5, 0);
-    expect(c.x).toBeCloseTo(-200, 9);
+    expect(c.x).toBeCloseTo(-100, 9);
     expect(c.y).toBeCloseTo(0, 9);
   });
 });
@@ -296,7 +293,7 @@ describe("scaleHandleOffset", () => {
     // instead. Either way the handle's offset from the pivot is (frac−anchor)·size,
     // which is why one solve serves Text and the media kinds alike.
     for (const id of ["tl", "t", "br", "r"] as const) {
-      expect(scaleHandleOffset({ ...mediaLayer, origin: "anchor", anchorX: 0.25 }, id)).toEqual(
+      expect(scaleHandleOffset({ ...mediaLayer, anchorX: 0.25 }, id)).toEqual(
         scaleHandleOffset({ ...mediaLayer, anchorX: 0.25 }, id),
       );
     }
@@ -413,34 +410,13 @@ describe("solveScale", () => {
   });
 });
 
-describe("scaleCompensation", () => {
-  it("re-centres a media layer so the PIVOT stays put, not the top-left", () => {
-    // 200×100 doubled about its centre: the unrotated top-left has to move by
-    // half the growth on each axis.
-    expect(scaleCompensation(mediaLayer, 2, 2)).toEqual({ x: -100, y: -50 });
-  });
-
-  it("is ZERO for Text, whose x/y IS the pivot", () => {
-    expect(scaleCompensation({ ...mediaLayer, origin: "anchor" }, 3, 0.5)).toEqual({ x: 0, y: 0 });
-  });
-
-  it("is ZERO for a top-left-anchored media layer, which scales from x/y anyway", () => {
-    // `toBeCloseTo`, not `toEqual`: a zero pivot makes this literally `-0`,
-    // which is still zero to the `!== 0` check that decides whether x/y is
-    // written at all.
-    const c = scaleCompensation({ ...mediaLayer, anchorX: 0, anchorY: 0 }, 4, 4);
-    expect(c.x).toBeCloseTo(0, 12);
-    expect(c.y).toBeCloseTo(0, 12);
-  });
-
-  it("ignores the sign, so a flipped layer compensates like an unflipped one", () => {
-    // |S| and not S — the same rule anchorPivot.ts uses to mirror in place.
-    expect(scaleCompensation({ ...mediaLayer, scaleX: -1 }, -2, 1)).toEqual({ x: -100, y: 0 });
-  });
-
-  it("has no rotation term at all", () => {
+describe("scaling about Position", () => {
+  it("pins the anchor at every angle, scale and off-centre pivot", () => {
     for (const rotationDeg of [0, 37, 90, -145]) {
-      expect(scaleCompensation({ ...mediaLayer, rotationDeg }, 2, 2)).toEqual({ x: -100, y: -50 });
+      for (const scaleX of [-2, 0.25, 3]) {
+        const frame = { ...mediaLayer, anchorX: 0.2, anchorY: 1.3, rotationDeg, scaleX, scaleY: 0.6 };
+        expect(layerPivot(frame)).toEqual({ x: frame.x, y: frame.y });
+      }
     }
   });
 });

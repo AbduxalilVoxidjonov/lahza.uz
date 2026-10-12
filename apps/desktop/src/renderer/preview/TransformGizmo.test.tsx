@@ -54,8 +54,8 @@ function fixture(params?: Partial<Record<string, unknown>>, kind = "VideoClip"):
     media_label: "a.mp4",
     src_in_us: 0,
     src_out_us: 2_000_000,
-    x: stat(0),
-    y: stat(0),
+    x: stat(kind === "Text" ? 0 : 320),
+    y: stat(kind === "Text" ? 0 : 180),
     scale_x: stat(1),
     scale_y: stat(1),
     scale_linked: true,
@@ -278,8 +278,8 @@ describe("TransformGizmoHost", () => {
     fireEvent.pointerUp(el, { clientX: 120, clientY: 110 });
     expect(commit).toHaveBeenCalledTimes(1);
     expect(commit).toHaveBeenCalledWith("l1", [
-      ["x", { mode: "Static", value: 40 }],
-      ["y", { mode: "Static", value: 20 }],
+      ["x", { mode: "Static", value: 360 }],
+      ["y", { mode: "Static", value: 200 }],
     ]);
   });
 
@@ -304,7 +304,7 @@ describe("TransformGizmoHost", () => {
     const keys = x.value as Array<{ t_us: number; value: number }>;
     expect(keys.find((k) => k.t_us === 500_000)?.value).toBe(20);
     // y was Static and stays Static — one gesture, two independent tracks.
-    expect(entries[1]![1]).toEqual({ mode: "Static", value: 0 });
+    expect(entries[1]![1]).toEqual({ mode: "Static", value: 180 });
   });
 
   it("cancels on Escape: override dropped, nothing committed", async () => {
@@ -337,7 +337,7 @@ function twoLayerFixture(): ProjectSummary {
   track.layers.push({
     ...first,
     id: "l2",
-    params: { ...(first.params as Record<string, unknown>), x: stat(700) },
+    params: { ...(first.params as Record<string, unknown>), x: stat(1020) },
   });
   return s;
 }
@@ -366,8 +366,8 @@ describe("snapping", () => {
     expect(transformOverrideFor("l1")).toEqual({ dx: 320, dy: 0 });
     fireEvent.pointerUp(el, { clientX: 155, clientY: 0 });
     expect(commit).toHaveBeenCalledWith("l1", [
-      ["x", { mode: "Static", value: 320 }],
-      ["y", { mode: "Static", value: 0 }],
+      ["x", { mode: "Static", value: 640 }],
+      ["y", { mode: "Static", value: 180 }],
     ]);
   });
 
@@ -457,12 +457,10 @@ describe("snapping", () => {
     // Linked, so ONE authored track fanned out to both axes.
     expect(byKey.get("scale_x")).toEqual({ mode: "Static", value: 3 });
     expect(byKey.get("scale_y")).toEqual({ mode: "Static", value: 3 });
-    // Scaling 1 → 3 about a centred anchor walks the position by −anchor·size·2.
-    expect(byKey.get("x")).toEqual({ mode: "Static", value: -640 });
-    expect(byKey.get("y")).toEqual({ mode: "Static", value: -360 });
-    // Which is to say: the layer now fills the composition exactly. Its bottom
-    // -right corner is at (-640 + 3·640, -360 + 3·360) = (1280, 720), and the
-    // pivot has not moved — that is what makes the guide truthful.
+    // Position stays at (320,180); the bottom-right corner lands at
+    // (320 + 3·320, 180 + 3·180) = (1280,720).
+    expect(byKey.has("x")).toBe(false);
+    expect(byKey.has("y")).toBe(false);
   });
 
   it("leaves a linked resize alone under Ctrl", async () => {
@@ -699,20 +697,20 @@ describe("TransformGizmo anchor target", () => {
     );
   });
 
-  it("follows a keyed-off-centre anchor rather than the box centre", async () => {
+  it("keeps the anchor target at Position when the normalized anchor changes", async () => {
     useProjectStore.getState().apply(
       fixture({ anchor_x: stat(0), anchor_y: stat(1) }),
     );
     render(<TransformGizmoHost />);
     await box();
     await reticle();
-    // anchor (0,1) on a 640×360 layer at (0,0) ⇒ comp (0,360) ⇒ client (0,180).
+    // The anchor stays at Position (320,180), independent of its local coordinate.
     expect(screen.getByTestId("transform-gizmo-anchor").getAttribute("transform")).toBe(
-      "translate(0 180)",
+      "translate(160 90)",
     );
   });
 
-  it("previews the drag in normalized units, with no compensation to make", async () => {
+  it("previews normalized anchor and compensating position together", async () => {
     render(<TransformGizmoHost />);
     await box();
     const el = await reticle();
@@ -720,26 +718,28 @@ describe("TransformGizmo anchor target", () => {
     // +40/+18 client ⇒ +80/+36 comp ⇒ 80/640 and 36/360 of the layer.
     fireEvent.pointerMove(el, { clientX: PIVOT.x + 40, clientY: PIVOT.y + 18 });
     expect(transformOverrideFor("l1")).toEqual({
-      dx: 0,
-      dy: 0,
+      dx: 80,
+      dy: 36,
       danchorX: 0.125,
       danchorY: 0.1,
     });
     expect(commit).not.toHaveBeenCalled();
   });
 
-  it("commits the anchor pair ALONE on an unrotated layer", async () => {
+  it("commits anchor and position together on an unrotated layer", async () => {
     render(<TransformGizmoHost />);
     await box();
     const el = await reticle();
     fireEvent.pointerDown(el, { button: 0, clientX: PIVOT.x, clientY: PIVOT.y });
     fireEvent.pointerMove(el, { clientX: PIVOT.x + 40, clientY: PIVOT.y + 18 });
     fireEvent.pointerUp(el, { clientX: PIVOT.x + 40, clientY: PIVOT.y + 18 });
-    // No x/y: the picture never moved, so keying position would be noise.
+    // Position moves with the anchor to keep the picture stationary.
     expect(commit).toHaveBeenCalledTimes(1);
     expect(committedStatics()).toEqual([
       ["anchor_x", 0.625],
       ["anchor_y", 0.6],
+      ["x", 400],
+      ["y", 216],
     ]);
   });
 
@@ -755,12 +755,11 @@ describe("TransformGizmo anchor target", () => {
     fireEvent.pointerUp(el, { clientX: PIVOT.x + 40, clientY: PIVOT.y });
     expect(commit).toHaveBeenCalledTimes(1);
     const entries = committedStatics();
-    expect(entries.map(([k]) => k)).toEqual(["anchor_x", "anchor_y", "x", "y"]);
+    expect(entries.map(([k]) => k)).toEqual(["anchor_x", "anchor_y", "x"]);
     expect(entries[0]![1]).toBeCloseTo(0.5, 9);
     expect(entries[1]![1]).toBeCloseTo(0.5 - 80 / 360, 9);
-    // (|S| − R·S)·q = (−80, −80), so the fix is (+80, +80) — the picture stays.
-    expect(entries[2]![1]).toBeCloseTo(80, 9);
-    expect(entries[3]![1]).toBeCloseTo(80, 9);
+    // R·S·q = (+80,0); only Position X changes.
+    expect(entries[2]![1]).toBeCloseTo(400, 9);
   });
 
   it("compensates a Text layer even unrotated, because its x/y IS the anchor", async () => {
@@ -879,7 +878,7 @@ describe("TransformGizmo scale handles", () => {
     await waitFor(() => expect(el.style.display).toBe("none"));
   });
 
-  it("previews a corner drag as scale PLUS the x/y that pins the pivot", async () => {
+  it("previews a corner drag as scale with Position fixed", async () => {
     render(<TransformGizmoHost />);
     await box();
     const [br, at] = await handle("br");
@@ -888,9 +887,9 @@ describe("TransformGizmo scale handles", () => {
     // (800,450), i.e. 1.5× its offset from the centred pivot on both axes.
     fireEvent.pointerMove(br, { clientX: at.clientX + 80, clientY: at.clientY + 45 });
     expect(transformOverrideFor("l1")).toEqual({
-      // Growing about the centre moves the unrotated top-left by half the growth.
-      dx: -160,
-      dy: -90,
+      // Position is the pivot and does not change.
+      dx: 0,
+      dy: 0,
       dscaleX: 0.5,
       dscaleY: 0.5,
     });
@@ -924,8 +923,6 @@ describe("TransformGizmo scale handles", () => {
     expect(committedStatics()).toEqual([
       ["scale_x", 1.5],
       ["scale_y", 1.5],
-      ["x", -160],
-      ["y", -90],
     ]);
     // Tracks, not a params patch: only Text routes a resize through
     // `update_layer_params` (ADR 0049).
@@ -980,7 +977,6 @@ describe("TransformGizmo scale handles", () => {
     fireEvent.pointerUp(br, { clientX: at.clientX + 80, clientY: at.clientY });
     expect(committedStatics()).toEqual([
       ["scale_x", 1.5],
-      ["x", -160],
     ]);
   });
 
@@ -1010,7 +1006,6 @@ describe("TransformGizmo scale handles", () => {
     fireEvent.pointerUp(r, { clientX: at.clientX + 80, clientY: at.clientY - 200 });
     expect(committedStatics()).toEqual([
       ["scale_x", 1.5],
-      ["x", -160],
     ]);
   });
 
@@ -1026,10 +1021,9 @@ describe("TransformGizmo scale handles", () => {
     fireEvent.pointerMove(br, { clientX: at.clientX, clientY: at.clientY + 90 });
     fireEvent.pointerUp(br, { clientX: at.clientX, clientY: at.clientY + 90 });
     const entries = committedStatics();
-    expect(entries.map(([k]) => k)).toEqual(["scale_x", "x"]);
+    expect(entries.map(([k]) => k)).toEqual(["scale_x"]);
     // +90 client ⇒ +180 comp along the layer's local x: 320 → 500 of lever.
     expect(entries[0]![1]).toBeCloseTo(500 / 320, 9);
-    expect(entries[1]![1]).toBeCloseTo(320 * (1 - 500 / 320), 9);
   });
 
   it("keys a keyframed scale at the frame-snapped playhead", async () => {
@@ -1381,8 +1375,8 @@ describe("a second gesture inside the commit round trip", () => {
     fireEvent.pointerMove(el, { clientX: 120, clientY: 110 });
     fireEvent.pointerUp(el, { clientX: 120, clientY: 110 });
     expect(committedStatics()).toEqual([
-      ["x", 40],
-      ["y", 20],
+      ["x", 360],
+      ["y", 200],
     ]);
     // The override holds the carry, so the box stays where the gesture left it
     // rather than falling back to the mirror's pre-commit x/y.
@@ -1397,8 +1391,8 @@ describe("a second gesture inside the commit round trip", () => {
     fireEvent.pointerUp(el, { clientX: 110, clientY: 100 });
     expect(commit).toHaveBeenCalledTimes(2);
     expect(batchStatics(1)).toEqual([
-      ["x", 60],
-      ["y", 20],
+      ["x", 380],
+      ["y", 200],
     ]);
   });
 
@@ -1426,7 +1420,7 @@ describe("a second gesture inside the commit round trip", () => {
     expect(committedValue(1, "rotation_deg")).toBeCloseTo(105, 6);
   });
 
-  it("stacks a linked resize, compensation included", async () => {
+  it("stacks linked resizes while Position stays fixed", async () => {
     render(<TransformGizmoHost />);
     const el = await box();
     const br = screen.getByTestId("transform-gizmo-scale-br");
@@ -1438,8 +1432,6 @@ describe("a second gesture inside the commit round trip", () => {
     expect(committedStatics()).toEqual([
       ["scale_x", 1.5],
       ["scale_y", 1.5],
-      ["x", -160],
-      ["y", -90],
     ]);
     // The box must be DRAWN at 1.5× before the next grab: `beginScale` reads the
     // handle's start position out of the last drawn frame.
@@ -1451,12 +1443,9 @@ describe("a second gesture inside the commit round trip", () => {
     fireEvent.pointerUp(br, { clientX: 120, clientY: 67.5 });
     expect(commit).toHaveBeenCalledTimes(2);
     // 2.25, not 1.75: the gesture is worth +0.75 over the 1.5 already committed.
-    // The x/y compensation stacks with it — read off the mirror it would land at
-    // −240 and the layer would jump on the next repaint.
     expect(committedValue(1, "scale_x")).toBeCloseTo(2.25, 6);
     expect(committedValue(1, "scale_y")).toBeCloseTo(2.25, 6);
-    expect(committedValue(1, "x")).toBeCloseTo(-400, 6);
-    expect(committedValue(1, "y")).toBeCloseTo(-225, 6);
+    expect(batchStatics(1).map(([key]) => key)).toEqual(["scale_x", "scale_y"]);
   });
 
   it("compounds a second box resize instead of re-measuring the staged box", async () => {
@@ -1536,7 +1525,7 @@ describe("a second gesture inside the commit round trip", () => {
     // the same value, so the carry is zero and the override lifts itself — no
     // one has to decide when the round trip "finished".
     act(() => {
-      useProjectStore.getState().apply(fixture({ x: stat(40), y: stat(20) }));
+      useProjectStore.getState().apply(fixture({ x: stat(360), y: stat(200) }));
     });
     await waitFor(() => expect(transformOverrideFor("l1")).toBeUndefined());
     // And the box is unmoved across the hand-off — the whole point of holding

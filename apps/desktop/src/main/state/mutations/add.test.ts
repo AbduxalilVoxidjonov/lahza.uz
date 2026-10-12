@@ -118,7 +118,7 @@ describe('applyAddGroupLayer', () => {
     if (placed.params.kind !== 'CompositionRef') throw new Error('expected a Group layer')
     expect(placed.params.composition).toBe(first)
     expect([placed.params.src_in_us, placed.params.src_out_us]).toEqual([0, duration])
-    expect(placed.params.transform).toEqual(defaultTransform())
+    expect(placed.params.transform).toEqual(defaultTransform(group(p, first).width / 2, group(p, first).height / 2))
     expect(placed.params.opacity).toEqual({ mode: 'Static', value: 1 })
     expect(placed.params.blend_mode).toBe('Normal')
     // A second instance is a second layer, not a second composition.

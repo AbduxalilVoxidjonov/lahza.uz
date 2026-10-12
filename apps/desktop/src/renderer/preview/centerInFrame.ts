@@ -4,7 +4,7 @@
 // `commands/appCommands.ts` supply the layer, the probe's natural size and the
 // commit.
 //
-// `TransformGizmo.tsx` reads `TRANSFORMABLE_KINDS`, `transformOriginFor` and
+// `TransformGizmo.tsx` reads `TRANSFORMABLE_KINDS` and
 // `layerFrameAt` from here rather than keeping its own copies, so the rectangle
 // the gizmo draws a box around and the rectangle "Center horizontally" centres
 // are the same rectangle by construction. Anything else that needs a layer's
@@ -17,7 +17,7 @@ import type { AnimTrack, LayerSummary } from "../ipc";
 import { resolveAnimated } from "../render/animated";
 import { evaluatePosition, previewPosition } from '../render/position';
 import { DEFAULT_ANCHOR } from "../render/anchorPivot";
-import { layerQuad, type LayerQuadInput, type Pt, type TransformOrigin } from "./gizmoGeometry";
+import { layerQuad, type LayerQuadInput, type Pt } from "./gizmoGeometry";
 import { quadAabb } from "./previewSnap";
 
 /// The kinds that carry a transform at all. `Color` fills the composition, so it
@@ -33,13 +33,6 @@ export const TRANSFORMABLE_KINDS: ReadonlySet<string> = new Set([
   "Motif",
   "CompositionRef",
 ]);
-
-/// docs/data-model.md#transform: only Text stores the anchor point as `x`/`y`.
-/// ADR 0049 keeps that asymmetry deliberately, which is why every consumer of a
-/// layer's geometry has to ask rather than assume.
-export function transformOriginFor(kind: string): TransformOrigin {
-  return kind === "Text" ? "anchor" : "top-left";
-}
 
 /// The flattened transform fields, read through one cast at the edge because
 /// `LayerParamsView` is a discriminated union and this is deliberately
@@ -86,7 +79,6 @@ export function layerFrameAt(
     scaleX: resolveAnimated(p.scale_x, tLocalUs, 1),
     scaleY: resolveAnimated(p.scale_y, tLocalUs, 1),
     rotationDeg: resolveAnimated(p.rotation_deg, tLocalUs, 0),
-    origin: transformOriginFor(p.kind),
     ...(layer.params.kind === 'VideoClip' ? {
       visibleRect: layer.params.crop,
       flipX: layer.params.flip_h,
@@ -98,12 +90,7 @@ export function layerFrameAt(
 /// The `x`/`y` delta that moves the layer's AXIS-ALIGNED BOUNDING BOX onto the
 /// composition's centre. Null on a degenerate quad.
 ///
-/// Going through the AABB is what makes one formula correct for both origin
-/// conventions AND for a rotated or flipped layer: whatever `x`/`y` names, the
-/// mapped quad is where the content actually lands, and shifting `x` by
-/// `centre − boxCentre` translates that landing rigidly. Per-origin arithmetic
-/// would have to special-case Text against the media kinds and would still put a
-/// rotated layer's corner, not its extent, in the middle.
+/// Centering uses the visible footprint, including crop, rotation and flips.
 ///
 /// The caller picks the axis: writing both would move a layer the user asked to
 /// centre on one.

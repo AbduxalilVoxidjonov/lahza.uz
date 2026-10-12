@@ -19,7 +19,7 @@ export function setPositionPreview(source: PositionAnimation, preview: PositionA
     invalidatePositionPreview();
 }
 export function previewPosition(source: PositionAnimation): PositionAnimation { return previews.get(source) ?? source; }
-/** Layer-local time in; the existing per-kind position coordinates out. */
+/** Layer-local time in; anchor coordinates in composition pixels out. */
 export function evaluatePosition(position: PositionAnimation, tUs: number): Point {
     if (position.mode === 'Path')
         return evaluateMotionPath(position.path, resolveAnimated(position.progress, tUs, 0));

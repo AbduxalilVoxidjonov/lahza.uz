@@ -7,7 +7,8 @@
 // injected (`join` for path reconcile).
 import { WorkspaceFailure } from '../../shared/workspaceErrors'
 import { SCHEMA_VERSION, type MediaItem, type Project } from './model'
-import { upgradeWire } from './migrate'
+import { migrationEvaluation } from './migrationEvaluation'
+import { upgradeWire, type MigrationContext, type PositionBakeReport } from './migrate'
 import { serializeProject, parseProject, type GridRepair, type ParseProjectOptions } from './serialize'
 
 /** The on-disk project file name inside a workspace folder. */
@@ -65,17 +66,20 @@ export interface ParsedProjectFile {
    *  already current. The caller preserves the pre-upgrade bytes off the back of
    *  this — see `openProject`. */
   upgradedFrom: number | null
+  bakedPositions: PositionBakeReport[]
 }
 
 /** Deserialize project.json text → Project: parse → gate → upgrade → cast.
  *  JSON.parse throws on malformed text; the gate runs BEFORE the structural cast
  *  so the rich version-specific guidance wins over parseProject's generic check,
  *  and the chain runs before it so the cast only ever sees the current shape. */
-export function parseProjectJson(text: string, opts: ParseProjectOptions = {}): ParsedProjectFile {
+export function parseProjectJson(text: string, opts: ParseProjectOptions & { migration?: MigrationContext } = {}): ParsedProjectFile {
   const json: unknown = JSON.parse(text)
   const version = schemaGate(json)
-  const { wire } = upgradeWire(json as Record<string, unknown>, version, SCHEMA_VERSION)
-  return { project: parseProject(wire, opts), upgradedFrom: version === SCHEMA_VERSION ? null : version }
+  const bakedPositions: PositionBakeReport[] = []
+  const { wire } = upgradeWire(json as Record<string, unknown>, version, SCHEMA_VERSION, undefined,
+    { ...migrationEvaluation, ...opts.migration, onBake: report => bakedPositions.push(report) })
+  return { project: parseProject(wire, opts), upgradedFrom: version === SCHEMA_VERSION ? null : version, bakedPositions }
 }
 
 /** On load, an item whose `path_rel` is populated has its in-memory `path_abs`
@@ -97,10 +101,10 @@ export function reconcileMediaPaths(p: Project, dir: string, join: (...parts: st
  *  content-addressed recipe before reuse. NOTE: stale-proxy invalidation (the
  *  Proxied route's `format_version`) is deliberately NOT done here — it rides the
  *  background jobs write-back. */
-export function loadProjectFromJson(text: string, opts: { dir: string; join: (...parts: string[]) => string; onGridRepair?: (repairs: readonly GridRepair[]) => void }): { project: Project; upgradedFrom: number | null } {
+export function loadProjectFromJson(text: string, opts: { dir: string; join: (...parts: string[]) => string; onGridRepair?: (repairs: readonly GridRepair[]) => void; migration?: MigrationContext }): ParsedProjectFile {
   // Omitting the hook (tests) leaves `onGridRepair: undefined`, which parseProject
   // falls back to its console default for — the reporting default is unchanged.
-  const { project, upgradedFrom } = parseProjectJson(text, { onGridRepair: opts.onGridRepair })
+  const { project, upgradedFrom, bakedPositions } = parseProjectJson(text, { onGridRepair: opts.onGridRepair, migration: opts.migration })
   const reconciled = reconcileMediaPaths(project, opts.dir, opts.join)
-  return { project: reconciled, upgradedFrom }
+  return { project: reconciled, upgradedFrom, bakedPositions }
 }

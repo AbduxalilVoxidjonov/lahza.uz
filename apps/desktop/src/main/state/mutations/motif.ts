@@ -4,14 +4,14 @@ import { defaultTransform } from './add'
 
 /** Build Motif LayerParams from canonicalized props + manifest version.
  *  src_in_us=0, identity transform, Static(1) opacity. */
-export function motifLayerParams(motifId: string, motifVersion: number, canonicalProps: Record<string, unknown>): LayerParams {
+export function motifLayerParams(motifId: string, motifVersion: number, canonicalProps: Record<string, unknown>, size: readonly [number, number] = [0, 0]): LayerParams {
   return {
     kind: 'Motif',
     motif_id: motifId,
     motif_version: motifVersion,
     props: canonicalProps,
     src_in_us: 0,
-    transform: defaultTransform(),
+    transform: defaultTransform(size[0] / 2, size[1] / 2),
     opacity: { mode: 'Static', value: 1 },
   }
 }

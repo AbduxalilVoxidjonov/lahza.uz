@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   layerPivot,
   layerQuad,
-  scaleCompensation,
   scaleFromUniformT,
   scaleHandlePoints,
   solveScale,
@@ -27,8 +26,8 @@ const COMP_H = 1080;
 /// A 200×100 media layer near the top-left, unrotated. Same shape the
 /// gizmoGeometry suite uses, so the two read as one story.
 const mediaLayer: LayerQuadInput = {
-  x: 100,
-  y: 50,
+  x: 200,
+  y: 100,
   anchorX: 0.5,
   anchorY: 0.5,
   naturalW: 200,
@@ -36,7 +35,6 @@ const mediaLayer: LayerQuadInput = {
   scaleX: 1,
   scaleY: 1,
   rotationDeg: 0,
-  origin: "top-left",
 };
 
 const compOnly = snapTargets(COMP_W, COMP_H, []);
@@ -51,11 +49,8 @@ function handleAfterSolve(
   id: ScaleHandleId,
   next: { scaleX: number; scaleY: number },
 ): { x: number; y: number } {
-  const fix = scaleCompensation(frame, next.scaleX, next.scaleY);
   const after: LayerQuadInput = {
     ...frame,
-    x: frame.x + fix.x,
-    y: frame.y + fix.y,
     scaleX: next.scaleX,
     scaleY: next.scaleY,
   };

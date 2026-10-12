@@ -141,7 +141,7 @@ export class MotifSprite implements StageableSprite {
     // Transforms first, every tick, BEFORE the frame no-op below: a
     // transform-only change with an unchanged frame must still take.
     this.sprite.scale.set(view.scale_x, view.scale_y);
-    // Anchor is the pivot; `x`/`y` stay the unrotated top-left (anchorPivot.ts).
+    // Position is the anchor in composition pixels (anchorPivot.ts).
     // The raster's own dimensions are the local space here, so a Motif captured
     // at a different size still pivots at the same relative point.
     const pivot = anchorPivot({
@@ -150,8 +150,6 @@ export class MotifSprite implements StageableSprite {
       anchorX: view.anchor_x,
       anchorY: view.anchor_y,
       ...textureExtent(this.sprite.texture),
-      effScaleX: view.scale_x,
-      effScaleY: view.scale_y,
     });
     this.sprite.pivot.set(pivot.pivotX, pivot.pivotY);
     this.sprite.position.set(pivot.posX, pivot.posY);

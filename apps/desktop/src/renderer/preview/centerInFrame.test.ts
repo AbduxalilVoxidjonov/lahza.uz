@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { AnimTrack, LayerParamsView, LayerSummary } from "../ipc";
-import { centerShift, layerFrameAt, transformOriginFor } from "./centerInFrame";
+import { centerShift, layerFrameAt } from "./centerInFrame";
 import { layerQuad, type LayerQuadInput } from "./gizmoGeometry";
 import { quadAabb } from "./previewSnap";
 
@@ -19,11 +19,10 @@ const media: LayerQuadInput = {
   scaleX: 1,
   scaleY: 1,
   rotationDeg: 0,
-  origin: "top-left",
 };
 
 /// A Text layer: same size, but `x`/`y` IS the anchor point (ADR 0049).
-const text: LayerQuadInput = { ...media, origin: "anchor" };
+const text: LayerQuadInput = { ...media, };
 
 /// Where the layer's visible box sits after `x`/`y` take the shift — the only
 /// thing these commands promise.
@@ -35,19 +34,10 @@ function centreAfterShift(frame: LayerQuadInput): { x: number; y: number } {
 
 const CENTRE = { x: COMP_W / 2, y: COMP_H / 2 };
 
-describe("transformOriginFor", () => {
-  it("gives Text the anchor point and every media kind the top-left", () => {
-    expect(transformOriginFor("Text")).toBe("anchor");
-    for (const kind of ["VideoClip", "ImageOverlay", "Motif"]) {
-      expect(transformOriginFor(kind)).toBe("top-left");
-    }
-  });
-});
-
 describe("centerShift", () => {
   // The slice's acceptance criterion: one formula, two origin conventions.
   it("centres a media layer and a Text layer alike, from different stored origins", () => {
-    expect(centerShift(media, COMP_W, COMP_H)).toEqual({ x: 320, y: 180 });
+    expect(centerShift(media, COMP_W, COMP_H)).toEqual({ x: 640, y: 360 });
     // Text's x/y is the anchor, and a 0.5 anchor hangs the glyphs symmetrically
     // around it — so the same picture needs a different number.
     expect(centerShift(text, COMP_W, COMP_H)).toEqual({ x: 640, y: 360 });
@@ -105,7 +95,6 @@ describe("layerFrameAt", () => {
     expect(frame.x).toBe(50);
     expect(frame.y).toBe(50);
     expect(frame.scaleX).toBe(2);
-    expect(frame.origin).toBe("anchor");
   });
 
   it("falls back to the renderer's own anchor default when the params carry none", () => {
@@ -114,6 +103,5 @@ describe("layerFrameAt", () => {
     expect(frame.anchorY).toBe(0.5);
     expect(frame.scaleX).toBe(1);
     expect(frame.rotationDeg).toBe(0);
-    expect(frame.origin).toBe("top-left");
   });
 });

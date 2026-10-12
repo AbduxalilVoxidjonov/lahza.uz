@@ -17,6 +17,7 @@ import { blankProject, rootComposition } from './model'
 import { loadProjectFromJson, serializeProjectToJson, PROJECT_FILE, preUpgradeBackupFile } from './persistence'
 import { relinkMissingMedia, type RelinkDeps, type RelinkReport } from './relink'
 import { serializeProject, type GridRepair } from './serialize'
+import type { MigrationContext, PositionBakeReport } from './migrate'
 
 /** The Rust-native workspace bookkeeping, exposed over napi (Backend methods
  *  commit_workspace / push_recent / set_last_new_project_parent). */
@@ -48,6 +49,7 @@ export interface OrchestratorFs {
 }
 
 export interface OrchestratorDeps {
+  migration?: MigrationContext
   actor: Pick<ActorHandle, 'replaceState' | 'snapshot'>
   napi: WorkspaceNapi
   fs: OrchestratorFs
@@ -76,14 +78,13 @@ export interface OrchestratorDeps {
 }
 
 export interface SchemaUpgradeReport {
+  bakedPositions?: PositionBakeReport[]
   /** The schema version the file on disk was at. */
   from: number
   /** The version it now holds in memory (the build's `SCHEMA_VERSION`). */
   to: number
-  /** The file the pre-upgrade bytes were preserved in, or null when that write
-   *  failed — in which case the next save is the point of no return, and the row
-   *  should say so rather than implying a safety net that isn't there. */
-  backupFile: string | null
+  /** Verified byte-for-byte backup; opening is refused if preservation fails. */
+  backupFile: string
 }
 
 /** project_open. Pre-checks → load (schema gate + migration chain) →
@@ -116,7 +117,7 @@ export async function openProject(deps: OrchestratorDeps, dir: string): Promise<
   // left to say, so it rides along as `detail` rather than being discarded.
   let loaded: ReturnType<typeof loadProjectFromJson>
   try {
-    loaded = loadProjectFromJson(text, { dir, join, onGridRepair: (r) => { gridRepairs = r } })
+    loaded = loadProjectFromJson(text, { dir, join, onGridRepair: (r) => { gridRepairs = r }, migration: deps.migration })
   } catch (e) {
     if (isWorkspaceFailure(e)) throw e
     throw new WorkspaceFailure({ error: 'ProjectFileUnreadable', detail: String(e) })
@@ -129,19 +130,25 @@ export async function openProject(deps: OrchestratorDeps, dir: string): Promise<
   // the only way back. Written straight from `text` rather than re-serializing:
   // a re-serialization would already be the upgraded shape.
   //
-  // Best-effort like the two heals below, and reported either way: an upgrade the
-  // user is not told about is one they cannot second-guess. Skipped when the file
-  // is already there, so opening the same project twice without editing (each
-  // open upgrades again) cannot clobber the first, oldest copy.
+  // Backup is mandatory. Reuse identical bytes, otherwise retain a new numbered
+  // copy. A backup error leaves both disk and the currently open project intact.
   let schemaUpgrade: SchemaUpgradeReport | null = null
   if (loaded.upgradedFrom !== null) {
-    const backupFile = preUpgradeBackupFile(loaded.upgradedFrom)
-    let kept: string | null = backupFile
+    let backupFile = preUpgradeBackupFile(loaded.upgradedFrom)
     try {
-      const backupPath = join(dir, backupFile)
-      if (!fs.exists(backupPath)) fs.writeFile(backupPath, text)
-    } catch { kept = null }
-    schemaUpgrade = { from: loaded.upgradedFrom, to: project.schema_version, backupFile: kept }
+      // Preserve THIS input as well as older backups of the same generation.
+      let suffix = 0
+      while (fs.exists(join(dir, backupFile)) && fs.readFile(join(dir, backupFile)) !== text) {
+        backupFile = `project.pre-v${loaded.upgradedFrom}.${++suffix}.json`
+      }
+      if (!fs.exists(join(dir, backupFile))) fs.writeFile(join(dir, backupFile), text)
+      if (fs.readFile(join(dir, backupFile)) !== text) throw new Error('backup verification failed')
+    } catch (error) {
+      throw new WorkspaceFailure({ error: 'ProjectFileUnreadable', detail: `Cannot preserve original project before migration: ${String(error)}` })
+    }
+    schemaUpgrade = { from: loaded.upgradedFrom, to: project.schema_version, backupFile,
+      ...(loaded.bakedPositions.length ? { bakedPositions: loaded.bakedPositions } : {}) }
+
   }
 
   // Refuse invalid state before cancelling the current workspace's resources.

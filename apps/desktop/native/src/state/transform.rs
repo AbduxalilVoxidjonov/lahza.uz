@@ -6,6 +6,7 @@ use super::animated::Animated;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(tag = "mode", deny_unknown_fields)]
+/// Schema v4: anchor location in composition pixels for every visual kind.
 pub enum PositionAnimation {
     XY {
         x: Animated<f64>,

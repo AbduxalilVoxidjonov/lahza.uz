@@ -13,7 +13,7 @@ import type { TimingFields } from '../../shared/timeMapping'
  *
  *  This is the only home for the number: Rust deserializes projects but has no
  *  opinion about the version (`native/src/state/project.rs`). */
-export const SCHEMA_VERSION = 3
+export const SCHEMA_VERSION = 4
 
 export type Uuid = string
 export type TimeUs = number
@@ -32,6 +32,7 @@ export type { EaseDir, Interpolation } from '../../shared/easing'
 export type { Animated, Continuity, Extrapolate, Extrapolation, Keyframe, Segment, Tangent, TangentMode } from '../../shared/keyframe'
 
 export interface Transform {
+  /** Anchor position in composition pixels, for every visual kind. */
   position: PositionAnimation
   scale_x: Animated<number>; scale_y: Animated<number>
   rotation_deg: Animated<number>

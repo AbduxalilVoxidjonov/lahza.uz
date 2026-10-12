@@ -129,8 +129,8 @@ export function groupLayerFixture({
   }> = {}): LayerSummary {
   const num = (value: number): AnimTrack<number> => ({ mode: "Static", value });
   const {
-    x = num(0),
-    y = num(0),
+    x = num(960),
+    y = num(540),
     scale_x = num(1),
     scale_y = num(1),
     scale_linked = true,

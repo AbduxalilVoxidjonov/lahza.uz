@@ -8,12 +8,20 @@ registered step has no fixture at its `from` version.
 ## Current state
 
 `v1.json` is now frozen as the input to the clip-mute migration. `v2.json`
-describes the current schema: loading v1 converts muted Audio layers into
+describes the clip-mute schema: loading v1 converts muted Audio layers into
 disabled layers with their mute flag cleared. Earlier pre-release cutovers,
 including ADR 0060's position record, are already part of v1 and are not migrated.
 The v2 fixture retains v1's ids, timestamps and authored values; its audio was
 already unmuted, so only the version and descriptive metadata differ. Muted
 inputs and nested compositions are exercised by `migrate.clipMute.test.ts`.
+
+`v3.json` freezes the affine time-map generation. `v4.json` is the current
+anchor-position generation: media Position is (320,180), the Group Position is
+(960,540), and Text is unchanged. The old synthetic media has no video metadata;
+chain tests explicitly supply its 640×360 source extent as migration context.
+Production reads original metadata and refuses unknown source dimensions.
+Existing v1–v3 files remain byte-for-byte unchanged. Animated migration cases,
+including Path and Group retiming, live in `migrate.anchorPosition.test.ts`.
 
 ## Released fixtures are frozen. Do not regenerate them.
 

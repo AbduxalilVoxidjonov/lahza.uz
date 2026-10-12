@@ -834,43 +834,29 @@ conversion that read that tuple is gone with the formats that carried it (ADR
 keeping, because it is why a conversion belongs in a migration step rather than a
 default: the tuple held authored data — ASS `\an` import writes an off-centre
 anchor on every caption layer — so defaulting the new fields to the centre would
-have re-positioned every imported subtitle. What `x`/`y` mean depends on the
-kind, and the difference is deliberate:
+have re-positioned every imported subtitle. Since schema v4, **Position is the anchor position in composition pixels** for
+VideoClip, ImageOverlay, Motif, CompositionRef and Text. XY curves and Path nodes
+use the same coordinates. Color is a composition fill with no Transform.
 
-| Kind | `x`/`y` is | why |
-|---|---|---|
-| VideoClip, ImageOverlay, Motif | the **unrotated top-left** | natural size is fixed, so a corner is a stable origin — and it is what stored projects already mean |
-| Text | the **anchor point itself**, taken over the layout box | measured text bounds move with the content, so only an anchor-relative origin is stable (ASS `\an` import writes anchor + position together — `subtitles/layout.rs`). With no `box_w` the box degenerates to those measured bounds, which is why Auto width behaves exactly as it did before the box existed |
+The transform is `world = Position + R·S·(local − anchor·naturalSize)`. The full
+source defines the pivot, including when a VideoClip is cropped. Video proxies
+change texture-space pivot and effective scale together; they never change the
+stored Position. Text uses its layout box (measured bounds on Auto axes).
 
-The media kinds get there by compensating the position for the pivot
-(`render/anchorPivot.ts`): the pivot goes at the anchor in texture space and the
-position adds `pivot × |effective scale|` back. The absolute value is what makes
-a flip mirror **in place** instead of jumping to the other side of `x`. At
-`rotation_deg = 0` with no flip, the top-left lands on `(x, y)` at any scale.
-
-That asymmetry decides what *moving* the anchor does, and the two editing
-surfaces answer differently — deliberately, matching After Effects:
+Both inspector Scale and on-canvas resize handles hold Position fixed and scale
+about that anchor. A scale gesture writes only scale tracks, so it does not add
+position keys or alter a motion path. Text's box handles retain their layout-box
+resize behavior, around the same anchor; inspector Scale magnifies the text.
 
 | Surface | Writes | Effect on the picture |
 |---|---|---|
-| Inspector `Anchor X`/`Anchor Y` (and MCP / timeline lanes) | the anchor track alone | unchanged for an unrotated, unflipped media layer; **moves** a rotated, flipped, or Text layer |
-| The preview's on-canvas target | the anchor pair **plus** compensating `x`/`y`, in one commit | never moves — the pan-behind gesture |
+| Inspector Anchor (also MCP / animation lanes) | anchor tracks | content moves around the fixed Position |
+| On-canvas anchor target | anchor plus `Position += R·S·(deltaAnchor·naturalSize)` | content stays stationary |
 
-The compensation is `anchorCompensation` in `renderer/preview/gizmoGeometry.ts`,
-which is the negation of the anchor-dependent part of the composed position:
-`−R·S·q` for the anchor origin and `(|S| − R·S)·q` for the top-left one, where
-`q` is the anchor change in local pixels. For an unrotated media layer that term
-is exactly zero, so the common gesture writes two tracks, not four, and never
-stamps a redundant key on `x`/`y`.
-
-**Scaling** splits the same way, and mirrors it. Because the media kinds' position
-adds `pivot × |scale|` back, changing scale alone holds the unrotated **top-left**
-still and walks the pivot — which is what the inspector's Scale field does. The
-preview's resize handles instead pin the **anchor**, the way After Effects and
-Premiere do, by committing `scaleCompensation` = `pivot·(|scale₀| − |scale₁|)` per
-axis in the same batch. That term has no rotation in it (the position never had
-one), and it is exactly zero for Text — whose `x`/`y` *is* the pivot, so scale
-cannot move it — the reverse of the anchor case above.
+New media and Motifs retain their previous initial placement: source top-left at
+composition (0,0), by storing Position at half the natural source dimensions.
+A plain Group stores Position at half its referenced composition dimensions,
+which makes its transform identity. Text starts at the composition center.
 
 `scale_linked` records **uniform-scale intent**: while `true`, the two scale
 tracks are structural twins — same mode, and when keyframed the same
@@ -1504,6 +1490,38 @@ the original bytes to `project.pre-v{n}.json` beside it (never into
 `Backups/`, whose snapshots are post-write and gc'd), reporting the upgrade
 as a status-log row.
 
+### v3 → v4 Position migration
+
+For VideoClip, ImageOverlay, Motif and CompositionRef, the old offset becomes
+`Position.x += anchor_x·sourceWidth·abs(scale_x)` (and the corresponding Y).
+Text already used anchor coordinates and is unchanged. Rotation, flips and crop
+do not enter this offset. Sizes come from original media metadata, the matching
+Motif manifest version, or the referenced composition; proxy/crop dimensions
+are never substituted. Missing dimensions cause an explicit refusal.
+
+Constant offsets translate Static/XY keys or Path points, preserving their
+interpolation, handles and extrapolation. Animated scale or anchor bakes XY
+position at composition frame times over each clip's span, including transition
+handles and every reachable Group instance's mapped frame times. Group rates
+and fractional phases stay exact. Existing scale/anchor tracks remain intact.
+The log lists composition/clip IDs, previous position mode and sample count.
+This preserves current frame appearance; between-sample interpolation, later
+retiming, extending a clip or changing frame rate may differ from the original.
+
+The migration refuses curves exceeding the v4 evaluator's 4096-key capacity or
+projects exceeding 2,000,000 sampled composition instants, without truncating or
+modifying the original. A missing evaluator, invalid time map or missing source
+also refuses migration. The wire step stays import-free; `migrationEvaluation`
+injects the canonical v3 numerical evaluation contract, protected by geometry
+regressions. Future interpolation changes must retain a compatible evaluator.
+
+A successful upgrade must first preserve and verify the exact input bytes in
+`project.pre-vN.json`. An identical backup is reused; a differing existing backup
+is retained and a numbered sibling is created. Failure to preserve the backup
+aborts opening before the current workspace is replaced. These backups have no
+retention cleanup. Saving writes v4; restoring the backup with a compatible old
+build is the rollback path. There is no automatic downgrade.
+
 ### Where a change belongs
 
 | Kind of change | Where it goes |
@@ -1517,7 +1535,9 @@ blind pass because the cut-over gate left no alternative, and the on-disk
 shape drifted across three generations while the version sat still. ADR 0047
 has the history.
 
-The current schema is **v2**. Its v1 → v2 step preserves existing projects when
+The current schema is **v4** (ADR 0112). Its v3 → v4 step makes Position the
+anchor for every transformed visual clip. See the migration policy below.
+The v1 → v2 step preserves existing projects when
 the inspector's clip-mute control is removed: in every composition, an Audio
 layer with `params.mute: true` becomes `enabled: false, params.mute: false`.
 Other enabled states, linked members, track flags and role mixing are untouched.

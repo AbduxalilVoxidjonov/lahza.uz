@@ -109,10 +109,11 @@ describe('openProject — schema upgrade', () => {
     await openProject(deps, '/ws')
 
     expect(fs.files.get(`/ws/${preUpgradeBackupFile(1)}`)).toBe('{"the":"first open kept this"}')
-    expect(reports[0]!.backupFile).toBe('project.pre-v1.json')
+    expect(reports[0]!.backupFile).toBe('project.pre-v1.1.json')
+    expect(fs.files.get('/ws/project.pre-v1.1.json')).toBe(PROJECT_JSON)
   })
 
-  it('still opens when the backup cannot be written, and says so', async () => {
+  it('refuses opening when the backup cannot be written, leaving disk and current state intact', async () => {
     state.upgradedFrom = 1
     const fs = memFs({ [`/ws/${PROJECT_FILE}`]: PROJECT_JSON })
     const readOnly: OrchestratorFs = {
@@ -120,10 +121,10 @@ describe('openProject — schema upgrade', () => {
       writeFile: () => { throw new Error('EROFS') },
     }
     const { deps, calls, reports } = harness(readOnly)
-    await openProject(deps, '/ws')
-
-    expect(calls).toContain('replaceState')                  // the open is not blocked
-    expect(reports[0]).toEqual({ from: 1, to: SCHEMA_VERSION, backupFile: null })  // …but the row must not imply a safety net
+    await expect(openProject(deps, '/ws')).rejects.toThrow()
+    expect(calls).toEqual([])
+    expect(reports).toEqual([])
+    expect(fs.files.get('/ws/project.json')).toBe(PROJECT_JSON)
   })
 
   it('writes nothing and reports nothing when the file was already current', async () => {

@@ -1506,10 +1506,8 @@ export class CompositionNode {
       effScaleX * (params.flip_h ? -1 : 1),
       effScaleY * (params.flip_v ? -1 : 1),
     );
-    // Anchor is the pivot: rotation and flip turn around it while `x`/`y` keep
-    // meaning the unrotated top-left (anchorPivot.ts). The pivot is in TEXTURE
-    // space, so it must use the decoded dimensions while the position
-    // compensation uses the effective (source-corrected) scale.
+    // Position is the anchor in composition pixels. The pivot uses decoded
+    // texture dimensions; source-corrected scale keeps proxy geometry identical.
     const pivot = anchorPivot({
       x: params.x,
       y: params.y,
@@ -1517,8 +1515,6 @@ export class CompositionNode {
       anchorY: params.anchor_y,
       texW: textureW,
       texH: textureH,
-      effScaleX,
-      effScaleY,
     });
     clip.sprite.sprite.pivot.set(pivot.pivotX, pivot.pivotY);
     clip.sprite.sprite.position.set(pivot.posX, pivot.posY);

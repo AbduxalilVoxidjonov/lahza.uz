@@ -8,9 +8,9 @@ import { eachLayer } from '../model'
 
 /** The canonical VideoClip layer shape. blend_mode
  *  default = Normal, transform default per defaultTransform. */
-export function videoClipParams(media: Uuid, srcInUs: number, srcOutUs: number): LayerParams {
+export function videoClipParams(media: Uuid, srcInUs: number, srcOutUs: number, size?: { width: number; height: number }): LayerParams {
   return { kind: 'VideoClip', media, src_in_us: srcInUs, src_out_us: srcOutUs,
-    transform: defaultTransform(), opacity: { mode: 'Static', value: 1 }, crop: null,
+    transform: defaultTransform((size?.width ?? 0) / 2, (size?.height ?? 0) / 2), opacity: { mode: 'Static', value: 1 }, crop: null,
     flip_h: false, flip_v: false, blend_mode: 'Normal', fade_in_us: 0, fade_out_us: 0 }
 }
 /** Standalone Audio layer. AudioRole is
@@ -23,8 +23,8 @@ export function audioParams(media: Uuid, srcInUs: number, srcOutUs: number): Aud
 }
 /** Image overlay (no src range; validator checks
  *  only the media ref). */
-export function imageOverlayParams(media: Uuid): LayerParams {
-  return { kind: 'ImageOverlay', media, transform: defaultTransform(),
+export function imageOverlayParams(media: Uuid, size?: { width: number; height: number }): LayerParams {
+  return { kind: 'ImageOverlay', media, transform: defaultTransform((size?.width ?? 0) / 2, (size?.height ?? 0) / 2),
     opacity: { mode: 'Static', value: 1 }, blend_mode: 'Normal', fade_in_us: 0, fade_out_us: 0 }
 }
 
@@ -160,4 +160,10 @@ export function applySeparateAudio(p: Project, idGen: IdGen, layerId: Uuid): Uui
   // index, so it ends up occupying the slot the pruned lane vacated.
   pruneEmptiedTrack(c, sourceTrackId)
   return newId
+}
+
+/** Probed source pixels, never proxy dimensions. */
+export function mediaExtent(item: MediaItem | undefined): { width: number; height: number } | undefined {
+  const video = item?.metadata.video as { width?: number; height?: number } | null | undefined
+  return video?.width && video.height ? { width: video.width, height: video.height } : undefined
 }

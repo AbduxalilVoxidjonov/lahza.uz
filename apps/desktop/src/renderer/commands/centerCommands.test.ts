@@ -138,12 +138,11 @@ afterEach(() => {
 });
 
 describe("centerHorizontally / centerVertically", () => {
-  // The acceptance criterion: both kinds put the CONTENT in the middle, from
-  // different stored origins (a media layer's top-left vs Text's anchor).
-  it("writes one axis in ONE commit, per the kind's origin", async () => {
+  // Every transformed visual kind shares anchor-position coordinates.
+  it("writes one axis in ONE commit, with the same coordinates for every kind", async () => {
     await command("centerHorizontally").run();
     expect(commit).toHaveBeenCalledTimes(1);
-    expect(commit).toHaveBeenCalledWith("l1", [["x", { mode: "Static", value: 320 }]]);
+    expect(commit).toHaveBeenCalledWith("l1", [["x", { mode: "Static", value: 640 }]]);
 
     commit.mockClear();
     useProjectStore.getState().apply(fixture("Text"));
@@ -153,7 +152,7 @@ describe("centerHorizontally / centerVertically", () => {
 
   it("centres vertically without touching x", async () => {
     await command("centerVertically").run();
-    expect(commit).toHaveBeenCalledWith("l1", [["y", { mode: "Static", value: 180 }]]);
+    expect(commit).toHaveBeenCalledWith("l1", [["y", { mode: "Static", value: 360 }]]);
   });
 
   it("keys a keyframed track at the frame-snapped playhead instead of flattening it", async () => {
@@ -170,11 +169,11 @@ describe("centerHorizontally / centerVertically", () => {
     expect(x.mode).toBe("Keyframed");
     // Playhead 2.5 s − layer start 2 s = 0.5 s = frame 15 at 30 fps.
     const keys = x.value as Array<{ t_us: number; value: number }>;
-    expect(keys.find((k) => k.t_us === 500_000)?.value).toBe(320);
+    expect(keys.find((k) => k.t_us === 500_000)?.value).toBe(640);
   });
 
   it("writes nothing when the layer is already centred", async () => {
-    useProjectStore.getState().apply(fixture("VideoClip", { x: stat(320) }));
+    useProjectStore.getState().apply(fixture("VideoClip", { x: stat(640) }));
     await command("centerHorizontally").run();
     expect(commit).not.toHaveBeenCalled();
   });

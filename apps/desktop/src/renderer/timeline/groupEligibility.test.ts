@@ -7,7 +7,7 @@ import {
   canGroupSelection,
   canUngroupSelection,
   groupForSelection,
-  groupNotPlainReason,
+  groupNotPlainReason as checkGroupNotPlain,
   selectedGroupLayer,
   ungroupForSelection,
 } from "./groupEligibility";
@@ -19,6 +19,8 @@ import {
   groupLayerFixture,
   summaryFixture,
 } from "../testing/summaryFixture";
+
+const groupNotPlainReason = (layer: LayerSummary) => checkGroupNotPlain(layer, { width: 1920, height: 1080 });
 
 const num = (value: number): AnimTrack<number> => ({ mode: "Static", value });
 
@@ -59,7 +61,7 @@ function track(id: string, layers: LayerSummary[], locked = false): TrackSummary
 }
 
 function seed(tracks: TrackSummary[]): void {
-  useProjectStore.getState().apply(summaryFixture({ root: { tracks } }));
+  useProjectStore.getState().apply(summaryFixture({ root: { tracks }, groups: [compositionFixture({ id: "comp-group" })] }));
 }
 
 afterEach(() => {

@@ -96,8 +96,6 @@ export class CompositionRefSprite implements StageableSprite {
       anchorY: view.anchor_y,
       texW: this.texture.width,
       texH: this.texture.height,
-      effScaleX: view.scale_x,
-      effScaleY: view.scale_y,
     });
     this.sprite.pivot.set(pivot.pivotX, pivot.pivotY);
     this.sprite.position.set(pivot.posX, pivot.posY);

@@ -120,15 +120,13 @@ export class ImageOverlaySprite implements StageableSprite {
     const effScaleX = view.scale_x * kx;
     const effScaleY = view.scale_y * ky;
     this.sprite.scale.set(effScaleX, effScaleY);
-    // Anchor is the pivot; `x`/`y` stay the unrotated top-left (anchorPivot.ts).
+    // Position is the anchor in composition pixels (anchorPivot.ts).
     const pivot = anchorPivot({
       x: view.x,
       y: view.y,
       anchorX: view.anchor_x,
       anchorY: view.anchor_y,
       ...textureExtent(this.sprite.texture),
-      effScaleX,
-      effScaleY,
     });
     this.sprite.pivot.set(pivot.pivotX, pivot.pivotY);
     this.sprite.position.set(pivot.posX, pivot.posY);

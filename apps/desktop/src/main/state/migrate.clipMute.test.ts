@@ -45,7 +45,7 @@ describe('v1 → v2 clip mute migration', () => {
     for (const c of Object.values(wire.compositions) as Array<{ tracks: Array<{ layers: Array<{ params: { kind: string; mute?: boolean } }> }> }>) {
       for (const t of c.tracks) for (const l of t.layers) if (l.params.kind === 'Audio') l.params.mute = true
     }
-    const { project, upgradedFrom } = parseProjectJson(JSON.stringify(wire))
+    const { project, upgradedFrom } = parseProjectJson(JSON.stringify(wire), { migration: { mediaSize: () => [640, 360] } })
     expect(upgradedFrom).toBe(1)
     expect(() => validate(project)).not.toThrow()
     const audio = Object.values(project.compositions).flatMap((c) => c.tracks.flatMap((t) => t.layers))

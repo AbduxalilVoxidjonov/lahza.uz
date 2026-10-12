@@ -277,7 +277,7 @@ const enUS = {
     create:'Create motion path', edit:'Edit path', show:'Show trajectory', done:'Done',
     add:'Add point', curve:'Line / curve', remove:'Remove point',
     anchor:'The marked anchor follows the path. Select a point to edit its handles.',
-    corner:'The marked position reference (unrotated top-left) follows the path.',
+    corner:'The marked anchor follows the path.',
     to_path:'Convert XY to path…', to_xy:'Convert to XY…', preview:'Preview conversion', apply:'Apply conversion', cancel:'Cancel',
     error:'Measured position error: {{error}} px ({{count}} checks)',
     conversion_note:'Only the chosen range is retained; outside it the result holds. Editable curves use sparse keys and keep constant axes static. Frame baking retains regularly spaced keys and adds more when needed. Error is measured at frames, quarter-frames and key boundaries, not guaranteed continuously. Instantaneous position jumps are refused.',

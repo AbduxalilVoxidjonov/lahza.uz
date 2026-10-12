@@ -355,11 +355,8 @@ export interface VideoClipView extends TimingFields {
   scale_linked: boolean;
   rotation_deg: AnimTrack<number>;
   opacity: AnimTrack<number>;
-  /// Transform pivot in normalized layer coordinates — what rotation and flip
-  /// turn around. LANDMINE: for media kinds `x`/`y` stay the UNROTATED
-  /// top-left, NOT the anchor point (a Text layer's `x`/`y` IS its anchor
-  /// point, because measured text bounds move with the content). The
-  /// compensation that keeps both true lives in `render/anchorPivot.ts`.
+  /// Normalized transform pivot. Position is this anchor's location in
+  /// composition pixels for every visual kind (schema v4).
   ///
   /// Animatable like the rest of the transform, so every consumer must resolve
   /// it at the layer-local time — `resolveView.ts` is that one point, and

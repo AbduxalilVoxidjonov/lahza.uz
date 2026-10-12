@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { LayerSummary } from '../ipc';
 import { layerFrameAt, centerShift } from './centerInFrame';
-import { layerQuad, layerPivot, scaleHandlePoints, solveScale, scaleCompensation, anchorCompensation, compDeltaToLocal, type LayerQuadInput } from './gizmoGeometry';
+import { layerQuad, layerPivot, scaleHandlePoints, solveScale, anchorCompensation, compDeltaToLocal, type LayerQuadInput } from './gizmoGeometry';
 import { cropQuad } from './cropGeometry';
 import { quadAabb, snapMove, snapTargets } from './previewSnap';
 
 const crop = { x: 0.2, y: 0.1, w: 0.4, h: 0.7 };
-const base: LayerQuadInput = { x: 100, y: 50, naturalW: 400, naturalH: 200, anchorX: 0.3, anchorY: 0.6, scaleX: 1.2, scaleY: 0.8, rotationDeg: 37, origin: 'top-left' };
+const base: LayerQuadInput = { x: 100, y: 50, naturalW: 400, naturalH: 200, anchorX: 0.3, anchorY: 0.6, scaleX: 1.2, scaleY: 0.8, rotationDeg: 37, };
 function closePoints(actual: readonly { x: number; y: number }[], expected: readonly { x: number; y: number }[]) {
   actual.forEach((p, i) => { expect(p.x).toBeCloseTo(expected[i]!.x, 8); expect(p.y).toBeCloseTo(expected[i]!.y, 8); });
 }
@@ -35,8 +35,7 @@ describe('cropped transform footprint', () => {
       const handle = scaleHandlePoints(layerQuad(frame))!.find(h => h.id === 'br')!.at;
       const target = { x: pivot.x + 1.5 * (handle.x - pivot.x), y: pivot.y + 1.5 * (handle.y - pivot.y) };
       const next = solveScale(frame, 'br', target, pivot, true)!;
-      const fix = scaleCompensation(frame, next.scaleX, next.scaleY);
-      const resized = { ...frame, ...next, x: frame.x + fix.x, y: frame.y + fix.y };
+      const resized = { ...frame, ...next };
       closePoints([layerPivot(resized)], [pivot]);
       closePoints([scaleHandlePoints(layerQuad(resized))!.find(h => h.id === 'br')!.at], [target]);
 
@@ -49,7 +48,7 @@ describe('cropped transform footprint', () => {
   }
 
   it('centres and snaps the visible edge, and uses other cropped layers as snap targets', () => {
-    const frame = { ...base, x: -78, y: 200, rotationDeg: 0, scaleX: 1, scaleY: 1, visibleRect: crop };
+    const frame = { ...base, x: 42, y: 200, rotationDeg: 0, scaleX: 1, scaleY: 1, visibleRect: crop };
     const box = quadAabb(layerQuad(frame))!;
     expect(box.left).toBeCloseTo(2);
     const snapped = snapMove(box, snapTargets(1000, 800, []), 5);

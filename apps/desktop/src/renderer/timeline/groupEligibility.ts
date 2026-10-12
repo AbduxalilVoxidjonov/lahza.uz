@@ -19,7 +19,7 @@
 // condition failed: "unlock the clips" and "reset the opacity" are different
 // instructions, and a single "can't group that" would send the user looking.
 
-import type { AnimTrack, LayerSummary, TrackSummary } from "../ipc";
+import type { AnimTrack, LayerSummary, TrackSummary, CompositionSummary } from "../ipc";
 import { useCompositionAnchorStore } from "../state/compositionAnchorStore";
 import {
   compositionOrRoot,
@@ -85,13 +85,15 @@ export type GroupNotPlainReason = "transform" | "opacity" | "effects" | "time_ma
 /// there is no reason to name. Every caller gates on the kind first.
 export function groupNotPlainReason(
   layer: LayerSummary,
+  source?: Pick<CompositionSummary, "width" | "height">,
 ): GroupNotPlainReason | null {
   const p = layer.params;
   if (p.kind !== "CompositionRef") return null;
   if (p.time_map && p.time_map.rate.num !== p.time_map.rate.den) return "time_map";
+  if (!source || p.position?.mode === "Path") return "transform";
   const identity: Array<[AnimTrack<number>, number]> = [
-    [p.x, 0],
-    [p.y, 0],
+    [p.x, source.width / 2],
+    [p.y, source.height / 2],
     [p.scale_x, 1],
     [p.scale_y, 1],
     [p.rotation_deg, 0],
@@ -153,13 +155,14 @@ export function groupState(
 export function ungroupState(
   selected: ReadonlySet<string>,
   tracks: readonly TrackSummary[],
+  compositions: Readonly<Record<string, CompositionSummary>>,
 ): UngroupState {
   const found = selectedWithTracks(selected, tracks);
   if (found.length !== 1) return "needs_one_group";
   const only = found[0]!;
   if (only.layer.params.kind !== "CompositionRef") return "needs_one_group";
   if (only.layer.locked || only.track.locked) return "locked";
-  const reason = groupNotPlainReason(only.layer);
+  const reason = groupNotPlainReason(only.layer, compositions[only.layer.params.composition_id]);
   if (reason !== null) return `not_plain_${reason}` as UngroupState;
   return "ungroup";
 }
@@ -238,7 +241,7 @@ export function groupForSelection(): GroupState {
 }
 
 export function ungroupForSelection(): UngroupState {
-  return ungroupState(layerIdsOf(currentSelection()), currentTracks());
+  return ungroupState(layerIdsOf(currentSelection()), currentTracks(), useProjectStore.getState().summary?.compositions ?? {});
 }
 
 export function addToGroupForSelection(): AddToGroupState {
@@ -308,7 +311,7 @@ export const useUngroupState = (): UngroupState => {
   const selected = useSelectedLayerIds();
   const focusedId = useCompositionAnchorStore((s) => s.focusedId);
   return useProjectStore((s) =>
-    ungroupState(selected, compositionOrRoot(s.summary, focusedId)?.tracks ?? NO_TRACKS),
+    ungroupState(selected, compositionOrRoot(s.summary, focusedId)?.tracks ?? NO_TRACKS, s.summary?.compositions ?? {}),
   );
 };
 

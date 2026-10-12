@@ -282,24 +282,28 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   // Load-time schema upgrade: the migration chain moved an older project.json
   // forward (migrate.ts). `warn` for the same reason as the grid repair — what the
   // next save writes is no longer what was opened — and the row names the
-  // preserved original, or says plainly that there isn't one.
+  // verified backup and every clip whose position was baked.
   const onSchemaUpgrade = (report: SchemaUpgradeReport): void => {
     try {
       deps.emitLog?.({
         level: 'warn',
         category: { kind: 'Project' },
         source: { kind: 'System' },
-        message: report.backupFile
-          ? `Project upgraded from schema v${report.from} to v${report.to}; the original is kept as ${report.backupFile}`
-          : `Project upgraded from schema v${report.from} to v${report.to}; the original could NOT be preserved`,
-        details: { kind: 'SchemaUpgrade', from: report.from, to: report.to, backup: report.backupFile },
+        message: `Project upgraded from schema v${report.from} to v${report.to}; the original is kept as ${report.backupFile}` +
+          (report.bakedPositions?.length ? `; ${report.bakedPositions.length} clip(s) converted to frame-sampled position keys. Existing frame appearance is preserved; interpolation between samples and future retiming may differ.` : ''),
+        details: { kind: 'SchemaUpgrade', from: report.from, to: report.to, backup: report.backupFile,
+          ...(report.bakedPositions?.length ? { bakedPositions: report.bakedPositions } : {}) },
       })
     } catch (err) { console.warn('[ts-actor-host] emitLog failed (schema upgrade)', err) }
   }
   const relink = deps.relinkFs
     ? { fs: deps.relinkFs, join: deps.join, hashFile: (p: string) => deps.compute.hashMediaSource(p) }
     : undefined
-  const orchestratorDeps = { actor, napi: deps.napi, fs: deps.fs, join: deps.join, idGen, enqueueDerivatives, relink, onRelink, onGridRepair, onSchemaUpgrade }
+  const migration = { motifSize: (id: string, version: number) => {
+    const manifest = motifCatalog.get(id)
+    return manifest?.version === version ? manifest.size : null
+  } }
+  const orchestratorDeps = { actor, napi: deps.napi, fs: deps.fs, join: deps.join, idGen, enqueueDerivatives, relink, onRelink, onGridRepair, onSchemaUpgrade, migration }
 
   // Hybrid orchestrator deps (native-compute → TS-write). enqueueDerivatives here
   // takes the inserted ITEMS (vs the orchestrator's whole-Project variant) and

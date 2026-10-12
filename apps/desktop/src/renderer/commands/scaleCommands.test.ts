@@ -51,14 +51,14 @@ describe('preview scale commands', () => {
     await scalePrimaryLayer('fit');
     expect(commit).toHaveBeenCalledTimes(1);
     const entries = Object.fromEntries(commit.mock.calls[0]![1]);
-    expect(entries).toEqual({ scale_x: stat(0.5625), scale_y: stat(0.5625), x: stat(0), y: stat(218.75) });
+    expect(entries).toEqual({ scale_x: stat(0.5625), scale_y: stat(0.5625), x: stat(180), y: stat(320) });
   });
 
   it('fills and centers in one batch', async () => {
     await scalePrimaryLayer('fill');
     const entries = Object.fromEntries(commit.mock.calls[0]![1]);
     expect(entries.scale_x).toEqual(stat(640 / 360));
-    expect(entries.y).toEqual(stat(0));
+    expect(entries.y).toEqual(stat(320));
   });
 
   it('restores scales alone even when the layer has not been staged, preserving mirrors', async () => {
@@ -91,14 +91,14 @@ describe('preview scale commands', () => {
     ] } } }));
     await scalePrimaryLayer('fit');
     expect(commit).not.toHaveBeenCalled();
-    expect(pathCommit).toHaveBeenCalledWith('layer', -100, 168.75,
+    expect(pathCommit).toHaveBeenCalledWith('layer', 80, 270,
       [['scale_x', stat(0.5625)], ['scale_y', stat(0.5625)]]);
   });
 
   it('does not create redundant edits', async () => {
     await scalePrimaryLayer('original');
     expect(commit).not.toHaveBeenCalled();
-    useProjectStore.getState().apply(fixture({ scale_x: stat(0.5625), scale_y: stat(0.5625), x: stat(0), y: stat(218.75) }));
+    useProjectStore.getState().apply(fixture({ scale_x: stat(0.5625), scale_y: stat(0.5625), x: stat(180), y: stat(320) }));
     await scalePrimaryLayer('fit');
     expect(commit).not.toHaveBeenCalled();
   });
