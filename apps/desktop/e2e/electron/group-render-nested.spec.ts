@@ -210,8 +210,10 @@ test("a Group composites its own timeline: twice over, nested, and as the open c
     );
     const layerA = group.layer_id;
     const layerB = pasted.clones[0]!.clone;
-    await setTransform(page, layerA, { x: 0, y: 0, scale: 0.5 });
-    await setTransform(page, layerB, { x: CANVAS.width / 2, y: CANVAS.height / 2, scale: 0.5 });
+    // Position is the centre anchor; these centres place the half-size pictures
+    // in the top-left and bottom-right quadrants respectively.
+    await setTransform(page, layerA, { x: CANVAS.width / 4, y: CANVAS.height / 4, scale: 0.5 });
+    await setTransform(page, layerB, { x: CANVAS.width * 3 / 4, y: CANVAS.height * 3 / 4, scale: 0.5 });
 
     // At 1.2 s: A is 1.2 s into the Group (GREEN), B only 0.2 s in (RED). One
     // playhead, one composition, two frames of it on screen.
@@ -247,7 +249,7 @@ test("a Group composites its own timeline: twice over, nested, and as the open c
       { layerIds: [layerA] },
     );
     expect(Object.keys((await wire(page)).compositions)).toHaveLength(3);
-    await setTransform(page, nest.layer_id, { x: 0, y: 0, scale: 0.5 });
+    await setTransform(page, nest.layer_id, { x: CANVAS.width / 4, y: CANVAS.height / 4, scale: 0.5 });
 
     await seekAndSettle(page, 1_200_000);
     const quarterW = CANVAS.width / 4;

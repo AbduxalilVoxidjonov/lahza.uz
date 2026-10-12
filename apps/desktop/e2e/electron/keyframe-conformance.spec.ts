@@ -25,10 +25,9 @@
 //
 // Coordinate convention (`src/renderer/render/anchorPivot.ts`; the rule lives at
 // docs/data-model.md#transform): `x`/`y` are composition pixels and mean the
-// layer's UNROTATED top-left whatever the anchor; `anchor` is the normalized
-// pivot, default (0.5, 0.5) = the texture's centre; rotation turns around the
-// pivot without moving `x`/`y`. A W×H Group at rotation 0 therefore covers
-// [x, x+W) × [y, y+H), and a rotated one turns about (x + W/2, y + H/2).
+// layer's anchor location (schema v4); `anchor` is the normalized pivot,
+// default (0.5, 0.5) = the texture's centre. At scale 1 and rotation 0 a W×H
+// Group covers [x−W/2, x+W/2) × [y−H/2, y+H/2). Rotation turns around (x, y).
 //
 // Every scenario also lays a full-frame opaque BLACK Color layer under the Group.
 // The preview readback renders the stage into a transparent target (an uncovered
@@ -283,8 +282,9 @@ async function addBackdrop(page: Page): Promise<void> {
 /// on a fresh top track, pre-composed into a Group, and the Group's composition
 /// (born at the parent's canvas size) resized to `w × h` so the Group's texture —
 /// the extent the anchor pivots within — is exactly the rectangle. The Group
-/// layer spans [0, 3 s) like the Color inside it; its transform is the default
-/// (x = y = 0, scale 1, anchor centre) until the scenario writes tracks.
+/// layer spans [0, 3 s) like the Color inside it; its default Position is the
+/// original parent canvas centre. Resizing the source does not move Position;
+/// each spatial scenario writes the anchor coordinates it needs.
 async function addRedGroup(page: Page, w: number, h: number): Promise<{ layerId: string; compositionId: string }> {
   const trackId = await invokeCmd<string>(page, 'add_track', {})
   const redId = await invokeCmd<string>(page, 'add_color_layer', {
@@ -363,7 +363,7 @@ function autoKey(tUs: number, value: number, segment: Segment): Kf {
 }
 
 // ── Scenario 1: Auto-smoothed x on a 100×100 square ──────────────────────────
-// Three `x` keys 120 → 420 → 120 at 0 / 1 / 2 s, ONLY the middle key Auto on
+// Three anchor `x` keys 170 → 470 → 170 at 0 / 1 / 2 s, ONLY the middle key Auto on
 // both sides (Smooth), segments Spline / Spline / Linear, outer keys identity
 // Free. The middle key is a peak, so the monotone solver's slope through it is 0
 // (dPrev = +300, dNext = −300: a sign change) and it stores
@@ -374,21 +374,21 @@ function autoKey(tUs: number, value: number, segment: Segment): Kf {
 //   3·(1/2)²·(1/2)·(1/3) + 3·(1/2)·(1/2)²·1 + (1/2)³ = 0.125 + 0.375 + 0.125 = 0.625
 // Segment 1 is unit_bezier(1/3, 0, 2/3, 2/3): y-controls 0, 0, 2/3, 1 give
 //   3·(1/2)·(1/2)²·(2/3) + (1/2)³ = 0.25 + 0.125 = 0.375
-// so x(0.5 s) = 120 + 0.625·300 = 307.5 and x(1.5 s) = 420 − 0.375·300 = 307.5,
-// against 270 for a linear (or un-solved identity-tangent) render: the square's
+// so x(0.5 s) = 170 + 0.625·300 = 357.5 and x(1.5 s) = 470 − 0.375·300 = 357.5,
+// against 320 for a linear (or un-solved identity-tangent) render: the square's
 // centre column moves 37.5 px, tolerance 3. 1.0 s sits on the peak key, 2.5 s is
 // past the last key and reads the default Hold clamp.
 const SQUARE = 100
-/// Static `y`: rows [130, 230), centre row 180 — the row the run is read on.
-const SQUARE_Y = 130
+/// Static anchor `y`: rows [130, 230), centre row 180 — the sampled row.
+const SQUARE_Y = 180
 const SQUARE_ROW = 180
-const X_END = 120
-const X_PEAK = 420
+const X_END = 170
+const X_PEAK = 470
 const AUTO_TIMES = { '0.5s': 500_000, '1.0s': 1_000_000, '1.5s': 1_500_000, '2.5s': 2_500_000 }
 const AUTO_X: Record<keyof typeof AUTO_TIMES, number> = {
-  '0.5s': X_END + 0.625 * (X_PEAK - X_END), // 307.5
+  '0.5s': X_END + 0.625 * (X_PEAK - X_END), // 357.5
   '1.0s': X_PEAK, // on the key
-  '1.5s': X_PEAK + 0.375 * (X_END - X_PEAK), // 307.5
+  '1.5s': X_PEAK + 0.375 * (X_END - X_PEAK), // 357.5
   '2.5s': X_END, // Hold after the last key
 }
 
@@ -443,7 +443,7 @@ const autoX: Scenario = {
   check(timeName, frame) {
     const run = squareRun(frame)
     if (typeof run === 'string') return [run]
-    const want = AUTO_X[timeName as keyof typeof AUTO_TIMES]! + SQUARE / 2
+    const want = AUTO_X[timeName as keyof typeof AUTO_TIMES]!
     const errs: string[] = []
     if (Math.abs(run.centre - want) > CENTRE_TOL) {
       errs.push(`red run centre ${run.centre} want ${want}±${CENTRE_TOL} (run length ${run.length})`)
@@ -536,9 +536,9 @@ const loopOpacity: Scenario = {
 // centre see every case with no direction assumption (a point on an axis is the
 // same distance from the rectangle's edges under either rotation sense).
 //
-// Geometry: the rectangle is centred at (320, 180) — Group x = 320 − 60 = 260,
-// y = 180 − 30 = 150 (x/y = unrotated top-left; the default anchor pivots at the
-// centre). Half-extents a = 60 along its long axis, b = 30 across. A probe at
+// Geometry: the rectangle is centred at (320, 180), its Group Position with
+// the default centre anchor. Half-extents a = 60 along its long axis, b = 30
+// across. A probe at
 // distance d = 52 from the centre is inside iff its coordinates in the
 // rectangle's frame, (d·cos θ, d·sin θ) for the x-axis probe and (d·sin θ,
 // d·cos θ) for the y-axis probe, fit |·| ≤ a and |·| ≤ b:
@@ -579,8 +579,8 @@ const pingPongRotation: Scenario = {
   times: PP_TIMES,
   async author(page) {
     const group = await addRedGroup(page, RECT_W, RECT_H)
-    await setStatic(page, group.layerId, 'x', RECT_CENTRE.x - RECT_W / 2)
-    await setStatic(page, group.layerId, 'y', RECT_CENTRE.y - RECT_H / 2)
+    await setStatic(page, group.layerId, 'x', RECT_CENTRE.x)
+    await setStatic(page, group.layerId, 'y', RECT_CENTRE.y)
     await writeTrack(page, group.layerId, 'rotation_deg', {
       mode: 'Keyframed',
       value: [freeKey(0, 0, LINEAR), freeKey(1_000_000, 90, LINEAR)],
@@ -610,7 +610,7 @@ const motionPath: Scenario = {
     const group = await addRedGroup(page, SQUARE, SQUARE)
     await invokeCmd(page, 'set_position', { layerId: group.layerId, position: {
       mode: 'Path',
-      path: { nodes: [120, 180, 420].map((x, i) => ({ tangent_mode: 'Corner' as const,
+      path: { nodes: [170, 230, 470].map((x, i) => ({ tangent_mode: 'Corner' as const,
         id: `node-${i}`, point: { x, y: SQUARE_Y }, in_handle: { x: -20, y: 0 }, out_handle: { x: 20, y: 0 }, segment: i === 0 ? 'Cubic' : 'Line',
       })) },
       progress: { mode: 'Keyframed', value: [freeKey(0, 0, LINEAR), freeKey(2000000, 1, LINEAR)], extrapolate: { before: 'Hold', after: 'PingPong' } },
@@ -620,7 +620,7 @@ const motionPath: Scenario = {
     const run = squareRun(frame)
     if (typeof run === 'string') return [run]
     const progress = Number.parseFloat(timeName) / 2
-    const want = 120 + 300 * (progress <= 1 ? progress : 2 - progress) + SQUARE / 2
+    const want = 170 + 300 * (progress <= 1 ? progress : 2 - progress)
     return Math.abs(run.centre - want) <= CENTRE_TOL && Math.abs(run.length - SQUARE) <= 4 ? [] : [`path square centre ${run.centre}, length ${run.length}; expected ${want}, ${SQUARE}`]
   },
   compare: autoX.compare,

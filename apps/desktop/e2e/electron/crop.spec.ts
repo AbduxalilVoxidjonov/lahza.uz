@@ -58,6 +58,11 @@ test('crop: Quick Panel, context menu, drag/cancel, snapping and exported pixels
     await expect.poll(async () => (await sample(page, 160, 90)).r, { timeout: 20_000 }).toBeGreaterThan(200);
     const patch = (p: Record<string, unknown>) => invokeCmd(page, 'update_layer_params', { layerId, patch: { kind: 'VideoClip', ...p } });
     const stored = async () => (await summary(page)).tracks.flatMap(t => t.layers).find(l => l.id === layerId)!.params as any;
+    // Position is the full source's anchor in composition pixels (schema v4).
+    // Crop must leave that anchor fixed, even when its visible bounds change.
+    const initial = await stored();
+    expect(initial.x).toEqual({ mode: 'Static', value: 160 });
+    expect(initial.y).toEqual({ mode: 'Static', value: 90 });
     const crop = { x: 0.25, y: 0.1, w: 0.5, h: 0.8 };
     await patch({ crop });
     await expect.poll(async () => (await sample(page, 20, 90)).r).toBeLessThan(10);
@@ -103,7 +108,8 @@ test('crop: Quick Panel, context menu, drag/cancel, snapping and exported pixels
     await expect.poll(async () => (await stored()).crop.x).toBeGreaterThan(0.25);
     const params = await stored();
     expect(params.scale_x).toEqual({ mode: 'Static', value: 1 });
-    expect(params.x).toEqual({ mode: 'Static', value: 0 });
+    expect(params.x).toEqual(initial.x);
+    expect(params.y).toEqual(initial.y);
     await invokeCmd(page, 'project_undo', {});
     await expect.poll(async () => (await stored()).crop).toEqual(crop);
     await page.screenshot({ path: info.outputPath('crop-controls.png') });
@@ -137,10 +143,10 @@ test('crop: Quick Panel, context menu, drag/cancel, snapping and exported pixels
     // predicate calls that hidden even when its stroke is being painted.
     await expect(page.getByTestId('transform-gizmo-guide-x')).not.toHaveCSS('display', 'none');
     await page.mouse.up();
-    await expect.poll(async () => (await stored()).x.value).toBe(-80);
+    await expect.poll(async () => (await stored()).x.value).toBe(80);
     await expect.poll(async () => Math.round((await boxInComp()).x)).toBe(0);
     await invokeCmd(page, 'project_undo', {});
-    await expect.poll(async () => (await stored()).x.value).toBe(0);
+    await expect.poll(async () => (await stored()).x.value).toBe(160);
 
     // Asymmetric source crop mirrors WITH the content, around the same pivot.
     await patch({ crop: { x: 0.5, y: 0, w: 0.5, h: 1 }, flip_h: true });

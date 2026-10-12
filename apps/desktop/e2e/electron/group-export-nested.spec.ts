@@ -52,10 +52,10 @@ const RED = { r: 220, g: 40, b: 40, a: 255 }
 const GREEN = { r: 40, g: 200, b: 90, a: 255 }
 const TOTAL_FRAMES = 60
 
-/// One transform per level. `x`/`y` are the unrotated top-left in the enclosing
-/// composition's pixels and the anchor never enters at rotation 0
-/// (`render/anchorPivot.ts`), so a point maps `parent = (x, y) + scale · child`
-/// and the two levels compose as below.
+/// One transform per level. `x`/`y` locate the centre anchor in the enclosing
+/// composition (schema v4). At rotation 0 a point maps
+/// `parent = (x, y) + scale · (child − sourceCentre)`. All three source
+/// compositions have CANVAS dimensions, so the two levels compose as below.
 ///
 /// The numbers are chosen so nothing is CLIPPED at any level: a Group's picture
 /// is a `RenderTexture` of its composition's frame, so content pushed outside
@@ -64,11 +64,11 @@ const TOTAL_FRAMES = 60
 /// [40, 360) x [20, 200) of the middle composition and the whole nest lands in
 /// [180, 340) x [100, 190) of the root; both are inside 640 x 360, and every
 /// edge is an integer pixel boundary in both legs.
-const INNER = { x: 40, y: 20, scale: 0.5 }
-const OUTER = { x: 160, y: 90, scale: 0.5 }
+const INNER = { x: 200, y: 110, scale: 0.5 }
+const OUTER = { x: 320, y: 180, scale: 0.5 }
 const FLAT = {
-  x: OUTER.x + OUTER.scale * INNER.x,
-  y: OUTER.y + OUTER.scale * INNER.y,
+  x: OUTER.x + OUTER.scale * (INNER.x - CANVAS.width / 2),
+  y: OUTER.y + OUTER.scale * (INNER.y - CANVAS.height / 2),
   scale: OUTER.scale * INNER.scale,
 }
 

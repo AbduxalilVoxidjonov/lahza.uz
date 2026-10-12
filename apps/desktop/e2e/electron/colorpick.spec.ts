@@ -177,7 +177,9 @@ for (const backend of ['auto', 'webgl'] as const) test(`colorpick: samples the a
     })
     const file = path.join(folder, 'input.png'); writeFileSync(file, Buffer.from(png, 'base64'))
     const { layerId } = await importAndPlaceMedia(page, { mediaAbsPath: file })
-    await invokeCmd(page, 'update_layer_params', { layerId, patch: { kind: 'ImageOverlay', x: 100, y: 60, scale_x: 2, scale_y: 2 } })
+    // A 64×64 image at scale 2 has a 64 px centre offset from its top-left.
+    // Keep the test picture at (100, 60) by placing its anchor at (164, 124).
+    await invokeCmd(page, 'update_layer_params', { layerId, patch: { kind: 'ImageOverlay', x: 164, y: 124, scale_x: 2, scale_y: 2 } })
     const grade = await invokeCmd<string>(page, 'add_effect', { layerId, kind: 'brightness' })
     await invokeCmd(page, 'update_effect', { layerId, effectId: grade, patch: { params: { amount: { mode: 'Static', value: 25 } } } })
     const key = await invokeCmd<string>(page, 'add_effect', { layerId, kind: 'chromakey' })

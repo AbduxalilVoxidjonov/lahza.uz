@@ -464,7 +464,7 @@ test('effects: sharpen rings a chart in the live preview, and amount 0 undoes it
   expect(placed.kind).toBe('Image')
   const layerId = placed.layerId
 
-  // Scale the chart to fit the canvas: 1920×1080 / 3, exact, so every patch
+  // Scale and centre the chart to fit the canvas: 1920×1080 / 3, exact, so every patch
   // border still falls on a whole canvas pixel and the edges stay hard. Placed
   // at natural size the 640×360 canvas shows only the top-left crop — red |
   // green over yellow | white — and every channel there is 0 or 255. The kernel
@@ -477,7 +477,7 @@ test('effects: sharpen rings a chart in the live preview, and amount 0 undoes it
   // says 1/3 does not mean the frame has been re-composited at 1/3 yet.
   await invokeCmd(page, 'update_layer_params', {
     layerId,
-    patch: { kind: 'ImageOverlay', scale_x: 1 / 3, scale_y: 1 / 3 },
+    patch: { kind: 'ImageOverlay', x: 320, y: 180, scale_x: 1 / 3, scale_y: 1 / 3 },
   })
   {
     const deadline = Date.now() + 20_000
