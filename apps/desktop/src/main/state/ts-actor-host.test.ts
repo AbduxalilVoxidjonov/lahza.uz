@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { mkdtempSync } from 'node:fs'
+import { mkdtempSync, existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import nodePath from 'node:path'
 import { mapChangeEvent, createTsActorHost } from './ts-actor-host'
@@ -52,6 +52,7 @@ describe('createTsActorHost — persistence-route integration', () => {
 
     const memNapi = {
       commitWorkspace: async (p: string) => { wsDir = p; napiCalls.push({ method: 'commitWorkspace', args: [p] }) },
+      endWorkspace: async () => { wsDir = null },
       pushRecent: (_p: string, _n: string) => { napiCalls.push({ method: 'pushRecent', args: [_p, _n] }) },
       setLastNewProjectParent: (_p: string) => { napiCalls.push({ method: 'setLastNewProjectParent', args: [_p] }) },
       enqueueJobsForMedia: async (_j: string) => { napiCalls.push({ method: 'enqueueJobsForMedia', args: [_j] }) },
@@ -192,6 +193,60 @@ describe('createTsActorHost — persistence-route integration', () => {
       host.stop()
       vi.useRealTimers()
     }
+  })
+
+  it.each([
+    { nextName: 'Example', removeRecent: true, closeFirst: false },
+    { nextName: 'Other', removeRecent: true, closeFirst: false },
+    { nextName: 'Example', removeRecent: false, closeFirst: false },
+    { nextName: 'Example', removeRecent: true, closeFirst: true },
+  ])('recreates a deleted workspace while the app stays open: %j', async ({ nextName, removeRecent, closeFirst }) => {
+    const parent = mkdtempSync(nodePath.join(tmpdir(), 'weftcut-deleted-project-'))
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost({ ...deps, join: nodePath.join, fs: {
+      exists: existsSync,
+      readFile: (p) => readFileSync(p, 'utf8'),
+      writeFile: (p, text) => writeFileSync(p, text, 'utf8'),
+      mkdirp: (p) => { mkdirSync(p, { recursive: true }) },
+      copyFile: copyFileSync,
+      readdir: readdirSync,
+      rm: (p) => rmSync(p, { force: true }),
+    } })
+    const args = { parentFolder: parent, name: 'Example', width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 }
+    try {
+      const dir = await host.handleInvoke('project_new_workspace', args) as string
+      deps.recents.push(dir, args.name)
+      if (closeFirst) await host.handleInvoke('project_close', {})
+      // Delete only our generated fixture, never an existing user project.
+      expect(nodePath.dirname(dir)).toBe(parent)
+      rmSync(dir, { recursive: true })
+      if (removeRecent) {
+        await host.handleInvoke('recents_remove', { path: dir })
+        expect(deps.recents.list()).toEqual([])
+      }
+      // Explicit Save must not claim that the deleted project was saved.
+      if (!closeFirst) await expect(host.handleInvoke('project_save', {})).rejects.toMatchObject({ code: 'ENOENT' })
+      const nextDir = nodePath.join(parent, nextName)
+      await expect(host.handleInvoke('project_new_workspace', { ...args, name: nextName })).resolves.toBe(nextDir)
+      expect(existsSync(nodePath.join(nextDir, 'project.json'))).toBe(true)
+    } finally {
+      host.stop()
+      rmSync(parent, { recursive: true, force: true })
+    }
+  })
+
+  it.each(['EACCES', 'ENOSPC', 'ENOENT'])('keeps save failures blocking replacement when the old directory exists: %s', async (code) => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    const args = { parentFolder: '/projects', name: 'Existing', width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 }
+    try {
+      await host.handleInvoke('project_new_workspace', args)
+      const failure = Object.assign(new Error('Cannot save'), { code })
+      deps.fs.writeFile = () => { throw failure }
+      await expect(host.handleInvoke('project_new_workspace', { ...args, name: 'Next' })).rejects.toBe(failure)
+      expect(host.openedProject()).toEqual({ dir: '/projects/Existing' })
+      expect(deps.fs.exists('/projects/Next')).toBe(false)
+    } finally { host.stop() }
   })
 
   it('project_new_workspace flushes pending edits to the current workspace before replacing it', async () => {

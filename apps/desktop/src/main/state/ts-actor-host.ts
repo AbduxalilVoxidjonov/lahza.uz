@@ -333,7 +333,19 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     const next = persistenceTail.then(async () => {
       importGeneration++
       deps.onWorkspaceChanging?.()
-      try { await autosave.forceFlush(); return await replace() }
+      try {
+        try { await autosave.forceFlush() }
+        catch (error) {
+          // External deletion can leave the workspace slot pointing at a missing
+          // directory. Do not let that stale save block
+          // New/Open/Save As/Close. Other save failures must still abort switching;
+          // explicit Save continues to report the missing directory as well.
+          const dir = deps.workspaceDir()
+          if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT'
+            || dir === null || deps.fs.exists(dir)) throw error
+        }
+        return await replace()
+      }
       catch (error) { if (opened !== null) deps.onWorkspaceOpened?.(); throw error }
     })
     const settled = next.finally(() => {
