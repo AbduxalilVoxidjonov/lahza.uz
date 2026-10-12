@@ -25,14 +25,16 @@ import {
  * Every Panel assertion names a composition id, never a position in the tab
  * strip: a tab's neighbours change with each drag, and the id does not.
  *
- * The two-composition fixture (`fixtures/projects/v1.json`) is opened as a
+ * The two-composition fixture (`fixtures/projects/v4.json`) is opened as a
  * workspace: a 5 s root with four lanes, holding a 2 s Group with the reserved
  * A/B pair and one Color layer, placed at 3 s. Both sides of every assertion
  * are read off the live `project_summary`, so the ids are never hard-coded.
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const FIXTURE = path.resolve(__dirname, '../../fixtures/projects/v1.json')
+// This UI gate opens the current schema. Frozen legacy fixtures require source
+// dimensions supplied by the migration tests, absent from their synthetic media.
+const FIXTURE = path.resolve(__dirname, '../../fixtures/projects/v4.json')
 const CANVAS = { width: 640, height: 360, fpsNum: 30, fpsDen: 1 }
 
 const wire = (page: Page) => invokeCmd<ProjectSummaryWire>(page, 'project_summary', {})
