@@ -23,7 +23,7 @@ import { handleDecodeError } from "./decoderFallback";
 import { openMediaInput, type OpenedMedia } from "./mediaInput";
 import { PacketPump, type PumpDeps } from "./PacketPump";
 import { FfmpegSource, type FfmpegSourceInit } from "./FfmpegSource";
-import type { SourceHandleInit } from "./session";
+import type { SourceHandleInit, PreviewDecodeDevice } from "./session";
 
 const IDLE_DISPOSE_MS = 5_000;
 
@@ -144,6 +144,10 @@ export class SourceMedia {
 }
 
 export class SourceHandle {
+  currentDecodeDevice(): PreviewDecodeDevice | null {
+    return this.ready && !this._disposed && this.decoder?.state === 'configured'
+      ? { kind: 'browser', backend: 'webcodecs', device: null } : null;
+  }
   private releaseResources: (() => void) | null = null;
   private requestVersion = 0;
   readonly layerId: string;

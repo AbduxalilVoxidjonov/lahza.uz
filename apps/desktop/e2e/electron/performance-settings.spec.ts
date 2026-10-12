@@ -13,8 +13,14 @@ async function openPerformance(page: Page) {
   await expect(pane.getByLabel('内存使用目标', { exact: true })).toBeEnabled();
   await expect(pane.getByRole('heading', { name: '资源使用详情', exact: true })).toBeVisible();
   await expect(pane.getByTestId('performance-cache-usage')).toBeVisible();
-  await expect(pane.getByRole('heading', { name: '本机性能测试（实验性）', exact: true })).toBeVisible();
-  await expect(pane.getByRole('button', { name: '进行基准测试', exact: true })).toBeVisible();
+  if (process.platform === 'linux') {
+    await expect(pane.getByRole('button', { name: '硬件诊断', exact: true })).toBeVisible();
+    await expect(pane.getByRole('button', { name: '进行基准测试', exact: true })).toHaveCount(0);
+  } else {
+    await expect(pane.getByRole('heading', { name: '本机性能测试（实验性）', exact: true })).toBeVisible();
+    await expect(pane.getByRole('button', { name: '进行基准测试', exact: true })).toBeVisible();
+  }
+  await expect(pane.getByRole('heading').first()).toHaveText('此计算机');
   return pane;
 }
 

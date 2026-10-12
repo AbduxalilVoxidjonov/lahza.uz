@@ -12,6 +12,7 @@ import { gpuBufferBudget } from './gpuBufferBudget.js'
 import { MIB } from '../shared/performance-settings.js'
 import type { PerformanceGpuHardware } from '../shared/performance-budgets.js'
 import { describePerformanceGraphics } from './performanceHardware.js'
+import { createLinuxHardwareDiagnostics } from './hardwareDiagnostics.js'
 import { Readable } from 'node:stream'
 import { createRequire } from 'node:module'
 import { execFile } from 'node:child_process'
@@ -1846,15 +1847,24 @@ app.whenReady().then(async () => {
   // Complete GPU identity initializes lazily when diagnostics are requested;
   // basic info on macOS can contain only a vendor ID before GPU startup.
   let graphicsInfo: Promise<ReturnType<typeof describePerformanceGraphics> | null> | undefined
-  ipcMain.handle('performanceResources:info', async () => {
+  const hardwareDiagnostics = process.platform === 'linux' ? createLinuxHardwareDiagnostics(ffmpegBin) : null
+  app.on('gpu-info-update', () => { graphicsInfo = undefined })
+  ipcMain.handle('performanceResources:info', async (_event, refresh?: boolean) => {
     graphicsInfo ??= app.getGPUInfo('complete')
       .then(info => describePerformanceGraphics(info, process.platform, process.arch)).catch(() => null)
     return {
       total_memory_mib: Math.floor(os.totalmem() / MIB),
+      cpu: { name: os.cpus()[0]?.model ?? '', logical_processors: os.availableParallelism() },
       gpu: performanceGpu,
       graphics: await graphicsInfo,
+      hardware: await hardwareDiagnostics?.read(refresh === true),
+      gpu_buffer_transport: process.platform === 'win32' ? 'shared-texture' : 'copy-back',
       gpu_buffers: gpuBufferBudget.snapshot(),
     }
+  })
+  ipcMain.handle('performanceResources:probe', () => {
+    if (!hardwareDiagnostics) throw new Error('Hardware probes are only available on Linux')
+    return hardwareDiagnostics.probe()
   })
 
   // Availability of the optional native-decode component (level-0 gate). The

@@ -949,7 +949,8 @@ The combined allocation allowance for the video and animation buffers used to
 transfer pictures to preview. A buffer remains accounted for while any consumer
 still holds it, including after retirement. Other graphics resources are outside
 this allowance.
-Diagnostic word: GPU buffers / GPU 缓冲, with transport-only scope stated.
+Diagnostic word: Shared texture transfer buffers / 共享纹理传输缓冲,
+shown for the shared-texture transport. Copy-back transport is a separate path.
 This internal allowance is also charged to global working memory.
 _Avoid_: total VRAM limit, graphics card capacity
 

@@ -26,6 +26,7 @@ import { snapFrameFloor } from "../frames";
 import type { CompositionSummary, MediaSummary, ProjectSummary } from "../ipc";
 import { compositionOrRoot, EMPTY_COMPOSITION } from "../ipc/compositions";
 import { SourceDecoderPool } from "./decoder/SourceDecoderPool";
+import type { PreviewDecodeDevice } from './decoder/session';
 import type { DecoderPool } from "./decoder/session";
 import {
   planPreviewDecodePriority,
@@ -806,6 +807,17 @@ export class Compositor {
   /// matching clip is active. Read-only — never mutates compositor state.
   activeClipProbe(layerId?: string): ActiveClipProbe | null {
     return this.root.activeClipProbe(layerId);
+  }
+
+  /// Read the devices of ready preview sessions without opening a decoder.
+  currentDecodeDevices(): PreviewDecodeDevice[] {
+    const devices: PreviewDecodeDevice[] = [];
+    if (this.disposed || this.mode !== 'preview') return devices;
+    this.root.forEachClip(({ source }) => {
+      const device = source.currentDecodeDevice?.();
+      if (device) devices.push(device);
+    });
+    return devices;
   }
 
   /// Release every sprite + decoder + the stage container. Does NOT

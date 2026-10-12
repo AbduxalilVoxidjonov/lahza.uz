@@ -123,6 +123,7 @@ export interface CompositionState {
 }
 
 interface Props {
+  readDecodeDevices?: () => import('../render/decoder/session').PreviewDecodeDevice[];
   onClose: () => void;
   /// Category selected when the modal mounts. System-status actions use this
   /// to deep-link directly to the relevant recovery controls.
@@ -149,6 +150,7 @@ interface Props {
 }
 
 export function SettingsPanel({
+  readDecodeDevices,
   onClose,
   initialCategory = "general",
   keybindings,
@@ -327,7 +329,7 @@ export function SettingsPanel({
             hidden={category !== "performance"}
             className="settings-pane"
           >
-            <PerformanceSection onError={setError} />
+            <PerformanceSection onError={setError} readDecodeDevices={readDecodeDevices} />
           </div>
 
           {showProjectCategory && (

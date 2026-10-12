@@ -123,10 +123,18 @@ export interface FrameSelection {
 /// members are honestly optional — an engine that cannot provide a value simply
 /// omits the method (WebCodecs has decodeQueueSize, FfmpegSource does not;
 /// onFatalError is FfmpegSource-only, WebCodecs self-heals internally).
+export interface PreviewDecodeDevice {
+  kind: 'hardware' | 'software' | 'browser';
+  backend: string;
+  /** Explicit device identity when the decoder supplies one, otherwise unknown. */
+  device: string | null;
+}
+
 export interface DecodeSession {
   readonly mediaId: string;
   readonly ring: FrameStore;
   readonly disposed: boolean;
+  currentDecodeDevice?(): PreviewDecodeDevice | null;
   ensureReady(): Promise<void>;
   dispose(): void;
   /// Preview nudges the decoder's lookahead each tick; export no-ops (frames

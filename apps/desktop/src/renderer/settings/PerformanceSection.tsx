@@ -8,16 +8,22 @@ import type { PerformanceResourceInfo } from '../../shared/performance-budgets';
 import { setAppSettings, useAppSettingsStore } from './appSettingsStore';
 import { cacheBudget } from '../render/cacheBudget';
 import { ResourceControls } from './ResourceControls';
+import { HardwareSection } from './HardwareSection';
+import type { PreviewDecodeDevice } from '../render/decoder/session';
 
 type Save = (patch: AppSettingsPatch) => Promise<AppSettings | null>;
+const noDecodeDevices = (): PreviewDecodeDevice[] => [];
 
-export function PerformanceSection({ onError }: { onError: (message: string) => void }) {
+export function PerformanceSection({ onError, readDecodeDevices = noDecodeDevices }: {
+  onError: (message: string) => void; readDecodeDevices?: (() => PreviewDecodeDevice[]) | undefined;
+}) {
   const { t } = useTranslation();
   const appSettings = useAppSettingsStore(s => s.settings);
   const loaded = useAppSettingsStore(s => s.loaded);
   const profile = appSettings.performance_test_profile;
   const compatible = appSettings.performance_test_compatible;
   const [resources, setResources] = useState<PerformanceResourceInfo | null>(null);
+  const [decodeDevices, setDecodeDevices] = useState(readDecodeDevices);
   const [cacheUsage, setCacheUsage] = useState(() => cacheBudget.snapshot());
   const [resourceFailed, setResourceFailed] = useState(false);
   const [pending, setPending] = useState(0);
@@ -27,6 +33,7 @@ export function PerformanceSection({ onError }: { onError: (message: string) => 
     let alive = true;
     const refresh = async () => {
       if (alive) setCacheUsage(cacheBudget.snapshot());
+      if (alive) setDecodeDevices(readDecodeDevices());
       try {
         const info = await window.api.performanceResources.info();
         if (alive) { setResources(info); setResourceFailed(false); }
@@ -35,7 +42,7 @@ export function PerformanceSection({ onError }: { onError: (message: string) => 
     void refresh();
     const timer = setInterval(() => { void refresh(); }, 1000);
     return () => { alive = false; clearInterval(timer); };
-  }, []);
+  }, [readDecodeDevices]);
   // Queue writes without disabling or blurring an input while typing. Main
   // merges each partial intent against disk, including other windows' edits.
   const commit: Save = patch => {
@@ -46,19 +53,15 @@ export function PerformanceSection({ onError }: { onError: (message: string) => 
       .finally(() => setPending(n => n - 1));
   };
   const gpu = resources?.gpu_buffers;
+  const linux = resources?.hardware?.platform === 'linux';
+  const refreshHardware = async () => {
+    try {
+      const info = await window.api.performanceResources.info(true);
+      setResources(info); setResourceFailed(false);
+    } catch (error) { setResourceFailed(true); throw error; }
+  };
   return <>
-    <section className="settings-section">
-      <h3>{t('performance.hardware_heading')}</h3>
-      <dl className="settings-performance-allocation">
-        <div><dt>{t('performance.hardware_ram')}</dt><dd>{resources && !resourceFailed
-          ? `${(resources.total_memory_mib / 1024).toFixed(1)} GiB` : t('performance.unknown')}</dd></div>
-        <div><dt>{t('performance.hardware_gpu')}</dt><dd>{resources?.gpu?.name ?? resources?.graphics?.name ?? t('performance.unknown')}</dd></div>
-        <div><dt>{t(resources?.graphics?.memory_kind === 'unified' ? 'performance.hardware_graphics_memory' : 'performance.hardware_vram')}</dt><dd>{resources?.gpu
-          ? resources.gpu.dedicatedMemoryMib > 512 ? `${(resources.gpu.dedicatedMemoryMib / 1024).toFixed(1)} GiB`
-            : t('performance.shared_gpu_memory') : resources?.graphics?.memory_kind === 'unified'
-              ? t('performance.shared_gpu_memory') : t('performance.unknown')}</dd></div>
-      </dl>
-    </section>
+    <HardwareSection resources={resources} decodeDevices={decodeDevices} stale={resourceFailed} refresh={refreshHardware} />
     <section className="settings-section">
       <h3>{t('performance.budgets_heading')}</h3>
       <ResourceControls settings={appSettings} disabled={!loaded} save={commit} />
@@ -75,19 +78,19 @@ export function PerformanceSection({ onError }: { onError: (message: string) => 
         })}</p>
         {resourceFailed ? <p className="settings-toggle-hint" role="status">{t('performance.resources_unavailable')}</p>
           : null}
-        {!resourceFailed && gpu && <p className="settings-toggle-hint" data-testid="performance-gpu-usage">{t('performance.budget_gpu_usage', {
+        {!resourceFailed && gpu && resources?.gpu_buffer_transport !== 'copy-back' && <p className="settings-toggle-hint" data-testid="performance-gpu-usage">{t('performance.budget_gpu_usage', {
           used: (gpu.used_bytes / MIB).toFixed(1), limit: (gpu.limit_bytes / MIB).toFixed(0),
         })}</p>}
         <p className="settings-toggle-hint">{t('performance.activation')}</p>
       </div>
     </section>
-    <section className="settings-section">
+    {(!linux || profile) && <section className="settings-section">
       <h3>{t('performance.test_heading')}</h3>
       <div>
-        <p className="settings-toggle-hint">{t('performance.test_scope')}</p>
-        <PerformanceCalibrationControl disabled={!loaded || pending > 0} accepted={compatible ? profile?.calibration ?? null : null}
+        <p className="settings-toggle-hint">{t(linux ? 'performance.test_windows' : 'performance.test_scope')}</p>
+        {!linux && <PerformanceCalibrationControl disabled={!loaded || pending > 0} accepted={compatible ? profile?.calibration ?? null : null}
           onRunning={setTesting} onError={onError}
-          onApply={async recommendation => !!await commit({ performance_test_recommendation: recommendation })} />
+          onApply={async recommendation => !!await commit({ performance_test_recommendation: recommendation })} />}
         {profile && <>
           <p className="settings-toggle-hint" data-testid="performance-test-record">{t(profile.calibration.conservative
             ? 'performance.test_record_conservative' : 'performance.test_record', {
@@ -106,6 +109,6 @@ export function PerformanceSection({ onError }: { onError: (message: string) => 
           </div>
         </>}
       </div>
-    </section>
+    </section>}
   </>;
 }

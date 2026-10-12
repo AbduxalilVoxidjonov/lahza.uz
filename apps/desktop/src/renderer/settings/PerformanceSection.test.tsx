@@ -8,11 +8,15 @@ import { PerformanceSection } from './PerformanceSection';
 import { useAppSettingsStore } from './appSettingsStore';
 import i18n from '../i18n';
 import { readResourcePolicy, patchResourcePolicy, resolveResourcePolicy } from '../../shared/resource-policy';
+import { untestedAcceleration } from '../../shared/hardware-diagnostics';
 
 const mocks = vi.hoisted(() => ({ set: vi.fn() }));
 vi.mock('../ipc', () => ({ APP_SETTINGS_EVENTS: { changed: 'changed' }, appSettingsGet: vi.fn(), appSettingsSet: mocks.set }));
 vi.mock('../state/playbackStore', () => ({ transportPause: vi.fn() }));
 vi.mock('../search/searchIndexStore', () => ({ onDescribeViewChanged: vi.fn() }));
+vi.mock('./probeRendererHardware', () => ({ probeRendererHardware: vi.fn().mockResolvedValue({
+  webgl: { status: 'available', reason: null }, webgpu: { status: 'unavailable', reason: 'unsupported' },
+}) }));
 const info = vi.fn(), onError = vi.fn();
 let store: { get(): AppSettings; apply(patch: AppSettingsPatch): AppSettings };
 beforeEach(async () => {
@@ -37,14 +41,43 @@ beforeEach(async () => {
 });
 afterEach(cleanup);
 
-it('shows portable GPU identity and shared system memory without a dedicated VRAM claim', async () => {
+it('omits the unsupported Windows benchmark on Linux without hiding resource controls', async () => {
+  info.mockResolvedValue({ total_memory_mib: 32768, hardware: { platform: 'linux', devices: [], render_device_id: null,
+    inventory_reason: null, chromium: { compositing: 'enabled', video_decode: 'enabled', video_encode: 'disabled_software' },
+    acceleration: untestedAcceleration() } });
+  render(<PerformanceSection onError={onError} />);
+  await screen.findByRole('button', { name: 'Hardware diagnostics' });
+  expect(screen.queryByRole('heading', { name: 'Test this computer (experimental)' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Run benchmark' })).toBeNull();
+  expect(screen.getByLabelText('Memory target')).toBeDefined();
+});
+
+it('does not present the rendering GPU as a decoding device without a preview session', async () => {
   info.mockResolvedValue({ total_memory_mib: 8192, graphics: { name: 'Apple M-test', memory_kind: 'unified' },
     gpu: null, gpu_buffers: { used_bytes: 0, limit_bytes: 416 * 1024 * 1024, preview_bytes: 0, motif_bytes: 0 } });
   render(<PerformanceSection onError={onError} />);
-  expect(await screen.findByText('Apple M-test')).toBeDefined();
-  expect(screen.getByText('Graphics memory')).toBeDefined();
-  expect(screen.getByText('Uses shared memory')).toBeDefined();
+  expect(await screen.findByText('8.0 GiB')).toBeDefined();
+  expect(screen.queryByText('Apple M-test')).toBeNull();
+  expect(screen.getByText('No decoding sessions')).toBeDefined();
   expect(screen.queryByText('Dedicated graphics memory')).toBeNull();
+});
+
+it('puts computer information first and refreshes decoder state independently of hardware telemetry', async () => {
+  let devices: import('../render/decoder/session').PreviewDecodeDevice[] = [];
+  render(<PerformanceSection onError={onError} readDecodeDevices={() => devices} />);
+  expect(screen.getAllByRole('heading')[0]!.textContent).toBe('This computer');
+  expect(screen.getByText('No decoding sessions')).toBeDefined();
+  devices = [{ kind: 'software', backend: 'ffmpeg', device: null }];
+  info.mockRejectedValue(new Error('unavailable'));
+  expect(await screen.findByText('CPU (software decoding)', {}, { timeout: 2000 })).toBeDefined();
+});
+
+it('hides the Windows shared-texture ledger on copy-back platforms', async () => {
+  info.mockResolvedValue({ total_memory_mib: 8192, gpu_buffer_transport: 'copy-back',
+    gpu_buffers: { used_bytes: 0, limit_bytes: 416 * 1024 * 1024, preview_bytes: 0, motif_bytes: 0 } });
+  render(<PerformanceSection onError={onError} />);
+  await screen.findByText('8.0 GiB');
+  expect(screen.queryByTestId('performance-gpu-usage')).toBeNull();
 });
 
 it('edits a budget while resource telemetry is unavailable and preserves the other budget', async () => {

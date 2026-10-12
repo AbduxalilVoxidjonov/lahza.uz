@@ -4,7 +4,7 @@
 // ring survives the swap so playback doesn't visibly reset. `implements
 // PreviewDecodeSession` so it drops into the existing pool/Compositor seam
 // (`SourceDecoderPool.ts`), which acquires it whenever the resolved engine is ffmpeg.
-import type { PreviewDecodeSession } from "./session";
+import type { PreviewDecodeSession, PreviewDecodeDevice } from "./session";
 import type { FfmpegLane } from "./decodeEngine";
 import { FrameRing } from "./FrameRing";
 import type { DecodeTransport } from "./transports/DecodeTransport";
@@ -92,6 +92,7 @@ export class FfmpegSource implements PreviewDecodeSession {
   private readonly init: FfmpegSourceInit;
   private readonly deps: FfmpegSourceDeps;
   private transport: DecodeTransport | null = null;
+  private openedTransport: DecodeTransport | null = null;
   private lane: FfmpegLane = "software";
   /// The resolved HW lane the current hardware attempt keys its transport on
   /// (copy-back nvdec/vaapi/videotoolbox → SwTransport; Windows d3d11va →
@@ -137,6 +138,11 @@ export class FfmpegSource implements PreviewDecodeSession {
 
   get disposed(): boolean { return this._disposed; }
   currentLane(): FfmpegLane { return this.lane; }
+  currentDecodeDevice(): PreviewDecodeDevice | null {
+    if (!this.ready || this._disposed || this.fatalFired || !this.transport || this.openedTransport !== this.transport) return null;
+    return this.lane === 'software' ? { kind: 'software', backend: 'ffmpeg', device: null }
+      : { kind: 'hardware', backend: this.hwPlan?.lane ?? 'hardware', device: this.hwPlan?.device ?? null };
+  }
 
   /// Diagnostics: the live transport's preload handoff timings, or null on the
   /// software lane (no preload stage) / before the first instrumented frame.
@@ -390,6 +396,7 @@ export class FfmpegSource implements PreviewDecodeSession {
       ...(this.init.width != null ? { codedWidth: this.init.width } : {}),
       ...(this.init.height != null ? { codedHeight: this.init.height } : {}),
     });
+    if (this.transport === t && !this._disposed && !this.fatalFired) this.openedTransport = t;
     // Only a lane CHANGE emits — the success tail is reached by every open
     // (initial, both fallbacks, and the same-lane playback-resolution re-open),
     // so the trail, not this call site, is what keeps it once-per-transition.

@@ -26,6 +26,8 @@ mod commands;
 mod events;
 #[cfg(windows)]
 mod gpu_hardware;
+#[cfg(target_os = "linux")]
+mod linux_gpu_memory;
 #[cfg(windows)]
 mod motif_bake;
 mod motif_frame;

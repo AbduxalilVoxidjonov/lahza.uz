@@ -37,6 +37,7 @@ interface Props {
 }
 
 export interface PreviewSurfaceHandle {
+  currentDecodeDevices(): import('../render/decoder/session').PreviewDecodeDevice[];
   play(): void;
   pause(): void;
   seekTo(tUs: number): void;
@@ -95,6 +96,9 @@ export const PreviewSurface = forwardRef<PreviewSurfaceHandle, Props>(
     useImperativeHandle(
       forwardedRef,
       (): PreviewSurfaceHandle => ({
+        currentDecodeDevices() {
+          return pixiRef.current?.currentDecodeDevices() ?? [];
+        },
         play() {
           transportPlay();
         },

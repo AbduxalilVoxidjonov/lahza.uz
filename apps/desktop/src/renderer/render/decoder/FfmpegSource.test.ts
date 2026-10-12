@@ -94,8 +94,10 @@ describe("FfmpegSource — internal HW→SW fallback", () => {
       { makeGpu: () => gpu.t, makeSw: () => sw.t, pickLane: async () => ({ lane: "hardware" as const, hwLane: null, device: null }) },
     );
     src.onFatalError(onFatal);
+    expect(src.currentDecodeDevice()).toBeNull();
     await src.ensureReady();
     expect(src.currentLane()).toBe("hardware");
+    expect(src.currentDecodeDevice()).toEqual({ kind: 'hardware', backend: 'hardware', device: null });
     gpu.emitFrame(1000);
     expect(src.ring.size()).toBe(1);
 
@@ -104,6 +106,7 @@ describe("FfmpegSource — internal HW→SW fallback", () => {
     expect(gpu.t.dispose).toHaveBeenCalled();
     expect(sw.t.open).toHaveBeenCalled();
     expect(src.currentLane()).toBe("software");
+    expect(src.currentDecodeDevice()).toEqual({ kind: 'software', backend: 'ffmpeg', device: null });
     expect(src.isDowngraded()).toBe(true);
     expect(onFatal).not.toHaveBeenCalled();      // fully internal — no external signal
     sw.emitFrame(1033);
@@ -116,6 +119,7 @@ describe("FfmpegSource — internal HW→SW fallback", () => {
     expect(sw.t.requestFrameAt).toHaveBeenCalledWith(2_000);
     expect(onFatal).not.toHaveBeenCalled();
     src.dispose();
+    expect(src.currentDecodeDevice()).toBeNull();
   });
 
   it("fires onFatalError only when SW also fails (total failure)", async () => {
@@ -133,6 +137,7 @@ describe("FfmpegSource — internal HW→SW fallback", () => {
     sw.fail("sw-decode-error");                  // SW dies too
     await new Promise((r) => setTimeout(r, 0));
     expect(onFatal).toHaveBeenCalledWith(expect.stringContaining("sw-decode-error"));
+    expect(src.currentDecodeDevice()).toBeNull();
   });
 
   it("stops nudging the transport once eof fires (mod B)", async () => {
@@ -412,6 +417,7 @@ describe("FfmpegSource — hardware transport routing by HW lane", () => {
     await src.ensureReady();
     // Copy-back: decode on the GPU, frames ship over the SAME previewSw transport.
     expect(src.currentLane()).toBe("hardware");
+    expect(src.currentDecodeDevice()).toEqual({ kind: 'hardware', backend: 'nvdec', device: null });
     expect(sw.t.open).toHaveBeenCalled();
     expect(gpu.t.open).not.toHaveBeenCalled();
   });
@@ -429,6 +435,7 @@ describe("FfmpegSource — hardware transport routing by HW lane", () => {
     );
     await src.ensureReady();
     expect(src.currentLane()).toBe("hardware");
+    expect(src.currentDecodeDevice()).toEqual({ kind: 'hardware', backend: 'vaapi', device: '/dev/dri/renderD128' });
     expect(sw.t.open).toHaveBeenCalled();
     expect(gpu.t.open).not.toHaveBeenCalled();
   });

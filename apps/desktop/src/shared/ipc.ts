@@ -409,7 +409,10 @@ export interface WeftcutApi {
     playing(value: boolean): void;
     status(): Promise<import('./resource-policy').ResourceStatus>;
   }
-  performanceResources: { info(): Promise<import('./performance-budgets').PerformanceResourceInfo> }
+  performanceResources: {
+    info(refresh?: boolean): Promise<import('./performance-budgets').PerformanceResourceInfo>;
+    probe(): Promise<import('./hardware-diagnostics').HardwareAccelerationDiagnostics>;
+  }
   performanceCalibration: {
     status(): Promise<import('./playback-calibration').CalibrationSnapshot>
     start(): Promise<import('./playback-calibration').CalibrationSnapshot>

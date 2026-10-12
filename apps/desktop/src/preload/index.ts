@@ -65,7 +65,10 @@ const api: WeftcutApi = {
     playing: value => ipcRenderer.send('resources:playing', value),
     status: () => ipcRenderer.invoke('resources:status'),
   },
-  performanceResources: { info: () => ipcRenderer.invoke('performanceResources:info') },
+  performanceResources: {
+    info: refresh => ipcRenderer.invoke('performanceResources:info', refresh),
+    probe: () => ipcRenderer.invoke('performanceResources:probe'),
+  },
   performanceCalibration: {
     status: () => ipcRenderer.invoke('performanceCalibration:status'),
     start: () => ipcRenderer.invoke('performanceCalibration:start'),

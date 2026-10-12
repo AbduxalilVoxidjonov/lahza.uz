@@ -21,6 +21,7 @@ export interface PixiExportResult {
 /// `PreviewSurfaceHandle` so the parent's imperative handle forwards
 /// play/pause/seek straight through to the underlying PIXI `PlaybackEngine`.
 export interface PixiPreviewHandle {
+  currentDecodeDevices(): import('./decoder/session').PreviewDecodeDevice[];
   play(): void;
   pause(): void;
   seek(tUs: number): void;

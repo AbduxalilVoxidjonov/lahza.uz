@@ -239,6 +239,7 @@ export function App({ onCloseProject }: AppProps) {
   // The preview ref owns visual/export operations. Playback belongs to the
   // editor session, independently of which preview panel is mounted.
   const previewRef = useRef<PreviewSurfaceHandle | null>(null);
+  const readDecodeDevices = useCallback(() => previewRef.current?.currentDecodeDevices() ?? [], []);
   const [workspaceController, setWorkspaceController] =
     useState<DockWorkspaceController | null>(null);
   const [workspaceSnapshot, setWorkspaceSnapshot] =
@@ -1306,6 +1307,7 @@ export function App({ onCloseProject }: AppProps) {
       <PickOverlayHost />
       {settingsOpen && (
         <SettingsPanel
+          readDecodeDevices={readDecodeDevices}
           onClose={() => setSettingsOpen(false)}
           initialCategory={settingsCategory}
           keybindings={keybindings}

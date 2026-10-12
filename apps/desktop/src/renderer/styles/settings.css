@@ -205,8 +205,39 @@
   gap: calc(16 * var(--ui-px));
 }
 
-.settings-performance-allocation dt { color: var(--muted-foreground); }
-.settings-performance-allocation dd { margin: 0; text-align: right; }
+.settings-performance-allocation dt { color: var(--muted-foreground); flex: 0 1 40%; }
+.settings-performance-allocation dd { margin: 0; min-width: 0; text-align: right; overflow-wrap: anywhere; }
+
+.settings-hardware-device {
+  border-top: 1px solid var(--border-soft);
+  padding: calc(10 * var(--ui-px)) 0;
+}
+.settings-hardware-name { display: flex; align-items: baseline; flex-wrap: wrap; gap: calc(4 * var(--ui-px)) calc(8 * var(--ui-px)); margin: 0 0 calc(6 * var(--ui-px)); font-weight: 500; font-size: var(--font-size-body); overflow-wrap: anywhere; }
+.settings-hardware-role { color: var(--muted-foreground); font-size: var(--font-size-caption); font-weight: 400; }
+.settings-decode-devices { list-style: none; padding: 0; margin: 0; display: grid; gap: calc(4 * var(--ui-px)); }
+.settings-hardware-subsection { margin-top: calc(16 * var(--ui-px)); padding-top: calc(12 * var(--ui-px)); border-top: 1px solid var(--border-soft); }
+.settings-hardware-subheading, .settings-hardware-codecs h4 { margin: 0 0 calc(8 * var(--ui-px)); font-weight: 500; font-size: var(--font-size-body); color: var(--foreground); }
+.settings-hardware-details { min-width: 0; color: var(--muted-foreground); font-size: var(--font-size-caption); overflow-wrap: anywhere; }
+.settings-hardware-details + .settings-hardware-details { margin-top: calc(8 * var(--ui-px)); }
+.settings-hardware-details summary { cursor: pointer; width: fit-content; }
+.settings-hardware-details summary:focus-visible { outline: 2px solid var(--ring); outline-offset: calc(3 * var(--ui-px)); }
+.settings-hardware-probe-actions { margin: calc(10 * var(--ui-px)) 0; }
+.settings-hardware-probe-actions .settings-toggle-hint { margin: 0; }
+.settings-hardware-diagnostics { width: min(var(--dialog-width-settings), calc(100vw - calc(32 * var(--ui-px)))); }
+.settings-hardware-codecs + .settings-hardware-codecs { margin-top: calc(20 * var(--ui-px)); }
+.settings-hardware-codec-group { margin: calc(8 * var(--ui-px)) 0; padding: calc(10 * var(--ui-px)) calc(12 * var(--ui-px)); border: 1px solid var(--border-soft); border-radius: calc(6 * var(--ui-px)); }
+.settings-hardware-codec-group h5 { margin: 0; color: var(--foreground); font-size: var(--font-size-body); font-weight: 500; }
+.settings-hardware-codec-group > .settings-toggle-hint { margin: calc(4 * var(--ui-px)) 0 calc(8 * var(--ui-px)); }
+.settings-hardware-codecs ul { margin: 0; padding: 0; list-style: none; }
+.settings-hardware-codecs li { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: baseline; gap: calc(4 * var(--ui-px)) calc(12 * var(--ui-px)); padding: calc(8 * var(--ui-px)) 0; border-top: 1px solid var(--border-soft); font-size: var(--font-size-body); color: var(--foreground); }
+.settings-hardware-codecs li > details { grid-column: 1 / -1; margin: 0; }
+.settings-hardware-bit-depth { color: var(--muted-foreground); font-size: var(--font-size-caption); }
+.settings-hardware-result { min-width: 0; text-align: right; }
+.settings-hardware-status { display: flex; flex-direction: column; align-items: flex-end; gap: calc(3 * var(--ui-px)); }
+.settings-hardware-verdict { font-size: var(--font-size-body); }
+.settings-hardware-verdict[data-status="available"] { color: var(--success); }
+.settings-hardware-reason { color: var(--muted-foreground); font-size: var(--font-size-caption); overflow-wrap: anywhere; }
+.settings-hardware-probe-output { max-height: calc(160 * var(--ui-px)); overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: calc(8 * var(--ui-px)) 0 0; padding: calc(8 * var(--ui-px)); border-radius: calc(4 * var(--ui-px)); background: var(--background); color: var(--muted-foreground); font: inherit; font-size: var(--font-size-caption); line-height: var(--line-height-body); }
 .settings-performance-reset { align-self: flex-start; }
 
 .settings-radio-card[data-disabled] {

@@ -5,7 +5,8 @@
 //! real one-frame capability probes, cached selection, and every output-side
 //! encoder argument. Its single external seam is
 //! `EncoderRegistry::resolve(EncoderIntent)`: success is a complete
-//! `EncoderPlan`; failure is a structured `EncodeUnavailable`.
+//! `EncoderPlan`; failure is a structured `EncodeUnavailable`. Explicit hardware
+//! diagnostics reuse those adapters/probes without publishing an export plan.
 
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -617,6 +618,10 @@ impl CapabilityProbe for FfmpegCapabilityProbe {
             "-hide_banner",
             "-loglevel",
             "error",
+            "-threads",
+            "1",
+            "-filter_threads",
+            "1",
             "-f",
             "lavfi",
             "-i",
@@ -625,7 +630,7 @@ impl CapabilityProbe for FfmpegCapabilityProbe {
             "setparams=colorspace=bt709:color_primaries=bt709:color_trc=bt709:range=tv",
         ]);
         cmd.args(plan.ffmpeg_args);
-        cmd.args(["-frames:v", "1", "-f", "null", "-"]);
+        cmd.args(["-threads", "1", "-frames:v", "1", "-f", "null", "-"]);
         cmd.stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::piped());
@@ -672,6 +677,42 @@ impl Default for EncoderRegistry {
 }
 
 impl EncoderRegistry {
+    /// Explicit Settings diagnostics use the export owner's adapters and real
+    /// probes, but neither publish a selection nor cache diagnostic timeouts.
+    pub(crate) async fn hardware_diagnostics(&self) -> Vec<HardwareEncoderDiagnostic> {
+        let mut results = Vec::new();
+        for (codec, bit_depth) in [
+            (VideoCodec::H264, BitDepth::Eight),
+            (VideoCodec::Hevc, BitDepth::Eight),
+            (VideoCodec::Hevc, BitDepth::Ten),
+        ] {
+            let key = CapabilityKey {
+                codec,
+                bit_depth,
+                acceleration: Acceleration::Automatic,
+                rate_control: RateControlKind::Bitrate,
+            };
+            for adapter in candidate_adapters(self.platform, key)
+                .into_iter()
+                .filter(|a| a.is_hardware())
+            {
+                let result = timeout(Duration::from_secs(8), self.probe.probe(adapter, key)).await;
+                let (ok, reason) = match result {
+                    Ok(Ok(())) => (true, None),
+                    Ok(Err(reason)) => (false, Some(reason)),
+                    Err(_) => (false, Some("diagnostic timeout".to_string())),
+                };
+                results.push(HardwareEncoderDiagnostic {
+                    codec: codec.as_str(),
+                    bit_depth: bit_depth.bits(),
+                    backend: adapter.name(),
+                    ok,
+                    reason,
+                });
+            }
+        }
+        results
+    }
     /// Resolve one intent to a fully mapped plan. No encoder name leaves this
     /// module unless its adapter passed a real one-frame probe.
     pub(crate) async fn resolve(
@@ -771,6 +812,22 @@ impl EncoderRegistry {
             selections: Mutex::new(HashMap::new()),
         }
     }
+}
+
+#[derive(Serialize)]
+pub(crate) struct HardwareEncoderDiagnostic {
+    codec: &'static str,
+    bit_depth: u8,
+    backend: &'static str,
+    ok: bool,
+    reason: Option<String>,
+}
+
+#[napi_derive::napi]
+#[cfg_attr(test, allow(dead_code))] // Called by the diagnostic utility host, not Rust tests.
+pub async fn hardware_encoder_diagnostics() -> napi::Result<String> {
+    serde_json::to_string(&EncoderRegistry::default().hardware_diagnostics().await)
+        .map_err(|e| napi::Error::from_reason(e.to_string()))
 }
 
 fn candidate_adapters(platform: Platform, key: CapabilityKey) -> Vec<AdapterId> {
@@ -1127,6 +1184,25 @@ mod tests {
     use std::sync::Mutex as StdMutex;
 
     use super::*;
+
+    #[tokio::test]
+    async fn diagnostic_probes_only_the_real_hardware_candidates_for_each_bit_depth() {
+        let probe = Arc::new(FakeProbe::new(&["h264_nvenc", "hevc_nvenc"]));
+        let registry = EncoderRegistry::with_probe(Platform::Linux, probe.clone());
+        let rows = registry.hardware_diagnostics().await;
+        assert_eq!(rows.len(), 6);
+        assert!(rows
+            .iter()
+            .all(|row| row.backend.ends_with("_nvenc") || row.backend.ends_with("_vaapi")));
+        assert!(rows.iter().any(|row| row.codec == "hevc"
+            && row.bit_depth == 10
+            && row.backend == "hevc_nvenc"
+            && row.ok));
+        assert!(rows
+            .iter()
+            .any(|row| row.backend == "h264_vaapi" && !row.ok && row.reason.is_some()));
+        assert!(!probe.calls().contains(&"libx264"));
+    }
 
     struct FakeProbe {
         supported: HashSet<&'static str>,

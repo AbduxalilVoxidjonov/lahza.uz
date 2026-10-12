@@ -1,5 +1,6 @@
 import { MIB, PERFORMANCE_DEFAULTS, readPerformanceSettings, type PerformanceSettings } from './performance-settings';
 import type { CalibrationRecommendation } from './playback-calibration';
+import type { HardwareDiagnostics } from './hardware-diagnostics';
 
 /** User-owned budgets. Individual caches and decoder allocation are derived. */
 export interface PerformanceBudgets { cache_mib: number; gpu_buffer_mib: number }
@@ -9,8 +10,11 @@ export const PERFORMANCE_BUDGET_FIELDS = {
 } as const;
 export interface PerformanceResourceInfo {
   total_memory_mib: number;
+  cpu?: { name: string; logical_processors: number };
   gpu?: PerformanceGpuHardware | null;
   graphics?: PerformanceGraphicsHardware | null;
+  hardware?: HardwareDiagnostics;
+  gpu_buffer_transport?: 'shared-texture' | 'copy-back';
   gpu_buffers: { used_bytes: number; limit_bytes: number; preview_bytes: number; motif_bytes: number };
 }
 export interface PerformanceGraphicsHardware {

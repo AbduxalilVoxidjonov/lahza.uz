@@ -237,6 +237,9 @@ export const PixiPreview = forwardRef<PixiPreviewHandle, Props>(function PixiPre
   useImperativeHandle(
     ref,
     () => ({
+      currentDecodeDevices() {
+        return compositorRef.current?.currentDecodeDevices() ?? [];
+      },
       play() {
         engineRef.current?.play();
       },

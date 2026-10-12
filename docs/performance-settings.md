@@ -243,3 +243,58 @@ These tests join the existing Windows/macOS/Linux CI matrix. Local Windows
 results do not constitute macOS/Linux execution evidence.
 
 See [ADR 0101](adr/0101-cross-platform-application-resource-authority.md).
+
+## Linux hardware diagnostics
+
+The hardware view identifies each graphics device independently from its
+rendering and codec capability. DRM sysfs supplies stable device/PCI identity;
+Electron's active vendor/device IDs are matched only when unambiguous. A local
+PCI database supplies names when Chromium omits them. NVIDIA NVML is loaded
+optionally, AMD local-memory counters come from amdgpu sysfs, and Intel i915/xe
+memory-region queries distinguish shared system memory from dedicated memory.
+Missing libraries, driver interfaces and permissions preserve unknown values
+with a reason; no CLI installation, privileged query or guessed capacity is
+required. Intel free-memory counters are deliberately omitted because their
+unprivileged values can be misleading. AMD local-memory capacity is reported as
+the driver's local pool, without asserting that an APU has independent VRAM.
+
+Capacity, whole-device usage/free memory, application resource targets and
+transfer-buffer accounting are different measurements. Opening this page does
+not change the saved policy or allocate a fraction of reported VRAM. A device
+name or Chromium feature flag does not prove that a codec uses that device.
+
+Renderer diagnostics exercise WebGL2 pixel readback and WebGPU buffer readback,
+including software adapters and missing/failed adapter requests. Explicit
+**Test acceleration** checks short synthetic 640×360 8-bit H.264/HEVC/VP9
+sources through the production Standard-engine hardware probes and eligibility
+rules. Encoding diagnostics reuse the FFmpeg encoder registry's real probes
+for H.264 8-bit and HEVC 8/10-bit, without publishing export selections or
+poisoning production capability caches with diagnostic timeouts. These results
+measure availability, not throughput, seek conformance or every clip's current
+backend. Linux export decode remains software; preview uses copy-back.
+
+Inventory refreshes are coalesced and cached for ten seconds. GPU-info changes
+invalidate both inventory and probe evidence. Codec tests are explicit,
+coalesced across windows, and run in a dedicated utility process under common
+processing/memory admission. A 90-second deadline kills the diagnostic process
+group, including FFmpeg children; temporary fixtures are removed and admission
+is released after host exit. Driver calls never block the editor's main thread.
+Timed-out native memory queries remain coalesced until they drain.
+
+**Shared texture transfer buffers** describes the existing Windows shared-texture
+ledger, not total GPU usage. This counter is hidden on copy-back platforms.
+The separate multi-stream playback calibration remains Windows-only; Linux
+codec diagnostics do not apply that calibration's resource recommendations.
+Linux hides the unsupported playback benchmark when no saved profile exists;
+existing profiles remain visible for review, restoration or explicit clearing.
+The performance page starts with CPU, system memory and the devices reported by
+the open preview decode sessions. It reads the existing preview handle, so
+diagnostic probes and Chromium's rendering adapter cannot masquerade as current
+decode use. VAAPI matches its explicit render node; NVDEC is named only when a
+single NVIDIA device is identified. Browser-managed or ambiguous devices remain
+unconfirmed. Paused previews can retain sessions; disposed/failed/unopened
+sessions are omitted. Driver versions, PCI identity,
+memory usage and sources, browser/render API status and per-backend codec probes
+live in a separate **Hardware diagnostics** dialog, including the explicit
+capability test action. Resource controls and cache usage follow the computer
+section. These views do not change the existing decoder selection policy.
