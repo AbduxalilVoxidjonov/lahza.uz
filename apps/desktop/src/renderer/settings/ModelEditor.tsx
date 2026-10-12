@@ -99,7 +99,7 @@ export function ModelEditor({ model, name: displayName, mode, backendOverride, o
     {requiresName && <div className="settings-key-input-row"><span className="settings-slider-label">{t("models.name")}</span><AppInput value={name} ariaLabel={t("models.name")} disabled={busy} onValueChange={setName} /></div>}
     {needsDownload && <p className="settings-toggle-hint">{t("models.download_size", { size: `${(model.missingBytes / 1024 ** 3).toFixed(2)} GB` })}</p>}
     {!model.supported && !newIdentity && <p className="settings-toggle-hint">{t("models.unsupported")}</p>}
-    {mode === "prepare" && model.locality === "local" && !model.custom ? <details className="settings-model-fields"><summary>{t("models.edit_model")}</summary>{fields}</details> : <div className="settings-model-fields">{fields}</div>}
+    {mode === "prepare" && model.locality === "local" && !model.custom ? <details className="settings-model-disclosure"><summary>{t("models.edit_model")}</summary><div className="settings-model-fields">{fields}</div></details> : <div className="settings-model-fields">{fields}</div>}
     {newIdentity && !isNew && <p className="settings-toggle-hint">{t("models.custom_identity")}</p>}
     {operation && <p className="settings-model-state" role="status">{t(`models.${operation.phase}`)}</p>}
     {operation?.progress !== undefined && <div className="progress-track" role="progressbar" aria-label={t("models.downloading")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(operation.progress * 100)}><div className="progress-fill" style={{ width: `${operation.progress * 100}%` }} /></div>}

@@ -983,7 +983,11 @@
 .settings-model-editor .settings-slider-label { min-width: calc(100 * var(--ui-px)); }
 .settings-model-editor .settings-key-input-row > input { min-width: 0; flex: 1; }
 .settings-model-editor .settings-key-input-row { min-width: 0; }
-.settings-model-fields > summary { cursor: pointer; font-size: var(--font-size-label); margin-bottom: calc(12 * var(--ui-px)); }
+.settings-model-fields > .settings-toggle-hint { margin: 0; }
+/* Keep native disclosure layout: its hidden content must not leave a flex gap
+ * when collapsed. The inner field stack owns spacing between expanded rows. */
+.settings-model-disclosure > summary { cursor: pointer; font-size: var(--font-size-label); }
+.settings-model-disclosure > .settings-model-fields { padding-top: calc(12 * var(--ui-px)); }
 .settings-model-adapters { display: flex; flex-direction: column; gap: calc(10 * var(--ui-px)); }
 .settings-model-adapters > button { justify-content: space-between; height: auto; min-height: calc(44 * var(--ui-px)); }
 .settings-model-adapters > button > span { color: var(--muted-foreground); }
