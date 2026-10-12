@@ -51,6 +51,17 @@ it('runs explicit codec detection without writing settings and refreshes results
   expect(screen.getByRole('dialog')).toBeDefined();
 });
 
+it('offers a named refresh icon separately from the capability test action', async () => {
+  render(<HardwareSection resources={resources()} stale={false} refresh={refresh} />);
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: 'Hardware diagnostics' }));
+  const dialog = screen.getByRole('dialog', { name: 'Hardware diagnostics' });
+  expect(within(dialog).getByRole('region', { name: 'Decode and encode acceleration' })).toBeDefined();
+  await user.click(within(dialog).getByRole('button', { name: 'Refresh hardware' }));
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(probe).not.toHaveBeenCalled();
+});
+
 it('groups codec results by adapter and backend, with format verdicts and collapsed technical output', async () => {
   const info = resources();
   info.hardware!.acceleration = { ...untestedAcceleration(), status: 'complete', decode: [

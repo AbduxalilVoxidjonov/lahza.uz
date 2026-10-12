@@ -63,7 +63,7 @@ export function HardwareSection({ resources, decodeDevices = emptyDevices, stale
   return <section className="settings-section" data-testid="hardware-section">
     <div className="settings-performance-heading">
       <h3>{t('performance.hardware_heading')}</h3>
-      {hardware && <Button variant="ghost" onClick={() => setDiagnosticsOpen(true)}>{t('hardware.open_diagnostics')}</Button>}
+      {hardware && <Button variant="outline" onClick={() => setDiagnosticsOpen(true)}>{t('hardware.open_diagnostics')}</Button>}
     </div>
     <dl className="settings-performance-allocation">
       {resources?.cpu && <div><dt>{t('hardware.cpu')}</dt><dd>{resources.cpu.name}<br />{t('hardware.cpu_processors', { count: resources.cpu.logical_processors })}</dd></div>}

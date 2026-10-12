@@ -1,5 +1,8 @@
+import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LoaderCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { AppIcon } from '@/components/AppIcon';
 import { AppDialog } from '../components/AppDialog';
 import type { CodecHardwareProbe, HardwareDevice, HardwareDiagnostics, HardwareProbeResult, RendererHardwareDiagnostics } from '../../shared/hardware-diagnostics';
 
@@ -72,14 +75,32 @@ export function HardwareDiagnosticsDialog({ hardware, renderer, onClose, testing
   testing: boolean; onDetect(): void; onRefresh(): void; error: string | null;
 }) {
   const { t } = useTranslation();
+  const probeHeadingId = useId();
+  const probeStatus = testing ? 'hardware.testing' : hardware.acceleration.status === 'complete' ? 'hardware.test_complete'
+    : error || hardware.acceleration.status === 'failed' ? 'hardware.test_incomplete' : 'hardware.status_not-tested';
   return <AppDialog title={t('hardware.diagnostics_title')} onClose={onClose} panelClassName="settings-panel settings-hardware-diagnostics"
-    headerExtra={<Button variant="ghost" disabled={testing} onClick={onRefresh}>{t('hardware.refresh')}</Button>}>
+    headerExtra={<Button className="settings-hardware-refresh" variant="ghost" size="icon-xs" disabled={testing} onClick={onRefresh}
+      aria-label={t('hardware.refresh')} title={t('hardware.refresh')}>
+      <AppIcon icon={RefreshCw} size="heading" aria-hidden />
+    </Button>}>
     <div className="settings-body settings-card">
-      <div className="settings-performance-actions">
-        <Button variant="secondary" disabled={testing} onClick={onDetect}>{t(testing ? 'hardware.testing' : 'hardware.detect')}</Button>
-      </div>
-      <p className="settings-toggle-hint">{t('hardware.probe_scope')}</p>
-      {error && <p className="settings-toggle-hint" role="status">{error}</p>}
+      <section className="settings-hardware-probe-card" aria-labelledby={probeHeadingId} aria-busy={testing}>
+        <div className="settings-hardware-probe-heading">
+          <div className="settings-hardware-probe-copy">
+            <h3 id={probeHeadingId}>{t('hardware.probe_heading')}</h3>
+            <p className="settings-toggle-hint">{t('hardware.probe_scope')}</p>
+          </div>
+          <Button variant="secondary" disabled={testing} onClick={onDetect}>
+            {testing && <AppIcon icon={LoaderCircle} size="body" className="motion-safe:animate-spin" aria-hidden />}
+            {t(testing ? 'hardware.testing' : 'hardware.detect')}
+          </Button>
+        </div>
+        <div className="settings-hardware-probe-meta">
+          <span role="status">{t(probeStatus)}</span>
+          {!testing && hardware.acceleration.sampled_at && <span>{t('hardware.sampled_at', { time: new Date(hardware.acceleration.sampled_at).toLocaleString() })}</span>}
+        </div>
+        {error && <p className="settings-hardware-probe-error" role="alert">{error}</p>}
+      </section>
       <section className="settings-section">
         <h3>{t('hardware.diagnostics_devices')}</h3>
         {hardware.devices.map(device => <DiagnosticDevice key={device.id} device={device} />)}
@@ -108,7 +129,6 @@ export function HardwareDiagnosticsDialog({ hardware, renderer, onClose, testing
         <CodecResults title={t('hardware.decode_heading')} results={hardware.acceleration.decode} devices={hardware.devices} />
         <CodecResults title={t('hardware.encode_heading')} results={hardware.acceleration.encode} devices={hardware.devices} />
         <p className="settings-toggle-hint">{t('hardware.decode_scope')}</p>
-        {hardware.acceleration.sampled_at && <p className="settings-toggle-hint">{t('hardware.sampled_at', { time: new Date(hardware.acceleration.sampled_at).toLocaleString() })}</p>}
       </section>
     </div>
   </AppDialog>;

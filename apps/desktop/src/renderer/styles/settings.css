@@ -224,6 +224,15 @@
 .settings-hardware-probe-actions { margin: calc(10 * var(--ui-px)) 0; }
 .settings-hardware-probe-actions .settings-toggle-hint { margin: 0; }
 .settings-hardware-diagnostics { width: min(var(--dialog-width-settings), calc(100vw - calc(32 * var(--ui-px)))); }
+.settings-hardware-refresh { order: -1; margin-right: calc(8 * var(--ui-px)); }
+.settings-hardware-probe-card { margin-bottom: calc(20 * var(--ui-px)); padding: calc(12 * var(--ui-px)); border: 1px solid var(--border); border-radius: var(--radius-card); background: color-mix(in srgb, var(--muted-foreground) 5%, var(--card)); }
+.settings-hardware-probe-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: calc(12 * var(--ui-px)) calc(16 * var(--ui-px)); }
+.settings-hardware-probe-heading > button { min-width: calc(120 * var(--ui-px)); }
+.settings-hardware-probe-copy { flex: 1 1 calc(260 * var(--ui-px)); min-width: 0; }
+.settings-hardware-probe-copy h3 { margin: 0; }
+.settings-hardware-probe-copy .settings-toggle-hint { margin: calc(6 * var(--ui-px)) 0 0; }
+.settings-hardware-probe-meta { display: flex; flex-wrap: wrap; gap: calc(6 * var(--ui-px)) calc(16 * var(--ui-px)); margin-top: calc(12 * var(--ui-px)); padding-top: calc(8 * var(--ui-px)); border-top: 1px solid var(--border-soft); font-size: var(--font-size-caption); color: var(--muted-foreground); }
+.settings-hardware-probe-error { margin: calc(8 * var(--ui-px)) 0 0; font-size: var(--font-size-caption); color: var(--destructive); }
 .settings-hardware-codecs + .settings-hardware-codecs { margin-top: calc(20 * var(--ui-px)); }
 .settings-hardware-codec-group { margin: calc(8 * var(--ui-px)) 0; padding: calc(10 * var(--ui-px)) calc(12 * var(--ui-px)); border: 1px solid var(--border-soft); border-radius: calc(6 * var(--ui-px)); }
 .settings-hardware-codec-group h5 { margin: 0; color: var(--foreground); font-size: var(--font-size-body); font-weight: 500; }

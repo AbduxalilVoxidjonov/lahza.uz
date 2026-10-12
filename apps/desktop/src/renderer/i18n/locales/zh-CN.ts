@@ -19,6 +19,8 @@ const zhCN: Resources = {
     normal: '资源可用。', usage: '应用内存约 {{used}} GiB。', waiting: '{{count}} 个任务等待中。',
   },
   hardware: {
+    "probe_heading": "编解码加速",
+    "test_complete": "检测完成",
     "current_decode_device": "当前解码设备",
     "decode_idle": "暂无解码会话",
     "decode_cpu": "CPU（软件解码）",

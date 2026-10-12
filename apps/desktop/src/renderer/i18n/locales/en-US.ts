@@ -17,6 +17,8 @@ const enUS = {
     normal: 'Resources available.', usage: 'App memory: about {{used}} GiB.', waiting: '{{count}} tasks waiting.',
   },
   hardware: {
+    "probe_heading": "Decode and encode acceleration",
+    "test_complete": "Detection complete",
     "current_decode_device": "Current decoding device",
     "decode_idle": "No decoding sessions",
     "decode_cpu": "CPU (software decoding)",
