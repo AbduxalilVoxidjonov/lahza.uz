@@ -188,6 +188,7 @@ const enUS = {
     "hint": "Change duration by adjusting speed, keeping the content range."
   },
   crop: { title: "Crop", edit: "Crop in preview", done: "Finish cropping (Enter / Esc)", reset: "Reset crop", unavailable: "Select an unlocked, visible video clip in the preview composition to crop" },
+  layer_scale: { menu_title: "Preview actions", fit: "Fit to frame", fill: "Fill frame", original: "Restore original size" },
   fonts: {
     app_default: "App default (Liberation Sans / Noto Sans SC)",
     loading: "Loading installed fonts…",
@@ -2607,6 +2608,7 @@ const enUS = {
     export_failed: "Export failed: {{error}}",
     export_cancelled: "Export cancelled",
     cleared: "Log cleared",
+    scale_layer_unavailable: "Cannot resize this clip — preview dimensions are unavailable or the clip has zero size",
     center_layer_unstaged:
       "Cannot center a clip the preview has not staged yet — its size is unknown",
     cross_composition_copy:

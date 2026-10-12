@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CROP_MENU_COMMAND_IDS } from '../commands/cropCommands';
+import { SCALE_MENU_COMMAND_IDS } from '../commands/scaleCommands';
 
 import { buildAppCommands } from "../commands/appCommands";
 import { ACTION_DEFS, type ActionId } from "../shortcuts/defs";
@@ -70,6 +71,7 @@ function resolveKey(obj: unknown, dotted: string): unknown {
 }
 
 const MENUS = {
+  'preview scaling context menu': SCALE_MENU_COMMAND_IDS,
   'crop context menu': CROP_MENU_COMMAND_IDS,
   "layer context menu": LAYER_MENU_COMMAND_IDS,
   // The kind-gated Group tier of the same popup. Swept separately because it is

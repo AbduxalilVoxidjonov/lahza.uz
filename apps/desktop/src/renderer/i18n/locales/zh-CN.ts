@@ -190,6 +190,7 @@ const zhCN: Resources = {
     "hint": "保持内容范围，通过变速调整时长。"
   },
   crop: { title: "画面裁切", edit: "在画面中裁切", done: "结束裁切（Enter / Esc）", reset: "重置裁切", unavailable: "请选择预览合成中可见且未锁定的视频片段进行裁切" },
+  layer_scale: { menu_title: "预览操作", fit: "适配画面", fill: "填充画面", original: "恢复原始大小" },
   fonts: {
     app_default: "应用默认（Liberation Sans / Noto Sans SC）",
     loading: "正在读取已安装字体…",
@@ -2360,6 +2361,7 @@ const zhCN: Resources = {
     export_failed: "导出失败：{{error}}",
     export_cancelled: "已取消导出",
     cleared: "已清空日志",
+    scale_layer_unavailable: "无法调整该片段大小：预览尺寸未知，或片段尺寸为零",
     center_layer_unstaged: "预览尚未装载该片段，无法居中——其尺寸未知",
     cross_composition_copy: "不能跨时间线复制片段——松开 Alt 即可将其移动过去",
     paste_keyframes_no_target: "请先选中一个片段，再粘贴关键帧",

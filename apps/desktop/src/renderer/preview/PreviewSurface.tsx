@@ -1,6 +1,7 @@
 import { CropOverlayHost } from './CropOverlay';
-import { CropContextMenu } from './CropContextMenu';
+import { PreviewContextMenu } from './PreviewContextMenu';
 import { canEditCrop } from '../commands/cropCommands';
+import { canScaleLayer } from '../commands/scaleCommands';
 import { transportPlay, transportPause, transportSeek, usePlaybackStore } from "../state/playbackStore";
 /// Project preview surface. Renders the project through the Pixi
 /// compositor (the only preview path) inside a PixiErrorBoundary, or an
@@ -90,7 +91,7 @@ export const PreviewSurface = forwardRef<PreviewSurfaceHandle, Props>(
     // A callback ref, so the listeners attach when the surface mounts — a
     // ref object's identity never changes and would not re-run the effect.
     const [surface, setSurface] = useState<HTMLDivElement | null>(null);
-    const [cropMenu, setCropMenu] = useState<{ x: number; y: number } | null>(null);
+    const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
     usePreviewViewGestures(surface);
 
     useImperativeHandle(
@@ -147,9 +148,9 @@ export const PreviewSurface = forwardRef<PreviewSurfaceHandle, Props>(
         ref={setSurface}
         className="preview-video"
         onContextMenu={e => {
-          if (!canEditCrop()) return;
+          if (!canEditCrop() && !canScaleLayer()) return;
           e.preventDefault();
-          setCropMenu({ x: e.clientX, y: e.clientY });
+          setContextMenu({ x: e.clientX, y: e.clientY });
         }}
         style={{
           position: "relative",
@@ -178,7 +179,7 @@ export const PreviewSurface = forwardRef<PreviewSurfaceHandle, Props>(
         {visible && <TransformGizmoHost />}
         {visible && <CropOverlayHost />}
         {visible && <PreviewHandTool />}
-        {visible && cropMenu && <CropContextMenu {...cropMenu} onClose={() => setCropMenu(null)} />}
+        {visible && contextMenu && <PreviewContextMenu {...contextMenu} onClose={() => setContextMenu(null)} />}
       </div>
     );
   },

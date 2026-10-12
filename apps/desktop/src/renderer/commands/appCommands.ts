@@ -1,5 +1,6 @@
 import { snapFrameRound } from "../frames";
 import { canEditCrop, canResetCrop, editCrop, resetCrop } from './cropCommands';
+import { canScaleLayer, scalePrimaryLayer } from './scaleCommands';
 import { useCropEditingStore } from '../state/cropEditingStore';
 import {
   logEmit,
@@ -167,6 +168,9 @@ const MENU_ONLY_LABEL_KEYS: Record<MenuOnlyCommandId, string> = {
 /// entry with no keys would add two rebindable rows to Settings → Keyboard whose
 /// bindings nothing dispatches.
 const SELF_CONTAINED_COMMAND_IDS = [
+  'fitLayerToFrame',
+  'fillLayerFrame',
+  'restoreLayerSize',
   'editCrop',
   'resetCrop',
   "toggleSafeAreaGuides",
@@ -203,6 +207,9 @@ const SELF_CONTAINED_COMMAND_IDS = [
 type SelfContainedCommandId = (typeof SELF_CONTAINED_COMMAND_IDS)[number];
 
 const SELF_CONTAINED_LABEL_KEYS: Record<SelfContainedCommandId, string> = {
+  fitLayerToFrame: 'layer_scale.fit',
+  fillLayerFrame: 'layer_scale.fill',
+  restoreLayerSize: 'layer_scale.original',
   editCrop: 'crop.edit',
   resetCrop: 'crop.reset',
   toggleSafeAreaGuides: "actions.toggle_safe_area_guides",
@@ -516,6 +523,9 @@ export function buildAppCommands(
     SelfContainedCommandId,
     { run: () => void | Promise<void>; enabled?: () => boolean; checked?: () => boolean }
   > = {
+    fitLayerToFrame: { run: () => scalePrimaryLayer('fit'), enabled: () => !flags.busy && !flags.exportLocked && canScaleLayer() },
+    fillLayerFrame: { run: () => scalePrimaryLayer('fill'), enabled: () => !flags.busy && !flags.exportLocked && canScaleLayer() },
+    restoreLayerSize: { run: () => scalePrimaryLayer('original'), enabled: () => !flags.busy && !flags.exportLocked && canScaleLayer() },
     editCrop: { run: editCrop, enabled: canEditCrop, checked: () => useCropEditingStore.getState().layerId !== null },
     resetCrop: { run: resetCrop, enabled: canResetCrop },
     previewZoomIn: {

@@ -1854,6 +1854,18 @@ fills the composition, Audio is not visual), and only while the playhead is
 inside the layer's span. Resize means `scale` on three of those kinds and the
 layout **box** on Text — see below.
 
+The preview context menu offers **Fit to frame**, **Fill frame**, and
+**Restore original size** for the primary selected video, image, Motif or Group
+in the preview composition. Fit scales the visible rectangle proportionally to
+show all of it; Fill scales it to cover the composition, including every corner
+when rotated. Both center the result, preserve the anchor, rotation and mirrors,
+and use the retained rectangle after cropping. Restore sets scale magnitudes to
+100% while preserving mirrors and position. Text keeps its box-editing behavior
+and has no size presets here. Locked or disabled layers and tracks are excluded.
+Each action follows the existing frame-snapped keyframe rules and commits as one
+undo step; a Path position is translated without changing its geometry or
+progress. Video crop actions remain available in a separate menu group.
+
 **Why the box is an SVG overlay and not Pixi children:** `app.stage` is a
 read-back surface — the eyedropper's `extract.pixels`, the e2e
 `sampleComposite` hook and the conformance `captureFrame` PNG all read it, so
