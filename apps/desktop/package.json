@@ -53,6 +53,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@weftcut/core": "file:native",
     "@weftcut/native-decode": "file:native/decode",
+    "builder-util-runtime": "^9.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dockview-react": "8.3.1",

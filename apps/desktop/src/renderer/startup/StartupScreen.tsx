@@ -24,6 +24,7 @@ import { AppNumberField } from "../components/AppNumberField";
 import { AppSelect } from "../components/AppSelect";
 import { WindowControls } from "../components/WindowControls";
 import { DiagnosticReport } from '../app/DiagnosticReport';
+import { UpdateButton } from '../app/UpdateButton';
 import { Button } from "@/components/ui/button";
 import {
   ChevronDownIcon,
@@ -230,6 +231,7 @@ export function StartupScreen({ onWorkspaceReady }: Props) {
             onClick={() => setReportOpen(true)} title={t('help.report_issue')} aria-label={t('help.report_issue')}>
             <AppIcon icon={BugIcon} size="heading" strokeWidth={1.5} aria-hidden />
           </button>
+          <UpdateButton />
         </div>
         <button
           type="button"

@@ -524,6 +524,7 @@ app.whenReady().then(async () => {
     platform: process.platform, arch: process.arch, cpu: os.cpus()[0]?.model,
     memory: os.totalmem(), gpu: gpuIdentity, previewGpu: performanceGpu && { name: performanceGpu.name, memory: performanceGpu.dedicatedMemoryMib }, electron: process.versions.electron,
   })).digest('hex')
+  let updatePreferenceChanged = () => {}
   const appSettings = createAppSettingsStore({
     fs: atomicFs,
     path: path.join(app.getPath('userData'), 'app_settings.json'),
@@ -533,6 +534,7 @@ app.whenReady().then(async () => {
     gpuMemoryMiB: performanceGpu?.dedicatedMemoryMib,
     machineId: performanceMachineId, appVersion: app.getVersion(),
     onCommitted: settings => {
+      updatePreferenceChanged()
       layoutTheme = readLayoutTheme(settings.layout_theme)
       syncMainWindowMinimumSize()
       hydrateResourceAllocation(settings.resource_allocation)
@@ -1266,11 +1268,13 @@ app.whenReady().then(async () => {
     quit: () => app.quit(),
   })
   ipcMain.handle('updates:status', () => updates.status())
+  updatePreferenceChanged = () => updates.preferenceChanged()
   ipcMain.handle('updates:check', () => {
     void updates.check()
     return updates.status()
   })
   ipcMain.handle('updates:restart', () => updates.restart())
+  ipcMain.handle('updates:download', () => updates.download())
   ipcMain.handle('updates:resume', () => resumeAfterUpdate)
   app.once('quit', (_event, exitCode) => updates.installOnQuit(exitCode))
   app.once('will-quit', () => updates.stop())

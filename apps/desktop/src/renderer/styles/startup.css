@@ -359,7 +359,7 @@ html.platform-mac :is(.startup-titlebar, .agent-titlebar, .perf-titlebar) {
   margin: 0 0 0 4px; /* fixed-px: window chrome */
 }
 
-/* Top-left app-level entries (settings, issue report). The titlebar is
+/* Top-left app-level entries (settings, issue report, available update). The titlebar is
  * justify-content: flex-end (the locale toggle + caption buttons cluster
  * right), so margin-right: auto pins the group to the left edge. The icons
  * sit close together as one cluster — the bar's --app-chrome-gap separates
@@ -367,7 +367,7 @@ html.platform-mac :is(.startup-titlebar, .agent-titlebar, .perf-titlebar) {
 .startup-titlebar-actions {
   display: flex;
   align-items: center;
-  gap: calc(4 * var(--ui-px));
+  gap: calc(8 * var(--ui-px));
   margin-right: auto;
 }
 

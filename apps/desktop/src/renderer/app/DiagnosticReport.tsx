@@ -47,7 +47,7 @@ export function DiagnosticReport({ onClose, initialSummary }: {
     })
   }
   return (
-    <AppDialog title={t(summary?.previousSession ? 'diagnostics.previous_title' : 'help.report_issue')}
+    <AppDialog title={t(summary?.previousSession ? 'diagnostics.previous_title' : 'diagnostics.title')}
       onClose={busy ? undefined : close} panelClassName="settings-panel">
       <div className="settings-body">
         <div className="settings-card">

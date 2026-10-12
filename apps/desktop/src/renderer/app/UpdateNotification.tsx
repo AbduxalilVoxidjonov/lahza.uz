@@ -11,12 +11,14 @@ export function UpdateNotification() {
   const status = useUpdateStatus()
   const autoInstall = useAutoInstallUpdatesOnQuit()
   const [dismissed, setDismissed] = useState<string | undefined>()
-  if (!status.version || dismissed === status.version || !['ready', 'restarting'].includes(status.phase)) return null
+  if (!status.version || dismissed === status.version || !['available', 'downloading', 'ready', 'restarting', 'error'].includes(status.phase)) return null
   return <aside className="update-notification" aria-label={t('updates.available')}>
     <div role="status">
       <strong>{t('updates.available')}</strong>
-      <p>{t('updates.version', { version: status.version })}</p>
-      <p>{t(autoInstall ? 'updates.ready_auto' : 'updates.ready_manual')}</p>
+      {['available', 'downloading', 'error'].includes(status.phase)
+        ? <p>{t(status.phase === 'available' ? 'updates.available_manual' : `updates.${status.phase}`, { version: status.version, percent: status.percent ?? 0 })}</p>
+        : <><p>{t('updates.version', { version: status.version })}</p>
+          <p>{t(autoInstall ? 'updates.ready_auto' : 'updates.ready_manual')}</p></>}
     </div>
     <UpdateActions status={status} onLater={() => setDismissed(status.version)} />
   </aside>

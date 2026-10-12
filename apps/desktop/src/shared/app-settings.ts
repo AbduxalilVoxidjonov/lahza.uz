@@ -33,7 +33,7 @@ export type TimelineWheelAxis = "horizontal" | "vertical";
 export interface AppSettings {
   /** Remember the UI export collision policy across projects; MCP uses its own policy. */
   export_auto_overwrite?: boolean;
-  /** Install a downloaded application update on normal exit. Defaults on. */
+  /** Download application updates automatically and install on normal exit. Defaults on. */
   auto_install_updates_on_quit?: boolean;
   /** One app-wide typography and dialog sizing preset; absent in old files. */
   layout_theme?: LayoutTheme;

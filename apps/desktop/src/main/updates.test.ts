@@ -4,7 +4,7 @@ import { createUpdates } from './updates.js'
 
 function setup(lifecycle?: Parameters<typeof createUpdates>[1]) {
   const engine = Object.assign(new EventEmitter(), {
-    checkForUpdates: vi.fn(), autoDownload: false, autoInstallOnAppQuit: false, disableWebInstaller: false,
+    checkForUpdates: vi.fn(), downloadUpdate: vi.fn(), autoDownload: true, autoInstallOnAppQuit: false, disableWebInstaller: false,
     allowPrerelease: true, allowDowngrade: true, logger: null, quitAndInstall: vi.fn(),
   })
   const updates = createUpdates(engine as unknown as NonNullable<Parameters<typeof createUpdates>[0]>, lifecycle)
@@ -77,10 +77,12 @@ describe('application updates', () => {
     const downloadPromise = new Promise<string[]>(resolve => { finish = resolve })
     engine.checkForUpdates.mockImplementation(async () => {
       engine.emit('update-available', { version: '0.1.2' })
-      return { downloadPromise }
+      return { cancellationToken: undefined }
     })
+    engine.downloadUpdate.mockReturnValue(downloadPromise)
     const first = updates.check()
     expect(updates.check()).toBe(first)
+    await Promise.resolve()
     engine.emit('download-progress', { percent: 42.3 })
     expect(updates.status()).toEqual({ phase: 'downloading', version: '0.1.2', percent: 42 })
     engine.emit('update-downloaded', { version: '0.1.2' })
@@ -95,12 +97,18 @@ describe('application updates', () => {
     expect(engine.disableWebInstaller).toBe(true)
     expect(engine.allowPrerelease).toBe(false)
     expect(engine.allowDowngrade).toBe(false)
+    expect(engine.autoDownload).toBe(false)
+    expect(engine.downloadUpdate).toHaveBeenCalledOnce()
   })
 
   it('observes download rejection and allows retry after a network failure', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const { engine, updates } = setup()
-    engine.checkForUpdates.mockResolvedValueOnce({ downloadPromise: Promise.reject(new Error('offline')) })
+    engine.checkForUpdates.mockImplementationOnce(async () => {
+      engine.emit('update-available', { version: '0.2.0' })
+      return {}
+    })
+    engine.downloadUpdate.mockRejectedValueOnce(new Error('offline'))
     await updates.check()
     expect(updates.status().phase).toBe('error')
     engine.checkForUpdates.mockImplementationOnce(async () => {
@@ -109,6 +117,138 @@ describe('application updates', () => {
     })
     await updates.check()
     expect(updates.status().phase).toBe('current')
+  })
+
+  it('checks on startup and from Help without downloading when automatic updates are off', async () => {
+    vi.useFakeTimers()
+    const { engine, updates } = setup({ installOnQuit: () => false, prepareRestart: vi.fn(), quit: vi.fn() })
+    engine.checkForUpdates.mockImplementation(async () => {
+      engine.emit('update-available', { version: '0.2.0' })
+      return {}
+    })
+    updates.start()
+    await vi.advanceTimersByTimeAsync(30_000)
+    await updates.check()
+    expect(updates.status()).toEqual({ phase: 'available', version: '0.2.0' })
+    expect(engine.downloadUpdate).not.toHaveBeenCalled()
+    expect(await updates.restart()).toBe('not-ready')
+    updates.installOnQuit(0)
+    expect(engine.quitAndInstall).not.toHaveBeenCalled()
+    updates.stop()
+  })
+
+  it('downloads once on explicit request, then saves, quits and installs despite opt-out', async () => {
+    const lifecycle = { installOnQuit: () => false, prepareRestart: vi.fn(), quit: vi.fn() }
+    const { engine, updates } = setup(lifecycle)
+    engine.emit('update-available', { version: '0.2.0' })
+    let finish!: () => void
+    engine.downloadUpdate.mockImplementation(() => new Promise<string[]>(resolve => {
+      finish = () => { engine.emit('update-downloaded', { version: '0.2.0' }); resolve(['installer']) }
+    }))
+    const first = updates.download()
+    const second = updates.download()
+    await updates.check()
+    expect(engine.checkForUpdates).not.toHaveBeenCalled()
+    expect(lifecycle.prepareRestart).not.toHaveBeenCalled()
+    finish()
+    expect(await first).toBe('ready')
+    expect(await second).toBe('ready')
+    expect(await updates.restart()).toBe('restarting')
+    expect(engine.downloadUpdate).toHaveBeenCalledOnce()
+    expect(lifecycle.prepareRestart).toHaveBeenCalledWith('0.2.0')
+    expect(lifecycle.quit).toHaveBeenCalledOnce()
+    updates.installOnQuit(0)
+    expect(engine.quitAndInstall).toHaveBeenCalledWith(true, true)
+  })
+
+  it('retains the available version for manual retry after download failure', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const lifecycle = { installOnQuit: () => false, prepareRestart: vi.fn(), quit: vi.fn() }
+    const { engine, updates } = setup(lifecycle)
+    engine.emit('update-available', { version: '0.2.0' })
+    engine.downloadUpdate.mockRejectedValueOnce(new Error('offline')).mockImplementationOnce(async () => {
+      engine.emit('update-downloaded', { version: '0.2.0' })
+      return ['installer']
+    })
+    expect(await updates.download()).toBe('download-failed')
+    expect(updates.status()).toEqual({ phase: 'error', version: '0.2.0' })
+    expect(lifecycle.quit).not.toHaveBeenCalled()
+    expect(await updates.download()).toBe('ready')
+  })
+
+  it('starts downloading a known update when the automatic preference is enabled', async () => {
+    let enabled = false
+    const { engine, updates } = setup({ installOnQuit: () => enabled, prepareRestart: vi.fn(), quit: vi.fn() })
+    engine.emit('update-available', { version: '0.2.0' })
+    engine.downloadUpdate.mockImplementation(async () => {
+      engine.emit('update-downloaded', { version: '0.2.0' })
+      return ['installer']
+    })
+    updates.preferenceChanged()
+    expect(engine.downloadUpdate).not.toHaveBeenCalled()
+    enabled = true
+    updates.preferenceChanged()
+    await Promise.resolve()
+    expect(engine.downloadUpdate).toHaveBeenCalledOnce()
+    expect(updates.status().phase).toBe('ready')
+  })
+
+  it('cancels a background download when opted out and allows a manual retry', async () => {
+    let enabled = true
+    const { engine, updates } = setup({ installOnQuit: () => enabled, prepareRestart: vi.fn(), quit: vi.fn() })
+    engine.checkForUpdates.mockImplementation(async () => {
+      engine.emit('update-available', { version: '0.2.0' })
+      return {}
+    })
+    engine.downloadUpdate.mockImplementationOnce(token => new Promise((_resolve, reject) => {
+      token.once('cancel', () => reject(new Error('cancelled')))
+    })).mockImplementationOnce(async () => {
+      engine.emit('update-downloaded', { version: '0.2.0' })
+      return ['installer']
+    })
+    const check = updates.check()
+    await Promise.resolve()
+    const token = engine.downloadUpdate.mock.calls[0][0]
+    enabled = false
+    updates.preferenceChanged()
+    await check
+    expect(token.cancelled).toBe(true)
+    expect(updates.status()).toEqual({ phase: 'available', version: '0.2.0' })
+    expect(await updates.download()).toBe('ready')
+    expect(engine.downloadUpdate.mock.calls[1][0].cancelled).toBe(false)
+    expect(engine.downloadUpdate.mock.calls[1][0]).not.toBe(token)
+  })
+
+  it('rechecks the preference after the metadata request completes', async () => {
+    let enabled = true
+    const { engine, updates } = setup({ installOnQuit: () => enabled, prepareRestart: vi.fn(), quit: vi.fn() })
+    let finish!: () => void
+    engine.checkForUpdates.mockImplementation(() => new Promise(resolve => {
+      finish = () => { engine.emit('update-available', { version: '0.2.0' }); resolve({}) }
+    }))
+    const check = updates.check()
+    enabled = false
+    updates.preferenceChanged()
+    finish()
+    await check
+    expect(engine.downloadUpdate).not.toHaveBeenCalled()
+    expect(updates.status().phase).toBe('available')
+  })
+
+  it('does not cancel an explicitly requested download when the preference changes', async () => {
+    let enabled = true
+    const { engine, updates } = setup({ installOnQuit: () => enabled, prepareRestart: vi.fn(), quit: vi.fn() })
+    engine.emit('update-available', { version: '0.2.0' })
+    let finish!: () => void
+    engine.downloadUpdate.mockImplementation(() => new Promise<string[]>(resolve => {
+      finish = () => { engine.emit('update-downloaded', { version: '0.2.0' }); resolve(['installer']) }
+    }))
+    const request = updates.download()
+    enabled = false
+    updates.preferenceChanged()
+    expect(engine.downloadUpdate.mock.calls[0][0].cancelled).toBe(false)
+    finish()
+    expect(await request).toBe('ready')
   })
 
   it('delays the startup check and stops recurring checks at shutdown', async () => {

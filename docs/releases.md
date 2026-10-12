@@ -54,11 +54,17 @@ fix; do not replace installers under an already published version.
 
 Packaged Windows/Linux applications use electron-updater against the public
 GitHub Release feed. They check 30 seconds after startup and every six hours,
-download in the background, and show a non-modal notice when ready. General
+and show a non-modal notice when an update is available. General
 settings' second item, "Automatically install available updates when closing
-the app", defaults on (including older settings files). With it enabled, a
-normal exit installs the downloaded update after the editor's autosave flush
-and leaves the app closed. Turning it off retains the download until requested.
+the app", defaults on (including older settings files). With it enabled,
+background downloads begin automatically; normal exit installs the downloaded
+update after the editor's autosave flush and leaves the app closed. With it off,
+checks only fetch release metadata. "Download and install" explicitly downloads
+the installer, then saves and restarts to install. Turning the preference off
+cancels an ongoing background download; an already completed download remains
+available for an explicit restart. Turning it on downloads a known available
+update immediately. An explicitly requested download is independent of this
+preference.
 "Later" only dismisses the notice; it does not change this preference.
 
 "Update and restart app" is a one-time action independent of that preference.
@@ -74,8 +80,15 @@ and install-mode choices, and close automatically on success. Only an explicit
 update-and-restart requests relaunch; ordinary exit updates do not reopen.
 This makes the file-replacement interval visible; it is not an atomic switch
 between executable versions, and shortcuts still target the installed exe.
-Help → Check for Updates shows progress/readiness, offers the same restart and
-later actions, retries errors and links to manual downloads. Dev,
+The start screen's top-left actions end with a circular, theme-blue update
+button bearing Lucide's ArrowDownToLine download icon. Release builds show this
+icon-only button when a new version is known; development
+keeps it visible for UI work. Its tooltip and accessible name describe the
+action, and it opens the same dialog as the editor's Help → Check for Updates
+entry. Dismissing the notice does not hide an available update's icon. Opening
+the dialog is the explicit check; simply showing the button only reads status.
+The dialog shows availability/progress/readiness, offers download or restart
+and later actions, retries errors and links to manual downloads. Dev,
 E2E and macOS builds disable update checks. macOS cannot self-update without a
 Developer ID: Squirrel.Mac installs only a build whose signature satisfies the
 running app's designated requirement, and an ad-hoc signature pins that to the

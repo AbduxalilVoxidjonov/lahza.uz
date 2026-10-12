@@ -49,6 +49,7 @@ describe("HelpMenu", () => {
     fireEvent.click(await screen.findByText("Check for Updates…"));
     expect(check).toHaveBeenCalledOnce();
     expect(await screen.findByText("You are up to date.")).toBeTruthy();
+    expect(screen.getByRole("dialog", { name: "Check for Updates" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "View Releases" }));
     expect(open).toHaveBeenCalledWith(RELEASES_URL);
   });
@@ -75,6 +76,7 @@ describe("HelpMenu", () => {
     fireEvent.click(await screen.findByText("Report an Issue…"));
     expect(open).not.toHaveBeenCalled();
     const button = await screen.findByRole('button', { name: 'Open GitHub Issue' });
+    expect(screen.getByRole("dialog", { name: "Report an Issue" })).toBeTruthy();
     await screen.findByText('WeftCut 1.2.3 | linux x64');
     fireEvent.click(button);
     expect(open).toHaveBeenCalledOnce();

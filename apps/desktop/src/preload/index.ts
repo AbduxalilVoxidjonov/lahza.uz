@@ -33,7 +33,7 @@ import type {
   DataRootPendingCleanup,
 } from '../shared/data-root'
 import type { MenuProjection } from '../shared/menu'
-import type { UpdateRestartResult, UpdateResume, UpdateStatus } from '../shared/updates'
+import type { UpdateDownloadResult, UpdateRestartResult, UpdateResume, UpdateStatus } from '../shared/updates'
 
 type Listener = (payload: unknown) => void
 
@@ -165,6 +165,7 @@ const api: WeftcutApi = {
   updates: {
     status: (): Promise<UpdateStatus> => ipcRenderer.invoke('updates:status'),
     check: (): Promise<UpdateStatus> => ipcRenderer.invoke('updates:check'),
+    download: (): Promise<UpdateDownloadResult> => ipcRenderer.invoke('updates:download'),
     restart: (): Promise<UpdateRestartResult> => ipcRenderer.invoke('updates:restart'),
     resume: (): Promise<UpdateResume> => ipcRenderer.invoke('updates:resume'),
   },

@@ -59,6 +59,16 @@ test('startup caption keeps its edge inset and groups its actions across layout 
   const { app, page } = await launchApp()
   try {
     await expect(page.locator('.startup-titlebar-actions')).toBeVisible()
+    await expect(page.locator('.splash-screen')).toHaveCount(0)
+    // E2E is a release-mode build: no notice before a version is known.
+    await expect(page.locator('.startup-update-toggle')).toHaveCount(0)
+    await app.evaluate(({ ipcMain }) => {
+      for (const channel of ['updates:status', 'updates:check']) {
+        ipcMain.removeHandler(channel)
+        ipcMain.handle(channel, () => ({ phase: 'available', version: '9.9.0' }))
+      }
+    })
+    await expect(page.locator('.startup-update-toggle')).toBeVisible()
     for (const [layout_theme, scale] of [
       ['1080p-standard', 1], ['1080p-wide', 1.1],
       ['2k-standard', 1.2], ['2k-wide', 1.32],
@@ -69,6 +79,7 @@ test('startup caption keeps its edge inset and groups its actions across layout 
       const metrics = await page.locator(TITLEBAR).evaluate(bar => {
         const rect = bar.getBoundingClientRect()
         const style = getComputedStyle(bar)
+        const update = bar.querySelector('.startup-update-toggle')!.getBoundingClientRect()
         const settings = bar.querySelector('.startup-settings-toggle')!.getBoundingClientRect()
         const report = bar.querySelector('.startup-report-toggle')!.getBoundingClientRect()
         const last = bar.querySelector('.window-controls') ?? bar.querySelector('.startup-locale-toggle')!
@@ -76,6 +87,12 @@ test('startup caption keeps its edge inset and groups its actions across layout 
           inset: parseFloat(style.getPropertyValue('--app-chrome-inset')),
           padLeft: parseFloat(style.paddingLeft),
           left: settings.left - rect.left,
+          updateGap: update.left - report.right,
+          updateText: bar.querySelector('.startup-update-toggle')!.textContent,
+          updateBackground: getComputedStyle(bar.querySelector('.startup-update-toggle')!).backgroundColor,
+          updateRadius: getComputedStyle(bar.querySelector('.startup-update-toggle')!).borderRadius,
+          updateWidth: update.width,
+          updateHeight: update.height,
           gap: report.left - settings.right,
           right: rect.right - last.getBoundingClientRect().right,
         }
@@ -83,7 +100,12 @@ test('startup caption keeps its edge inset and groups its actions across layout 
       expect(metrics.inset).toBe(16)
       // Chromium can round bounding boxes at fractional display scales.
       expect(Math.abs(metrics.left - metrics.padLeft)).toBeLessThan(0.5)
-      expect(Math.abs(metrics.gap - 4 * scale)).toBeLessThan(0.5)
+      expect(Math.abs(metrics.updateGap - 8 * scale)).toBeLessThan(0.5)
+      expect(metrics.updateText).toBe('')
+      expect(metrics.updateBackground).toBe('rgb(37, 99, 235)')
+      expect(metrics.updateWidth).toBe(metrics.updateHeight)
+      expect(parseFloat(metrics.updateRadius)).toBeGreaterThanOrEqual(metrics.updateWidth / 2)
+      expect(Math.abs(metrics.gap - 8 * scale)).toBeLessThan(0.5)
       if (isDarwin) {
         expect(metrics.padLeft).toBeGreaterThan(60)
         expect(Math.abs(metrics.right - metrics.inset)).toBeLessThan(0.5)
@@ -92,6 +114,10 @@ test('startup caption keeps its edge inset and groups its actions across layout 
         expect(Math.abs(metrics.right)).toBeLessThan(0.5)
       }
     }
+    await page.locator(TITLEBAR).screenshot({ path: test.info().outputPath('startup-update-titlebar.png') })
+    await page.locator('.startup-update-toggle').click()
+    await expect(page.getByRole('dialog', { name: 'A new version is available' })).toBeVisible()
+    await expect(page.getByRole('dialog').getByRole('button', { name: 'Download and install' })).toBeEnabled()
   } finally {
     await app.close()
   }

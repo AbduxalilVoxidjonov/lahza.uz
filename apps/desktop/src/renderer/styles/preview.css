@@ -65,9 +65,23 @@
   flex: 0 0 auto;
 }
 
+.preview-target-bar .app-select {
+  padding: calc(2 * var(--ui-px)) calc(6 * var(--ui-px));
+  font-size: var(--font-size-caption);
+}
+
 .preview-target-select {
   max-width: calc(280 * var(--ui-px));
-  padding: calc(2 * var(--ui-px)) calc(6 * var(--ui-px));
+}
+
+/* Both preview dropdowns use the compact toolbar scale and the trigger's
+   surface. The zoom menu also sizes from its anchor, like the target Select. */
+.preview-select-popup {
+  background: var(--popover);
+}
+
+.preview-select-popup .app-menu-item {
+  padding: calc(4 * var(--ui-px)) calc(8 * var(--ui-px));
   font-size: var(--font-size-caption);
 }
 

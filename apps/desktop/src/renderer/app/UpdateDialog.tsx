@@ -17,11 +17,11 @@ export function UpdateDialog({ onClose }: { onClose: () => void }) {
   const statusId = useId()
   const status = useUpdateStatus(true)
   const autoInstall = useAutoInstallUpdatesOnQuit()
-  const available = ['downloading', 'ready', 'restarting'].includes(status.phase)
+  const available = !!status.version && ['available', 'downloading', 'ready', 'restarting', 'error'].includes(status.phase)
 
   const percent = status.percent ?? 0
   return (
-    <AppDialog title={t(available ? 'updates.available' : 'help.check_updates')} onClose={status.phase === 'restarting' ? undefined : onClose} panelClassName="settings-panel update-dialog">
+    <AppDialog title={t(available ? 'updates.available' : 'updates.title')} onClose={status.phase === 'restarting' ? undefined : onClose} panelClassName="settings-panel update-dialog">
       <div className="settings-body">
         <div className="settings-card">
           {/* The error copy takes the warn callout the other dialogs use for
@@ -29,7 +29,7 @@ export function UpdateDialog({ onClose }: { onClose: () => void }) {
           <p id={statusId} role="status" className={status.phase === 'error' ? 'settings-warn' : 'settings-blurb'}>
             {status.phase === 'ready'
               ? <>{t('updates.version', { version: status.version })} {t(autoInstall ? 'updates.ready_auto' : 'updates.ready_manual')}</>
-              : t(`updates.${status.phase}`, { version: status.version, percent })}
+              : t(status.phase === 'available' ? 'updates.available_manual' : `updates.${status.phase}`, { version: status.version, percent })}
           </p>
           {status.phase === 'downloading' && (
             <div

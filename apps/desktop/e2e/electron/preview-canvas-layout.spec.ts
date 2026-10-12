@@ -121,6 +121,35 @@ test('the preview zooms about the pointer and pans with no tool armed', async ()
     const dpr = await page.evaluate(() => window.devicePixelRatio)
     const zoom = page.locator('.preview-zoom-select')
 
+    // Select and continuous-zoom Menu keep distinct behavior but share one
+    // compact toolbar skin, including the popup's type and surface.
+    const target = page.locator('.preview-target-select')
+    const skin = (element: HTMLElement) => {
+      const style = getComputedStyle(element)
+      return {
+        font: style.fontSize, padding: style.padding,
+        background: style.backgroundColor, radius: style.borderRadius,
+        height: element.getBoundingClientRect().height,
+        arrowOpacity: getComputedStyle(element.querySelector('.menu-chevron')!).opacity,
+      }
+    }
+    expect(await target.evaluate(skin)).toEqual(await zoom.evaluate(skin))
+    for (const trigger of [target, zoom]) {
+      const triggerSkin = await trigger.evaluate(skin)
+      await trigger.click()
+      const popup = page.locator(`.preview-select-popup[role="${trigger === target ? 'listbox' : 'menu'}"]`)
+      await expect(popup).toBeVisible()
+      const popupSkin = await popup.evaluate(element => ({
+        font: getComputedStyle(element.querySelector('.app-menu-item')!).fontSize,
+        background: getComputedStyle(element).backgroundColor,
+        radius: getComputedStyle(element).borderRadius,
+      }))
+      expect(popupSkin).toEqual({ font: triggerSkin.font, background: triggerSkin.background, radius: triggerSkin.radius })
+      await page.screenshot({ path: test.info().outputPath(trigger === target ? 'preview-target-menu.png' : 'preview-zoom-menu.png') })
+      await page.keyboard.press('Escape')
+      await expect(popup).toBeHidden()
+    }
+
     // ── The readout is the control, exercised in the ordinary dock layout ──
     const pick = async (stop: RegExp) => {
       await zoom.click()

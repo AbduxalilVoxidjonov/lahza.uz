@@ -289,7 +289,10 @@ export function SettingsPanel({
                 <AppSwitch checked={autoInstallUpdatesOnQuit} onCheckedChange={next => {
                   void setAppSettings({ auto_install_updates_on_quit: next }).catch(err => setError(String(err)));
                 }} />
-                <span className="settings-toggle-label">{t("settings.auto_install_updates_on_quit")}</span>
+                <span>
+                  <span className="settings-toggle-label">{t("settings.auto_install_updates_on_quit")}</span>
+                  <span className="settings-toggle-hint">{t("settings.auto_install_updates_on_quit_hint")}</span>
+                </span>
               </label>
               <LayoutThemeControl onError={setError} />
               <span className="settings-toggle-label">{t("settings.data_location_heading")}</span>

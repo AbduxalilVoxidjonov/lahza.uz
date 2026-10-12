@@ -10,7 +10,7 @@
 // Types only — no runtime. `File` etc. resolve from DOM (both consumers are DOM
 // contexts); this file is never imported by the non-DOM main process.
 
-import type { UpdateRestartResult, UpdateResume, UpdateStatus } from './updates'
+import type { UpdateDownloadResult, UpdateRestartResult, UpdateResume, UpdateStatus } from './updates'
 
 export type DialogOpenOpts = {
   title?: string
@@ -470,6 +470,7 @@ export interface WeftcutApi {
   updates: {
     status(): Promise<UpdateStatus>
     check(): Promise<UpdateStatus>
+    download(): Promise<UpdateDownloadResult>
     restart(): Promise<UpdateRestartResult>
     resume(): Promise<UpdateResume>
   }

@@ -225,11 +225,13 @@ function PreviewZoomControl() {
     <Menu.Root>
       <Menu.Trigger className="app-select preview-zoom-select" aria-label={t("preview.zoom_label")}>
         <span>{zoom === "fit" ? t("preview.zoom_fit") : percent(zoom)}</span>
-        <AppIcon icon={ChevronDownIcon} size="caption" aria-hidden="true" />
+        <span className="menu-chevron" aria-hidden="true">
+          <AppIcon icon={ChevronDownIcon} size="caption" />
+        </span>
       </Menu.Trigger>
       <Menu.Portal>
         <AppMenuPositioner align="start" sideOffset={4} className="app-popup-positioner">
-          <Menu.Popup className="app-menu-list">
+          <Menu.Popup className="app-menu-list app-select-popup preview-select-popup">
             <Menu.RadioGroup value={zoom === "fit" ? "fit" : String(zoom)}>
               {rungs.map((rung) => (
                 <Menu.RadioItem
@@ -270,6 +272,7 @@ function RenderTargetControl() {
   return (
     <AppSelect
       className="preview-target-select"
+      popupClassName="preview-select-popup"
       ariaLabel={t("preview.target_label")}
       value={targetOptionValue(choice)}
       onValueChange={(value) => setPreviewRenderTarget(targetOptionChoice(value))}
