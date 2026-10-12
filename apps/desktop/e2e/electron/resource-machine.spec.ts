@@ -75,8 +75,16 @@ test('resource intent survives an application restart and defaults use the actua
       await page.locator('.startup-settings-toggle').click()
       await page.getByRole('tab', { name: '性能', exact: true }).click()
       const pane = page.locator('#settings-panel-performance')
-      await expect(pane.getByRole('button', { name: '进行基准测试', exact: true })).toBeDisabled()
-      await expect(pane.getByText('测试目前仅支持 Windows。', { exact: true })).toBeVisible()
+      if (host.platform === 'linux') {
+        // Wait for hardware discovery before checking absence: the initial
+        // loading render has not yet selected the platform-specific controls.
+        await expect(pane.getByRole('button', { name: '硬件诊断', exact: true })).toBeVisible()
+        await expect(pane.getByRole('button', { name: '进行基准测试', exact: true })).toHaveCount(0)
+        await expect(pane.getByRole('heading', { name: '本机性能测试（实验性）', exact: true })).toHaveCount(0)
+      } else {
+        await expect(pane.getByRole('button', { name: '进行基准测试', exact: true })).toBeDisabled()
+        await expect(pane.getByText('测试目前仅支持 Windows。', { exact: true })).toBeVisible()
+      }
       const resources = await page.evaluate(() => window.api.performanceResources.info())
       if (host.platform === 'darwin' && host.arch === 'arm64' && host.graphicsVendor === 0x106b) {
         expect(resources.graphics?.memory_kind).toBe('unified')
