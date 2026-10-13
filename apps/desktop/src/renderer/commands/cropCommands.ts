@@ -1,5 +1,5 @@
-import { updateLayerParams, projectSummary } from '../ipc';
-import { useOpenComposition, currentOpenComposition, useProjectStore } from '../state/projectStore';
+import { updateLayerParams } from '../ipc';
+import { useOpenComposition, currentOpenComposition } from '../state/projectStore';
 import { currentSelection, primaryLayerIdOf, usePrimaryLayerId } from '../state/selectionStore';
 import { previewRenderTargetId, usePreviewRenderTargetId } from '../state/compositionAnchorStore';
 import { focusedPlayheadUs, seekLocalUs } from '../state/playheadProjection';
@@ -50,5 +50,4 @@ export async function resetCrop(): Promise<void> {
   if (!target || !canResetCrop()) return;
   endCrop();
   await updateLayerParams(target.layer.id, { kind: 'VideoClip', crop: null });
-  useProjectStore.getState().apply(await projectSummary());
 }

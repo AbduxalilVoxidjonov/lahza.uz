@@ -24,6 +24,7 @@ import {
   type AudioPatch,
   type CanvasPreset,
   type MediaSummary,
+  type ProjectSummary,
 } from "../ipc";
 import { captureMotifFrame } from "../render/motifs/host";
 import { hashCacheKey } from "../render/motifs/frameCache";
@@ -34,7 +35,7 @@ import { requestPrebake } from "../render/motifs/prebakeBus";
 import { mergeSettings, type ExportSettings } from "../render/exportSettings";
 import { getGizmoProbe } from "../preview/gizmoProbeRegistry";
 import { playheadTimeUs } from "../state/playheadStore";
-import { rootCompositionOf, useProjectStore } from "../state/projectStore";
+import { settleProjectStore, rootCompositionOf, useProjectStore } from "../state/projectStore";
 import {
   openComposition,
   useCompositionAnchorStore,
@@ -69,7 +70,7 @@ import type { ResolvedMotifView } from "../render/resolveView";
 import { ImageOverlaySprite } from "../render/sprite/ImageOverlaySprite";
 import { decodeAnimatedImage } from "../render/sprite/animatedImageCache";
 import type { ResolvedImageOverlayView } from "../render/resolveView";
-import { convertFileSrc } from "@/bridge/ipc";
+import { convertFileSrc, invoke } from "@/bridge/ipc";
 import { buildPanGraph, constantPanGains } from "../render/audio/panGraph";
 import { auditionedRoleGainLinear } from "../render/audio/roleGate";
 import {
@@ -110,6 +111,9 @@ type RunExport = (
 ) => Promise<void>;
 
 export interface E2EHook {
+  /** Exercise the renderer's real accepted-command/view barrier. */
+  publishedCommand(args: { command: string; args?: Record<string, unknown>; afterMutation?: boolean }): Promise<{ value: unknown; summary: ProjectSummary | null }>;
+  projectStoreSummary(): ProjectSummary | null;
   /// Create a blank workspace with `canvas` dims at `<parentFolder>/<name>/`,
   /// replacing the actor state, then flip Root to the editor stage (which
   /// mounts App + installs `exportClip`). Wait for `exportClip` to appear
@@ -649,6 +653,12 @@ export function installBootstrapHook(
   enterEditor: () => void,
   exitToStartup: () => void,
 ): void {
+  hookSlot().publishedCommand = async ({ command, args, afterMutation }) => {
+    const value = await invoke(command, args);
+    if (afterMutation) await settleProjectStore();
+    return { value, summary: useProjectStore.getState().summary };
+  };
+  hookSlot().projectStoreSummary = () => useProjectStore.getState().summary;
   hookSlot().newProjectAndEnter = async (args) => {
     await projectNewWorkspace(args);
     enterEditor();

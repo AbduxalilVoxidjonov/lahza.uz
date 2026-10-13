@@ -80,7 +80,7 @@ started two-second observation finishes normally.
 
 | Phase / stage | What it measures |
 | --- | --- |
-| `renderer.invoke.*` | From the edit's IPC invocation to response/rejection; begins just after pointer release, not at OS input arrival |
+| `renderer.invoke.*` | From the edit's IPC invocation through its view-publication barrier or rejection; begins just after pointer release, not at OS input arrival. Includes store synchronization since ADR 0114, but not paint or disk save |
 | `main.command.*` | Synchronous actor work, with `commandAccepted` for domain refusals |
 | `recipe`, `reconcile_markers`, `reconcile_transitions` | Mutation and relationship maintenance |
 | `produce_including_finalize` | Includes those three stages plus Immer finalization/freezing; **do not sum nested durations** |
@@ -161,3 +161,26 @@ remaining long calls were React work, with short layout/style stages.
 The 500 ms autosave debounce, undo history, backups, explicit save and shutdown
 flush remain unchanged. Slowing saves further would not address either measured
 bottleneck.
+
+## Architecture follow-up validation
+
+The first optimization batch also resolves anchored markers through a shared
+layer index, skips duration autofit for canvas-only history updates, and limits
+audio/Motif preparation invalidation to its actual inputs. ADR 0114 then makes
+events and command receipts share a versioned publication owner.
+
+Local synthetic Vitest probes (warm medians, same fixture sizes, not Electron
+interaction latency) measured:
+
+| Workload | Before | After |
+| --- | --- | --- |
+| Summary: 5,000 anchored markers and audio layers | 64.48 ms | 8.92 ms |
+| Canvas-width update: 5,000 layers, 200 history entries | 534.36 ms | 3.45 ms |
+| Retimed audio preparations across one marker edit | 1 → 2 calls | 1 → 1 calls |
+| Burst of 100 change notifications | 100 reads / 1 publication | 2 reads / 1 publication |
+
+These reductions remove unnecessary work; they do not eliminate full snapshot
+cost. The same probes still show roughly 17 ms structured clone and 60 ms history
+projection at 5,000 layers, 4,000 file checks for 1,000 proxied media entries,
+and no autosave during 10 seconds of uninterrupted 100 ms-spaced commits.
+Deferred work is tracked in [issue #63](https://github.com/WeftCut/WeftCut/issues/63).

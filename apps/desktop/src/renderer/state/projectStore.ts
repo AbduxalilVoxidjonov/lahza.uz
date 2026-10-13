@@ -6,7 +6,6 @@ import { EDIT_TRACE_ARG, EditTrace, editTraceId } from '../../shared/editTrace';
 import { reportAfterFrameOpportunity } from '../diagnostics/editTrace';
 
 import {
-  projectSummary,
   type CompositionSummary,
   type LayerSummary,
   type MarkerSummary,
@@ -31,7 +30,12 @@ import {
   retainTransitionSelection,
 } from "./selectionStore";
 import { isGapOn } from "../ripple/gap";
-import { LatestRequestCoordinator } from "./latestRequest";
+import { invokeRaw } from '../bridge/ipc';
+import type { ProjectPublication, ProjectVersion } from '../../shared/projectPublication';
+import {
+  ProjectPublicationClient, attachProjectPublication,
+  refreshActiveProjectPublication, settleActiveProjectPublication,
+} from './projectPublication';
 import { retainTrackViewState } from "./viewState";
 
 /// Frontend mirror of the main-process TS state actor's project, kept in sync
@@ -75,7 +79,7 @@ export interface ProjectStoreState {
   /// `media_id → ref_count` (`lib/mediaRefs.ts`) — the same index on the pool's
   /// other kind, indexed here for the same reasons.
   mediaRefCounts: ReadonlyMap<string, number>;
-  /// True after the initial `project_summary` fetch + subscription is
+  /// True after the initial `project_publication` fetch + subscription is
   /// wired. Distinguishes "no project loaded" (`summary === null`,
   /// `ready === true`) from "haven't fetched yet"
   /// (`summary === null`, `ready === false`).
@@ -200,100 +204,56 @@ export const useProjectStore = create<
   },
 }));
 
-let activeRefresh: ((traceId?: string, explicit?: boolean) => Promise<void>) | null = null;
+/** Deliberate re-read, including derived filesystem availability at the same version. */
+export const refreshProjectStore = refreshActiveProjectPublication;
 
-/** UI actions and backend events publish into the same renderer snapshot. */
-export async function refreshProjectStore(): Promise<void> {
-  await activeRefresh?.(undefined, true);
-}
+/** Legacy onMutated callbacks join publication; they do not fetch another snapshot. */
+export const settleProjectStore = settleActiveProjectPublication;
 
-/// Mount wiring: subscribe before the seed fetch. The caller owns teardown,
-/// which invalidates pending reads and detaches the event listener.
-/// A failed automatic fetch represents no open project; an explicit UI refresh
-/// reports its error and preserves the last good snapshot.
+/** One workspace owner. Version ordering, coalescing and command barriers live
+ * behind ProjectPublicationClient; UI consumers never sequence reads themselves. */
 export async function wireProjectStore(): Promise<UnlistenFn> {
-  // `project:changed` fires a re-fetch, and `project_summary` is an async IPC
-  // whose responses can resolve out of order. A newly issued request
-  // invalidates every earlier request immediately, including while the new
-  // response is pending. Otherwise the older snapshot can still publish in
-  // that gap and temporarily regress clip geometry or media export routing.
-  const requests = new LatestRequestCoordinator();
-  const performRefresh = async (traceId?: string, explicit = false) => {
-    const trace = traceId ? new EditTrace(traceId, 'renderer.refresh') : undefined;
-    const endFetch = trace?.span('summary_ipc');
-    let applied = false;
-    await requests.run(
-      async () => {
-        try {
-          const summary = await (traceId ? projectSummary(traceId) : projectSummary());
-          endFetch?.();
-          return summary;
-        } catch (error) { endFetch?.(false); throw error; }
-      },
-      (summary) => {
-        if (trace) trace.measure('store_apply', () => useProjectStore.getState().apply(summary));
-        else useProjectStore.getState().apply(summary);
-        applied = true;
-        // Arm before yielding back to React's queued work: starting after the
-        // await below would miss render work performed in intervening microtasks.
-        if (trace) {
-          trace.fact('applied', true);
-          reportAfterFrameOpportunity(trace);
-        }
-      },
-      (error) => {
-        if (explicit) throw error;
-        // No project loaded — leave summary null but mark ready so
-        // consumers can distinguish from the pre-fetch state.
-        useProjectStore.getState().apply(null);
-      },
-    );
-    if (trace && !applied) {
-      trace.fact('applied', false);
-      trace.report(false); // superseded or failed; never claim it painted
-    }
+  let trace: EditTrace | undefined;
+  const discardTrace = () => {
+    if (trace) { trace.fact('applied', false); trace.report(false); trace = undefined; }
   };
-  // One read in flight, one newest pending signal. An explicit caller joins
-  // existing work; an event invalidates its result immediately, without
-  // starting another IPC until that read has settled.
-  let pending: { traceId: string | undefined; explicit: boolean } | null = null;
-  let draining: Promise<void> | null = null;
-  let disposed = false;
-  let explicitWaiter = false;
-  const refresh = (traceId?: string, explicit = false): Promise<void> => {
-    if (disposed) return Promise.resolve();
-    explicitWaiter ||= explicit;
-    if (explicit && draining) return draining;
-    requests.invalidate();
-    pending = { traceId, explicit };
-    if (!draining) {
-      draining = (async () => {
-        while (pending && !disposed) {
-          const next = pending;
-          pending = null;
-          await performRefresh(next.traceId, next.explicit || explicitWaiter);
-        }
-      })().finally(() => { draining = null; explicitWaiter = false; });
-    }
-    return draining;
-  };
-  // Subscribe BEFORE the seed fetch: a `project:changed` emitted between the
-  // seed resolving and the listener registering would otherwise be lost, and
-  // the store would sit on a stale snapshot until some unrelated later event.
-  // An event landing during the seed just runs a second refresh, which the
-  // coordinator already serializes newest-wins.
-  const unlisten = await listen<Record<string, unknown>>("project:changed", (event) => {
-    void refresh(editTraceId(event?.payload?.[EDIT_TRACE_ARG])).catch(() => {});
+  const client = new ProjectPublicationClient<ProjectSummary>({
+    read: async (traceId) => {
+      discardTrace();
+      trace = traceId ? new EditTrace(traceId, 'renderer.refresh') : undefined;
+      const end = trace?.span('summary_ipc');
+      try {
+        const publication = await invokeRaw<ProjectPublication<ProjectSummary>>('project_publication',
+          traceId ? { [EDIT_TRACE_ARG]: traceId } : undefined);
+        end?.();
+        return publication;
+      } catch (error) { end?.(false); discardTrace(); throw error; }
+    },
+    apply: (summary) => {
+      if (trace) {
+        trace.measure('store_apply', () => useProjectStore.getState().apply(summary));
+        trace.fact('applied', true);
+        reportAfterFrameOpportunity(trace);
+        trace = undefined;
+      } else useProjectStore.getState().apply(summary);
+    },
+    onError: (error) => {
+      discardTrace();
+      // A transport failure is not a closed project. Keep the last good view.
+      useProjectStore.setState({ ready: true });
+      console.error('[project publication]', error);
+    },
   });
-  activeRefresh = refresh;
-  await refresh();
-  return () => {
-    disposed = true;
-    pending = null;
-    if (activeRefresh === refresh) activeRefresh = null;
-    requests.invalidate();
-    unlisten();
-  };
+  const detach = attachProjectPublication(client);
+  // Subscribe before seeding; a receipt can also request the same version.
+  let unlisten: UnlistenFn;
+  try {
+    unlisten = await listen<{ publication: ProjectVersion; [EDIT_TRACE_ARG]?: unknown }>(
+      'project:changed', event => client.observe(event.payload.publication,
+        editTraceId(event.payload[EDIT_TRACE_ARG])));
+  } catch (error) { detach(); client.stop(); throw error; }
+  await client.settle().catch(() => {}); // onError retains/reports, later reads can recover
+  return () => { detach(); client.stop(); discardTrace(); unlisten(); };
 }
 
 // ===== Atomic selector helpers ============================================

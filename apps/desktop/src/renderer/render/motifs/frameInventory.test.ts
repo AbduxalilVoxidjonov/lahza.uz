@@ -11,7 +11,7 @@ it("restores only canonical committed frame files with one directory read", asyn
     { name: "6.wfrm", isFile: true, isDirectory: false, isSymlink: true },
   ]);
   vi.stubGlobal("window", { api: {
-    backend: { invoke: vi.fn(async () => "/workspace") },
+    backend: { invokePublished: vi.fn(async () => ({ value: "/workspace", publication: null })) },
     path: { join: async (parts: string[]) => parts.join("/") },
     fs: { readDir },
   } });

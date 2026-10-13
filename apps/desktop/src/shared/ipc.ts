@@ -421,7 +421,11 @@ export interface WeftcutApi {
   colorPick: import('./screenPick').ScreenPickApi
   /** The napi/Rust command dispatcher — one controlled channel for the whole
    *  Rust command catalog. */
-  backend: { invoke(channel: string, args?: unknown): Promise<unknown> }
+  backend: {
+    invoke(channel: string, args?: unknown): Promise<unknown>
+    /** Existing result plus a renderer publication barrier; never a save receipt. */
+    invokePublished(channel: string, args?: unknown): Promise<import('./projectPublication').PublishedResult<unknown>>
+  }
   fs: {
     writeFile(path: string, data: Uint8Array, append?: boolean): Promise<void>
     writeTextFile(path: string, data: string): Promise<void>

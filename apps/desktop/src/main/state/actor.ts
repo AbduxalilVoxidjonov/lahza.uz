@@ -62,7 +62,7 @@ setAutoFreeze(true) // snapshots are frozen — accidental mutation throws.
 
 export type Clock = () => string
 export type DiffHint = { kind: 'Coarse' } | { kind: 'Layer'; id: Uuid } | { kind: 'Composition' }
-export interface ChangeEvent { op_id: Uuid; history_op_id?: Uuid; actor: Actor; timestamp: string; summary: string; affected: EntityRef[]; new_snapshot: Project; diff_hint: DiffHint }
+export interface ChangeEvent { op_id: Uuid; history_op_id?: Uuid; actor: Actor; timestamp: string; summary: string; affected: EntityRef[]; new_snapshot: Project; diff_hint: DiffHint; replaced?: true }
 
 /** `update_layer`'s one rule for the times an agent sends, wet or rehearsed:
  *  landed on the layer's own grid rather than refused as off-grid (the answer's
@@ -374,9 +374,9 @@ export function createActor(opts: ActorOptions): ActorHandle {
 
   /** Snapshot notification with its own event ID. Restore additionally carries
    *  the recorded history ID; undo/redo and preference changes have none. */
-  function broadcastUnrecorded(summary: string, snapshot: Project, diff: DiffHint = { kind: 'Coarse' }, historyOpId?: Uuid): void {
+  function broadcastUnrecorded(summary: string, snapshot: Project, diff: DiffHint = { kind: 'Coarse' }, historyOpId?: Uuid, replaced?: true): void {
     const opId = idGen() // the unrecorded broadcast's own deterministic id
-    emit({ op_id: opId, ...(historyOpId ? { history_op_id: historyOpId } : {}), actor: who(), timestamp: clock(), summary, affected: [], new_snapshot: snapshot, diff_hint: diff })
+    emit({ op_id: opId, ...(historyOpId ? { history_op_id: historyOpId } : {}), ...(replaced ? { replaced } : {}), actor: who(), timestamp: clock(), summary, affected: [], new_snapshot: snapshot, diff_hint: diff })
   }
 
   // ── affected-ref helpers. Every recorded commit names the entities it touched,
@@ -865,7 +865,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
     opts.assertWritable?.()
     runValidate(next)                              // throws CommandFailure(ValidationFailed); no id spent
     history.reset(next, actor, idGen(), clock())   // +1 id (the 'Initial' op_id)
-    broadcastUnrecorded('Replaced project state', current())  // +1 id (the event op_id)
+    broadcastUnrecorded('Replaced project state', current(), { kind: 'Coarse' }, undefined, true)  // +1 id (the event op_id)
   }
 
   function dryRun(ops: DryRunOp[]): Array<{ ok: true; value: DryRunOutput } | { ok: false; error: CommandError }> {

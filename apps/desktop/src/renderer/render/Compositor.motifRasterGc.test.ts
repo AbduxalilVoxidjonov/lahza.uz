@@ -62,7 +62,7 @@ describe('Compositor delegates durable Motif preparation to main', () => {
   let compositor: Compositor;
   let projectId: string | null;
   let snapshot: MotifBakeSnapshot;
-  let invoke: ReturnType<typeof vi.fn>;
+  let invoke: ReturnType<typeof vi.fn<(command: string, args?: any) => Promise<any>>>;
   let on: ReturnType<typeof vi.fn>;
   let off: ReturnType<typeof vi.fn>;
   let fsRead: ReturnType<typeof vi.fn>;
@@ -90,7 +90,9 @@ describe('Compositor delegates durable Motif preparation to main', () => {
       throw new Error(`Unexpected renderer command: ${command}`);
     });
     vi.stubGlobal('document', {});
-    vi.stubGlobal('window', { api: { on, backend: { invoke }, fs: { readDir: fsRead, remove: fsRemove } } });
+    vi.stubGlobal('window', { api: { on, backend: { invoke,
+      invokePublished: async (command: string, args?: Record<string, unknown>) => ({ value: await invoke(command, args), publication: null }),
+    }, fs: { readDir: fsRead, remove: fsRemove } } });
     useAppSettingsStore.setState(s => ({ settings: { ...s.settings, prebake_motifs: true } }));
     compositor = create();
   });
@@ -130,8 +132,10 @@ describe('Compositor delegates durable Motif preparation to main', () => {
   it('does not submit another plan for an unchanged project snapshot', async () => {
     compositor.setProject(summaryWith({ seconds: 5 }));
     await vi.waitFor(() => expect(plans()).toHaveLength(1));
+    const calls = invoke.mock.calls.length;
     compositor.setProject(summaryWith({ seconds: 5 }));
-    await vi.waitFor(() => expect(invoke).toHaveBeenCalledWith('motif_bake_snapshot', undefined));
+    await Promise.resolve(); await Promise.resolve();
+    expect(invoke).toHaveBeenCalledTimes(calls);
     expect(plans()).toHaveLength(1);
   });
 

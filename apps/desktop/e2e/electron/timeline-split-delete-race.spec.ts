@@ -62,16 +62,25 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
     const original = videoLayers(await readSummary(page))[0]!
     const originalDurationUs = original.t_end_us - original.t_start_us
 
-    // Capture two pre-split snapshots (App summary + project-store mirror) and
-    // hold their delivery. A label commit stands in for any prior project
-    // change whose refresh overlaps the user's following split/delete.
+    // Split through the real UI before holding a read. The publication module
+    // deliberately allows only one in-flight read, so a held old read delays
+    // the following view barrier rather than starting parallel reads.
+    await page.keyboard.press('c')
+    await expect(page.locator('.timeline-root-blade')).toHaveCount(1)
+    await blocks.first().click({ position: { x: originalBox!.width / 2, y: originalBox!.height / 2 } })
+    await expect(blocks).toHaveCount(2)
+    await page.keyboard.press('v')
+    await expect(page.locator('.timeline-root-blade')).toHaveCount(0)
+
+    // Capture one pre-delete publication. A label commit stands in for any
+    // previous edit whose read overlaps deleting the newly split right clip.
     await page.evaluate(() => {
       let release!: () => void
       const released = new Promise<void>((resolve) => {
         release = resolve
       })
       const gate = {
-        remaining: 2,
+        remaining: 1,
         captured: 0,
         delivered: 0,
         release,
@@ -86,7 +95,7 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
           args?: Record<string, unknown>,
         ) => Promise<unknown>,
       ) => {
-        if (cmd !== 'project_summary' || gate.remaining === 0) {
+        if (cmd !== 'project_publication' || gate.remaining === 0) {
           return next(cmd, args)
         }
         gate.remaining -= 1
@@ -102,23 +111,8 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
       patch: { label: 'summary-race-probe' },
     })
     await page.waitForFunction(
-      () => (globalThis as any).__weftcutSummaryRaceGate?.captured === 2,
+      () => (globalThis as any).__weftcutSummaryRaceGate?.captured === 1,
     )
-
-    // `C` ARMS the Blade and `V` re-arms Selection; both are idempotent (one key
-    // per tool, `toolStore.ts`). `C` twice does NOT disarm — pressing it again
-    // just keeps the Blade, and the next click would split instead of selecting.
-    await page.keyboard.press('c')
-    await expect(page.locator('.timeline-root-blade')).toHaveCount(1)
-    await blocks.first().click({
-      position: {
-        x: originalBox!.width / 2,
-        y: originalBox!.height / 2,
-      },
-    })
-    await expect(blocks).toHaveCount(2)
-    await page.keyboard.press('v')
-    await expect(page.locator('.timeline-root-blade')).toHaveCount(0)
 
     const rightIndex = await blocks.evaluateAll((nodes) => {
       const boxes = nodes.map((node, index) => ({
@@ -134,6 +128,10 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
     await expect
       .poll(async () => videoLayers(await readSummary(page)).length)
       .toBe(1)
+    // The old publication is now stale relative to the delete event. Releasing
+    // it lets the bounded reader discard it and fetch the newest revision.
+    await page.evaluate(() => { (globalThis as any).__weftcutSummaryRaceGate.release() })
+    await page.waitForFunction(() => (globalThis as any).__weftcutSummaryRaceGate?.delivered === 1)
     await expect(blocks).toHaveCount(1)
     const cutLayer = videoLayers(await readSummary(page))[0]!
     expect(cutLayer.id).toBe(imported.layerId)
@@ -148,13 +146,6 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
       })
       .toBeLessThan(0.65)
 
-    // Now let the older pre-split summaries arrive. They must be ignored.
-    await page.evaluate(() => {
-      ;(globalThis as any).__weftcutSummaryRaceGate.release()
-    })
-    await page.waitForFunction(
-      () => (globalThis as any).__weftcutSummaryRaceGate?.delivered === 2,
-    )
     await page.evaluate(
       () =>
         new Promise<void>((resolve) =>

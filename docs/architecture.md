@@ -153,18 +153,20 @@ PixiJS migration; ffmpeg's remaining jobs are encode and mux, never pixels.
 4. Subscribers react:
    - **UI event bridge** emits `project:changed` (the TS host sends it from
      the main process to the renderer as `evt:project:changed`) so React
-     uses one project-store `projectSummary()` fetch/publisher shared by App,
-     panels and preview; explicit UI refreshes use the same ordering guard.
+     uses one versioned `project_publication` owner shared by App, panels and
+     preview. Events and command receipts name the same session/revision;
+     one read is active and only the newest requested version is retained.
      Unchanged snapshot branches and lookup indices retain their references
      across IPC, so unrelated edits do not wake their subscribers. The
      `<PreviewSurface>` compositor
      receives the updated project and updates its sprite tree in
-     place (no recompile). The re-fetch is **ordering-guarded**:
-     `project_summary` responses can resolve out of order over async IPC,
-     so a response older than the newest already requested is dropped —
-     last-write-wins by dispatch order, preventing a slow stale summary
-     from clobbering fresher state (e.g. resetting a just-decided export
-     route).
+     place (no recompile). Stale replies cannot overwrite a newer view.
+     Renderer command promises return after their receipt is applied;
+     post-mutation callbacks join that work without fetching again. Failed
+     reads preserve the last good view; only a closed publication clears it.
+     Deliberate refresh can recheck filesystem availability at the same actor
+     version. This guarantees store visibility, not paint or disk persistence
+     (see [ADR 0114](adr/0114-project-view-publication.md)).
    - **Autosave subscriber** debounces 500 ms, writes
      `<workspace>/project.json`. Every 50 flushed autosaves or 5 min,
      copies the current project file to `Backups/<ISO>.json`.

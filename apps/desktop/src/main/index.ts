@@ -1385,7 +1385,7 @@ app.whenReady().then(async () => {
     },
   })
   await motifCovers.prune([...motifBuiltins.map(m => m.id), ...motifStore.publishedIds(), ...motifStore.listDraftIds()])
-  ipcMain.handle('backend:invoke', async (_e, { channel, args }) => {
+  const invokeBackend = async (_e: Electron.IpcMainInvokeEvent, { channel, args }: { channel: string; args?: any }): Promise<unknown> => {
     if (channel.startsWith('export_job_')) {
       if (_e.sender !== mainWindow?.webContents) throw new Error('Export jobs require the editor window');
       const a = args ?? {};
@@ -1836,7 +1836,10 @@ app.whenReady().then(async () => {
     }
     const json = await backend!.invoke(channel, JSON.stringify(args ?? {}))
     return JSON.parse(json)
-  })
+  }
+  ipcMain.handle('backend:invoke', invokeBackend)
+  ipcMain.handle('backend:invokePublished', (event, request) =>
+    tsHost!.published(() => invokeBackend(event, request)))
 
   // Native GPU-decode preview (Windows). Session lifecycle + the persistent
   // shared-texture handoff live in ./previewGpu; the per-frame

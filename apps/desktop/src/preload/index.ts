@@ -87,6 +87,9 @@ const api: WeftcutApi = {
     invoke(channel: string, args?: unknown): Promise<unknown> {
       return ipcRenderer.invoke('backend:invoke', { channel, args })
     },
+    invokePublished(channel: string, args?: unknown) {
+      return ipcRenderer.invoke('backend:invokePublished', { channel, args })
+    },
   },
 
   fs: {

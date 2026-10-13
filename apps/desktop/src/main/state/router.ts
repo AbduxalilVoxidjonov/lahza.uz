@@ -160,7 +160,7 @@ export function routeChannel(channel: string): Route {
   if (AUDIO_FX_CHANNELS.has(channel)) return { kind: 'audioFx' }
   if (MOTIF_CHANNELS.has(channel)) return { kind: 'motif', tool: channel }
   switch (channel) {
-    case 'project_summary': return { kind: 'summary' }
+    case 'project_summary': case 'project_publication': return { kind: 'summary' }
     // A READ, not a command: it must never enter the undo stack or dirty the
     // project. Its own kind rather than a fold into `summary` because the panel
     // pulls the full stack on its own cadence, while the summary refetch runs on

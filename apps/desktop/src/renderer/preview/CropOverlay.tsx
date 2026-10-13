@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { canonicalCrop, dragCrop, FULL_CROP, type CropHandle, type CropRect } from '../../shared/crop';
-import { updateLayerParams, projectSummary, type CompositionSummary, type LayerSummary } from '../ipc';
+import { updateLayerParams, type CompositionSummary, type LayerSummary } from '../ipc';
 import { logMutationFailure } from '../errors/tryMutate';
 import { endCrop, useCropEditingStore } from '../state/cropEditingStore';
 import { usePrimaryLayerId } from '../state/selectionStore';
-import { useProjectStore, useOpenComposition } from '../state/projectStore';
+import { useOpenComposition } from '../state/projectStore';
 import { usePreviewRenderTargetId } from '../state/compositionAnchorStore';
 import { useFocusedPlayheadReader } from '../state/playheadProjection';
 import { useActiveTool } from '../state/toolStore';
@@ -123,7 +123,9 @@ function CropOverlay({ layer, composition }: { layer: LayerSummary; composition:
     svg.current?.releasePointerCapture(e.pointerId);
     if (draft === undefined || JSON.stringify(canonicalCrop(draft)) === JSON.stringify(canonicalCrop(d.rect))) { cancel(); return; }
     busy.current = true;
-    try { await updateLayerParams(layer.id, { kind: 'VideoClip', crop: canonicalCrop(draft) }); useProjectStore.getState().apply(await projectSummary()); }
+    // The command resolves after its publication reaches the project store;
+    // retain the preview draft until then, without a second snapshot publisher.
+    try { await updateLayerParams(layer.id, { kind: 'VideoClip', crop: canonicalCrop(draft) }); }
     catch (err) { logMutationFailure(err, 'Crop'); }
     finally { busy.current = false; if (mounted.current) cancel(); }
   };

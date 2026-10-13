@@ -9,7 +9,7 @@ import {
   currentSelection,
   primaryLayerIdOf,
 } from "../state/selectionStore";
-import { afterNextProjectSummary, revealAffected } from "./historyLinkage";
+import { revealAffected } from "./historyLinkage";
 import { summaryFixture } from "../testing/summaryFixture";
 
 /// Two tracks, two layers. Only the fields the linkage touches need to be
@@ -137,57 +137,5 @@ describe("revealAffected", () => {
     expect(revealAffected([{ kind: "Track", id: "ghost" }])).toBe(false);
     expect(reveal).not.toHaveBeenCalled();
     un();
-  });
-});
-
-describe("afterNextProjectSummary", () => {
-  it("resolves on the next projectStore publication, not the current one", async () => {
-    const pending = afterNextProjectSummary();
-    let settled = false;
-    void pending.settled.then(() => {
-      settled = true;
-    });
-    await Promise.resolve();
-    expect(settled).toBe(false);
-
-    useProjectStore.getState().apply(fixtureSummary(["l1", "l2", "l3"]));
-    await pending.settled;
-    expect(settled).toBe(true);
-  });
-
-  it("stays pending across an unrelated store read", async () => {
-    const pending = afterNextProjectSummary();
-    let settled = false;
-    void pending.settled.then(() => {
-      settled = true;
-    });
-    useProjectStore.getState().layerById.get("l1");
-    await Promise.resolve();
-    expect(settled).toBe(false);
-    pending.cancel();
-    await pending.settled;
-  });
-
-  it("cancel() resolves and unsubscribes", async () => {
-    const pending = afterNextProjectSummary();
-    pending.cancel();
-    await pending.settled;
-    // A later publication must not throw into a torn-down subscription.
-    useProjectStore.getState().apply(fixtureSummary());
-  });
-
-  it("resolves on the timeout backstop when no broadcast ever lands", async () => {
-    vi.useFakeTimers();
-    try {
-      const pending = afterNextProjectSummary(50);
-      let settled = false;
-      void pending.settled.then(() => {
-        settled = true;
-      });
-      await vi.advanceTimersByTimeAsync(60);
-      expect(settled).toBe(true);
-    } finally {
-      vi.useRealTimers();
-    }
   });
 });

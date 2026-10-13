@@ -15,6 +15,7 @@ import { AgentActivityService } from '../agent/activity'
 import { mcpActor } from './mcp-actor'
 import { AGENT_VIEW_EVENT } from '../../shared/agent-activity'
 import { PROJECT_OPENED_EVENT, type ProjectOpenedPayload } from '../../shared/project-events'
+import type { ProjectVersion, ProjectPublication, PublishedResult } from '../../shared/projectPublication'
 import { runHybrid, type ComputeNapi, type HybridDeps } from './hybrids'
 import { recoverInterruptedImports } from './importRecovery'
 import { MotifCatalog, type Manifest } from '../../shared/motifs/catalog'
@@ -152,6 +153,10 @@ export interface TsActorHost {
     create: (args: { parentFolder: string; name: string; width: number; height: number; fpsNum: number; fpsDen: number }) => Promise<ProjectOpened>
   }
   handleInvoke: (channel: string, args: Record<string, unknown>) => Promise<unknown>
+  /** Full published view; reads during replacement retain the last settled view. */
+  publication: () => ProjectPublication<ReturnType<typeof buildProjectSummary>>
+  /** Preserve the raw operation result and add a renderer-only view barrier. */
+  published: <T>(run: () => Promise<T>) => Promise<PublishedResult<T>>
   /** Host-level MCP call: delegates to actor.mcpCall, then emits the appropriate
    *  LogBus pin-row for restore_checkpoint / create_checkpoint / begin_agent_session on success.
    *  The emit is best-effort (try/catch) and never blocks or fails the call.
@@ -219,7 +224,14 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     // relink/checkpoint pin-rows.
     emitLog: (entry) => { try { deps.emitLog?.(entry) } catch (err) { console.warn('[ts-actor-host] emitLog failed (actor)', err) } },
   })
-  let unsub: (() => void) | null = null
+  let emitting = false
+  let publicationVersion: ProjectVersion = { session: 0, revision: 0 }
+  let publishedProject: ReturnType<ActorHandle['snapshot']> | null = null
+  let publishedHistory = actor.historyStatus()
+  let publishedDir: string | null = null
+  let replacing = false
+  let replacementOccurred = false
+  let deferredChange: { event: ChangeEvent; traceId?: string } | null = null
   const agent = new AgentActivityService(actor, deps.send)
 
   const autosave: AutosaveController = createAutosave({
@@ -325,7 +337,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
 
   // Serialize all cache-root/session changes, including Save As and Close.
   let persistenceTail: Promise<unknown> = Promise.resolve()
-  const replaceWorkspace = <T>(replace: () => Promise<T>): Promise<T> => {
+  const replaceWorkspace = <T>(replace: () => Promise<T>, closing = false): Promise<T> => {
     deps.exportJobs?.assertWritable()
     // Invalidate immediately, before a flush or another lifecycle call yields.
     importGeneration++
@@ -334,6 +346,10 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     const next = persistenceTail.then(async () => {
       importGeneration++
       deps.onWorkspaceChanging?.()
+      replacing = true
+      replacementOccurred = false
+      deferredChange = null
+      let succeeded = false
       try {
         try { await autosave.forceFlush() }
         catch (error) {
@@ -345,9 +361,28 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
           if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'ENOENT'
             || dir === null || deps.fs.exists(dir)) throw error
         }
-        return await replace()
+        const value = await replace()
+        succeeded = true
+        return value
       }
-      catch (error) { if (opened !== null) deps.onWorkspaceOpened?.(); throw error }
+      catch (error) {
+        // A recent-list or other post-swap failure cannot roll back the actor.
+        // Publish that actual replacement; failures before the swap retain the
+        // old settled project, including a Close whose flush failed.
+        const dir = replacementOccurred ? deps.workspaceDir() : publishedDir
+        opened = dir === null ? null : { dir }
+        if (opened !== null) deps.onWorkspaceOpened?.()
+        throw error
+      }
+      finally {
+        replacing = false
+        const pending = deferredChange as { event: ChangeEvent; traceId?: string } | null
+        if (replacementOccurred || pending || (succeeded && (!closing || publishedProject !== null))) {
+          publishChange(pending?.event, pending?.traceId,
+            replacementOccurred || (succeeded && (!closing || publishedProject !== null)), true)
+        }
+        deferredChange = null
+      }
     })
     const settled = next.finally(() => {
       workspaceTransitions--
@@ -368,7 +403,18 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   }
   const persistence: PersistenceHandlers = {
     open: (dir) => replaceWorkspace(async () => { await openProject(orchestratorDeps, dir); opens(dir) }),
-    saveAs: (dir) => replaceWorkspace(async () => { await saveProjectAs(orchestratorDeps, dir); opens(dir) }),
+    saveAs: (dir) => replaceWorkspace(async () => {
+      try { await saveProjectAs(orchestratorDeps, dir) }
+      finally {
+        // Save As changes the workspace without replacing actor state. A
+        // failure in recent-list bookkeeping after commitWorkspace still leaves
+        // a real new session, just like a post-swap failure in Open.
+        if (deps.workspaceDir() === dir && publishedDir !== dir) {
+          replacementOccurred = true
+        }
+      }
+      opens(dir)
+    }),
     newWorkspace: (a) => replaceWorkspace(async () => { const dir = await newWorkspace(orchestratorDeps, a); opens(dir); return dir }),
     save: () => autosave.forceFlush(),
     // The record clears BEFORE the flush: the flush is async, and a write the
@@ -380,7 +426,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     close: async () => {
       deps.exportJobs?.assertWritable()
       opened = null
-      await replaceWorkspace(async () => { opened = null; await deps.napi.endWorkspace?.() })
+      await replaceWorkspace(async () => { opened = null; await deps.napi.endWorkspace?.() }, true)
     },
   }
 
@@ -432,11 +478,49 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     return runMotifTool(name, args, motifToolDeps)
   }
 
+  function publishChange(e?: ChangeEvent, traceId?: string, newSession = false, settledWorkspace = false): void {
+    publicationVersion = {
+      session: publicationVersion.session + (newSession ? 1 : 0),
+      revision: publicationVersion.revision + 1,
+    }
+    // `opened` doubles as an immediate write gate on Close. Only a settled
+    // lifecycle operation can turn that early gate closure into a null view.
+    if (settledWorkspace) publishedDir = opened?.dir ?? null
+    publishedProject = publishedDir === null ? null : actor.snapshot()
+    publishedHistory = actor.historyStatus()
+    if (emitting) {
+      try {
+        deps.send('project:changed', {
+          ...(e ? mapChangeEvent(e) : {}), publication: { ...publicationVersion },
+          ...(traceId ? { [EDIT_TRACE_ARG]: traceId } : {}),
+        })
+      } catch (error) { console.warn('[ts-actor-host] project publication notification failed', error) }
+    }
+  }
+
   function emitChange(e: ChangeEvent): void {
-    const payload = mapChangeEvent(e)
     const traceId = currentEditTrace()?.id
-    deps.send('project:changed', traceId ? { ...payload, [EDIT_TRACE_ARG]: traceId } : payload)
-    deps.mcpNotify(payload)
+    if (replacing) {
+      replacementOccurred ||= e.replaced === true
+      deferredChange = { event: e, traceId }
+    } else publishChange(e, traceId, e.replaced === true)
+    // MCP retains its existing public notification schema.
+    if (emitting) deps.mcpNotify(mapChangeEvent(e))
+  }
+
+  function publication(): ProjectPublication<ReturnType<typeof buildProjectSummary>> {
+    return { version: { ...publicationVersion }, summary: publishedProject === null ? null
+      : buildProjectSummary(publishedProject, publishedHistory, deps.fileExists) }
+  }
+
+  async function published<T>(run: () => Promise<T>): Promise<PublishedResult<T>> {
+    const before = publicationVersion.revision
+    const value = await run()
+    // A native/async operation may finish while a workspace replacement has
+    // deferred its actor events. Its barrier must name the settled publication,
+    // never mistake those deferred changes for a no-op.
+    if (workspaceTransitions > 0) await persistenceTail
+    return { value, publication: before === publicationVersion.revision ? null : { ...publicationVersion } }
   }
 
   function reject(reason: string): never { throw new Error(reason) }
@@ -517,6 +601,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
   }
 
   async function handleInvoke(channel: string, args: Record<string, unknown>): Promise<unknown> {
+    if (channel === 'project_publication') return runEditTrace(editTraceId(args[EDIT_TRACE_ARG]), 'main.summary', publication)
     if (channel === 'agent_activity_snapshot') return agent.snapshot()
     if (channel === 'agent_session_get') return agent.snapshot().session
     if (channel === 'agent_unlock_history') { agent.unlock(); return null }
@@ -677,6 +762,9 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     }
   }
 
+  // Observation belongs to the host lifetime, not to renderer connectivity.
+  // Stopping outbound notifications must not reset or lose the version clock.
+  actor.subscribe(emitChange)
   return {
     actor,
     agent,
@@ -702,13 +790,15 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
       default_parent_folder: deps.recents?.lastNewProjectParent() ?? null,
     }),
     handleInvoke,
+    publication,
+    published,
     mcpCall,
     hybridDeps,
     motifTool: runMotif,
     refreshMotifCatalog,
     start() {
       agent.start()
-      if (!unsub) unsub = actor.subscribe(emitChange)
+      emitting = true
       autosave.start()
       refreshMotifCatalog()
     },
@@ -716,7 +806,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
       importGeneration++
       agent.stop()
       autosave.stop()
-      if (unsub) { unsub(); unsub = null }
+      emitting = false
     },
   }
 }

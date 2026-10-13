@@ -51,9 +51,9 @@ export function CheckpointSection({
     // CONTENT is never what decides. Tested identically in `disabled` below.
     if (lockReason !== null) return; // belt-and-suspenders; the backend also rejects
     setBusyId(id);
-    // No explicit refresh: restore RECORDS an entry, so it broadcasts
-    // `project:changed` and the store refetches itself. Create and delete are
-    // the ones that don't (see below).
+    // The command awaits project publication; history independently follows its
+    // project:changed event. Create and delete still need the history-only
+    // refresh below because they do not change project content.
     await tryMutate(
       () => projectRestoreCheckpoint(id),
       "project_restore_checkpoint",

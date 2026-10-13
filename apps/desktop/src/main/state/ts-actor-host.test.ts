@@ -15,6 +15,7 @@ import { EDITING_WORKSPACE_ID, activeWorkspaceProfile, type WorkspaceDocument } 
 import { root } from './__tests__/fixtures/project'
 import { DEFAULT_CAPTION_FONT_FAMILY } from '../../shared/fonts'
 import { EDIT_TRACE_ARG, EDIT_TRACE_PREFIX } from '../../shared/editTrace'
+import { applyDerivativesEvent } from './jobs-writeback'
 
 describe('mapChangeEvent', () => {
   it('maps a User ChangeEvent to the project:changed payload shape, refs included', () => {
@@ -84,6 +85,151 @@ describe('createTsActorHost — persistence-route integration', () => {
 
     return { deps, vfs, napiCalls, sent }
   }
+
+  const publicationProject = { parentFolder: '/projects', name: 'Publication', width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 }
+
+  it('publishes versioned full views and receipts without changing raw results or MCP payloads', async () => {
+    const { deps, sent } = makeInMemoryDeps()
+    const mcpNotify = vi.fn()
+    const host = createTsActorHost({ ...deps, mcpNotify })
+    host.start()
+    try {
+      expect(host.publication()).toEqual({ version: { session: 0, revision: 0 }, summary: null })
+      const opened = await host.published(() => host.handleInvoke('project_new_workspace', publicationProject))
+      expect(opened.value).toBe('/projects/Publication')
+      expect(opened.publication).toEqual({ session: 1, revision: 1 })
+      const added = await host.published(() => host.handleInvoke('add_marker', { tUs: 1_000_000 }))
+      expect(typeof added.value).toBe('string')
+      expect(added.publication).toEqual({ session: 1, revision: 2 })
+      const view = host.publication()
+      expect(view.version).toEqual(added.publication)
+      expect(view.summary?.compositions[view.summary.root_id].markers[0].id).toBe(added.value)
+      expect(sent.filter(row => row.event === 'project:changed').at(-1)?.payload).toMatchObject({ publication: added.publication })
+      expect(mcpNotify.mock.calls.at(-1)?.[0]).not.toHaveProperty('publication')
+      expect(await host.handleInvoke('project_publication', {})).toEqual(view)
+      expect(await host.handleInvoke('project_summary', {})).toEqual(view.summary)
+      expect(await host.published(() => host.handleInvoke('project_summary', {}))).toEqual({ value: view.summary, publication: null })
+      expect((await host.published(() => host.handleInvoke('update_marker', { markerId: added.value, patch: { label: '' } }))).publication).toBeNull()
+      const raw = await host.handleInvoke('add_marker', { tUs: 2_000_000 })
+      expect(typeof raw).toBe('string')
+      const before = host.publication().version
+      await expect(host.published(() => host.handleInvoke('update_marker', { id: 'missing', patch: {} }))).rejects.toThrow()
+      expect(host.publication().version).toEqual(before)
+    } finally { host.stop() }
+  })
+
+  it('advances revision for undo, unrecorded preferences and MCP writes, independent of history cursor', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    await host.handleInvoke('project_new_workspace', publicationProject)
+    await host.handleInvoke('add_marker', { tUs: 1_000_000 })
+    const before = host.publication().version
+    expect(host.actor.dispatch('undo', {}).ok).toBe(true)
+    expect(host.publication().version).toEqual({ ...before, revision: before.revision + 1 })
+    expect(host.actor.dispatch('update_project_settings', { patch: { prefer_proxies: true } }).ok).toBe(true)
+    expect(host.publication().version.revision).toBe(before.revision + 2)
+    const priorMcp = host.publication().version
+    expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+    expect(host.publication().version).toEqual({ ...priorMcp, revision: priorMcp.revision + 1 })
+    // A direct whole-state swap also creates a fresh session, even with the
+    // same persisted project UUID (reopen is not ordinary undo).
+    host.actor.replaceState(host.actor.snapshot())
+    expect(host.publication().version.session).toBe(priorMcp.session + 1)
+    host.stop()
+  })
+
+  it('retains the last settled publication during replacement, then publishes once after opened is updated', async () => {
+    const { deps, sent } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      const old = host.publication()
+      let release!: () => void
+      const push = deps.napi.pushRecent
+      deps.napi.pushRecent = vi.fn(async (...args: Parameters<typeof push>) => {
+        push(...args)
+        await new Promise<void>(resolve => { release = resolve })
+      })
+      const count = sent.filter(row => row.event === 'project:changed').length
+      const opening = host.published(() => host.handleInvoke('project_new_workspace', { ...publicationProject, name: 'Next' }))
+      await vi.waitFor(() => expect(release).toBeTypeOf('function'))
+      expect(host.actor.snapshot().metadata.name).toBe('Next')
+      expect(host.publication()).toEqual(old)
+      expect(sent.filter(row => row.event === 'project:changed')).toHaveLength(count)
+      release()
+      const receipt = await opening
+      expect(host.publication().summary?.name).toBe('Next')
+      expect(host.publication().version).toEqual(receipt.publication)
+      expect(receipt.publication?.session).toBe(old.version.session + 1)
+      expect(sent.filter(row => row.event === 'project:changed')).toHaveLength(count + 1)
+    } finally { host.stop() }
+  })
+
+  it('rotates sessions for same-project reopen, Save As and Close, and publishes null only on Close', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    const dir = await host.handleInvoke('project_new_workspace', publicationProject)
+    const id = host.publication().summary!.project_id
+    await host.handleInvoke('project_open', { path: dir })
+    expect(host.publication().version.session).toBe(2)
+    expect(host.publication().summary!.project_id).toBe(id)
+    await host.handleInvoke('project_save_as', { path: '/projects/Copy' })
+    expect(host.publication().version.session).toBe(3)
+    const closed = await host.published(() => host.handleInvoke('project_close', {}))
+    expect(closed.publication?.session).toBe(4)
+    expect(host.publication()).toEqual({ version: closed.publication, summary: null })
+    host.stop()
+  })
+
+  it('does not invent a session on failed replacement or flush, but reports an actual swap despite later failure', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    await host.handleInvoke('project_new_workspace', publicationProject)
+    const old = host.publication()
+    await expect(host.handleInvoke('project_open', { path: '/missing' })).rejects.toThrow()
+    expect(host.publication()).toEqual(old)
+    const write = deps.fs.writeFile
+    deps.fs.writeFile = () => { throw new Error('disk full') }
+    await expect(host.handleInvoke('project_close', {})).rejects.toThrow('disk full')
+    expect(host.publication()).toEqual(old)
+    expect(host.openedProject()).toEqual({ dir: '/projects/Publication' })
+    deps.fs.writeFile = write
+    deps.napi.pushRecent = () => { throw new Error('recent list failed') }
+    await expect(host.handleInvoke('project_new_workspace', { ...publicationProject, name: 'Next' })).rejects.toThrow('recent list failed')
+    expect(host.publication().summary?.name).toBe('Next')
+    expect(host.publication().version.session).toBe(old.version.session + 1)
+    expect(host.openedProject()).toEqual({ dir: '/projects/Next' })
+    const nextSession = host.publication().version.session
+    await expect(host.handleInvoke('project_save_as', { path: '/projects/Copy' })).rejects.toThrow('recent list failed')
+    expect(host.publication().version.session).toBe(nextSession + 1)
+    expect(host.openedProject()).toEqual({ dir: '/projects/Copy' })
+    host.stop()
+  })
+
+  it('does not turn projection failures into a closed project or read the projection merely to create a receipt', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    await host.handleInvoke('project_new_workspace', publicationProject)
+    const mediaId = '00000000-0000-0000-0000-0000000000aa'
+    const base = host.actor.snapshot()
+    host.actor.replaceState({ ...base, media_pool: { [mediaId]: {
+      id: mediaId, label: null, path_abs: '/clip.mp4', path_rel: 'Media/clip.mp4',
+      kind: 'Video', metadata: { duration_us: 1_000_000 }, file_hash_blake3: 'x', file_size: 0, file_mtime: 0,
+      imported_at: '2026-01-01T00:00:00Z', decode_route: { route: 'bypass' },
+      conform_path: null, waveform_path: null, thumbnails_dir: null,
+    } } })
+    const beforeJob = host.publication().version
+    expect(applyDerivativesEvent(host.actor, { media_id: mediaId, patch: { conform_path: '/conform.wav' } }).ok).toBe(true)
+    expect(host.publication().version).toEqual({ ...beforeJob, revision: beforeJob.revision + 1 })
+    deps.fileExists = vi.fn(() => { throw new Error('projection failed') })
+    const result = await host.published(() => host.handleInvoke('add_marker', { tUs: 1_000_000 }))
+    expect(result.publication).not.toBeNull()
+    expect(deps.fileExists).not.toHaveBeenCalled()
+    await expect(host.handleInvoke('project_publication', {})).rejects.toThrow('projection failed')
+    expect(host.openedProject()).not.toBeNull()
+    host.stop()
+  })
 
   it('carries edit timing through real command stages and refresh without persisting it', async () => {
     const { deps, sent } = makeInMemoryDeps()

@@ -11,7 +11,7 @@ import {
 } from "../ipc";
 import { useHistoryStore, wireHistoryStore } from "../state/historyStore";
 import { CheckpointSection } from "./CheckpointSection";
-import { afterNextProjectSummary, revealAffected } from "./historyLinkage";
+import { revealAffected } from "./historyLinkage";
 import {
   buildHistoryItems,
   formatClock,
@@ -136,16 +136,10 @@ export function HistoryPanel() {
       // are none, and the jump still stands: linkage is a courtesy, not the act.
       const refs = ops[index - windowStart]?.affected ?? [];
       const generation = ++jumpGeneration.current;
-      // Armed BEFORE the jump: the refetch can land while `projectJumpTo` is
-      // still awaiting, and a subscription registered afterwards would wait
-      // for an event that has already gone by. See historyLinkage.ts.
-      const pending = afterNextProjectSummary();
+      // The command's publication barrier makes restored entities resolvable
+      // before linkage. A no-op needs no new snapshot and no timer backstop.
       const ok = await tryMutate(() => projectJumpTo(index), "project_jump_to");
-      if (!ok) {
-        pending.cancel();
-        return;
-      }
-      await pending.settled;
+      if (!ok) return;
       if (jumpGeneration.current !== generation) return;
       revealAffected(refs);
     },

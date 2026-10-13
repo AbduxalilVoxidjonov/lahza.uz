@@ -521,12 +521,28 @@ describe("HistoryPanel lock", () => {
 // ── Click → jump → linkage ──────────────────────────────────────────────────
 
 describe("HistoryPanel jump + linkage", () => {
-  it("resolves the linkage only AFTER the post-jump refetch lands", async () => {
+  it('reveals an unchanged current history entry without waiting for another snapshot identity', async () => {
+    const reveal = vi.fn();
+    const unregister = registerRevealTrack(reveal);
+    useProjectStore.getState().apply(summaryWith(['l1']));
+    const before = useProjectStore.getState().summary;
+    try {
+      await mountPanel(stackView([entry(USER, 'history.layer.add', { affected: [{ kind: 'Layer', id: 'l1' }] })]));
+      fireEvent.click(rowAt(0));
+      await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+      expect(useProjectStore.getState().summary).toBe(before);
+      expect(reveal).toHaveBeenCalledExactlyOnceWith('t9', 'l1');
+    } finally { unregister(); }
+  });
+
+  it("resolves linkage only after the command publishes its restored entities", async () => {
     const reveal = vi.fn();
     const unregister = registerRevealTrack(reveal);
     // The stale index does not hold `l9` yet — resolving now would select
     // nothing at all.
     useProjectStore.getState().apply(summaryWith(["l1"]));
+    let published!: () => void;
+    mocks.projectJumpTo.mockImplementationOnce(() => new Promise<void>(resolve => { published = resolve; }));
 
     await mountPanel(
       stackView([
@@ -543,14 +559,15 @@ describe("HistoryPanel jump + linkage", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
-    // The cursor moved; the linkage is parked waiting for the refetch.
+    // Main may have moved its cursor; the command still awaits publication.
     expect(mocks.projectJumpTo).toHaveBeenCalledWith(1);
     expect(reveal).not.toHaveBeenCalled();
     expect(primaryLayerIdOf(currentSelection())).toBeNull();
 
-    // `project:changed` → `projectSummary()` lands; NOW `l9` is resolvable.
+    // The publication arrives, then the command's barrier resolves.
     await act(async () => {
       useProjectStore.getState().apply(summaryWith(["l1", "l9"]));
+      published();
       await Promise.resolve();
       await Promise.resolve();
     });

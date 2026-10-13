@@ -138,7 +138,7 @@ import {
   currentOpenComposition,
   rootCompositionOf,
   useProjectSummary,
-  refreshProjectStore,
+  settleProjectStore,
 } from "./state/projectStore";
 import { useFocusedCompositionId } from "./state/compositionAnchorStore";
 import {
@@ -445,8 +445,11 @@ export function App({ onCloseProject }: AppProps) {
     }
   }, [logReady, systemNotices]);
 
-  const refresh = useCallback(async () => {
-    try { await refreshProjectStore(); }
+  // Legacy panel callbacks may still ask to observe their completed mutation.
+  // Commands already await publication; settling is idempotent and never forces
+  // another snapshot read after every successful edit.
+  const settle = useCallback(async () => {
+    try { await settleProjectStore(); }
     catch (error) { setError(t("errors.refresh_failed", { detail: String(error) })); }
   }, [t]);
 
@@ -469,7 +472,7 @@ export function App({ onCloseProject }: AppProps) {
       setError(null);
       try {
         await action();
-        await refresh();
+        await settle();
       } catch (e) {
         const msg = String(e);
         setError(msg);
@@ -486,13 +489,13 @@ export function App({ onCloseProject }: AppProps) {
         setBusy(false);
       }
     },
-    [busy, refresh],
+    [busy, settle],
   );
 
   // Import queue, per-media proxy/decodability readiness, and the pool-wide
   // optimization classification live in useImportReadiness; it takes `run`
   // (defined above) so its import callbacks route through the busy guard +
-  // refresh.
+  // publication wait.
   const {
     importsById,
     readinessById,
@@ -627,17 +630,17 @@ export function App({ onCloseProject }: AppProps) {
       try {
         await rippleDeleteGap({ trackId: gap.trackId, startUs: gap.s, endUs: gap.e });
         clearLayerSelection();
-        await refresh();
+        await settle();
       } catch (err) {
         logMutationFailure(err, "Close gap");
       }
     },
-    [refresh],
+    [settle],
   );
 
   const deleteSelected = useCallback(async () => {
     if (hasKeyframeSelection()) {
-      if (await deleteSelectedKeyframes()) await refresh();
+      if (await deleteSelectedKeyframes()) await settle();
       return;
     }
     const selection = currentSelection();
@@ -651,11 +654,11 @@ export function App({ onCloseProject }: AppProps) {
     try {
       await deleteLayers(layerIds);
       clearLayerSelection();
-      await refresh();
+      await settle();
     } catch (err) {
       logMutationFailure(err, "Delete layers");
     }
-  }, [closeSelectedGap, refresh]);
+  }, [closeSelectedGap, settle]);
 
   // The same delete, plus the closing of what it vacated: everything after the
   // freed span, on every track of that composition, moves left (ADR 0062).
@@ -673,7 +676,7 @@ export function App({ onCloseProject }: AppProps) {
   // did not see coming lands on the status bar with the same curated line.
   const rippleDeleteSelected = useCallback(async () => {
     if (hasKeyframeSelection()) {
-      if (await deleteSelectedKeyframes()) await refresh();
+      if (await deleteSelectedKeyframes()) await settle();
       return;
     }
     const selection = currentSelection();
@@ -687,11 +690,11 @@ export function App({ onCloseProject }: AppProps) {
     try {
       await rippleDeleteLayers(layerIds);
       clearLayerSelection();
-      await refresh();
+      await settle();
     } catch (err) {
       logMutationFailure(err, "Ripple delete");
     }
-  }, [closeSelectedGap, refresh]);
+  }, [closeSelectedGap, settle]);
 
   // Copy and paste share ONE slot, and it holds whichever kind was copied last
   // (`keyframe/clipboard.ts`) — so the same pair of keys never needs the user to
@@ -705,7 +708,7 @@ export function App({ onCloseProject }: AppProps) {
     const slot = clipboardSlot();
     if (slot === null) return;
     if (slot.kind === "keyframes") {
-      if (await pasteKeyframesAtPlayhead(slot.groups)) await refresh();
+      if (await pasteKeyframesAtPlayhead(slot.groups)) await settle();
       return;
     }
     try {
@@ -713,13 +716,13 @@ export function App({ onCloseProject }: AppProps) {
       // that timeline's own clock.
       const pastedLayerId = await pasteLayer(slot.layerId, focusedPlayheadUs());
       setPendingRevealLayerId(pastedLayerId);
-      await refresh();
+      await settle();
     } catch (err) {
       // Paste at the playhead is the one keyboard path that can genuinely
       // hit LayerOverlap — the curated line names both clips.
       logMutationFailure(err, "Paste layer");
     }
-  }, [refresh]);
+  }, [settle]);
 
   const toggleLogConsole = useCallback(() => {
     setSystemStatusOpen(false);
@@ -763,8 +766,7 @@ export function App({ onCloseProject }: AppProps) {
     pasteAtPlayhead,
     // Self-contained (it reads the project, playhead and selection stores and
     // commits through IPC), so App only lends it a HandlerMap slot — the
-    // `project:changed` subscription refreshes the view, as it does for every
-    // other command that doesn't hold App's `refresh`.
+    // command bridge awaits the published state before resolving.
     splitAtPlayhead,
     importMedia: importMediaFiles,
     export: () => setExportDialogOpen(true),
@@ -1014,8 +1016,8 @@ export function App({ onCloseProject }: AppProps) {
       tStartUs: focusedPlayheadUs(),
     });
     setPendingRevealLayerId(layerId);
-    await refresh();
-  }, [refresh]);
+    await settle();
+  }, [settle]);
 
   const handleAddTextLayer = useCallback(async () => {
     const layerId = await addTextLayerIn({
@@ -1023,8 +1025,8 @@ export function App({ onCloseProject }: AppProps) {
       tStartUs: focusedPlayheadUs(),
     });
     setPendingRevealLayerId(layerId);
-    await refresh();
-  }, [refresh]);
+    await settle();
+  }, [settle]);
 
   // Raise the selection to a fresh lane at the top of the z-stack (ADR 0042).
   // The selection is read from the store, not from a captured value: App does
@@ -1045,8 +1047,8 @@ export function App({ onCloseProject }: AppProps) {
     } catch (err) {
       logMutationFailure(err, "move_layers_to_new_track");
     }
-    await refresh();
-  }, [refresh, revealTrack]);
+    await settle();
+  }, [settle, revealTrack]);
 
   // Local agent-mode entry (View menu + palette). The reason labels the
   // record-panel header and the "Pre-agent: …" auto-checkpoint.
@@ -1077,9 +1079,9 @@ export function App({ onCloseProject }: AppProps) {
         moveToNewTrack: handleMoveToNewTrack,
         toggleMarkersVisible: () => void toggleMarkersVisible(),
         // Crossfade at the resolved cut; the kernel reads playhead/selection
-        // live and reports refusals itself, so App only lends `refresh`.
+        // live and reports refusals itself, so App only lends `settle`.
         applyDefaultTransition: () =>
-          applyTransitionAtPlayhead("Crossfade", undefined, refresh),
+          applyTransitionAtPlayhead("Crossfade", undefined, settle),
         openVoiceoverDialog: openVoiceoverPrompt,
       },
       {
@@ -1115,7 +1117,7 @@ export function App({ onCloseProject }: AppProps) {
       readinessById,
       readinessOf,
       optimizeById,
-      onMutated: refresh,
+      onMutated: settle,
       onImportMedia: importMediaFiles,
       selectedLayerId: primaryLayerId,
       onSelectLayer: selectLayerWithLink,
@@ -1132,7 +1134,7 @@ export function App({ onCloseProject }: AppProps) {
       readinessById,
       readinessOf,
       optimizeById,
-      refresh,
+      settle,
       importMediaFiles,
       primaryLayerId,
       selectLayerWithLink,
@@ -1317,13 +1319,13 @@ export function App({ onCloseProject }: AppProps) {
                 }
               : null
           }
-          onCompositionChanged={refresh}
+          onCompositionChanged={settle}
         />
       )}
       {motifPickerOpen && (
         <MotifPicker
           onClose={() => setMotifPickerOpen(false)}
-          onAdded={refresh}
+          onAdded={settle}
           onDraftPlaced={setPendingRevealLayerId}
           currentTimeUs={focusedPlayheadUs()}
           compositionId={comp?.id ?? null}

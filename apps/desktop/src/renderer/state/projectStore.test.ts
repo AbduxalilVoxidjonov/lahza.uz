@@ -1,177 +1,97 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { ProjectSummary } from "../ipc";
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProjectSummary, LayerSummary, TrackSummary } from '../ipc';
+import type { ProjectPublication } from '../../shared/projectPublication';
 
-const mocks = vi.hoisted(() => ({
-  projectSummary: vi.fn<() => Promise<ProjectSummary>>(),
-  listen: vi.fn(),
-  unlisten: vi.fn(),
-  onProjectChanged: null as (() => void) | null,
-}));
-
-vi.mock("../ipc", () => ({
-  projectSummary: () => mocks.projectSummary(),
-}));
-
-vi.mock("@/bridge/events", () => ({
-  listen: vi.fn(async (_event: string, callback: () => void) => {
+const mocks = vi.hoisted(() => ({ read: vi.fn(), unlisten: vi.fn(),
+  onProjectChanged: null as ((event: any) => void) | null }));
+vi.mock('../bridge/ipc', () => ({ invokeRaw: (...args: unknown[]) => mocks.read(...args) }));
+vi.mock('@/bridge/events', () => ({
+  listen: vi.fn(async (_event: string, callback: (event: any) => void) => {
     mocks.onProjectChanged = callback;
-    mocks.listen();
     return mocks.unlisten;
   }),
 }));
+import { refreshProjectStore, settleProjectStore, useProjectStore, wireProjectStore } from './projectStore';
+import { compositionFixture, ROOT_ID, summaryFixture } from '../testing/summaryFixture';
 
-import { refreshProjectStore, useProjectStore, wireProjectStore } from "./projectStore";
-import { compositionFixture, ROOT_ID, summaryFixture } from "../testing/summaryFixture";
-import type { LayerSummary, TrackSummary } from "../ipc";
-
-function summary(name: string): ProjectSummary {
-  return summaryFixture({
-    project_id: "project-1",
-    name: name,
-    media: [],
-    history: {
-      cursor: 0,
-      len: 0,
-      can_undo: false,
-      can_redo: false,
-    },
-    audio_roles: [],
-    root: {
-      width: 640,
-      height: 360,
-      fps_num: 30,
-      fps_den: 1,
-      duration_pinned: false,
-      fps_locked: false,
-      duration_us: 0,
-      tracks: [],
-      markers: [],
-      transitions: [],
-      links: [],
-    },
-  });
-}
-
-function deferred<T>(): {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
-  reject: (error: unknown) => void;
-} {
+const publication = (name: string | null, revision: number): ProjectPublication<ProjectSummary> => ({
+  version: { session: 1, revision }, summary: name === null ? null : summaryFixture({ name }),
+});
+function deferred<T>() {
   let resolve!: (value: T) => void;
   let reject!: (error: unknown) => void;
-  const promise = new Promise<T>((res, rej) => {
-    resolve = res;
-    reject = rej;
-  });
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
   return { promise, resolve, reject };
 }
+const changed = (revision: number) => mocks.onProjectChanged!({ payload: { publication: { session: 1, revision } } });
+async function tick() { for (let i = 0; i < 8; i++) await Promise.resolve(); }
 
-async function settle(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-describe("wireProjectStore summary ordering", () => {
+describe('project publication store adapter', () => {
+  let unwire: (() => void) | undefined;
   beforeEach(() => {
-    mocks.projectSummary.mockReset();
-    mocks.listen.mockReset();
-    mocks.unlisten.mockReset();
-    mocks.onProjectChanged = null;
+    mocks.read.mockReset(); mocks.unlisten.mockReset();
     useProjectStore.getState().apply(null);
   });
-
-  it('coordinates explicit UI refreshes and change events through the same snapshot publisher', async () => {
-    mocks.projectSummary.mockResolvedValueOnce(summary('baseline'));
-    const unwire = await wireProjectStore();
-    const explicit = deferred<ProjectSummary>();
-    const event = deferred<ProjectSummary>();
-    mocks.projectSummary.mockReturnValueOnce(explicit.promise).mockReturnValueOnce(event.promise);
-    const refresh = refreshProjectStore();
-    mocks.onProjectChanged!();
-    explicit.resolve(summary('stale UI refresh'));
-    await settle();
+  afterEach(() => { unwire?.(); unwire = undefined; vi.restoreAllMocks(); });
+  async function seed() {
+    mocks.read.mockResolvedValueOnce(publication('baseline', 0));
+    unwire = await wireProjectStore();
+    expect(mocks.read).toHaveBeenCalledWith('project_publication', undefined);
+  }
+  it('publishes only the latest observed revision and joins mutation callbacks without redundant reads', async () => {
+    await seed();
+    const first = deferred<ProjectPublication<ProjectSummary>>();
+    const last = deferred<ProjectPublication<ProjectSummary>>();
+    mocks.read.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+    changed(1);
+    for (let i = 2; i <= 101; i++) changed(i);
+    const settling = settleProjectStore();
+    expect(mocks.read).toHaveBeenCalledTimes(2);
+    first.resolve(publication('stale', 1));
+    await tick();
     expect(useProjectStore.getState().summary?.name).toBe('baseline');
-    event.resolve(summary('latest event'));
-    await refresh;
-    expect(useProjectStore.getState().summary?.name).toBe('latest event');
-    unwire();
+    last.resolve(publication('latest', 101));
+    await settling;
+    await settleProjectStore();
+    expect(mocks.read).toHaveBeenCalledTimes(3);
+    expect(useProjectStore.getState().summary?.name).toBe('latest');
   });
-
-  it('bounds a burst to one in-flight read and one latest follow-up, joining explicit refreshes', async () => {
-    mocks.projectSummary.mockResolvedValueOnce(summary('baseline'));
-    const unwire = await wireProjectStore();
-    const first = deferred<ProjectSummary>();
-    const last = deferred<ProjectSummary>();
-    mocks.projectSummary.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
-    mocks.onProjectChanged!();
-    for (let i = 0; i < 100; i++) mocks.onProjectChanged!();
-    const explicit = refreshProjectStore();
-    expect(mocks.projectSummary).toHaveBeenCalledTimes(2); // seed + active
-    first.resolve(summary('stale'));
-    await settle();
+  it('allows an intentional same-version refresh of derived availability', async () => {
+    await seed();
+    mocks.read.mockResolvedValueOnce(publication('external file arrived', 0));
+    await refreshProjectStore();
+    expect(useProjectStore.getState().summary?.name).toBe('external file arrived');
+  });
+  it('preserves the last good snapshot after failure and clears only on actual close', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    await seed();
+    mocks.read.mockRejectedValueOnce(new Error('connection lost'));
+    await expect(refreshProjectStore()).rejects.toThrow();
     expect(useProjectStore.getState().summary?.name).toBe('baseline');
-    last.resolve(summary('final'));
-    await explicit;
-    expect(mocks.projectSummary).toHaveBeenCalledTimes(3);
-    expect(useProjectStore.getState().summary?.name).toBe('final');
-    unwire();
+    mocks.read.mockResolvedValueOnce(publication(null, 1));
+    changed(1);
+    await settleProjectStore();
+    expect(useProjectStore.getState().summary).toBeNull();
+    expect(useProjectStore.getState().ready).toBe(true);
   });
-
-  it("does not publish an older success while a newer request is pending", async () => {
-    mocks.projectSummary.mockResolvedValueOnce(summary("baseline"));
-    const unwire = await wireProjectStore();
-    const older = deferred<ProjectSummary>();
-    const newer = deferred<ProjectSummary>();
-    mocks.projectSummary
-      .mockReturnValueOnce(older.promise)
-      .mockReturnValueOnce(newer.promise);
-
-    mocks.onProjectChanged!();
-    mocks.onProjectChanged!();
-    older.resolve(summary("older"));
-    await settle();
-    expect(useProjectStore.getState().summary?.name).toBe("baseline");
-
-    newer.resolve(summary("newer"));
-    await settle();
-    expect(useProjectStore.getState().summary?.name).toBe("newer");
-    unwire();
+  it('reports initial failure without publishing a fabricated closed snapshot', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    useProjectStore.getState().apply(publication('retained', 0).summary);
+    mocks.read.mockRejectedValueOnce(new Error('temporarily unavailable'));
+    unwire = await wireProjectStore();
+    expect(useProjectStore.getState().summary?.name).toBe('retained');
+    expect(console.error).toHaveBeenCalled();
   });
-
-  it("does not publish an older failure while a newer request is pending", async () => {
-    mocks.projectSummary.mockResolvedValueOnce(summary("baseline"));
-    const unwire = await wireProjectStore();
-    const older = deferred<ProjectSummary>();
-    const newer = deferred<ProjectSummary>();
-    mocks.projectSummary
-      .mockReturnValueOnce(older.promise)
-      .mockReturnValueOnce(newer.promise);
-
-    mocks.onProjectChanged!();
-    mocks.onProjectChanged!();
-    older.reject(new Error("stale failure"));
-    await settle();
-    expect(useProjectStore.getState().summary?.name).toBe("baseline");
-
-    newer.resolve(summary("newer"));
-    await settle();
-    expect(useProjectStore.getState().summary?.name).toBe("newer");
-    unwire();
-  });
-
-  it("invalidates an in-flight request when unwired", async () => {
-    mocks.projectSummary.mockResolvedValueOnce(summary("baseline"));
-    const unwire = await wireProjectStore();
-    const pending = deferred<ProjectSummary>();
-    mocks.projectSummary.mockReturnValueOnce(pending.promise);
-
-    mocks.onProjectChanged!();
-    unwire();
-    pending.resolve(summary("after-unwire"));
-    await settle();
-
+  it('teardown prevents a pending read from publishing', async () => {
+    await seed();
+    const pending = deferred<ProjectPublication<ProjectSummary>>();
+    mocks.read.mockReturnValueOnce(pending.promise);
+    changed(1);
+    unwire!(); unwire = undefined;
+    pending.resolve(publication('late', 1));
+    await tick();
     expect(mocks.unlisten).toHaveBeenCalledOnce();
-    expect(useProjectStore.getState().summary?.name).toBe("baseline");
+    expect(useProjectStore.getState().summary?.name).toBe('baseline');
   });
 });
 

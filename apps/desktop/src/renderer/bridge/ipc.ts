@@ -9,8 +9,10 @@
 // weftcut-media:// protocol served by main).
 
 import type { WeftcutApi } from '../../shared/ipc'
-import { EDIT_TRACE_ARG, EditTrace } from '../../shared/editTrace'
+import { EDIT_TRACE_ARG, EditTrace, editTraceId } from '../../shared/editTrace'
 import { newEditTraceId, observeEditFrames } from '../diagnostics/editTrace'
+import type { PublishedResult } from '../../shared/projectPublication'
+import { awaitProjectPublication } from '../state/projectPublication'
 
 declare global {
   interface Window {
@@ -43,12 +45,38 @@ export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<
   return invokeBackend<T>(cmd, args)
 }
 
-function invokeBackend<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
-  const next: BackendInvoke = <Result>(
-    nextCmd: string,
-    nextArgs?: Record<string, unknown>,
-  ) => window.api.backend.invoke(nextCmd, nextArgs) as Promise<Result>
+/** The edit succeeded in main; only its view barrier failed. Never retry the
+ * command automatically: refresh the view instead. */
+export class CommandPublicationError extends Error {
+  readonly accepted = true
+  constructor(readonly command: string, cause: unknown) {
+    super('Edit accepted, but the view could not synchronize. Refresh the view before continuing; do not repeat the edit.', { cause })
+    this.name = 'CommandPublicationError'
+  }
+}
 
+function invokeBackend<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  return intercept<T>(cmd, args, async <Result>(nextCmd: string, nextArgs?: Record<string, unknown>) => {
+    const result = await window.api.backend.invokePublished(nextCmd, nextArgs) as PublishedResult<Result>
+    if (result.publication) {
+      // Startup opens the workspace before App mounts its mirror. The initial
+      // seed owns readiness there; ordinary edits always require a live owner.
+      try { await awaitProjectPublication(result.publication,
+        nextCmd === 'project_open' || nextCmd === 'project_new_workspace' || nextCmd === 'project_startup_open',
+        editTraceId(nextArgs?.[EDIT_TRACE_ARG])) }
+      catch (error) { throw new CommandPublicationError(nextCmd, error) }
+    }
+    return result.value
+  })
+}
+
+/** Projection reads must bypass the command barrier they are satisfying. */
+export function invokeRaw<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  return intercept<T>(cmd, args, <Result>(nextCmd: string, nextArgs?: Record<string, unknown>) =>
+    window.api.backend.invoke(nextCmd, nextArgs) as Promise<Result>)
+}
+
+function intercept<T>(cmd: string, args: Record<string, unknown> | undefined, next: BackendInvoke): Promise<T> {
   // The E2E build may intercept a renderer → backend call to deterministically
   // hold/reorder responses. Production builds fold this branch away.
   if (import.meta.env.VITE_WEFTCUT_E2E === '1') {
