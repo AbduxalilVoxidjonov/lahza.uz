@@ -50,7 +50,8 @@ import {
   usePlayheadTimeUs,
   usePlayheadTimeUsThrottled,
 } from "./playheadStore";
-import { compositionOrRoot, useProjectStore } from "./projectStore";
+import { compositionOrRoot, useProjectStore, type ProjectStoreState } from "./projectStore";
+import { shareSnapshot } from './shareSnapshot';
 
 /// The frame a Panel reads through before a project has named a root: offset 0
 /// and on screen at every moment, so the unbound timeline row
@@ -97,15 +98,19 @@ export function anchorFrameOf(compositionId: string | null): AnchorFrame | null 
   );
 }
 
-/// The anchor frame for React, recomputed only when the project or this Panel's
-/// anchor moves. The dep every per-frame subscription re-registers on.
+/// Subscribe to the resolved clock, not the entire project. Marker/label edits
+/// don't move this clock and must not rerender every timeline clip or rearm
+/// its per-frame subscriptions. Nested Group retimes still update every field.
 export function useAnchorFrame(compositionId: string | null): AnchorFrame | null {
-  const summary = useProjectStore((s) => s.summary);
   const path = useAnchorPath(compositionId);
-  return useMemo(
-    () => frameFor(summary, compositionId, path),
-    [summary, compositionId, path],
-  );
+  const selectFrame = useMemo(() => {
+    let previous: AnchorFrame | null = null;
+    return (state: ProjectStoreState) => {
+      previous = shareSnapshot(previous, frameFor(state.summary, compositionId, path));
+      return previous;
+    };
+  }, [compositionId, path]);
+  return useProjectStore(selectFrame);
 }
 
 /// What a Panel DRAWS, given an already-resolved frame: the one moment on this

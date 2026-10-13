@@ -56,6 +56,8 @@ import { CORRECTION_SCRIPT_MAX, type TextCorrectionExpectation } from '../../sha
 import type { TranscriptPayload } from '../../shared/captionTiming'
 import type { PositionAnimation } from '../../shared/position'
 
+import { currentEditTrace, measureEditStage } from '../../shared/editTrace'
+
 setAutoFreeze(true) // snapshots are frozen — accidental mutation throws.
 
 export type Clock = () => string
@@ -256,15 +258,21 @@ export function createActor(opts: ActorOptions): ActorHandle {
    *  never returned. */
   function commit<T>(summary: HistorySummary, affected: EntityRef[] | ((value: T) => EntityRef[]), diff: DiffHint, recipe: (draft: Project) => T): T {
     opts.assertWritable?.()
+    const trace = currentEditTrace()
+    if (trace) {
+      const compositions = Object.values(current().compositions)
+      trace.fact('markers', compositions.reduce((n, c) => n + c.markers.length, 0))
+      trace.fact('layers', compositions.reduce((n, c) => n + c.tracks.reduce((m, t) => m + t.layers.length, 0), 0))
+    }
     let value!: T
     let droppedTransitions: DroppedTransition[] = []
     let droppedMarkers: DroppedMarker[] = []
     // produce: a throw inside the recipe aborts and discards the draft.
-    const next = produce(current(), (draft) => {
-      value = withTrackCleanup(opts.autoDeleteEmptyTracks?.() ?? true, () => recipe(draft))
-      droppedTransitions = reconcileTransitions(draft)
-      droppedMarkers = reconcileMarkers(draft)
-    })
+    const next = measureEditStage('produce_including_finalize', () => produce(current(), (draft) => {
+      value = measureEditStage('recipe', () => withTrackCleanup(opts.autoDeleteEmptyTracks?.() ?? true, () => recipe(draft)))
+      droppedTransitions = measureEditStage('reconcile_transitions', () => reconcileTransitions(draft))
+      droppedMarkers = measureEditStage('reconcile_markers', () => reconcileMarkers(draft))
+    }))
     // No-op guard: if the recipe left the draft unmodified, immer returns the
     // original object by reference. Recording an identical snapshot would waste
     // a history slot and an op_id, and would fool the undo-unwind property's
@@ -273,20 +281,20 @@ export function createActor(opts: ActorOptions): ActorHandle {
     // (A no-op recipe can't dirty a transition or an anchored marker, so
     // neither reconcile blocks this.)
     if (next === current()) return value
-    assertLockedLayersUnchanged(current(), next)
+    measureEditStage('locked_layer_check', () => assertLockedLayersUnchanged(current(), next))
     // Every recorded edit is a modification, so `metadata.modified_at` takes
     // the commit's timestamp — the one cheap dirty signal a client has. After
     // the no-op guard, so an unchanged draft stays the very same object; before
     // validate, so what is validated is what is recorded. Unrecorded writes
     // (settings, the envelope, flags) are setup and leave it alone.
     const ts = clock()
-    const stamped = produce(next, (d) => { d.metadata.modified_at = ts })
-    runValidate(stamped)
+    const stamped = measureEditStage('stamp', () => produce(next, (d) => { d.metadata.modified_at = ts }))
+    measureEditStage('validate', () => runValidate(stamped))
     const refs = typeof affected === 'function' ? affected(value) : affected
     const opId = idGen() // AFTER validate — failed validate consumes no op_id
     const by = who()
-    history.record({ op_id: opId, actor: by, timestamp: ts, summary: summary.text, label_key: summary.key, label_args: summary.label_args, affected: refs, snapshot: stamped })
-    emit({ op_id: opId, actor: by, timestamp: ts, summary: summary.text, affected: refs, new_snapshot: stamped, diff_hint: diff })
+    measureEditStage('history_record', () => history.record({ op_id: opId, actor: by, timestamp: ts, summary: summary.text, label_key: summary.key, label_args: summary.label_args, affected: refs, snapshot: stamped }))
+    measureEditStage('notify_subscribers', () => emit({ op_id: opId, actor: by, timestamp: ts, summary: summary.text, affected: refs, new_snapshot: stamped, diff_hint: diff }))
     logDroppedTransitions(droppedTransitions) // after record — a failed validate logs nothing
     logDroppedMarkers(droppedMarkers)
     return value
@@ -505,7 +513,10 @@ export function createActor(opts: ActorOptions): ActorHandle {
       for (const c of Object.values(d.compositions)) {
         if (c !== dTarget) applyCanvasFields(c, latticePatch)
         if (fpsChanged) resnapComposition(c)
-        applyDurationAutofit(c)
+        // Canvas fields do not change a content high-water mark. Only a new
+        // frame grid or this composition's explicit duration needs refitting;
+        // avoid walking every layer of every stored snapshot for a width edit.
+        if (fpsChanged || (c === dTarget && durationChange !== undefined)) applyDurationAutofit(c)
       }
     }
     /** Re-snap one composition's grid-bound fields onto its (new) frame grid. */

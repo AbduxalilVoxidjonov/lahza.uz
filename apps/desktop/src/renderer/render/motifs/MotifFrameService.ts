@@ -10,7 +10,8 @@ import {
   type LayerBakeStatus,
 } from "../../timeline/motifBakeStatusStore";
 import { compositionLocalUs, forEachLayer, type PlacedLayer } from "../compositionWalk";
-import { getMotif } from "./catalog";
+import { getMotif, motifCatalogRevision, subscribeMotifCatalog } from "./catalog";
+import { motifPlanningInputs } from './planningInputs';
 import { MotifPrewarmer, type PrewarmContentSpec } from "./MotifPrewarmer";
 import { MotifBakeClient } from './bakeClient';
 import type { MotifBakePlan, MotifBakeSession, MotifBakeSnapshot, MotifFrameRange } from '../../../shared/motifs/baking';
@@ -27,7 +28,6 @@ import {
 } from "./motifRasterCache";
 import { onPrebakeRequest } from "./prebakeBus";
 import { collectLiveRasterKeys } from "./liveRasterKeys";
-import { syncUserMotifsFromBackend } from "./syncCatalog";
 
 /// Schedule `cb` for an idle slice: `requestIdleCallback` when available
 /// (with a 200ms timeout floor so the prewarm can't starve indefinitely),
@@ -84,9 +84,10 @@ export class MotifFrameService {
   private lastPrewarmFrame = -1;
   private disposed = false;
   private generation: number | null = null;
-  private projectEpoch = 0;
+  private catalogUnsub: (() => void) | null = null;
   private diskDiscoveryPending = false;
   private preparationError: string | null = null;
+  private planningSignature: string | null = null;
 
   constructor(private readonly deps: MotifFrameServiceDeps) {
     this.prewarmer =
@@ -112,8 +113,11 @@ export class MotifFrameService {
         this.resumeAfterDiskDiscovery();
       },
     ) : null;
+    // Startup hydrates the catalog; motifs:changed refreshes it. Timeline
+    // edits must not synchronously scan/hash every Motif package in main.
+    if (this.client) this.catalogUnsub = subscribeMotifCatalog(() => this.handleProjectChanged());
     if (this.client) this.settingsUnsub = useAppSettingsStore.subscribe((next, previous) => {
-      if (next.settings.prebake_motifs !== previous.settings.prebake_motifs) this.submitBakePlan();
+      if (next.settings.prebake_motifs !== previous.settings.prebake_motifs) this.handleProjectChanged();
     });
     if (this.client) this.prebakeUnsub = onPrebakeRequest(layerId => {
       const summary = this.deps.projectSummary();
@@ -135,7 +139,14 @@ export class MotifFrameService {
 
   handleProjectChanged(): void {
     if (this.disposed || !this.client) return;
-    const epoch = ++this.projectEpoch;
+    const signature = JSON.stringify([motifPlanningInputs(this.deps.projectSummary()),
+      this.deps.openCompositionId(), this.deps.fpsNum(), this.deps.fpsDen(),
+      motifCatalogRevision(), useAppSettingsStore.getState().settings.prebake_motifs]);
+    // Do not invalidate an in-flight acknowledgement, disk inventory or warm
+    // targets for unrelated edits. Session-ready recovery belongs to the client
+    // and explicit requests submit directly, bypassing this project-input gate.
+    if (signature === this.planningSignature && !this.preparationError) return;
+    this.planningSignature = signature;
     this.client.invalidate();
     this.lastPrewarmFrame = -1;
     this.diskDiscoveryPending = !!this.deps.projectSummary();
@@ -150,9 +161,7 @@ export class MotifFrameService {
       this.preparationError = null;
       setLayerBakeStatuses({});
     }
-    void syncUserMotifsFromBackend().then(() => {
-      if (!this.disposed && epoch === this.projectEpoch) this.submitBakePlan();
-    });
+    this.submitBakePlan();
   }
 
   noteFrameBoundary(tUsSnapped: number): void {
@@ -166,11 +175,11 @@ export class MotifFrameService {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.projectEpoch++;
     this.prewarmer?.dispose();
     this.client?.dispose();
     this.prebakeUnsub?.();
     this.settingsUnsub?.();
+    this.catalogUnsub?.();
     sharedBakedKeyIndex.finishHydration();
     // Background jobs and durable coverage survive preview remounts.
   }

@@ -22,7 +22,7 @@ import { useImportReadiness } from './useImportReadiness';
 import { notifyResourceSettingsChanged, updateRendererResources } from '../render/resourceClient';
 import * as resourcePolicy from '../../shared/resource-policy';
 
-const summary = (project_id: string) => ({ project_id } as ProjectSummary);
+const summary = (project_id: string) => ({ project_id, media: [...mocks.pool.values()] } as ProjectSummary);
 const media = (path: string) => ({ id: 'shared-id', path, kind: 'Video', decode_route: { route: 'direct-export', quick_proxy: null }, available: true, size_bytes: 1 } as MediaSummary);
 const run = async (action: () => Promise<unknown>) => { await action(); };
 const previewRef = { current: null };
@@ -159,6 +159,24 @@ describe('batch import', () => {
 });
 
 describe('import probe scope', () => {
+  it('does not schedule a second App render or rebuild readiness maps for a timeline-only edit', async () => {
+    mocks.probe.mockResolvedValue('ok');
+    const project = summary('a');
+    let renders = 0;
+    const hook = renderHook(({ project }) => {
+      renders++;
+      return useImportReadiness({ summary: project, run, previewRef });
+    }, { initialProps: { project } });
+    await act(async () => {});
+    const before = hook.result.current, count = renders;
+    hook.rerender({ project: { ...project, name: 'Timeline edit' } });
+    expect(renders).toBe(count + 1);
+    expect(hook.result.current.readinessById).toBe(before.readinessById);
+    expect(hook.result.current.optimizeById).toBe(before.optimizeById);
+    mocks.pool.set('shared-id', { ...media('a.mov'), available: false });
+    hook.rerender({ project: summary('a') });
+    expect(hook.result.current.readinessById.get('shared-id')).toEqual({ ready: false, reason: 'missing' });
+  });
   it('rechecks the live source at drop time even before a new UI snapshot renders', async () => {
     mocks.probe.mockResolvedValue('ok');
     const project = summary('a');

@@ -1,4 +1,5 @@
 import {
+  memo,
   useCallback,
   useEffect,
   useEffectEvent,
@@ -262,7 +263,7 @@ const EMPTY_TRANSITIONS: TransitionSummary[] = [];
 const GROUP_TINT_STEP_PCT = 6;
 const MAX_GROUP_TINT_STEPS = 3;
 
-export function Timeline({
+export const Timeline = memo(function Timeline({
   compositionId,
   tracks,
   links,
@@ -2008,7 +2009,7 @@ export function Timeline({
       </KeyframeBatchContext.Provider>
     </MarqueeAnchorContext.Provider>
   );
-}
+});
 
 /**
  * Washes out everything outside the marked in/out span — but only for a beat

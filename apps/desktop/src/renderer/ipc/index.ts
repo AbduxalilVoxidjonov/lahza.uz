@@ -727,8 +727,8 @@ export { getSystemStats, type SystemStats } from "@/bridge/metrics";
 // snapshot above, and for the same reason: the PerfHUD reads it from "../ipc".
 export { getPreviewGpuBudget, type PreviewGpuBudgetSnapshot } from "@/bridge/previewGpu";
 
-export async function projectSummary(): Promise<ProjectSummary> {
-  return invoke<ProjectSummary>("project_summary");
+export async function projectSummary(traceId?: string): Promise<ProjectSummary> {
+  return invoke<ProjectSummary>("project_summary", traceId ? { __debugEditTraceId: traceId } : undefined);
 }
 
 /// Tracks are kind-agnostic — the new track accepts any layer kind.

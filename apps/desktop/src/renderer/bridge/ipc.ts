@@ -9,6 +9,8 @@
 // weftcut-media:// protocol served by main).
 
 import type { WeftcutApi } from '../../shared/ipc'
+import { EDIT_TRACE_ARG, EditTrace } from '../../shared/editTrace'
+import { newEditTraceId, observeEditFrames } from '../diagnostics/editTrace'
 
 declare global {
   interface Window {
@@ -29,6 +31,19 @@ type E2EInvokeInterceptor = <T>(
 
 /** Send a command to the napi/Rust backend dispatcher. */
 export function invoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
+  const traceId = newEditTraceId(cmd)
+  if (traceId) {
+    const trace = new EditTrace(traceId, `renderer.invoke.${cmd}`)
+    observeEditFrames(traceId)
+    return invokeBackend<T>(cmd, { ...args, [EDIT_TRACE_ARG]: traceId }).then(
+      result => { trace.report(); return result },
+      error => { trace.report(false); throw error },
+    )
+  }
+  return invokeBackend<T>(cmd, args)
+}
+
+function invokeBackend<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const next: BackendInvoke = <Result>(
     nextCmd: string,
     nextArgs?: Record<string, unknown>,

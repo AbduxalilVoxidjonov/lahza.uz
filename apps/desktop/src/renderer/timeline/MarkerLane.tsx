@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { shallow } from "zustand/shallow";
 import { useUiScale } from "../settings/layoutTheme";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -149,7 +150,7 @@ function markerTitle(
 /// scrub. `onContextMenu`'s preventDefault beats the prod-mode global
 /// context-menu suppressor (main.tsx); stopPropagation keeps any future
 /// lane-level menu from stacking.
-function MarkerGlyph({
+const MarkerGlyph = memo(function MarkerGlyph({
   view,
   title,
   dragging,
@@ -160,7 +161,7 @@ function MarkerGlyph({
   title: string;
   dragging: boolean;
   onOpenMenu: (xPx: number, yPx: number, markerId: string) => void;
-  onBeginDrag: (e: React.PointerEvent) => void;
+  onBeginDrag: (id: string) => (e: React.PointerEvent) => void;
 }) {
   const scale = useUiScale();
   const laneHeight = MARKER.laneHeight * scale;
@@ -183,7 +184,7 @@ function MarkerGlyph({
         data-dragging={dragging ? "true" : undefined}
         title={title}
         onContextMenu={openMenu}
-        onPointerDown={onBeginDrag}
+        onPointerDown={onBeginDrag(view.id)}
         className={`pointer-events-auto absolute ${
           dragging ? "cursor-grabbing" : "cursor-grab"
         } ${isRegion ? "overflow-hidden rounded-[2px]" : ""}`}
@@ -241,7 +242,7 @@ function MarkerGlyph({
           data-marker-id={view.id}
           title={title}
           onContextMenu={openMenu}
-          onPointerDown={onBeginDrag}
+          onPointerDown={onBeginDrag(view.id)}
           className={`pointer-events-auto absolute overflow-hidden whitespace-nowrap text-[length:var(--font-size-fine)] font-medium leading-none text-foreground/85 ${
             dragging ? "cursor-grabbing" : "cursor-grab"
           }`}
@@ -259,7 +260,8 @@ function MarkerGlyph({
       )}
     </>
   );
-}
+}, (a, b) => shallow(a.view, b.view) && a.title === b.title && a.dragging === b.dragging &&
+  a.onOpenMenu === b.onOpenMenu && a.onBeginDrag === b.onBeginDrag);
 
 /// The lane's sticky-header cell: what the row is.
 ///
@@ -349,6 +351,8 @@ export function MarkerLane({
     y: number;
     markerId: string;
   } | null>(null);
+  const openMarkerMenu = useCallback((x: number, y: number, markerId: string) =>
+    setMarkerMenu({ x, y, markerId }), []);
   // Close it when anything scrolls under it — the popup is anchored to fixed
   // cursor coordinates, so it would float detached over moving content.
   // Outside-click and Escape closing belong to Base UI. Same effect every
@@ -429,10 +433,8 @@ export function MarkerLane({
                 view={view}
                 title={title}
                 dragging={preview?.markerId === view.id}
-                onOpenMenu={(x, y, markerId) =>
-                  setMarkerMenu({ x, y, markerId })
-                }
-                onBeginDrag={beginMarkerDrag(view.id)}
+                onOpenMenu={openMarkerMenu}
+                onBeginDrag={beginMarkerDrag}
               />
             ))}
           </div>

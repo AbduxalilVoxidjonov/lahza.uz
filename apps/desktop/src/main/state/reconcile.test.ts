@@ -278,6 +278,27 @@ function videoLayer(p: Project, id: string) {
 }
 
 describe('reconcileMarkers (direct, plain object): the policy table', () => {
+  it('reuses its composition index for hibernation instead of scanning layers per marker', () => {
+    const p = blankProject(seededGen(), 'marker-work')
+    const c = root(p)
+    let idReads = 0
+    c.tracks[0].layers = Array.from({ length: 100 }, (_, i): Layer => ({
+      get id() { idReads++; return `layer-${i}` },
+      label: null, enabled: true, locked: false, metadata: {}, effects: [],
+      t_start_us: 1_000_000, t_end_us: 2_000_000,
+      params: videoClipParams(MEDIA, 0, 1_000_000),
+    }))
+    c.markers = Array.from({ length: 100 }, (_, i): Marker => ({
+      id: `marker-${i}`, label: '', note: '', color: RED,
+      t_us: 0, end_t_us: 100_000,
+      anchor: { layer: 'layer-99', src_us: i % 2 === 0 ? 500_000 : 1_000_000 },
+    }))
+    expect(reconcileMarkers(p)).toEqual([])
+    expect(idReads).toBeLessThanOrEqual(2 * c.tracks[0].layers.length)
+    expect(c.markers.filter((m) => m.anchor?.src_us === 500_000).every((m) => m.t_us === 1_500_000 && m.end_t_us === 1_600_000)).toBe(true)
+    expect(c.markers.filter((m) => m.anchor?.src_us === 1_000_000).every((m) => m.t_us === 0 && m.end_t_us === 100_000)).toBe(true)
+  })
+
   it('a free marker is never touched, whatever the clips under it do', () => {
     const { p, clip } = anchoredFixture([{ tUs: 500_000 }])
     videoLayer(p, clip).layer.t_start_us = 2_000_000

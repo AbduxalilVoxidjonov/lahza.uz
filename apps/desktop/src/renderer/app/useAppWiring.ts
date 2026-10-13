@@ -22,10 +22,8 @@ import { wireDecodeComponent } from "../settings/decodeComponentStore";
 /// Owns the App-root backend wiring: the pong healthcheck, keybindings +
 /// agent activity snapshots and independent view selection, the on-open stale-motifs pull, and the
 /// stream-wiring effects (status log, project-state mirror, app-settings,
-/// and the `project:changed` → refresh subscription). `refresh` arrives from
-/// App via `deps` — App still owns the callback itself since the R.7
-/// effects and the save handlers also call it directly.
-export function useAppWiring(deps: { refresh: () => Promise<void> }): {
+/// and the single project-state subscription shared by App and preview).
+export function useAppWiring(): {
   pong: string;
   keybindings: KeybindingsMap;
   setKeybindings: React.Dispatch<React.SetStateAction<KeybindingsMap>>;
@@ -35,7 +33,6 @@ export function useAppWiring(deps: { refresh: () => Promise<void> }): {
   staleMotifs: MotifStaleEntry[];
   setStaleMotifs: React.Dispatch<React.SetStateAction<MotifStaleEntry[]>>;
 } {
-  const { refresh } = deps;
   const [pong, setPong] = useState<string>("…");
   // User shortcut overrides. Loaded once on mount; refreshed when the
   // Settings → Keyboard panel writes (it calls back via the
@@ -64,9 +61,8 @@ export function useAppWiring(deps: { refresh: () => Promise<void> }): {
 
   useEffect(() => {
     ping().then(setPong).catch((e) => setPong(`error: ${String(e)}`));
-    refresh();
     keybindingsGet().then(setKeybindings).catch(() => {});
-  }, [refresh]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,10 +96,8 @@ export function useAppWiring(deps: { refresh: () => Promise<void> }): {
     };
   }, []);
 
-  // Project state mirror for the Pixi preview (docs/preview.md). Coexists
-  // with the local-state fetches below — both subscribe to `project:changed`
-  // and re-fetch, with no cross-talk. The Pixi preview engine reads from
-  // `useProjectStore`; App.tsx's own fetches still drive the panels.
+  // One project mirror for App, panels and preview. A second independent
+  // fetch/publish here causes two full React render passes for every edit.
   // The search index rides along on the same effect: it reads
   // `useProjectStore`'s summary, so it wires right after the store itself
   // is live.
@@ -175,29 +169,6 @@ export function useAppWiring(deps: { refresh: () => Promise<void> }): {
   useEffect(() => {
     void wireDecodeComponent();
   }, []);
-
-  // Project-change subscription — fired by the actor whenever a commit lands,
-  // regardless of source (UI command, MCP tool call, undo/redo, checkpoint
-  // restore). Without this, MCP-driven edits land in state but the panels
-  // stay frozen until the user clicks something.
-  useEffect(() => {
-    let unlisten: (() => void) | null = null;
-    let cancelled = false;
-    (async () => {
-      const u = await listen<unknown>("project:changed", () => {
-        refresh();
-      });
-      if (cancelled) {
-        u();
-        return;
-      }
-      unlisten = u;
-    })();
-    return () => {
-      cancelled = true;
-      if (unlisten) unlisten();
-    };
-  }, [refresh]);
 
   return {
     pong,

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+
+vi.mock('../frames', async (importActual) => {
+  const actual = await importActual<typeof import('../frames')>();
+  return { ...actual, formatTimecode: vi.fn(actual.formatTimecode) };
+});
+import { formatTimecode } from '../frames';
 
 // Partial, not wholesale: the composition switch under test runs the REAL
 // `openComposition`, and that calls back into navigation (`collapseReveal`).
@@ -151,6 +157,22 @@ afterEach(() => {
 });
 
 describe("MarkerPanel", () => {
+  it('only renders the changed marker after a fresh IPC snapshot, while still reacting to fps changes', () => {
+    render(<MarkerPanel />);
+    vi.mocked(formatTimecode).mockClear();
+    const next = fixtureSummary(); // every object is freshly deserialized
+    next.compositions[ROOT_ID]!.markers[0]!.t_us = 1_500_000;
+    act(() => useProjectStore.getState().apply(next));
+    expect(formatTimecode).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Go to 00:00:01:15' })).toBeTruthy();
+    vi.mocked(formatTimecode).mockClear();
+    const rateChange = fixtureSummary();
+    rateChange.compositions[ROOT_ID]!.markers[0]!.t_us = 1_500_000;
+    rateChange.compositions[ROOT_ID]!.fps_num = 60;
+    act(() => useProjectStore.getState().apply(rateChange));
+    expect(formatTimecode).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole('button', { name: 'Go to 00:00:01:30' })).toBeTruthy();
+  });
   it("lists every marker in the project once, under the composition that owns it", () => {
     render(<MarkerPanel />);
     expect(headings()).toEqual(["Timeline (2)", "Group 1 (1)", "Group 2 (0)", "Hibernating (1)"]);

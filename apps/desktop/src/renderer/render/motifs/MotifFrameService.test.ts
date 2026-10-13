@@ -6,15 +6,19 @@ import { MotifFrameService } from './MotifFrameService';
 import { requestPrebake } from './prebakeBus';
 import { sharedBakedKeyIndex } from './motifRasterCache';
 import { useMotifBakeStatusStore } from '../../timeline/motifBakeStatusStore';
+import { syncUserMotifsFromBackend } from './syncCatalog';
+import { setUserMotifs } from './catalog';
 
-const { warm, bake, state } = vi.hoisted(() => ({ warm: vi.fn(), bake: vi.fn(), state: { generation: 0, automatic: true, fail: false,
+const { warm, bake, state } = vi.hoisted(() => ({ warm: vi.fn(), bake: vi.fn(), state: { generation: 0, automatic: true, fail: false, publish: () => {},
   coverage: {} as Record<string, number[]>, statuses: {} as Record<string, object> } }));
 vi.mock('./MotifPrewarmer', () => ({ MotifPrewarmer: class {
   setTargets = warm; dispose() {}
 } }));
 vi.mock('./bakeClient', () => ({ MotifBakeClient: class {
   generation = ++state.generation;
-  constructor(private changed: (value: unknown) => void, private failed: (error: unknown) => void) {}
+  constructor(private changed: (value: unknown) => void, private failed: (error: unknown) => void) {
+    state.publish = () => this.changed({ generation: this.generation, statuses: state.statuses, coverage: state.coverage });
+  }
   reconcile(projectId: string, plan: (session: unknown) => unknown) {
     bake(plan({ projectId, generation: this.generation }));
     if (state.fail) { this.failed(new Error('disconnected')); return; }
@@ -22,7 +26,7 @@ vi.mock('./bakeClient', () => ({ MotifBakeClient: class {
   }
   invalidate() {} dispose() {}
 } }));
-vi.mock('./syncCatalog', () => ({ syncUserMotifsFromBackend: async () => {} }));
+vi.mock('./syncCatalog', () => ({ syncUserMotifsFromBackend: vi.fn(async () => {}) }));
 vi.mock('../../settings/appSettingsStore', () => ({
   useAppSettingsStore: { getState: () => ({ settings: { prebake_motifs: state.automatic } }), subscribe: () => () => {} },
 }));
@@ -42,6 +46,82 @@ const targets = () => warm.mock.lastCall![0] as PrewarmContentSpec[];
 afterEach(() => { vi.unstubAllGlobals(); vi.clearAllMocks(); state.automatic = true; state.fail = false; state.coverage = {}; state.statuses = {}; });
 
 describe('MotifFrameService prewarm admission', () => {
+  it('does not replan or reset warming for marker and visual-only edits', () => {
+    vi.stubGlobal('document', {});
+    let summary = summaryFixture({ root: { tracks: [track([motif('clip', 0, 2_000_000)])] } });
+    const service = new MotifFrameService({ projectSummary: () => summary, openCompositionId: () => ROOT_ID,
+      fpsNum: () => 30, fpsDen: () => 1, currentTimeUs: () => 0 });
+    try {
+      service.handleProjectChanged();
+      const warmCalls = warm.mock.calls.length;
+      summary = structuredClone(summary);
+      summary.compositions[ROOT_ID]!.markers.push({ id: 'cue', label: 'Cue', t_us: 100_000,
+        end_t_us: null, note: '', color_hint: '#fff', anchor_layer: null, anchor_src_us: null, hibernating: false });
+      const clip = summary.compositions[ROOT_ID]!.tracks[0]!.layers[0]!;
+      clip.label = 'Renamed';
+      if (clip.params.kind === 'Motif') clip.params.x = stat(200);
+      service.handleProjectChanged();
+      expect(bake).toHaveBeenCalledOnce();
+      expect(warm).toHaveBeenCalledTimes(warmCalls);
+    } finally { service.dispose(); }
+  });
+
+  it('uses the startup catalog for edits and replans when the catalog actually changes', async () => {
+    vi.stubGlobal('document', {});
+    const summary = summaryFixture({ root: { tracks: [track([motif('clip', 0, 2_000_000)])] } });
+    const service = new MotifFrameService({ projectSummary: () => summary, openCompositionId: () => ROOT_ID,
+      fpsNum: () => 30, fpsDen: () => 1, currentTimeUs: () => 0 });
+    try {
+      service.handleProjectChanged(); await Promise.resolve();
+      service.handleProjectChanged(); await Promise.resolve();
+      expect(syncUserMotifsFromBackend).not.toHaveBeenCalled();
+      const plans = bake.mock.calls.length;
+      setUserMotifs([]); await Promise.resolve();
+      expect(bake).toHaveBeenCalledTimes(plans + 1);
+    } finally { service.dispose(); }
+    const plans = bake.mock.calls.length;
+    setUserMotifs([]); await Promise.resolve();
+    expect(bake).toHaveBeenCalledTimes(plans);
+  });
+
+  it('replans for content, placement, Group clocks, open timeline and frame-grid changes', () => {
+    vi.stubGlobal('document', {});
+    const child = motif('child', 0, 2_000_000);
+    const group = groupLayerFixture({ id: 'group' });
+    const summary = summaryFixture({ root: { tracks: [track([group])] }, groups: [
+      compositionFixture({ id: 'comp-group', tracks: [track([child])] }),
+    ] });
+    let open = ROOT_ID, fpsNum = 30, fpsDen = 1;
+    const service = new MotifFrameService({ projectSummary: () => summary, openCompositionId: () => open,
+      fpsNum: () => fpsNum, fpsDen: () => fpsDen, currentTimeUs: () => 0 });
+    const update = (edit: () => void) => {
+      const count = bake.mock.calls.length; edit(); service.handleProjectChanged();
+      expect(bake).toHaveBeenCalledTimes(count + 1);
+    };
+    try {
+      service.handleProjectChanged();
+      if (child.params.kind !== 'Motif' || group.params.kind !== 'CompositionRef') throw new Error('fixture');
+      const content = child.params, clock = group.params;
+      update(() => { content.props = { seconds: 3 }; });
+      update(() => { content.src_in_us = 100_000; });
+      update(() => { content.time_map = { kind: 'Affine', rate: { num: 2, den: 1 } }; });
+      update(() => { content.content_window = { in_us: 0, out_us: 1_000_000 }; });
+      update(() => { child.t_start_us = 100_000; });
+      update(() => { clock.time_map = { kind: 'Affine', rate: { num: 2, den: 1 } }; });
+      update(() => { clock.source_phase = { in: { num: 1, den: 2 }, out: { num: 0, den: 1 } }; });
+      update(() => { group.t_end_us = 1_000_000; });
+      update(() => { open = 'comp-group'; });
+      expect(bake.mock.lastCall![0].contents).not.toEqual([]);
+      update(() => { fpsNum = 60; });
+      expect(bake.mock.lastCall![0].contents[0].capture.fpsNum).toBe(60);
+      update(() => { fpsDen = 2; });
+      update(() => { child.enabled = false; });
+      expect(bake.mock.lastCall![0].live).toEqual([]);
+      update(() => { child.enabled = true; });
+      update(() => { summary.compositions['comp-group']!.tracks[0]!.enabled = false; });
+      expect(bake.mock.lastCall![0].live).toEqual([]);
+    } finally { service.dispose(); }
+  });
   it('warms active and imminent layers while declaring used ranges once per project change', async () => {
     vi.stubGlobal('document', {});
     const summary = summaryFixture({ root: { tracks: [track([
@@ -141,11 +221,11 @@ describe('MotifFrameService prewarm admission', () => {
       const key = p.contents[0].cacheKey;
       state.coverage = { [key]: Array.from({ length: 30 }, (_, i) => i) };
       state.statuses = { [key]: { phase: 'queued', done: 30, total: 60 } };
-      service.handleProjectChanged(); await Promise.resolve();
+      state.publish(); await Promise.resolve();
       expect(useMotifBakeStatusStore.getState().byLayer.early).toMatchObject({ phase: 'ready', done: 30, total: 30 });
       expect(useMotifBakeStatusStore.getState().byLayer.later).toMatchObject({ phase: 'queued', done: 0, total: 30 });
       service.noteFrameBoundary(0);
-      expect(bake).toHaveBeenCalledTimes(2);
+      expect(bake).toHaveBeenCalledOnce();
       // Turning automatic work off does not undo the first clip's saved range.
       state.automatic = false; state.statuses = {};
       service.handleProjectChanged(); await Promise.resolve();

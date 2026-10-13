@@ -20,7 +20,7 @@ vi.mock("@/bridge/events", () => ({
   }),
 }));
 
-import { useProjectStore, wireProjectStore } from "./projectStore";
+import { refreshProjectStore, useProjectStore, wireProjectStore } from "./projectStore";
 import { compositionFixture, ROOT_ID, summaryFixture } from "../testing/summaryFixture";
 import type { LayerSummary, TrackSummary } from "../ipc";
 
@@ -78,6 +78,43 @@ describe("wireProjectStore summary ordering", () => {
     mocks.unlisten.mockReset();
     mocks.onProjectChanged = null;
     useProjectStore.getState().apply(null);
+  });
+
+  it('coordinates explicit UI refreshes and change events through the same snapshot publisher', async () => {
+    mocks.projectSummary.mockResolvedValueOnce(summary('baseline'));
+    const unwire = await wireProjectStore();
+    const explicit = deferred<ProjectSummary>();
+    const event = deferred<ProjectSummary>();
+    mocks.projectSummary.mockReturnValueOnce(explicit.promise).mockReturnValueOnce(event.promise);
+    const refresh = refreshProjectStore();
+    mocks.onProjectChanged!();
+    explicit.resolve(summary('stale UI refresh'));
+    await settle();
+    expect(useProjectStore.getState().summary?.name).toBe('baseline');
+    event.resolve(summary('latest event'));
+    await refresh;
+    expect(useProjectStore.getState().summary?.name).toBe('latest event');
+    unwire();
+  });
+
+  it('bounds a burst to one in-flight read and one latest follow-up, joining explicit refreshes', async () => {
+    mocks.projectSummary.mockResolvedValueOnce(summary('baseline'));
+    const unwire = await wireProjectStore();
+    const first = deferred<ProjectSummary>();
+    const last = deferred<ProjectSummary>();
+    mocks.projectSummary.mockReturnValueOnce(first.promise).mockReturnValueOnce(last.promise);
+    mocks.onProjectChanged!();
+    for (let i = 0; i < 100; i++) mocks.onProjectChanged!();
+    const explicit = refreshProjectStore();
+    expect(mocks.projectSummary).toHaveBeenCalledTimes(2); // seed + active
+    first.resolve(summary('stale'));
+    await settle();
+    expect(useProjectStore.getState().summary?.name).toBe('baseline');
+    last.resolve(summary('final'));
+    await explicit;
+    expect(mocks.projectSummary).toHaveBeenCalledTimes(3);
+    expect(useProjectStore.getState().summary?.name).toBe('final');
+    unwire();
   });
 
   it("does not publish an older success while a newer request is pending", async () => {
@@ -161,6 +198,27 @@ describe("indices span every composition", () => {
     role: null, transient: true, layers,
   });
 
+  it('retains unchanged tracks and indices across marker-only IPC snapshots, but publishes actual layer edits', () => {
+    const make = () => summaryFixture({ root: { tracks: [track('t', [color('a'), color('b')])], markers: [
+      { id: 'm', t_us: 0, end_t_us: null, label: '', note: '', color_hint: '#ffffff',
+        anchor_layer: null, anchor_src_us: null, hibernating: false },
+    ] } });
+    useProjectStore.getState().apply(make());
+    const before = useProjectStore.getState();
+    const moved = make(); moved.compositions[ROOT_ID]!.markers[0]!.t_us = 500_000;
+    useProjectStore.getState().apply(moved);
+    const after = useProjectStore.getState();
+    expect(after.summary!.compositions[ROOT_ID]!.tracks).toBe(before.summary!.compositions[ROOT_ID]!.tracks);
+    expect(after.summary!.compositions[ROOT_ID]!.markers[0]!.t_us).toBe(500_000);
+    expect(before.summary!.compositions[ROOT_ID]!.markers[0]!.t_us).toBe(0);
+    expect(after.layerById).toBe(before.layerById);
+    expect(after.groupOrdinals).toBe(before.groupOrdinals);
+    const edited = make(); edited.compositions[ROOT_ID]!.tracks[0]!.layers[0]!.label = 'Changed';
+    useProjectStore.getState().apply(edited);
+    expect(useProjectStore.getState().layerById.get('a')!.label).toBe('Changed');
+    expect(useProjectStore.getState().layerById.get('b')).toBe(before.layerById.get('b'));
+  });
+
   it("resolves a layer inside a Group to its layer, track and composition", () => {
     useProjectStore.getState().apply(
       summaryFixture({
@@ -198,11 +256,10 @@ describe("indices span every composition", () => {
     // and an item used only inside a Group is not unused.
     expect(counts.get("m-1")).toBe(2);
     expect(counts.get("m-2")).toBe(1);
-    // One reference per summary, not per read — a Map rebuilt on the way out
-    // would be a fresh reference on every store tick and defeat the bail-out.
+    // Stable while the references are unchanged, even across IPC snapshots.
     expect(useProjectStore.getState().mediaRefCounts).toBe(counts);
     seed();
-    expect(useProjectStore.getState().mediaRefCounts).not.toBe(counts);
+    expect(useProjectStore.getState().mediaRefCounts).toBe(counts);
     useProjectStore.getState().apply(null);
     expect(useProjectStore.getState().mediaRefCounts.size).toBe(0);
   });

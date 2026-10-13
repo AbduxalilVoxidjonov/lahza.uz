@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { summaryFixture, compositionFixture, ROOT_ID } from "../../testing/summaryFixture";
+import { summaryFixture, compositionFixture, groupLayerFixture, ROOT_ID } from "../../testing/summaryFixture";
 import type { LayerSummary, TrackSummary } from "../../ipc";
 import type { AudioGraph } from "./AudioGraph";
 import { PreviewAudioEngine } from "./PreviewAudioEngine";
@@ -64,6 +64,94 @@ async function settle() { for (let i = 0; i < 30; i++) await Promise.resolve(); 
 afterEach(() => { reads.gate = null; reads.opens = []; reads.windows = []; reads.failOpen = false; reads.failRead = false; vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("session-owned preview audio transport", () => {
+  it("keeps retimed preparation and playback through marker and visual-only edits", async () => {
+    const { engine: unused, graph, summary, layer } = setup();
+    unused.dispose();
+    if (layer.params.kind !== 'Audio') throw new Error('audio fixture');
+    layer.params.time_map = { kind: 'Affine', rate: { num: 2, den: 1 } };
+    const prepare = vi.fn(async () => [{ role: 'dialogue' as const, url: 'stem.vconf', duration_us: 10_000_000 }]);
+    const engine = new PreviewAudioEngine(graph, () => 'source.vconf', prepare);
+    try {
+      engine.setProject(summary, ROOT_ID); engine.play(); await settle();
+      expect(engine.snapshot().phase).toBe('playing');
+      const changed = structuredClone(summary);
+      changed.compositions[ROOT_ID]!.markers.push({ id: 'marker', label: 'Cue', t_us: 1_000_000,
+        end_t_us: null, note: '', color_hint: '#fff', anchor_layer: null, anchor_src_us: null, hibernating: false });
+      changed.compositions[ROOT_ID]!.width = 1280;
+      changed.compositions[ROOT_ID]!.tracks[0]!.layers[0]!.label = 'renamed';
+      engine.setProject(changed, ROOT_ID);
+      expect(prepare).toHaveBeenCalledOnce();
+      expect(engine.snapshot().phase).toBe('playing');
+    } finally { engine.dispose(); }
+  });
+
+  it('does not cancel pending retimed preparation on a marker edit', async () => {
+    const { engine: unused, graph, summary, layer } = setup(); unused.dispose();
+    if (layer.params.kind !== 'Audio') throw new Error('audio fixture');
+    layer.params.time_map = { kind: 'Affine', rate: { num: 2, den: 1 } };
+    let finish!: (stems: []) => void;
+    const prepare = vi.fn((_id: string, _signal: AbortSignal) => new Promise<[]>(resolve => { finish = resolve; }));
+    const engine = new PreviewAudioEngine(graph, () => 'source.vconf', prepare);
+    try {
+      engine.setProject(summary, ROOT_ID); engine.play();
+      engine.setProject(structuredClone(summary), ROOT_ID);
+      expect(prepare).toHaveBeenCalledOnce();
+      expect(prepare.mock.calls[0]![1].aborted).toBe(false);
+      finish([]); await settle();
+      expect(engine.snapshot().phase).toBe('playing');
+    } finally { engine.dispose(); }
+  });
+
+  it('reprepares nested audio for Group timing, audio edits, role gates and landed sources', async () => {
+    const { engine: unused, graph, track } = setup(); unused.dispose();
+    const group = groupLayerFixture({ tEndUs: 5_000_000, srcOutUs: 5_000_000 });
+    if (group.params.kind !== 'CompositionRef') throw new Error('group fixture');
+    group.params.time_map = { kind: 'Affine', rate: { num: 2, den: 1 } };
+    let summary = summaryFixture({ root: { duration_us: 5_000_000, tracks: [{ ...track, layers: [group] }] },
+      groups: [compositionFixture({ id: 'comp-group', duration_us: 10_000_000, tracks: [track] })] });
+    let source = 'source.vconf';
+    const prepare = vi.fn(async () => []);
+    const engine = new PreviewAudioEngine(graph, () => source, prepare);
+    const update = async (change: () => void) => {
+      const count = prepare.mock.calls.length;
+      summary = structuredClone(summary); change();
+      engine.setProject(summary, ROOT_ID); await settle();
+      expect(prepare).toHaveBeenCalledTimes(count + 1);
+    };
+    const groupParams = () => {
+      const p = summary.compositions[ROOT_ID]!.tracks[0]!.layers[0]!.params;
+      if (p.kind !== 'CompositionRef') throw new Error('group fixture');
+      return p;
+    };
+    const child = () => summary.compositions['comp-group']!.tracks[0]!.layers[0]!;
+    const audio = () => {
+      const p = child().params;
+      if (p.kind !== 'Audio') throw new Error('audio fixture');
+      return p;
+    };
+    try {
+      engine.setProject(summary, ROOT_ID); await settle();
+      await update(() => { groupParams().preserve_pitch = false; });
+      await update(() => { groupParams().time_map = { kind: 'Affine', rate: { num: 3, den: 2 } }; });
+      await update(() => { groupParams().src_in_us = 100_000; });
+      await update(() => { groupParams().source_phase = { in: { num: 1, den: 2 }, out: { num: 0, den: 1 } }; });
+      await update(() => { audio().gain_db = { mode: 'Static', value: -6 }; });
+      await update(() => { audio().pan = { mode: 'Static', value: 0.5 }; });
+      await update(() => { audio().fade_in_us = 100_000; });
+      await update(() => { audio().src_out_us -= 100_000; });
+      await update(() => { audio().role = 'music'; });
+      await update(() => { audio().time_map = { kind: 'Affine', rate: { num: 2, den: 1 } }; });
+      await update(() => { audio().preserve_pitch = false; });
+      await update(() => { child().locked = true; });
+      await update(() => { child().effects = [{ id: 'fx', kind: 'test', enabled: true, params: {} }]; });
+      await update(() => { summary.compositions['comp-group']!.duration_us += 100_000; });
+      await update(() => { summary.audio_roles = [{ role: 'music', gain_db: -3, muted: true, solo: false }]; });
+      await update(() => { source = 'baked.vconf'; });
+      await update(() => { summary.project_id = 'replacement'; });
+      await update(() => { summary.compositions['comp-group']!.tracks[0]!.enabled = false; });
+    } finally { engine.dispose(); }
+  });
+
   it("starts and pauses real mixers without a visual ticker; pause stops synchronously", async () => {
     const { engine, sources } = setup();
     engine.play();

@@ -10,6 +10,7 @@
 import type { ActorHandle, ChangeEvent } from './actor'
 import type { Project } from './model'
 import { PROJECT_FILE } from './persistence'
+import { currentEditTrace, measureEditStage, runEditTrace } from '../../shared/editTrace'
 
 /** Quiet window before a write — a 10-event drag coalesces into one. */
 const DEBOUNCE_MS = 500
@@ -59,6 +60,8 @@ export function createAutosave(deps: AutosaveDeps): AutosaveController {
   let pending: ReturnType<typeof setTimeout> | null = null
   let commitsSinceSnapshot = 0
   let lastSnapshotAtMs = now().getTime()
+  let pendingTraceId: string | undefined
+  let traceScheduledAt = 0
 
   /** ISO-8601, no colons/dashes/dots — sorts lexicographically == chronologically
    *  (Windows-filename-safe). */
@@ -67,7 +70,9 @@ export function createAutosave(deps: AutosaveDeps): AutosaveController {
   }
 
   function persist(ws: string): void {
-    deps.fs.writeFile(deps.join(ws, PROJECT_FILE), deps.serialize(deps.actor.snapshot()))
+    const json = measureEditStage('serialize', () => deps.serialize(deps.actor.snapshot()))
+    currentEditTrace()?.fact('jsonChars', json.length)
+    measureEditStage('write_file', () => deps.fs.writeFile(deps.join(ws, PROJECT_FILE), json))
   }
 
   function takeSnapshot(ws: string): void {
@@ -92,6 +97,15 @@ export function createAutosave(deps: AutosaveDeps): AutosaveController {
   /** Debounced write: persist, then snapshot if the commit/time threshold passed. */
   function flushDebounced(): void {
     pending = null
+    const traceId = pendingTraceId
+    pendingTraceId = undefined
+    runEditTrace(traceId, 'main.autosave', () => {
+      if (traceId) currentEditTrace()?.fact('timerLateMs', Math.max(0, performance.now() - traceScheduledAt - debounceMs))
+      flushDebouncedInner()
+    })
+  }
+
+  function flushDebouncedInner(): void {
     const ws = deps.workspaceDir()
     if (ws === null) return // no workspace yet — edits stay dirty for the next cycle
     persist(ws)
@@ -99,7 +113,7 @@ export function createAutosave(deps: AutosaveDeps): AutosaveController {
     // NOT per raw actor commit.
     commitsSinceSnapshot += 1
     if (commitsSinceSnapshot >= SNAPSHOT_EVERY_COMMITS || now().getTime() - lastSnapshotAtMs >= SNAPSHOT_EVERY_MS) {
-      takeSnapshot(ws)
+      measureEditStage('backup_and_gc', () => takeSnapshot(ws))
       commitsSinceSnapshot = 0
       lastSnapshotAtMs = now().getTime()
     }
@@ -107,6 +121,10 @@ export function createAutosave(deps: AutosaveDeps): AutosaveController {
 
   function onChange(_e: ChangeEvent): void {
     if (pending !== null) clearTimer(pending)
+    // A coalesced save belongs to its latest edit; never attribute a later,
+    // untraced edit to the previous drag. IDs are session-only, never persisted.
+    pendingTraceId = currentEditTrace()?.id
+    if (pendingTraceId) traceScheduledAt = performance.now()
     pending = setTimer(flushDebounced, debounceMs)
   }
 
@@ -119,14 +137,19 @@ export function createAutosave(deps: AutosaveDeps): AutosaveController {
      *  force path always snapshots and resets the counters. */
     async forceFlush(): Promise<void> {
       if (pending !== null) { clearTimer(pending); pending = null }
-      const ws = deps.workspaceDir()
-      if (ws === null) return
-      persist(ws)
-      takeSnapshot(ws)
-      commitsSinceSnapshot = 0
-      lastSnapshotAtMs = now().getTime()
+      const traceId = pendingTraceId
+      pendingTraceId = undefined
+      runEditTrace(traceId, 'main.force_save', () => {
+        const ws = deps.workspaceDir()
+        if (ws === null) return
+        persist(ws)
+        measureEditStage('backup_and_gc', () => takeSnapshot(ws))
+        commitsSinceSnapshot = 0
+        lastSnapshotAtMs = now().getTime()
+      })
     },
     stop() {
+      pendingTraceId = undefined
       if (pending !== null) { clearTimer(pending); pending = null }
       if (unsubscribe) { unsubscribe(); unsubscribe = null }
     },

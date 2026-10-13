@@ -9,6 +9,7 @@ import { createAutosave, type AutosaveController, type AutosaveFs } from './auto
 import { openProject, saveProjectAs, newWorkspace, makeEnqueueDerivatives, type WorkspaceNapi, type OrchestratorFs, type SchemaUpgradeReport } from './workspace-orchestrator'
 import type { RelinkFs, RelinkReport } from './relink'
 import { serializeProjectToJson } from './persistence'
+import { currentEditTrace, editTraceId, EDIT_TRACE_ARG, runEditTrace } from '../../shared/editTrace'
 import { describeGridRepairs, type GridRepair } from './serialize'
 import { AgentActivityService } from '../agent/activity'
 import { mcpActor } from './mcp-actor'
@@ -433,7 +434,8 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
 
   function emitChange(e: ChangeEvent): void {
     const payload = mapChangeEvent(e)
-    deps.send('project:changed', payload)
+    const traceId = currentEditTrace()?.id
+    deps.send('project:changed', traceId ? { ...payload, [EDIT_TRACE_ARG]: traceId } : payload)
     deps.mcpNotify(payload)
   }
 
@@ -526,7 +528,13 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
         const doomedLabel = channel === 'project_delete_checkpoint'
           ? actor.listCheckpoints().find((c) => c.id === (args.checkpointId as string | undefined))?.label ?? null
           : null
-        const r = actor.command(channel, args)
+        const { [EDIT_TRACE_ARG]: traceInput, ...commandArgs } = args
+        const r = runEditTrace(editTraceId(traceInput), `main.command.${channel}`,
+          () => {
+            const result = actor.command(channel, commandArgs)
+            currentEditTrace()?.fact('commandAccepted', result.ok)
+            return result
+          })
         // The renderer surfaces an IPC rejection as `Error.message` (bridge/ipc.ts),
         // so serialize the CommandError as JSON to keep it structured.
         if (!r.ok) throw new Error(JSON.stringify(r.error))
@@ -549,7 +557,8 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
         return r.value
       }
       case 'summary':
-        return buildProjectSummary(actor.snapshot(), actor.historyStatus(), deps.fileExists)
+        return runEditTrace(editTraceId(args[EDIT_TRACE_ARG]), 'main.summary',
+          () => buildProjectSummary(actor.snapshot(), actor.historyStatus(), deps.fileExists))
       case 'historyView':
         // The panel wants the WHOLE stack, so the limit is the cap itself — asked
         // of the actor rather than restated here. MCP's `project://history`

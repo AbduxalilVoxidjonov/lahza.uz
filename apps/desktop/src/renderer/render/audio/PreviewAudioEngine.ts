@@ -1,4 +1,4 @@
-import { layerRateNumber } from '../../layerTiming';
+import { retimedAudioInputs } from './retimedAudioInputs';
 import type { AudioRole } from '../../ipc';
 import { rendererImportDiagnostics } from '../../importDiagnostics';
 // Session-owned transport and preview audio. No Pixi, React, DOM, or visual
@@ -146,13 +146,10 @@ export class PreviewAudioEngine {
     let changed = false;
     const roles = this.summary?.audio_roles ?? [];
     const solo = anyRoleSolo(roles);
-    const retimed = !!this.prepareStems && !!this.summary && Object.values(this.summary.compositions).some(c =>
-      c.tracks.some(t => t.layers.some(l => (l.params.kind === 'Audio' || l.params.kind === 'CompositionRef') &&
-        (layerRateNumber(l.params) !== 1 || l.params.source_phase !== undefined))));
+    const sig = this.prepareStems && this.summary && this.targetId
+      ? retimedAudioInputs(this.summary, this.targetId, this.resolveSource) : null;
+    const retimed = sig !== null;
     if (retimed && this.summary && this.targetId) {
-      const audioSources: unknown[] = [];
-      forEachLayer(this.summary, this.targetId, ({ layer }) => { if (layer.params.kind === 'Audio') audioSources.push(this.resolveSource(layer.id, layer.params.media_id)); });
-      const sig = JSON.stringify([this.summary.compositions, this.summary.audio_roles, audioSources, this.targetId]);
       if (sig !== this.stemSignature) {
         this.stemSignature = sig; this.stemAbort.abort(); this.stemAbort = new AbortController();
         this.stems = null; this.stemError = null;

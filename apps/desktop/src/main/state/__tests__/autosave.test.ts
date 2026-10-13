@@ -4,6 +4,7 @@ import { createActor, type ActorHandle } from '../actor'
 import { serializeProjectToJson, PROJECT_FILE } from '../persistence'
 import { blankProject } from '../model'
 import { seededGen } from '../ids'
+import { EDIT_TRACE_PREFIX, runEditTrace } from '../../../shared/editTrace'
 
 /** In-memory fs: files map + dirs set, with copyFile/readdir for Backups. */
 function memFs(): AutosaveFs & { files: Map<string, string>; dirs: Set<string> } {
@@ -56,6 +57,34 @@ describe('autosave forceFlush', () => {
 describe('autosave debounce', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
+
+  it('attributes separate serialization and write costs to the latest traced commit', async () => {
+    let tick = 0
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => tick)
+    const log = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const fs = memFs()
+    const write = fs.writeFile
+    fs.writeFile = (path, text) => { tick += 23; write(path, text) }
+    const { actor, ctl } = setup({ fs, serialize: p => { tick += 17; return serializeProjectToJson(p) } })
+    ctl.start()
+    try {
+      runEditTrace('first', 'test', () => actor.dispatch('add_track', {}))
+      runEditTrace('latest', 'test', () => actor.dispatch('add_track', {}))
+      log.mockClear()
+      tick += 500
+      await vi.advanceTimersByTimeAsync(500)
+      const rows = log.mock.calls.map(([line]) => JSON.parse(String(line).slice(EDIT_TRACE_PREFIX.length + 1)))
+      expect(rows).toHaveLength(1)
+      expect(rows[0]).toMatchObject({ traceId: 'latest', phase: 'main.autosave', timerLateMs: 0,
+        spans: [{ stage: 'serialize', durationMs: 17 }, { stage: 'write_file', durationMs: 23 }] })
+      expect(fs.files.has('/ws/project.json')).toBe(true)
+      // An unrelated edit must not inherit the preceding gesture's ID.
+      actor.dispatch('add_track', {})
+      log.mockClear()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(log).not.toHaveBeenCalled()
+    } finally { ctl.stop(); log.mockRestore(); clock.mockRestore() }
+  })
 
   it('coalesces a flurry of commits into ONE write after 500ms quiet', async () => {
     const { fs, actor, ctl } = setup()

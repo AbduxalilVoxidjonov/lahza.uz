@@ -15,11 +15,9 @@ import {
   projectClose,
   projectSave,
   projectSaveAs,
-  projectSummary,
   projectUndo,
   rippleDeleteGap,
   rippleDeleteLayers,
-  type ProjectSummary,
 } from "./ipc";
 import {
   clipboardSlot,
@@ -48,7 +46,6 @@ import {
   playheadTimeUs,
   setPlayheadTimeUs,
 } from "./state/playheadStore";
-import { LatestRequestCoordinator } from "./state/latestRequest";
 import {
   clearLayerSelection,
   currentSelection,
@@ -140,6 +137,8 @@ import {
   compositionOrRoot,
   currentOpenComposition,
   rootCompositionOf,
+  useProjectSummary,
+  refreshProjectStore,
 } from "./state/projectStore";
 import { useFocusedCompositionId } from "./state/compositionAnchorStore";
 import {
@@ -180,12 +179,7 @@ interface AppProps {
 
 export function App({ onCloseProject }: AppProps) {
   const { t } = useTranslation();
-  const [summary, setSummary] = useState<ProjectSummary | null>(null);
-  const summaryRequestsRef = useRef<LatestRequestCoordinator | null>(null);
-  if (summaryRequestsRef.current === null) {
-    summaryRequestsRef.current = new LatestRequestCoordinator();
-  }
-  const summaryRequests = summaryRequestsRef.current;
+  const summary = useProjectSummary();
   // The timeline the panels, the shortcuts and the Insert menu act on. Export
   // and Settings read the root below regardless (compositionAnchorStore.ts
   // says why).
@@ -452,20 +446,9 @@ export function App({ onCloseProject }: AppProps) {
   }, [logReady, systemNotices]);
 
   const refresh = useCallback(async () => {
-    await summaryRequests.run(
-      () => projectSummary(),
-      setSummary,
-      (error) =>
-        setError(t("errors.refresh_failed", { detail: String(error) })),
-    );
-  }, [summaryRequests, t]);
-
-  useEffect(
-    () => () => {
-      summaryRequests.invalidate();
-    },
-    [summaryRequests],
-  );
+    try { await refreshProjectStore(); }
+    catch (error) { setError(t("errors.refresh_failed", { detail: String(error) })); }
+  }, [t]);
 
   const {
     pong,
@@ -476,7 +459,7 @@ export function App({ onCloseProject }: AppProps) {
     enterAgentMode,
     staleMotifs,
     setStaleMotifs,
-  } = useAppWiring({ refresh });
+  } = useAppWiring();
   useWindowTitle(summary?.name);
 
   const run = useCallback(

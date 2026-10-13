@@ -14,6 +14,7 @@ import { createWorkspaceStore } from '../workspace'
 import { EDITING_WORKSPACE_ID, activeWorkspaceProfile, type WorkspaceDocument } from '../../shared/workspace'
 import { root } from './__tests__/fixtures/project'
 import { DEFAULT_CAPTION_FONT_FAMILY } from '../../shared/fonts'
+import { EDIT_TRACE_ARG, EDIT_TRACE_PREFIX } from '../../shared/editTrace'
 
 describe('mapChangeEvent', () => {
   it('maps a User ChangeEvent to the project:changed payload shape, refs included', () => {
@@ -83,6 +84,30 @@ describe('createTsActorHost — persistence-route integration', () => {
 
     return { deps, vfs, napiCalls, sent }
   }
+
+  it('carries edit timing through real command stages and refresh without persisting it', async () => {
+    const { deps, sent } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    const log = vi.spyOn(console, 'info').mockImplementation(() => {})
+    const id = 'edit-12345678-1234-1234-1234-123456789abc'
+    host.start()
+    try {
+      await host.handleInvoke('add_marker', { tUs: 1_000_000, [EDIT_TRACE_ARG]: id })
+      expect(sent.find(row => row.event === 'project:changed')?.payload).toMatchObject({ [EDIT_TRACE_ARG]: id })
+      await host.handleInvoke('project_summary', { [EDIT_TRACE_ARG]: id })
+      const rows = log.mock.calls.map(([line]) => JSON.parse(String(line).slice(EDIT_TRACE_PREFIX.length + 1)))
+      expect(rows.map(row => row.phase)).toEqual(['main.command.add_marker', 'main.summary'])
+      expect(rows[0].commandAccepted).toBe(true)
+      expect(rows[0].spans.map((span: { stage: string }) => span.stage)).toEqual(expect.arrayContaining([
+        'recipe', 'reconcile_markers', 'produce_including_finalize', 'validate', 'notify_subscribers',
+      ]))
+      expect(JSON.stringify(host.actor.snapshot())).not.toContain(id)
+      log.mockClear()
+      await host.handleInvoke('add_marker', { tUs: 2_000_000 })
+      expect(log).not.toHaveBeenCalled()
+      expect(sent.filter(row => row.event === 'project:changed').at(-1)?.payload).not.toHaveProperty(EDIT_TRACE_ARG)
+    } finally { host.stop(); log.mockRestore() }
+  })
 
   it('applies the live font preference to UI and MCP text without rewriting existing clips', async () => {
     const { deps } = makeInMemoryDeps()

@@ -132,6 +132,34 @@ describe('markerShownEnd', () => {
   })
 })
 
+describe('marker projection work', () => {
+  it('resolves all anchors in linear work and preserves region and hibernation semantics', () => {
+    const p = mkProject()
+    const c = root(p)
+    let idReads = 0
+    const layers = Array.from({ length: 100 }, (_, i) => {
+      const l = layer(`layer-${i}`, clipParams)
+      Object.defineProperty(l, 'id', { enumerable: true, get: () => { idReads++; return `layer-${i}` } })
+      return l
+    })
+    c.tracks = [track(layers)]
+    c.markers = Array.from({ length: 100 }, (_, i) => ({
+      ...marker({ layer: 'layer-99', src_us: i % 2 === 0 ? 1_500_000 : 2_000_000 }),
+      id: `marker-${i}`, t_us: 500_000, end_t_us: 1_800_000,
+    }))
+    const history = { cursor: 0, len: 1, can_undo: false, can_redo: false, holds_layer_anywhere: true }
+    const projected = buildProjectSummary(p, history, NEVER).compositions[c.id].markers
+    // Count entity reads, not machine-dependent elapsed time. Three full anchor
+    // searches per region used to make this grow as markers * layers.
+    expect(idReads).toBeLessThanOrEqual(4 * layers.length)
+    for (let i = 0; i < projected.length; i++) {
+      expect(projected[i].hibernating).toBe(i % 2 !== 0)
+      expect(projected[i].end_t_us).toBe(i % 2 === 0 ? 1_000_000 : 1_800_000)
+      expect(c.markers[i].end_t_us).toBe(1_800_000)
+    }
+  })
+})
+
 describe('layerParamsView Text arm (mirror text_view_tests)', () => {
   it('carries font/weight/italic/align/anchor/outline/shadow', () => {
     const tp: LayerParams = {

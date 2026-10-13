@@ -1,5 +1,9 @@
 import { create } from "zustand";
+import { shallow } from "zustand/shallow";
+import { shareSnapshot } from './shareSnapshot';
 import { listen, type UnlistenFn } from "@/bridge/events";
+import { EDIT_TRACE_ARG, EditTrace, editTraceId } from '../../shared/editTrace';
+import { reportAfterFrameOpportunity } from '../diagnostics/editTrace';
 
 import {
   projectSummary,
@@ -139,7 +143,7 @@ function buildIndices(summary: ProjectSummary | null): {
 
 export const useProjectStore = create<
   ProjectStoreState & ProjectStoreActions
->((set) => ({
+>((set, get) => ({
   summary: null,
   mediaById: new Map(),
   layerById: new Map(),
@@ -152,7 +156,13 @@ export const useProjectStore = create<
   ready: false,
 
   apply: (summary) => {
+    const previous = get();
+    if (summary?.project_id === previous.summary?.project_id) summary = shareSnapshot(previous.summary, summary);
     const indices = buildIndices(summary);
+    // Index subscribers should wake only when their entries changed, too.
+    for (const key of Object.keys(indices) as (keyof typeof indices)[]) {
+      if (shallow(previous[key], indices[key])) Object.assign(indices, { [key]: previous[key] });
+    }
     set({
       summary,
       ...indices,
@@ -190,17 +200,17 @@ export const useProjectStore = create<
   },
 }));
 
-/// One-shot mount wiring: fetch the initial summary, then subscribe to
-/// `project:changed`. Returns a teardown function the caller stores
-/// + invokes on unmount.
-///
-/// Idempotent for HMR: a second call replaces the subscription; the
-/// initial fetch is harmless re-work.
-///
-/// Pre-workspace: `project_summary` returns an Err which we treat as
-/// "no project loaded" — the store sits with `summary: null, ready: true`
-/// and the listener catches the eventual `project:changed` that arrives
-/// once a workspace opens.
+let activeRefresh: ((traceId?: string, explicit?: boolean) => Promise<void>) | null = null;
+
+/** UI actions and backend events publish into the same renderer snapshot. */
+export async function refreshProjectStore(): Promise<void> {
+  await activeRefresh?.(undefined, true);
+}
+
+/// Mount wiring: subscribe before the seed fetch. The caller owns teardown,
+/// which invalidates pending reads and detaches the event listener.
+/// A failed automatic fetch represents no open project; an explicit UI refresh
+/// reports its error and preserves the last good snapshot.
 export async function wireProjectStore(): Promise<UnlistenFn> {
   // `project:changed` fires a re-fetch, and `project_summary` is an async IPC
   // whose responses can resolve out of order. A newly issued request
@@ -208,27 +218,79 @@ export async function wireProjectStore(): Promise<UnlistenFn> {
   // response is pending. Otherwise the older snapshot can still publish in
   // that gap and temporarily regress clip geometry or media export routing.
   const requests = new LatestRequestCoordinator();
-  const refresh = async () => {
+  const performRefresh = async (traceId?: string, explicit = false) => {
+    const trace = traceId ? new EditTrace(traceId, 'renderer.refresh') : undefined;
+    const endFetch = trace?.span('summary_ipc');
+    let applied = false;
     await requests.run(
-      () => projectSummary(),
-      (summary) => useProjectStore.getState().apply(summary),
-      () => {
+      async () => {
+        try {
+          const summary = await (traceId ? projectSummary(traceId) : projectSummary());
+          endFetch?.();
+          return summary;
+        } catch (error) { endFetch?.(false); throw error; }
+      },
+      (summary) => {
+        if (trace) trace.measure('store_apply', () => useProjectStore.getState().apply(summary));
+        else useProjectStore.getState().apply(summary);
+        applied = true;
+        // Arm before yielding back to React's queued work: starting after the
+        // await below would miss render work performed in intervening microtasks.
+        if (trace) {
+          trace.fact('applied', true);
+          reportAfterFrameOpportunity(trace);
+        }
+      },
+      (error) => {
+        if (explicit) throw error;
         // No project loaded — leave summary null but mark ready so
         // consumers can distinguish from the pre-fetch state.
         useProjectStore.getState().apply(null);
       },
     );
+    if (trace && !applied) {
+      trace.fact('applied', false);
+      trace.report(false); // superseded or failed; never claim it painted
+    }
+  };
+  // One read in flight, one newest pending signal. An explicit caller joins
+  // existing work; an event invalidates its result immediately, without
+  // starting another IPC until that read has settled.
+  let pending: { traceId: string | undefined; explicit: boolean } | null = null;
+  let draining: Promise<void> | null = null;
+  let disposed = false;
+  let explicitWaiter = false;
+  const refresh = (traceId?: string, explicit = false): Promise<void> => {
+    if (disposed) return Promise.resolve();
+    explicitWaiter ||= explicit;
+    if (explicit && draining) return draining;
+    requests.invalidate();
+    pending = { traceId, explicit };
+    if (!draining) {
+      draining = (async () => {
+        while (pending && !disposed) {
+          const next = pending;
+          pending = null;
+          await performRefresh(next.traceId, next.explicit || explicitWaiter);
+        }
+      })().finally(() => { draining = null; explicitWaiter = false; });
+    }
+    return draining;
   };
   // Subscribe BEFORE the seed fetch: a `project:changed` emitted between the
   // seed resolving and the listener registering would otherwise be lost, and
   // the store would sit on a stale snapshot until some unrelated later event.
   // An event landing during the seed just runs a second refresh, which the
   // coordinator already serializes newest-wins.
-  const unlisten = await listen("project:changed", () => {
-    void refresh();
+  const unlisten = await listen<Record<string, unknown>>("project:changed", (event) => {
+    void refresh(editTraceId(event?.payload?.[EDIT_TRACE_ARG])).catch(() => {});
   });
+  activeRefresh = refresh;
   await refresh();
   return () => {
+    disposed = true;
+    pending = null;
+    if (activeRefresh === refresh) activeRefresh = null;
     requests.invalidate();
     unlisten();
   };

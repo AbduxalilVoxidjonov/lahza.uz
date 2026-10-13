@@ -241,7 +241,9 @@ export function useImportReadiness(deps: {
   useEffect(() => {
     capabilities.update(useProjectStore.getState().mediaById);
     setSweepTick(n => n + 1);
-  }, [summary, capabilities]);
+    // Timeline edits don't change media readiness. Waking App here on every
+    // summary used to synchronously render the entire workspace a second time.
+  }, [summary?.project_id, summary?.media, capabilities]);
   useEffect(() => onResourceChange(capabilities.refresh), [capabilities]);
   useEffect(() => {
     let disposed = false;
@@ -265,7 +267,7 @@ export function useImportReadiness(deps: {
   }, [capabilities]);
   const readinessById = useMemo(() => new Map(
     [...useProjectStore.getState().mediaById.keys()].map(id => [id, readinessOf(id)]),
-  ), [summary, sweepTick, readinessOf]);
+  ), [summary?.project_id, summary?.media, sweepTick, readinessOf]);
   useEffect(() => {
     for (const [id, readiness] of readinessById) {
       rendererImportDiagnostics.report(id, 'pool_observed');
@@ -284,7 +286,7 @@ export function useImportReadiness(deps: {
   // Live optimization verdict for EVERY pool entry — the Media Pool badges are
   // per-media and describe the clip's current state, so they must not be scoped
   // to "imported this session". Classification is a handful of map lookups per
-  // clip, so a whole-pool pass every summary/proxy change is free.
+  // clip; recompute only for media/proxy/capability changes.
   //
   // Computed here rather than in MediaPool because two of the three inputs
   // (`decodeProbeMemo`, `routeCorrected`) are refs: handing them across the
@@ -301,7 +303,7 @@ export function useImportReadiness(deps: {
     }
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summary, proxyState, sweepTick]);
+  }, [summary?.project_id, summary?.media, proxyState, sweepTick]);
 
   // Proxy failure is the one optimization outcome that needs the user to act
   // (re-import), so it cannot rely on the pool being on screen — the Media

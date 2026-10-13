@@ -96,6 +96,7 @@ export default defineConfig({
     root: path.resolve(HERE, 'src/renderer'),
     plugins: [react(), tailwindcss(), cspMeta()],
     define: {
+      'import.meta.env.VITE_WEFTCUT_EDIT_TRACE': JSON.stringify(process.env.WEFTCUT_EDIT_TRACE === '1' ? '1' : '0'),
       'import.meta.env.VITE_WEFTCUT_E2E': JSON.stringify(
         process.env.VITE_WEFTCUT_E2E === '1' ? '1' : '0',
       ),

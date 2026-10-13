@@ -141,8 +141,14 @@ export function markerColorHint(c: Rgba): string { return rgbaHex(c) }
  *  re-derive by asking the same question this projection answers, so the lane
  *  can never disagree with the reconcile about which markers are asleep. */
 export function markerHibernating(c: Composition, m: Marker): boolean {
+  return markerHibernatingForLayer(m, m.anchor === null ? undefined : anchorLayer(c, m.anchor))
+}
+
+/** Shared predicate for callers that have already resolved an anchor within its
+ *  owning composition. Batch projection and reconcile each own an index; neither
+ *  should repeat a layer search for every marker. No derived state is cached. */
+export function markerHibernatingForLayer(m: Marker, layer: Layer | undefined): boolean {
   if (m.anchor === null) return false
-  const layer = anchorLayer(c, m.anchor)
   if (layer === undefined || !hasSourceWindow(layer.params)) return true
   const time = addTime(exactTime(m.anchor.src_us), m.anchor.src_fraction ?? ZERO_TIME)
   return compareTime(time, sourceIn(layer.params)) < 0 || compareTime(time, sourceOut(layer)) >= 0
@@ -180,8 +186,14 @@ function anchorLayer(c: Composition, anchor: MarkerAnchor): Layer | undefined {
  *  not one. */
 export function markerShownEnd(c: Composition, m: Marker): number | null {
   if (m.end_t_us === null || m.end_t_us === undefined) return null
-  if (m.anchor === null || markerHibernating(c, m)) return m.end_t_us
+  if (m.anchor === null) return m.end_t_us
   const layer = anchorLayer(c, m.anchor)
+  return markerShownEndForLayer(m, layer, markerHibernatingForLayer(m, layer))
+}
+
+function markerShownEndForLayer(m: Marker, layer: Layer | undefined, hibernating: boolean): number | null {
+  if (m.end_t_us === null || m.end_t_us === undefined) return null
+  if (m.anchor === null || hibernating) return m.end_t_us
   if (layer === undefined || layer.t_end_us <= m.t_us) return m.end_t_us
   return Math.min(m.end_t_us, layer.t_end_us)
 }
@@ -413,30 +425,43 @@ export function buildProjectSummary(p: Project, history: HistoryStatus, fileExis
   })
   media.sort((x, y) => (x.id < y.id ? 1 : x.id > y.id ? -1 : 0)) // b.id.cmp(&a.id) — descending
 
-  const compositionSummary = (c: Composition): CompositionSummary => ({
-    id: c.id, label: c.label, ordinal: c.ordinal, width: c.width, height: c.height, fps_num: c.fps.num, fps_den: c.fps.den,
-    duration_us: c.duration_us, duration_pinned: c.duration_pinned, fps_locked: history.holds_layer_anywhere,
-    tracks: c.tracks.map((t: Track): TrackSummary => ({
-      id: t.id, kind: deriveTrackKindLabel(t), label: t.label, enabled: t.enabled, locked: t.locked,
-      muted: t.muted, solo: t.solo, role: t.role != null ? TRACK_ROLE_WIRE[t.role] : null, transient: t.transient,
-      layers: t.layers.map((l: Layer): LayerSummary => ({
-        id: l.id, label: l.label, t_start_us: l.t_start_us, t_end_us: l.t_end_us, kind: layerKind(l.params),
-        color_hint: layerColorHint(l), enabled: l.enabled, locked: l.locked,
-        params: layerParamsView(l.params, p.media_pool, p.compositions), effects: l.effects,
+  const compositionSummary = (c: Composition): CompositionSummary => {
+    // Lazy so compositions with only free markers pay no indexing cost.
+    let anchorLayers: Map<Uuid, Layer> | undefined
+    const markers = c.markers.map((m): MarkerSummary => {
+      if (m.anchor !== null && anchorLayers === undefined) {
+        anchorLayers = new Map()
+        for (const track of c.tracks) for (const layer of track.layers) anchorLayers.set(layer.id, layer)
+      }
+      const layer = m.anchor === null ? undefined : anchorLayers?.get(m.anchor.layer)
+      const hibernating = markerHibernatingForLayer(m, layer)
+      return {
+        id: m.id, t_us: m.t_us, end_t_us: markerShownEndForLayer(m, layer, hibernating), label: m.label, note: m.note,
+        color_hint: markerColorHint(m.color),
+        anchor_layer: m.anchor === null ? null : m.anchor.layer,
+        anchor_src_us: m.anchor === null ? null : m.anchor.src_us,
+        hibernating,
+      }
+    })
+    return {
+      id: c.id, label: c.label, ordinal: c.ordinal, width: c.width, height: c.height, fps_num: c.fps.num, fps_den: c.fps.den,
+      duration_us: c.duration_us, duration_pinned: c.duration_pinned, fps_locked: history.holds_layer_anywhere,
+      tracks: c.tracks.map((t: Track): TrackSummary => ({
+        id: t.id, kind: deriveTrackKindLabel(t), label: t.label, enabled: t.enabled, locked: t.locked,
+        muted: t.muted, solo: t.solo, role: t.role != null ? TRACK_ROLE_WIRE[t.role] : null, transient: t.transient,
+        layers: t.layers.map((l: Layer): LayerSummary => ({
+          id: l.id, label: l.label, t_start_us: l.t_start_us, t_end_us: l.t_end_us, kind: layerKind(l.params),
+          color_hint: layerColorHint(l), enabled: l.enabled, locked: l.locked,
+          params: layerParamsView(l.params, p.media_pool, p.compositions), effects: l.effects,
+        })),
       })),
-    })),
-    markers: c.markers.map((m: Marker): MarkerSummary => ({
-      id: m.id, t_us: m.t_us, end_t_us: markerShownEnd(c, m), label: m.label, note: m.note,
-      color_hint: markerColorHint(m.color),
-      anchor_layer: m.anchor === null ? null : m.anchor.layer,
-      anchor_src_us: m.anchor === null ? null : m.anchor.src_us,
-      hibernating: markerHibernating(c, m),
-    })),
-    transitions: c.transitions.map((t): TransitionView => ({
-      id: t.id, from_layer: t.from_layer, to_layer: t.to_layer, duration_us: t.duration_us, kind: t.kind, extended_us: t.extended_us,
-    })),
-    links: c.links.map((g: Link): LinkSummary => ({ id: g.id, layer_ids: g.members })),
-  })
+      markers,
+      transitions: c.transitions.map((t): TransitionView => ({
+        id: t.id, from_layer: t.from_layer, to_layer: t.to_layer, duration_us: t.duration_us, kind: t.kind, extended_us: t.extended_us,
+      })),
+      links: c.links.map((g: Link): LinkSummary => ({ id: g.id, layer_ids: g.members })),
+    }
+  }
   const compositions: Record<string, CompositionSummary> = {}
   for (const c of all) compositions[c.id] = compositionSummary(c)
 

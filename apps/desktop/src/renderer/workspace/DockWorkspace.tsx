@@ -257,6 +257,8 @@ function PreviewDockPanel() {
   );
 }
 
+const exitBladeTool = () => setTool("select");
+
 function TimelineDockPanel() {
   const contracts = useContracts();
   const runtime = useDockPanelRuntime();
@@ -288,7 +290,7 @@ function TimelineDockPanel() {
         media={summary?.media ?? []}
         readinessOf={contracts.readinessOf}
         visible={runtime.isVisible}
-        onExitBlade={() => setTool("select")}
+        onExitBlade={exitBladeTool}
         onSeek={contracts.onSeek}
         onMutated={contracts.onMutated}
       />

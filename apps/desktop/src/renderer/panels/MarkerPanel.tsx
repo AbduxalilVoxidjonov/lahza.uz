@@ -16,7 +16,8 @@
 // anchoring effort began from — a mark inside a Group invisible from the root,
 // merely in a list instead of on a lane.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { shallow } from "zustand/shallow";
 import { useTranslation } from "react-i18next";
 import { Anchor, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import { AppColorField, hexToRgba } from "../components/AppColorField";
@@ -69,6 +70,15 @@ interface PanelMarker {
   compositionId: string;
   fpsNum: number;
   fpsDen: number;
+}
+
+// IPC snapshots allocate fresh objects even for unchanged markers. Compare
+// the scalar wire fields so moving one marker doesn't render hundreds of
+// unrelated text inputs, swatches and icons. Include the owning clock/target.
+function sameMarkerRow(a: { row: PanelMarker }, b: { row: PanelMarker }): boolean {
+  return a.row.compositionId === b.row.compositionId &&
+    a.row.fpsNum === b.row.fpsNum && a.row.fpsDen === b.row.fpsDen &&
+    shallow(a.row.marker, b.row.marker);
 }
 
 interface PanelSection {
@@ -314,7 +324,7 @@ function MarkerNoteRow({ marker }: { marker: MarkerSummary }) {
 /// A marker sitting on a timeline: its own composition's timecode activates it,
 /// and an anchored one is marked as such so "why did this move" has an answer on
 /// the row.
-function TimelineMarkerRow({ row }: { row: PanelMarker }) {
+const TimelineMarkerRow = memo(function TimelineMarkerRow({ row }: { row: PanelMarker }) {
   const { t } = useTranslation();
   const { marker } = row;
   const timecode = formatTimecode(marker.t_us, row.fpsNum, row.fpsDen);
@@ -353,7 +363,7 @@ function TimelineMarkerRow({ row }: { row: PanelMarker }) {
       <MarkerNoteRow marker={marker} />
     </li>
   );
-}
+}, sameMarkerRow);
 
 /// A marker whose clip no longer shows the frame it names. It has no timeline
 /// position to offer, so the row offers the two things that are still true: the
@@ -362,7 +372,7 @@ function TimelineMarkerRow({ row }: { row: PanelMarker }) {
 ///
 /// Detach is the row's one action and the one exit from hibernation, for the
 /// case where the note is worth keeping but the following is not.
-function HibernatingMarkerRow({ row }: { row: PanelMarker }) {
+const HibernatingMarkerRow = memo(function HibernatingMarkerRow({ row }: { row: PanelMarker }) {
   const { t } = useTranslation();
   const { marker } = row;
   const ordinals = useGroupOrdinals();
@@ -419,7 +429,7 @@ function HibernatingMarkerRow({ row }: { row: PanelMarker }) {
       <MarkerNoteRow marker={marker} />
     </li>
   );
-}
+}, sameMarkerRow);
 
 /// One heading plus its rows. A section with no markers keeps its heading and
 /// loses its disclosure: `(0)` is the answer to "what is marked here", and there
