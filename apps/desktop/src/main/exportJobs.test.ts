@@ -1,4 +1,4 @@
-import { exportPresetValues } from '../shared/export-presets';
+import { exportPresetValues, type ExportPresetPreferences } from '../shared/export-presets';
 import { mergeSettings } from '../shared/exportSettings';
 import { afterEach, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
@@ -35,7 +35,7 @@ it('distinguishes absent output files from filesystem failures during filename c
   }
 });
 afterEach(async () => { vi.useRealTimers(); await Promise.all(cleanup.splice(0).map(p => fs.rm(p, { recursive: true, force: true }))); });
-async function setup() {
+async function setup(exportPreferences?: () => ExportPresetPreferences) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-export-test-')); cleanup.push(dir);
   const project = blankProject(() => crypto.randomUUID(), 'Project');
   rootComposition(project).duration_us = 1_000_000;
@@ -47,7 +47,7 @@ async function setup() {
     if (channel === 'export_publish_output') { await fs.writeFile(String(args.output), 'complete'); return args.output; }
     return null;
   });
-  const jobs = new ExportJobs({ host: () => host, send, native, readyTimeoutMs: 40 });
+  const jobs = new ExportJobs({ host: () => host, send, native, readyTimeoutMs: 40, exportPreferences });
   const ready = () => jobs.rendererReady('renderer', project.root_id);
   const run = () => send.mock.calls.find(([event]) => event === 'export:run')![1] as ExportRun;
   return { jobs, dir, project, send, native, ready, run, close: () => { opened = null; } };
@@ -166,6 +166,31 @@ it('uses the personal default for MCP options while keeping saved project settin
   const host = { actor: { snapshot: () => project }, openedProject: () => ({ dir: 'C:/project' }), handleInvoke: async () => saved } as unknown as TsActorHost;
   const jobs = new ExportJobs({ host: () => host, send: vi.fn(), native: vi.fn(), exportPreferences: () => ({ export_presets: [preset], default_export_preset_id: preset.id }) });
   expect(await jobs.options()).toMatchObject({ settings: { custom_bitrate: 7_000_000 } });
-  saved = mergeSettings({ quality: 'custom', customBitrate: 3_000_000 });
+  saved = mergeSettings({ quality: 'custom', customBitrate: 3_000_000, hwAccel: 'software', decodeEngine: 'ffmpeg' });
   expect(await jobs.options()).toMatchObject({ settings: { custom_bitrate: 3_000_000 } });
+  expect(await jobs.options(preset.id)).toMatchObject({ settings: { custom_bitrate: 7_000_000, hw_accel: 'software', decode_engine: 'ffmpeg' } });
+  expect(await jobs.options('builtin:hd')).toMatchObject({ settings: { resolution_height: 720, custom_bitrate: 5_000_000 } });
+  expect(saved).toMatchObject({ customBitrate: 3_000_000 });
+  await expect(jobs.options('missing')).rejects.toMatchObject({ code: 'not_found' });
+  await expect(jobs.options(null)).rejects.toMatchObject({ code: 'invalid_params' });
+});
+
+it('snapshots a selected preset before awaits and replays the job after that preset is deleted', async () => {
+  const preset = { id: 'personal', name: 'Review', version: 1 as const, values: exportPresetValues(mergeSettings({ quality: 'custom', customBitrate: 7_000_000 })) };
+  const prefs: ExportPresetPreferences = { export_presets: [preset] };
+  const s = await setup(() => prefs); s.ready();
+  await expect(s.jobs.start({ preset_id: 'missing' })).rejects.toMatchObject({ code: 'not_found' });
+  await expect(s.jobs.start({ preset_id: null })).rejects.toMatchObject({ code: 'invalid_params' });
+  expect(s.jobs.isActive()).toBe(false);
+  expect(s.native).not.toHaveBeenCalled();
+  const request = { preset_id: preset.id, request_id: 'selected', settings: { include_audio: false } };
+  const admitted = s.jobs.start(request);
+  preset.values.customBitrate = 1_000_000;
+  prefs.export_presets = [];
+  const job = await admitted;
+  expect(job.settings.customBitrate).toBe(7_000_000);
+  await s.jobs.publish(job.job_id, 'renderer');
+  await s.jobs.update(job.job_id, 'renderer', { state: 'completed' });
+  expect(await s.jobs.start(request)).toMatchObject({ job_id: job.job_id, state: 'completed', settings: { customBitrate: 7_000_000 } });
+  await expect(s.jobs.start({ ...request, preset_id: 'builtin:hd' })).rejects.toMatchObject({ code: 'request_id_conflict' });
 });

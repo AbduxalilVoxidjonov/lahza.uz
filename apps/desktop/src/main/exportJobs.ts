@@ -1,4 +1,4 @@
-import { initialExportSettings, type ExportPresetPreferences } from '../shared/export-presets';
+import { applyExportPreset, exportPresetLibrary, initialExportSettings, type ExportPreset, type ExportPresetPreferences } from '../shared/export-presets';
 import type { ExportSettings } from '../shared/exportSettings';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -75,13 +75,21 @@ export class ExportJobs {
     const c = rootComposition(h.actor.snapshot());
     return { width: c.width, height: c.height, fps_num: c.fps.num, fps_den: c.fps.den, duration_us: c.duration_us };
   }
-  private async savedSettings(h: TsActorHost) {
-    const saved = await h.handleInvoke('export_settings_get', {}) as Partial<ExportSettings> | null;
-    return initialExportSettings(saved, this.deps.exportPreferences?.() ?? {}, this.composition(h));
+  private preset(id: unknown): ExportPreset | undefined {
+    if (id === undefined) return undefined;
+    if (typeof id !== 'string' || !id.trim()) throw new ExportValidationError('preset_id must be a nonempty string');
+    const preset = exportPresetLibrary(this.deps.exportPreferences?.() ?? {}).find(p => p.id === id);
+    if (!preset) throw new ExportJobError('not_found', `Unknown export preset ${id}; call list_export_presets`);
+    return structuredClone(preset);
   }
-  async options() {
+  private async savedSettings(h: TsActorHost, preset?: ExportPreset) {
+    const saved = await h.handleInvoke('export_settings_get', {}) as Partial<ExportSettings> | null;
+    const current = initialExportSettings(saved, this.deps.exportPreferences?.() ?? {}, this.composition(h));
+    return preset ? applyExportPreset(preset, this.composition(h), current) : current;
+  }
+  async options(presetId?: unknown) {
     const h = this.host();
-    const options = resolveExportOptions(await this.savedSettings(h), this.composition(h), snapFrameRound);
+    const options = resolveExportOptions(await this.savedSettings(h, this.preset(presetId)), this.composition(h), snapFrameRound);
     return exportWire({
       ...options, default_output_path: path.join(h.openedProject()!.dir, 'output', `${exportBasename(h.actor.snapshot().metadata.name)}.${options.extension}`),
       compatibility: EXPORT_COMPATIBILITY, range_unit: 'microseconds', range_end: 'exclusive', experimental_10bit_requires_opt_in: true
@@ -114,7 +122,7 @@ export class ExportJobs {
     if (this.stopping) throw new ExportJobError('app_closing', 'The application is closing');
     this.assertWritable();
     const h = this.host();
-    const allowed = ['request_id', 'output_path', 'on_conflict', 'settings', 'range', 'allow_experimental_10bit'];
+    const allowed = ['request_id', 'output_path', 'on_conflict', 'settings', 'range', 'allow_experimental_10bit', 'preset_id'];
     if (Object.keys(a).some(k => !allowed.includes(k))) throw new ExportValidationError('Unknown export argument');
     if (a.on_conflict !== undefined && !['rename', 'fail', ...(!agent ? ['overwrite'] : [])].includes(String(a.on_conflict))) throw new ExportValidationError('Invalid on_conflict policy');
     if (a.allow_experimental_10bit !== undefined && typeof a.allow_experimental_10bit !== 'boolean') throw new ExportValidationError('allow_experimental_10bit must be boolean');
@@ -127,6 +135,8 @@ export class ExportJobs {
       };
       checkWireKeys(a.settings); checkWireKeys(a.range);
     }
+    // Snapshot the selected recipe before any await; edits cannot change an admitted job.
+    const preset = this.preset(a.preset_id);
     // Reserve synchronously before reading defaults or touching the filesystem.
     const j: Entry = {
       view: { job_id: randomUUID(), state: 'preparing', output_path: '', filename: '', agent, settings: {} as ExportJob['settings'], range: { startUs: 0, endUs: 0 } },
@@ -134,7 +144,7 @@ export class ExportJobs {
     };
     this.active = j; this.entries.set(j.view.job_id, j);
     j.preparation = (async () => {
-      const resolved = resolveExportRequest(await this.savedSettings(h), agent ? exportWire(a.settings, false) : a.settings,
+      const resolved = resolveExportRequest(await this.savedSettings(h, preset), agent ? exportWire(a.settings, false) : a.settings,
         this.composition(h), (agent ? exportWire(a.range, false) : a.range) as ExportJob['range'] | undefined, !agent || a.allow_experimental_10bit === true, snapFrameRound);
       Object.assign(j.view, { settings: resolved.settings, range: resolved.range });
       j.video = path.join(os.tmpdir(), `weftcut-export-${j.view.job_id}-video.${['prores', 'dnxhr'].includes(resolved.settings.codec) ? 'mov' : 'mp4'}`);

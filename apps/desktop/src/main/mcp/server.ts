@@ -1,4 +1,5 @@
-import { EXPORT_TOOL_DEFS, EXPORT_TOOLS, exportSettingsSchema } from "./exportTools";
+import { EXPORT_TOOL_DEFS, EXPORT_TOOLS, EXPORT_PRESET_TOOLS, exportSettingsSchema } from "./exportTools";
+import { runExportPresetTool } from './exportPresetTools';
 import { ExportJobError } from "../exportJobs";
 import { ExportValidationError } from "../../shared/exportValidation";
 import { exportWire } from "../../shared/exportJob";
@@ -321,15 +322,20 @@ async function dispatchTool(
 ): Promise<ServerResult> {
   const tsHost = getTsHost()
   if (route === 'export') {
-    const jobs = tsHost?.exportJobs;
-    if (!jobs) throw new ExportJobError('export_unavailable', 'Export jobs are unavailable');
     const definition = EXPORT_TOOL_DEFS.find(d => d.name === name);
     if (!definition) throw new UnknownToolError(name);
     const properties = definition.inputSchema.properties as Record<string,unknown>;
     if (Object.keys(args).some(key => !(key in properties))) throw new ExportJobError('invalid_params','Unknown export argument');
+    if (EXPORT_PRESET_TOOLS.has(name)) {
+      if (!tsHost) throw new ExportJobError('export_unavailable', 'Export preset preferences are unavailable');
+      const record = await runExportPresetTool(tsHost, name, args);
+      return { content: [{ type: 'text', text: JSON.stringify(record) }], structuredContent: record } as ServerResult;
+    }
+    const jobs = tsHost?.exportJobs;
+    if (!jobs) throw new ExportJobError('export_unavailable', 'Export jobs are unavailable');
     for (const field of ['job_id','filename']) if (args[field] !== undefined && (typeof args[field] !== 'string' || !args[field])) throw new ExportJobError('invalid_params',`${field} must be a nonempty string`);
     if (['cancel_export','retry_export'].includes(name) && typeof args.job_id !== 'string') throw new ExportJobError('invalid_params','job_id is required');
-    const result = name === 'get_export_options' ? {...await jobs.options() as Record<string,unknown>, settings_schema:exportSettingsSchema()}
+    const result = name === 'get_export_options' ? {...await jobs.options(args.preset_id) as Record<string,unknown>, settings_schema:exportSettingsSchema()}
       : name === 'start_export' ? await jobs.start(args)
       : name === 'get_export_status' ? jobs.status(args.job_id as string | undefined)
       : name === 'retry_export' ? await jobs.retry(args.job_id as string, args.filename as string | undefined)

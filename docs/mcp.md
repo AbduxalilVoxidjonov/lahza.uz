@@ -249,6 +249,7 @@ screen, or after Close Project, a call answers only if it is app-scoped —
 `ping`, the Motif library and temporary file-transfer tools (including
 `list_motifs`, `open_motif_draft`, `read_motif`, `update_motif_files`,
 `preview_motif`, `install_motif`, `export_motif`, `delete_motif`),
+the export preset library tools, `get_export_status`, `cancel_export`, `retry_export`,
 `open_project`, `create_project`, and `read_project` for `view: "session"` or
 `view: "effects"` — and a resource read answers only for `project://session`,
 `effects://catalog` and `motifs://current`. Everything else is refused with
@@ -1109,13 +1110,44 @@ For retimed clips, `extract_clip_audio` returns source-time WAV data and a
 `playback_rate`; project a WAV offset with `t_start_us + offset / playback_rate`.
 `transcribe_clip` performs this projection for segment and word timestamps.
 
+### Export presets
+
+These application-level tools use the same library as the export dialog and
+work without an open project. Changes appear in the open dropdown immediately.
+
+- `list_export_presets {}`: built-in and personal entries with `id`, `name`, `read_only`, `is_default`, portable `settings`, plus `default_preset_id`, `name_limit` and `settings_schema`.
+- `create_export_preset { name, base_preset_id?, settings? }`: copy a base (default `builtin:match`) and apply partial settings. Returns the new `preset` and default ID; does not make it the default.
+- `update_export_preset { preset_id, settings }`: patch portable parameters of a personal preset; omitted fields, including nested audio fields, retain their values.
+- `rename_export_preset { preset_id, name }`: change a personal name, preserving its ID.
+- `delete_export_preset { preset_id }`: remove a personal preset; deleting the default restores `builtin:match`. Returns `deleted_preset_id` and the default ID.
+- `set_default_export_preset { preset_id }`: choose any built-in or personal preset for projects without saved export settings.
+
+All settings use snake_case. Names are trimmed, unique among personal presets
+(case/Unicode normalized), and limited to 40 characters. Built-ins are read-only;
+copy one to customize it. Engines, hardware acceleration, paths and ranges are
+not stored in presets. Invalid input is refused without changing the library.
+Update, rename and set-default return the resulting `preset` and default ID.
+
+Built-in IDs are `builtin:match`, `builtin:hd`, `builtin:fullhd` and `builtin:uhd`.
+Applying a built-in adapts its resolution/frame-rate limits and target bitrate
+to the project. Creating a personal copy captures fixed base values (the
+standard-frame-rate bitrate), not the built-in's adaptive bitrate rule. Preview
+project-adapted values with `get_export_options { preset_id }` if needed.
+
 ### Export jobs
 
-- `get_export_options {}`: saved defaults, composition limits, settings schema and compatibility.
-- `start_export { request_id?, output_path?, on_conflict?, settings?, range?, allow_experimental_10bit? }`: admits one asynchronous job. Settings use snake_case. Range is a half-open `{ start_us, end_us }` in microseconds. Overrides do not change saved defaults.
+- `get_export_options { preset_id? }`: effective settings, composition limits, settings schema and compatibility; optional ID previews that preset without changing project settings.
+- `start_export { request_id?, output_path?, on_conflict?, preset_id?, settings?, range?, allow_experimental_10bit? }`: admits one asynchronous job. Settings use snake_case. Range is a half-open `{ start_us, end_us }` in microseconds. Overrides do not change saved defaults.
 - `get_export_status { job_id? }`: query a session record; omit the id to discover the current UI or MCP job. With none active, returns `{ job: null }`.
 - `retry_export { job_id, filename? }`: retry an `awaiting_retry` finalization, optionally changing only the basename (including its matching extension).
 - `cancel_export { job_id }`: cancel running work or discard retained output; poll until drained and terminal.
+
+With `preset_id`, portable output values come from that preset, followed by
+per-job `settings`. Without it, saved project settings take precedence over the
+global default preset. Runtime engine choices stay project-specific unless
+overridden for the job. Neither preview nor MCP export rewrites the project or
+preset. Unknown IDs are refused; later preset edits/deletion cannot change an
+already admitted job or its request-ID replay.
 
 Use a unique request id for each intended export, and reuse it when uncertain
 whether a request reached the app. Reusing it with different arguments fails.

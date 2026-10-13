@@ -1,5 +1,5 @@
 import { DEFAULT_EXPORT_SETTINGS, mergeSettings, resolveOutputDims, type CompDims, type ExportSettings } from './exportSettings';
-import { resolveExportRequest } from './exportValidation';
+import { resolveExportRequest, ExportValidationError } from './exportValidation';
 
 /** Portable output intent. Machine engine choices and destinations are never recipes. */
 export type ExportPresetValues = Omit<ExportSettings, 'encoderEngine' | 'decodeEngine' | 'hwAccel'>;
@@ -96,6 +96,18 @@ export function validateExportPresetValues(input: unknown): ExportPresetValues {
     width: Math.max(2, Math.round(height * 16 / 9)), height, fps_num: fps, fps_den: 1, duration_us: 1_000_000,
   }, undefined, true);
   return exportPresetValues(result.settings);
+}
+
+/** Patch portable fields without a project; omitted fields retain the recipe's values. */
+export function patchExportPresetValues(baseValues: ExportPresetValues, patch: unknown): ExportPresetValues {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw new ExportValidationError('Preset settings must be an object');
+  if (Object.keys(patch).some(key => !Object.hasOwn(base, key))) throw new ExportValidationError('Preset settings may contain only portable output fields; engines, paths and ranges are excluded');
+  const next = { ...baseValues, ...patch };
+  const height = next.resolutionHeight ?? 1080;
+  const fps = next.fps ?? 30;
+  return exportPresetValues(resolveExportRequest(baseValues, patch, {
+    width: Math.max(2, Math.round(height * 16 / 9)), height, fps_num: fps, fps_den: 1, duration_us: 1_000_000,
+  }, undefined, true).settings);
 }
 
 function readOne(input: unknown): ExportPreset {

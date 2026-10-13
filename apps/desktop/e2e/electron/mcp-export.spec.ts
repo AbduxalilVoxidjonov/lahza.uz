@@ -3,7 +3,87 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { readFileSync, writeFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { launchApp, invokeCmd, tmpDir } from './helpers/driver';
+import { launchApp, invokeCmd, tmpDir, waitForHook } from './helpers/driver';
+import { mergeSettings } from '../../src/shared/exportSettings';
+
+test('MCP manages the shared preset library and exports by preset ID with per-job precedence', async () => {
+  test.setTimeout(120_000);
+  const { app, page } = await launchApp();
+  let client: Client | undefined;
+  try {
+    const info = await page.evaluate(() => window.api.mcp.getInfo());
+    client = new Client({ name: 'preset-export-e2e', version: '1' }, { capabilities: {} });
+    await client.connect(new StreamableHTTPClientTransport(new URL(info.url), {
+      requestInit: { headers: { Authorization: `Bearer ${info.bearer_token}` } },
+    }));
+    const call = async (name: string, args: Record<string, unknown> = {}) => {
+      const result = await client!.callTool({ name, arguments: args });
+      expect(result.isError, JSON.stringify(result)).toBeFalsy();
+      return result.structuredContent as Record<string, any>;
+    };
+    const catalog = await client.listTools();
+    expect(catalog.tools.map(t => t.name)).toContain('get_export_options');
+    expect(catalog.tools.find(t => t.name === 'start_export')!.inputSchema.properties).toHaveProperty('preset_id');
+    expect(catalog.tools.map(t => t.name)).not.toContain('app_settings_set');
+    // App-level management works on the start screen, before any project exists.
+    const library = await call('list_export_presets');
+    expect(library.presets).toHaveLength(4);
+    const { preset } = await call('create_export_preset', { name: 'MCP draft', base_preset_id: 'builtin:fullhd',
+      settings: { custom_bitrate: 2_000_000, resolution_height: null } });
+    await call('set_default_export_preset', { preset_id: preset.id });
+    await call('create_project', { parent_folder: tmpDir('weftcut-mcp-preset-project-'),
+      name: 'Preset export', width: 640, height: 360, fps_num: 30, fps_den: 1 });
+    const trackId = await invokeCmd<string>(page, 'add_track', {});
+    await invokeCmd(page, 'add_text_layer', { trackId, content: 'Preset export check', tStartUs: 0, durationUs: 500_000 });
+    expect((await call('get_export_options')).settings.custom_bitrate).toBe(2_000_000);
+    const unsupported = await client.callTool({ name: 'start_export', arguments: { preset_id: 'missing' } });
+    expect(unsupported.isError).toBe(true);
+    expect(unsupported.structuredContent).toMatchObject({ error: { code: 'not_found' } });
+    // The existing export dropdown sees MCP writes live; there is no extra UI entry point.
+    await waitForHook(page, 'exportTimeline');
+    await expect(page.locator('.app-main')).toBeVisible();
+    await page.keyboard.press('Control+e');
+    await page.getByRole('button', { name: 'Preset', exact: true }).click();
+    await expect(page.getByRole('menuitemradio', { name: /^MCP draft/ })).toBeVisible();
+    await call('rename_export_preset', { preset_id: preset.id, name: 'MCP review' });
+    await expect(page.getByRole('menuitemradio', { name: /^MCP review/ })).toBeVisible();
+    await call('update_export_preset', { preset_id: preset.id, settings: { audio: { bitrate: 128_000 } } });
+    await page.getByRole('menuitemradio', { name: /^MCP review/ }).click();
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    expect((await call('get_export_options', { preset_id: preset.id })).settings.audio.bitrate).toBe(128_000);
+    const output = path.join(tmpDir('weftcut-mcp-preset-output-'), 'preset.mp4');
+    const job = await call('start_export', { request_id: 'preset-default', output_path: output,
+      settings: { encoder_engine: 'native', hw_accel: 'software', include_audio: false } });
+    await expect.poll(async () => (await call('get_export_status', { job_id: job.job_id })).state, { timeout: 60_000 }).toBe('completed');
+    expect((await call('get_export_status', { job_id: job.job_id })).settings.custom_bitrate).toBe(2_000_000);
+    expect(statSync(output).size).toBeGreaterThan(100);
+    expect(await invokeCmd(page, 'export_settings_get')).toBeNull();
+    await invokeCmd(page, 'export_settings_set', { settings: mergeSettings({ quality: 'custom', customBitrate: 3_000_000 }) });
+    expect((await call('get_export_options')).settings.custom_bitrate).toBe(3_000_000);
+    expect((await call('get_export_options', { preset_id: preset.id })).settings.custom_bitrate).toBe(2_000_000);
+    const override = await call('start_export', { request_id: 'preset-override', preset_id: preset.id, output_path: path.join(path.dirname(output), 'override.mp4'),
+      settings: { custom_bitrate: 4_000_000, encoder_engine: 'native', hw_accel: 'software', include_audio: false } });
+    await expect.poll(async () => (await call('get_export_status', { job_id: override.job_id })).state, { timeout: 60_000 }).toBe('completed');
+    expect((await call('get_export_status', { job_id: override.job_id })).settings.custom_bitrate).toBe(4_000_000);
+    expect((await call('get_export_options')).settings.custom_bitrate).toBe(3_000_000);
+    const selected = await call('start_export', { request_id: 'preset-selected', preset_id: preset.id,
+      output_path: path.join(path.dirname(output), 'selected.mp4'),
+      settings: { encoder_engine: 'native', hw_accel: 'software', include_audio: false } });
+    await expect.poll(async () => (await call('get_export_status', { job_id: selected.job_id })).state, { timeout: 60_000 }).toBe('completed');
+    expect((await call('get_export_status', { job_id: selected.job_id })).settings.custom_bitrate).toBe(2_000_000);
+    await call('delete_export_preset', { preset_id: preset.id });
+    expect((await call('list_export_presets')).default_preset_id).toBe('builtin:match');
+    expect((await invokeCmd<any>(page, 'export_settings_get')).customBitrate).toBe(3_000_000);
+  } finally {
+    if (client) {
+      const result = await client.callTool({ name: 'get_export_status', arguments: {} }).catch(() => null);
+      const job = result?.structuredContent as { job_id?: string } | undefined;
+      if (job?.job_id) await client.callTool({ name: 'cancel_export', arguments: { job_id: job.job_id } }).catch(() => {});
+      await client.close();
+    }
+    await app.close();
+  }
+});
 
 test('MCP export reconnects, reports the actual renamed file, and retries publication through the shared UI', async ({ }, testInfo) => {
   test.setTimeout(180_000);

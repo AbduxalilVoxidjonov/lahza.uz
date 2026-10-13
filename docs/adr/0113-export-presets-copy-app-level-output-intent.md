@@ -17,7 +17,7 @@ in `app_settings.json`, using its existing atomic main-process ownership and
 change stream. Library changes are individual create/update/rename/delete
 operations against the latest settings, not replacement arrays from renderers.
 
-The export dialog is the sole preset management entry point. One menu button
+The export dialog is the sole human UI preset management entry point. One menu button
 alongside its title groups built-in and personal choices, marks the current
 choice separately from the default, and places commands below the choices.
 Save-as, update and restore stay in this menu; the footer contains only Cancel
@@ -48,6 +48,18 @@ reference to the library. Existing project settings take priority over the
 personal default, then the match-project built-in. UI and MCP use the same
 default resolver. Starting a UI export continues to save project settings as
 before; MCP overrides remain per-job.
+
+MCP exposes list/create/update/rename/delete/set-default tools over the same
+application settings store and change stream, available without an open project.
+`get_export_options` and `start_export` accept an optional `preset_id`: selecting
+one copies its project-adapted output values, followed by per-job overrides.
+Omitting the ID preserves the existing saved-project/default precedence. An
+admitted job snapshots the selected preset; later library edits or deletion do
+not affect it, including when the same request ID is replayed.
+Creating a personal copy through MCP without a project copies the base recipe's
+fixed values (standard-frame-rate bitrate for built-ins), not its adaptive rule.
+An agent can preview an applied built-in through `get_export_options`, then
+copy the desired portable values explicitly.
 
 Resolution keeps the current height-based, aspect-preserving, downscale-only
 contract. There is no orientation adaptation or forced 16:9 frame. Applying a

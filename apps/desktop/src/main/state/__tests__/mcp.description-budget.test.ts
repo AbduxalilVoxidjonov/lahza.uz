@@ -60,7 +60,9 @@ const PROPERTY_DESCRIPTION_CAP = 260
 // upload/download contracts replace HTML-only drafting (ADR 0094).
 // +6 KB: five export-job tools and typed per-job settings, units, conflict and
 // null-reset semantics (ADR 0111). The encode controls need no prose guessing.
-const CATALOG_BYTE_BUDGET = 140_000
+// +8 KB: six app-level preset tools, typed portable create/update patches and
+// explicit preset selection for options/jobs (ADR 0113).
+const CATALOG_BYTE_BUDGET = 148_000
 
 function compact(v: unknown): string { return JSON.stringify(v) }
 

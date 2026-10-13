@@ -141,7 +141,8 @@ describe('null arms are advertised only where null means something omission does
   const KEEP_NULL = new Set([
     // Omission inherits the saved value; null explicitly restores automatic
     // composition/codec defaults or clears an optional rate constraint.
-    ...['resolution_height','fps','custom_bitrate','max_bitrate','buffer_size','crf','audio.sample_rate','audio.channels'].map(k => `start_export.settings.${k}`),
+    ...['start_export', 'create_export_preset', 'update_export_preset'].flatMap(tool =>
+      ['resolution_height','fps','custom_bitrate','max_bitrate','buffer_size','crf','audio.sample_rate','audio.channels'].map(k => `${tool}.settings.${k}`)),
     'rename_track.label', 'update_layer.patch.label', 'rename_composition.label',
     'update_marker.patch.label', 'update_marker.patch.note',
     'update_composition.patch.duration_us',

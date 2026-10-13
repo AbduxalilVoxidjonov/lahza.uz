@@ -68,6 +68,15 @@ The weftcut skill (Settings > Agent) carries the longer etiquette, the common fl
    returns an error; choose changed settings for a new request rather than
    waiting for an interactive fallback prompt.
 
+Export presets are shared with the export dialog. Use `list_export_presets`
+for IDs and portable settings; `create_export_preset`, `update_export_preset`,
+`rename_export_preset`, `delete_export_preset` and `set_default_export_preset`
+manage the application library even without a project. Built-ins are read-only,
+personal names have a 40-character limit. Pass `preset_id` to `get_export_options`
+to preview or `start_export` to use one; per-job settings override it. Omitting
+the ID keeps saved project settings, falling back to the global default.
+Library edits do not rewrite project settings or jobs already admitted.
+
 ## Working rhythm
 
 Read → analyze → mutate → **verify**: every mutator answers with the committed

@@ -1,6 +1,7 @@
 import { EXPORT_SETTINGS_SCHEMA } from '../../shared/exportValidation';
 import { exportWire } from '../../shared/exportJob';
 import type { CatalogTool } from './mcpCatalog';
+import { EXPORT_PRESET_NAME_LIMIT } from '../../shared/export-presets';
 
 const HELP: Record<string, string> = {
   includeVideo: 'Include video.', includeAudio: 'Include audio; must agree with audio.include if both are set.',
@@ -26,13 +27,33 @@ const id = { type: 'string', minLength: 1, description: 'Application-session exp
 const definition = (name: string, description: string, inputSchema: Record<string, unknown>, readOnlyHint: boolean, idempotentHint: boolean): CatalogTool & { description: string; inputSchema: Record<string, unknown> } => ({
   name, description, inputSchema, annotations: readOnlyHint ? { readOnlyHint: true } : { readOnlyHint: false, destructiveHint: false, idempotentHint },
 });
+export function exportPresetSettingsSchema(): Record<string, unknown> {
+  const settings = exportSettingsSchema();
+  const properties = { ...settings.properties as Record<string, unknown> };
+  for (const key of ['encoder_engine', 'decode_engine', 'hw_accel']) delete properties[key];
+  return { ...settings, properties };
+}
+const presetId = { type: 'string', minLength: 1, description: 'Exact preset ID from list_export_presets. Built-in IDs start with builtin:.' };
+const presetName = { type: 'string', minLength: 1, maxLength: EXPORT_PRESET_NAME_LIMIT, description: 'Unique personal preset name, trimmed, at most 40 characters.' };
+const presetSettings = { ...exportPresetSettingsSchema(), description: 'Partial portable output settings in snake_case. Excludes engines, hardware acceleration, paths and ranges. Omitted fields retain base values.' };
+export const EXPORT_PRESET_TOOL_DEFS = [
+  definition('list_export_presets', 'List built-in and personal export presets, complete portable settings, default ID and name limit. Available without a project.', schema({}), true, true),
+  definition('create_export_preset', 'Create a reusable personal export preset. Copies base_preset_id (default builtin:match) and applies optional settings. Built-in base bitrate is copied as a fixed standard-frame-rate value; use get_export_options with preset_id to inspect project-adapted values. Does not change the default or project settings.', schema({ name: presetName, base_preset_id: presetId, settings: presetSettings }, ['name']), false, false),
+  definition('update_export_preset', 'Patch a personal preset\'s portable settings. Existing projects and running jobs retain copied parameters. Built-ins are read-only.', schema({ preset_id: presetId, settings: presetSettings }, ['preset_id', 'settings']), false, true),
+  definition('rename_export_preset', 'Rename a personal export preset. Built-ins are read-only.', schema({ preset_id: presetId, name: presetName }, ['preset_id', 'name']), false, true),
+  definition('delete_export_preset', 'Delete a personal export preset. Deleting the default restores builtin:match. Existing projects are unchanged. Built-ins are read-only.', schema({ preset_id: presetId }, ['preset_id']), false, true),
+  definition('set_default_export_preset', 'Set the built-in or personal preset used when a project has no saved export settings. Does not rewrite existing project settings.', schema({ preset_id: presetId }, ['preset_id']), false, true),
+];
+export const EXPORT_PRESET_TOOLS = new Set(EXPORT_PRESET_TOOL_DEFS.map(d => d.name));
 export const EXPORT_TOOL_DEFS = [
-  definition('get_export_options', 'Read saved export defaults, valid settings and composition limits before exporting.', schema({}), true, true),
+  ...EXPORT_PRESET_TOOL_DEFS,
+  definition('get_export_options', 'Read effective export settings and composition limits. Optional preset_id previews that preset without changing project settings; otherwise uses saved project settings, then the global default.', schema({ preset_id: presetId }), true, true),
   definition('start_export', 'Start an asynchronous export in the editor. Use one request_id per intent; reuse it when reconnecting. Poll get_export_status for the actual completed path. Default conflicts add a numeric suffix.', schema({
     request_id: { ...id, maxLength: 200, description: 'Unique export intent id. Reuse with identical arguments after reconnecting.' },
     output_path: { ...id, description: 'Absolute candidate file path. Omit for project/output/project-name.ext; explicit parent must exist.' },
     on_conflict: { enum: ['rename', 'fail'], description: 'Default rename adds a number. Fail requires the exact name. Neither overwrites.' },
-    settings: { ...exportSettingsSchema(), description: 'Partial per-job overrides; omitted fields use saved project defaults.' },
+    preset_id: presetId,
+    settings: { ...exportSettingsSchema(), description: 'Partial per-job overrides, applied after preset_id. Without preset_id, uses saved project settings then the global default. Does not change the preset or saved project settings.' },
     range: { ...schema({ start_us: { type: 'integer', minimum: 0, description: 'Inclusive start in microseconds.' }, end_us: { type: 'integer', minimum: 1, description: 'Exclusive end in microseconds.' } }, ['start_us', 'end_us']), description: 'Span inside the root composition, snapped to its frame grid. Omit for the whole composition.' },
     allow_experimental_10bit: { type: 'boolean', description: 'Explicit opt-in for experimental HEVC/AV1 10-bit export.' },
   }), false, false),
