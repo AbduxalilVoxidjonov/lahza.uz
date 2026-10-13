@@ -377,7 +377,7 @@
 .export-preset-name-tooltip { max-width: min(calc(360 * var(--ui-px)), var(--available-width)); padding: calc(8 * var(--ui-px)) calc(10 * var(--ui-px)); background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-control); box-shadow: var(--shadow-menu); color: var(--foreground); font-size: var(--font-size-body); white-space: normal; overflow-wrap: anywhere; }
 .export-validation-hint { padding: calc(8 * var(--ui-px)) calc(20 * var(--ui-px)); }
 
-.export-preset-menu { width: calc(320 * var(--ui-px)); min-width: 0; max-width: min(var(--available-width), calc(100vw - 24px)); }
+.export-preset-menu { width: calc(320 * var(--ui-px)); min-width: 0; max-width: min(var(--available-width), calc(100vw - calc(24 * var(--ui-px)))); }
 .export-preset-menu .app-menu-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .export-preset-options { max-height: min(calc(240 * var(--ui-px)), 30vh); overflow-y: auto; }
 .export-preset-default { flex-shrink: 0; margin-left: calc(8 * var(--ui-px)); font-size: var(--font-size-caption); color: var(--muted-foreground); }
