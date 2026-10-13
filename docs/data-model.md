@@ -1352,6 +1352,15 @@ documents is what keeps a composition id out of a file that spans every project.
 
 ## App-level storage: the data root
 
+Export presets are small application preferences in `app_settings.json`:
+`export_presets` contains `{ id, name, version: 1, values }` entries and
+`default_export_preset_id` selects a personal or reserved `builtin:*` ID.
+`values` copies the shared `ExportSettings` output fields, excluding
+`encoderEngine`, `decodeEngine` and `hwAccel`. Library edits are atomic commands;
+deleting the default restores `builtin:match`. Existing project `export.json`
+files retain copied parameters and take precedence over the global default.
+See [ADR 0113](adr/0113-export-presets-copy-app-level-output-intent.md).
+
 Everything above is **per-project** — it lives inside the workspace folder and
 travels with it. Orthogonal to that is **app-level** storage: state and large
 assets that belong to the installation, not to any one project. This splits in

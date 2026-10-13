@@ -953,6 +953,7 @@ app.whenReady().then(async () => {
   })
 
   const exportJobs = new ExportJobs({ host: () => tsHost, send: emitToRenderer,
+    exportPreferences: () => appSettings.get(),
     generation: () => workspaceEvents.requireCurrent(),
     native: async (channel, args) => JSON.parse(await backend!.invoke(channel, JSON.stringify(args))),
   });

@@ -31,6 +31,8 @@ export type MediaPoolLayout = "large" | "grid" | "list";
 export type TimelineWheelAxis = "horizontal" | "vertical";
 
 export interface AppSettings {
+  export_presets?: import('./export-presets').ExportPreset[];
+  default_export_preset_id?: string;
   /** Remember the UI export collision policy across projects; MCP uses its own policy. */
   export_auto_overwrite?: boolean;
   /** Download application updates automatically and install on normal exit. Defaults on. */
@@ -146,6 +148,8 @@ export interface AppSettings {
 /// this for one-field flips (e.g., `{ display_mode: "AllTracks" }`) instead of
 /// round-tripping the whole struct.
 export interface AppSettingsPatch {
+  export_preset_change?: import('./export-presets').ExportPresetChange;
+  default_export_preset_id?: string;
   export_auto_overwrite?: boolean;
   auto_install_updates_on_quit?: boolean;
   layout_theme?: LayoutTheme;
@@ -186,6 +190,8 @@ export interface AppSettingsPatch {
 }
 
 export const APP_SETTINGS_DEFAULTS: AppSettings = {
+  export_presets: [],
+  default_export_preset_id: 'builtin:match',
   export_auto_overwrite: false,
   auto_install_updates_on_quit: true,
   layout_theme: DEFAULT_LAYOUT_THEME,

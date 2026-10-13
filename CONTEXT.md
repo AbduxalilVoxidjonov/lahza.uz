@@ -7,6 +7,13 @@ and the decisions in [`docs/adr/`](docs/adr/).
 
 ## Export
 
+**Export preset**:
+A named set of portable output parameters available across projects. Applying
+one copies its values; later preset edits do not change existing project export
+settings. Engine selection, destinations and timeline ranges remain separate.
+Built-in presets are read-only; personal presets live in application settings.
+See ADR 0113.
+
 **Export job**:
 One application-session task that produces a rendered file, shared by the user
 interface and MCP. It owns the project edit lock until completion, failure or

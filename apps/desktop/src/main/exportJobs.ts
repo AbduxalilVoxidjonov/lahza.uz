@@ -1,3 +1,5 @@
+import { initialExportSettings, type ExportPresetPreferences } from '../shared/export-presets';
+import type { ExportSettings } from '../shared/exportSettings';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -21,6 +23,7 @@ interface Deps {
   host: () => TsActorHost | null;
   native: (channel: string, args: Record<string, unknown>) => Promise<unknown>;
   send: (event: string, payload: unknown) => void;
+  exportPreferences?: () => ExportPresetPreferences;
   readyTimeoutMs?: number;
   generation?: () => number;
 }
@@ -72,9 +75,13 @@ export class ExportJobs {
     const c = rootComposition(h.actor.snapshot());
     return { width: c.width, height: c.height, fps_num: c.fps.num, fps_den: c.fps.den, duration_us: c.duration_us };
   }
+  private async savedSettings(h: TsActorHost) {
+    const saved = await h.handleInvoke('export_settings_get', {}) as Partial<ExportSettings> | null;
+    return initialExportSettings(saved, this.deps.exportPreferences?.() ?? {}, this.composition(h));
+  }
   async options() {
     const h = this.host();
-    const options = resolveExportOptions(await h.handleInvoke('export_settings_get', {}), this.composition(h), snapFrameRound);
+    const options = resolveExportOptions(await this.savedSettings(h), this.composition(h), snapFrameRound);
     return exportWire({
       ...options, default_output_path: path.join(h.openedProject()!.dir, 'output', `${exportBasename(h.actor.snapshot().metadata.name)}.${options.extension}`),
       compatibility: EXPORT_COMPATIBILITY, range_unit: 'microseconds', range_end: 'exclusive', experimental_10bit_requires_opt_in: true
@@ -127,7 +134,7 @@ export class ExportJobs {
     };
     this.active = j; this.entries.set(j.view.job_id, j);
     j.preparation = (async () => {
-      const resolved = resolveExportRequest(await h.handleInvoke('export_settings_get', {}), agent ? exportWire(a.settings, false) : a.settings,
+      const resolved = resolveExportRequest(await this.savedSettings(h), agent ? exportWire(a.settings, false) : a.settings,
         this.composition(h), (agent ? exportWire(a.range, false) : a.range) as ExportJob['range'] | undefined, !agent || a.allow_experimental_10bit === true, snapFrameRound);
       Object.assign(j.view, { settings: resolved.settings, range: resolved.range });
       j.video = path.join(os.tmpdir(), `weftcut-export-${j.view.job_id}-video.${['prores', 'dnxhr'].includes(resolved.settings.codec) ? 'mov' : 'mp4'}`);

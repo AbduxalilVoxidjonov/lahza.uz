@@ -1,4 +1,7 @@
 // @vitest-environment jsdom
+import { changeExportPresets, exportPresetValues } from '../../shared/export-presets';
+import { mergeSettings } from '../../shared/exportSettings';
+
 //
 // Covers the export dialog's rate-control group: which bitrate fields each
 // rate mode exposes, and what actually leaves the dialog in `onConfirm`'s
@@ -102,7 +105,7 @@ async function openSelect(user: ReturnType<typeof userEvent.setup>, name: string
   return trigger;
 }
 
-async function pickOption(user: ReturnType<typeof userEvent.setup>, label: string) {
+async function pickOption(user: ReturnType<typeof userEvent.setup>, label: string | RegExp) {
   await user.pointer({
     target: screen.getByRole("option", { name: label }),
     keys: "[MouseLeft]",
@@ -436,5 +439,101 @@ describe("export dialog rate control", () => {
     expect(screen.getByLabelText("Maximum bitrate")).toHaveProperty("value", "");
     await user.click(exportButton());
     expect(confirmedSettings().maxBitrate).toBeNull();
+  });
+});
+
+async function openPresetMenu(user: ReturnType<typeof userEvent.setup>) {
+  const trigger = screen.getByRole('button', { name: 'Preset' });
+  trigger.focus();
+  await user.keyboard('{Enter}');
+  await waitFor(() => expect(trigger.getAttribute('aria-expanded')).toBe('true'));
+}
+
+describe('export presets workflow', () => {
+  beforeEach(() => {
+    ipc.appSettingsSet.mockImplementation(async ({ export_preset_change, ...patch }) => {
+      const current = useAppSettingsStore.getState().settings;
+      return { ...current, ...patch, export_presets: export_preset_change ? changeExportPresets(current.export_presets ?? [], export_preset_change) : current.export_presets };
+    });
+  });
+  it('applies a built-in, saves modified values, and exposes that recipe in another project', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitemradio', { name: /^1080p Full HD Landscape/ }));
+    expect(screen.getByRole('combobox', { name: 'Resolution' }).textContent).toContain('1080p');
+    await typeNumber(user, 'Target bitrate', '6');
+    expect(screen.getByRole('button', { name: 'Preset' }).textContent).toContain('(modified)');
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Save as preset…' }));
+    await user.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Review copy');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(useAppSettingsStore.getState().settings.export_presets).toHaveLength(1));
+    const saved = useAppSettingsStore.getState().settings.export_presets![0]!;
+    expect(saved.values.customBitrate).toBe(6_000_000);
+    expect(saved.values).not.toHaveProperty('encoderEngine');
+    expect(ipc.exportSettingsSet).not.toHaveBeenCalled();
+    cleanup();
+    useAppSettingsStore.setState({ settings: { ...useAppSettingsStore.getState().settings, default_export_preset_id: saved.id } });
+    await renderDialog(user);
+    expect(screen.getByLabelText('Target bitrate')).toHaveProperty('value', '6');
+    expect(screen.getByRole('button', { name: 'Preset' }).textContent).toContain('Review copy');
+    await user.click(exportButton());
+    expect(confirmedSettings().customBitrate).toBe(6_000_000);
+  });
+  it('preserves project settings ahead of the global default and restores an edited preset explicitly', async () => {
+    const user = userEvent.setup();
+    useAppSettingsStore.setState({ settings: { ...APP_SETTINGS_DEFAULTS, default_export_preset_id: 'builtin:hd' } });
+    ipc.exportSettingsGet.mockResolvedValue(mergeSettings({ quality: 'custom', customBitrate: 15_000_000 }));
+    await renderDialog(user);
+    expect(screen.getByLabelText('Target bitrate')).toHaveProperty('value', '15');
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitemradio', { name: /^1080p Full HD Landscape/ }));
+    await typeNumber(user, 'Target bitrate', '6');
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Restore' }));
+    expect(screen.getByLabelText('Target bitrate')).toHaveProperty('value', '8');
+  });
+  it('manages recipes in the export menu without making selection a default change', async () => {
+    const user = userEvent.setup();
+    await renderDialog(user);
+    expect(screen.queryByRole('button', { name: 'Duplicate…' })).toBeNull();
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitemradio', { name: /^1080p Full HD Landscape/ }));
+    expect(ipc.appSettingsSet).not.toHaveBeenCalled();
+    await openPresetMenu(user);
+    expect(screen.queryByRole('menuitem', { name: 'Delete' })).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: 'Save as preset…' }));
+    await user.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Personal delivery');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Preset' }).textContent).toContain('Personal delivery'));
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Set as default' }));
+    await waitFor(() => expect(useAppSettingsStore.getState().settings.default_export_preset_id).toBe(useAppSettingsStore.getState().settings.export_presets![0]!.id));
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Rename…' }));
+    await user.clear(screen.getByRole('textbox', { name: 'Preset name' }));
+    await user.type(screen.getByRole('textbox', { name: 'Preset name' }), 'Renamed delivery');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Preset' }).textContent).toContain('Renamed delivery'));
+    await openPresetMenu(user);
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
+    await waitFor(() => expect(useAppSettingsStore.getState().settings.export_presets).toHaveLength(0));
+    expect(screen.getByRole('button', { name: 'Preset' }).textContent).toContain('Custom');
+  });
+  it('updates a personal preset from the current export form only on explicit save', async () => {
+    const user = userEvent.setup();
+    const preset = { id: 'personal', name: 'Review', version: 1 as const, values: exportPresetValues(mergeSettings({ quality: 'custom', customBitrate: 5_000_000 })) };
+    useAppSettingsStore.setState({ settings: { ...APP_SETTINGS_DEFAULTS, export_presets: [preset], default_export_preset_id: preset.id } });
+    await renderDialog(user);
+    await typeNumber(user, 'Target bitrate', '7');
+    expect(useAppSettingsStore.getState().settings.export_presets![0]!.values.customBitrate).toBe(5_000_000);
+    await openPresetMenu(user);
+    expect(screen.queryByRole('menuitem', { name: 'Edit…' })).toBeNull();
+    await user.click(screen.getByRole('menuitem', { name: 'Update preset' }));
+    await waitFor(() => expect(useAppSettingsStore.getState().settings.export_presets![0]!.values.customBitrate).toBe(7_000_000));
+    expect(screen.getByRole('button', { name: 'Preset' }).textContent).toBe('Review');
+    expect(ipc.exportSettingsSet).not.toHaveBeenCalled();
+    expect(onConfirm).not.toHaveBeenCalled();
   });
 });

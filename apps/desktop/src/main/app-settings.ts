@@ -1,3 +1,4 @@
+import { changeExportPresets, readExportPresets, exportPresetLibrary, DEFAULT_EXPORT_PRESET_ID } from '../shared/export-presets';
 // App-level preferences persisted at <userData>/app_settings.json, owned by the
 // Electron main process. One value across every project (no per-project override).
 //
@@ -86,6 +87,9 @@ export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: 
       ?? (parsed.performance_policy === null || budgets || parsed.performance ? null : DEFAULT_PERFORMANCE_POLICY)
     return project({
       export_auto_overwrite: parsed.export_auto_overwrite === true,
+      export_presets: readExportPresets(parsed.export_presets),
+      default_export_preset_id: exportPresetLibrary({ export_presets: readExportPresets(parsed.export_presets) })
+        .some(p => p.id === parsed.default_export_preset_id) ? String(parsed.default_export_preset_id) : DEFAULT_EXPORT_PRESET_ID,
       auto_install_updates_on_quit: typeof parsed.auto_install_updates_on_quit === 'boolean'
         ? parsed.auto_install_updates_on_quit : true,
       layout_theme: readLayoutTheme(parsed.layout_theme),
@@ -277,6 +281,14 @@ export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: 
       if (patch.auto_install_updates_on_quit !== undefined) {
         if (typeof patch.auto_install_updates_on_quit !== 'boolean') throw new Error('Invalid update preference')
         current.auto_install_updates_on_quit = patch.auto_install_updates_on_quit
+      }
+      if (patch.export_preset_change !== undefined) {
+        current.export_presets = changeExportPresets(current.export_presets ?? [], patch.export_preset_change)
+        if (!exportPresetLibrary(current).some(p => p.id === current.default_export_preset_id)) current.default_export_preset_id = DEFAULT_EXPORT_PRESET_ID
+      }
+      if (patch.default_export_preset_id !== undefined) {
+        if (!exportPresetLibrary(current).some(p => p.id === patch.default_export_preset_id)) throw new Error('Export preset no longer exists')
+        current.default_export_preset_id = patch.default_export_preset_id
       }
       if (patch.pause_preset_change !== undefined) {
         current.pause_presets = changePausePresets(current.pause_presets ?? [], patch.pause_preset_change)

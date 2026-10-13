@@ -1,3 +1,6 @@
+import { initialExportSettings } from '../../shared/export-presets';
+import { ExportPresetControl } from '../settings/ExportPresets';
+import { resolveExportOptions } from '../../shared/exportValidation';
 import { open as openDialog } from "@/bridge/dialog";
 import { invoke } from "@/bridge/ipc";
 import { documentDir, join } from "@/bridge/path";
@@ -30,7 +33,7 @@ import {
   useDecodeComponentReason,
 } from "../settings/decodeComponentStore";
 import { decodeEngineOptions } from "../settings/decodeEngineOptions";
-import { setAppSettings, useAppSettingsLoaded, useExportAutoOverwrite } from "../settings/appSettingsStore";
+import { setAppSettings, useAppSettingsLoaded, useAppSettingsStore, useExportAutoOverwrite } from "../settings/appSettingsStore";
 import {
   type BitDepth,
   type CodecId,
@@ -59,7 +62,6 @@ import {
   isIntermediateCodec,
   downscaleFpsOptions,
   downscaleHeightOptions,
-  mergeSettings,
   resolveOutputDims,
   clampExportRange,
   KEYFRAME_INTERVALS,
@@ -238,21 +240,22 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
 
   // Load saved settings (per project) on mount.
   useEffect(() => {
+    if (!preferencesLoaded) return;
     let cancelled = false;
     exportSettingsGet()
       .then((saved) => {
         if (!cancelled) {
           userTouchedBitDepth.current = saved?.bitDepth != null;
-          setSettings(mergeSettings(saved));
+          setSettings(initialExportSettings(saved, useAppSettingsStore.getState().settings, comp));
         }
       })
       .catch(() => {
-        if (!cancelled) setSettings(mergeSettings(null));
+        if (!cancelled) setSettings(initialExportSettings(null, useAppSettingsStore.getState().settings, comp));
       });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [preferencesLoaded]);
 
   // Default the output location to <project>/output (falls back to the
   // Documents folder when no project is open). Created on export if missing.
@@ -421,7 +424,16 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
     void doExport();
   }
 
+  let compatibilityIssue: string | undefined;
+  if (settings) {
+    try { compatibilityIssue = resolveExportOptions(settings, {
+      width: comp.width, height: comp.height, fps_num: comp.fps_num, fps_den: comp.fps_den, duration_us: durationUs,
+    }).validation_issue; }
+    catch (err) { compatibilityIssue = String(err); }
+  }
+
   const canExport =
+    !compatibilityIssue &&
     preferencesLoaded && !savingOverwrite &&
     pathCheck !== 'checking' && pathCheck !== 'error' && (pathCheck !== 'exists' || overwrite) &&
     !/[<>:"/\\|?*\u0000-\u001f]/.test(filename) &&
@@ -448,6 +460,8 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
       title={t("export_dialog.title")}
       onClose={onCancel}
       panelClassName="settings-panel settings-panel--nav"
+      headerExtra={settings && <ExportPresetControl settings={settings} comp={comp}
+        onApply={next => { userTouchedBitDepth.current = true; setSettings(next); }} />}
     >
       <div className="settings-layout">
         <div
@@ -735,7 +749,7 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
                         value: "",
                         label: `${t("export_dialog.follow_comp")} (${comp.width}×${comp.height})`,
                       },
-                      ...downscaleHeightOptions(comp.height).map((h) => ({
+                      ...[...new Set([...downscaleHeightOptions(comp.height), ...(settings.resolutionHeight == null ? [] : [settings.resolutionHeight])])].sort((a, b) => b - a).map((h) => ({
                         value: String(h),
                         label: `${h}p`,
                       })),
@@ -757,7 +771,7 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
                         value: "",
                         label: `${t("export_dialog.follow_comp")} (${compFps.toFixed(2)})`,
                       },
-                      ...downscaleFpsOptions(compFps).map((f) => ({
+                      ...[...new Set([...downscaleFpsOptions(compFps), ...(settings.fps == null ? [] : [settings.fps])])].sort((a, b) => b - a).map((f) => ({
                         value: String(f),
                         label: `${f} fps`,
                       })),
@@ -1354,6 +1368,7 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
         </div>
       </div>
 
+      {compatibilityIssue && <p role="alert" className="settings-warn export-validation-hint">{t('export_presets.invalid', { reason: compatibilityIssue })}</p>}
       <div className="export-footer">
         <Button size="lg" onClick={onCancel}>
           {t("export_dialog.cancel")}

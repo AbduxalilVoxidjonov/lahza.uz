@@ -1,3 +1,5 @@
+import { exportPresetValues } from '../shared/export-presets';
+import { mergeSettings } from '../shared/exportSettings';
 import { afterEach, expect, it, vi } from 'vitest';
 import fs from 'node:fs/promises';
 import os from 'node:os';
@@ -154,4 +156,16 @@ it('cleans encoded streams owned by a crashed renderer before releasing admissio
   await expect(fs.stat(encoded_video_path)).rejects.toMatchObject({ code: 'ENOENT' });
   await expect(fs.stat(encoded_audio_path)).rejects.toMatchObject({ code: 'ENOENT' });
   expect(s.jobs.isActive()).toBe(false);
+});
+
+it('uses the personal default for MCP options while keeping saved project settings first', async () => {
+  const project = blankProject(() => crypto.randomUUID(), 'Preset project');
+  Object.assign(rootComposition(project), { width: 1920, height: 1080, duration_us: 1_000_000 });
+  const preset = { id: 'personal', name: 'Review', version: 1 as const, values: exportPresetValues(mergeSettings({ quality: 'custom', customBitrate: 7_000_000 })) };
+  let saved: unknown = null;
+  const host = { actor: { snapshot: () => project }, openedProject: () => ({ dir: 'C:/project' }), handleInvoke: async () => saved } as unknown as TsActorHost;
+  const jobs = new ExportJobs({ host: () => host, send: vi.fn(), native: vi.fn(), exportPreferences: () => ({ export_presets: [preset], default_export_preset_id: preset.id }) });
+  expect(await jobs.options()).toMatchObject({ settings: { custom_bitrate: 7_000_000 } });
+  saved = mergeSettings({ quality: 'custom', customBitrate: 3_000_000 });
+  expect(await jobs.options()).toMatchObject({ settings: { custom_bitrate: 3_000_000 } });
 });

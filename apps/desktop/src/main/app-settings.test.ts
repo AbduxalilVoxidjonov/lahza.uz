@@ -1,3 +1,5 @@
+import { exportPresetValues } from '../shared/export-presets';
+import { mergeSettings } from '../shared/exportSettings';
 import { describe, it, expect, vi } from 'vitest'
 import { createAppSettingsStore, type AppSettingsFs } from './app-settings'
 import { APP_SETTINGS_DEFAULTS } from '../shared/app-settings'
@@ -556,3 +558,30 @@ describe('app-settings store', () => {
     expect(store({ [PATH]: '{ "language": "   " }' }).get().language).toBeUndefined()
   })
 })
+
+describe('export preset library persistence', () => {
+  const preset = { id: 'delivery', name: 'Delivery', version: 1 as const, values: exportPresetValues(mergeSettings({ quality: 'custom', customBitrate: 6_000_000 })) };
+  it('shares recipes across readers and restarts, applies atomic edits, and resets a deleted default', () => {
+    const { fs } = memFs();
+    const deps = { fs, path: PATH, dir: DIR };
+    const a = createAppSettingsStore(deps), b = createAppSettingsStore(deps);
+    a.apply({ export_preset_change: { kind: 'create', preset } });
+    b.apply({ export_preset_change: { kind: 'create', preset: { ...preset, id: 'second', name: 'Second' } } });
+    a.apply({ export_preset_change: { kind: 'rename', id: preset.id, name: 'Renamed' }, default_export_preset_id: preset.id });
+    const restarted = createAppSettingsStore(deps);
+    expect(restarted.get().export_presets?.map(p => p.name)).toEqual(['Renamed', 'Second']);
+    expect(restarted.get().default_export_preset_id).toBe(preset.id);
+    b.apply({ export_preset_change: { kind: 'delete', id: preset.id } });
+    expect(a.get().default_export_preset_id).toBe('builtin:match');
+    expect(a.get().export_presets?.map(p => p.id)).toEqual(['second']);
+  });
+  it('rejects invalid writes atomically and recovers corrupt entries without losing other preferences', () => {
+    const { fs, files } = memFs({ [PATH]: JSON.stringify({ language: 'zh-CN', default_export_preset_id: 'missing', export_presets: [preset, { ...preset, id: 'bad', version: 2 }] }) });
+    const s = createAppSettingsStore({ fs, path: PATH, dir: DIR });
+    expect(s.get()).toMatchObject({ language: 'zh-CN', default_export_preset_id: 'builtin:match', export_presets: [preset] });
+    const before = files.get(PATH);
+    expect(() => s.apply({ export_preset_change: { kind: 'create', preset: { ...preset, id: 'other', name: ' DELIVERY ' } } })).toThrow();
+    expect(() => s.apply({ default_export_preset_id: 'missing' })).toThrow();
+    expect(files.get(PATH)).toBe(before);
+  });
+});

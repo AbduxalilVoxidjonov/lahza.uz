@@ -363,3 +363,23 @@
   margin: 0;
   padding: calc(12 * var(--ui-px)) calc(20 * var(--ui-px));
 }
+
+/* Preset menus share the heading row without occupying space in the form. */
+.export-preset-control { margin-left: calc(12 * var(--ui-px)); min-width: 0; max-width: min(calc(240 * var(--ui-px)), 60%); }
+.export-preset-control + .settings-close { margin-left: auto; flex-shrink: 0; }
+.export-preset-trigger { display: inline-flex; align-items: center; gap: calc(10 * var(--ui-px)); max-width: 100%; min-width: 0; }
+.export-preset-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-preset-modified, .export-preset-trigger > svg { flex-shrink: 0; }
+.export-preset-modified { color: var(--muted-foreground); font-size: var(--font-size-caption); }
+.export-preset-actions { display: flex; flex-wrap: wrap; gap: calc(8 * var(--ui-px)); margin-top: calc(8 * var(--ui-px)); }
+.export-preset-name { max-width: min(calc(480 * var(--ui-px)), 95vw); }
+.export-preset-name-count { margin: calc(4 * var(--ui-px)) 0 0; text-align: right; color: var(--muted-foreground); font-size: var(--font-size-caption); }
+.export-preset-name-tooltip { max-width: min(calc(360 * var(--ui-px)), var(--available-width)); padding: calc(8 * var(--ui-px)) calc(10 * var(--ui-px)); background: var(--card); border: 1px solid var(--border-soft); border-radius: var(--radius-control); box-shadow: var(--shadow-menu); color: var(--foreground); font-size: var(--font-size-body); white-space: normal; overflow-wrap: anywhere; }
+.export-validation-hint { padding: calc(8 * var(--ui-px)) calc(20 * var(--ui-px)); }
+
+.export-preset-menu { width: calc(320 * var(--ui-px)); min-width: 0; max-width: min(var(--available-width), calc(100vw - 24px)); }
+.export-preset-menu .app-menu-item-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-preset-options { max-height: min(calc(240 * var(--ui-px)), 30vh); overflow-y: auto; }
+.export-preset-default { flex-shrink: 0; margin-left: calc(8 * var(--ui-px)); font-size: var(--font-size-caption); color: var(--muted-foreground); }
+.export-preset-empty { padding: calc(6 * var(--ui-px)) calc(12 * var(--ui-px)); color: var(--muted-foreground); font-size: var(--font-size-caption); }
+.export-preset-delete { color: var(--destructive); }
