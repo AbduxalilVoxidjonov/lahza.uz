@@ -14,6 +14,14 @@ vi.mock("../ipc", async (original) => ({
 afterEach(() => { cleanup(); useProjectStore.getState().apply(null); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe("media pool poster visibility", () => {
+  it("shows a music glyph for audio without requesting a video poster", () => {
+    useProjectStore.getState().apply(summaryFixture({ media: [{ id: 'audio', path: '/song.m4a', kind: 'Audio', size_bytes: 10 } as MediaSummary] }));
+    const view = render(<MediaThumbnail mediaId="audio" mediaKind="Audio" />);
+    expect(view.container.querySelector('.media-thumbnail svg')).not.toBeNull();
+    expect(view.container.querySelector('img')).toBeNull();
+    expect(getMediaThumbnail).not.toHaveBeenCalled();
+  });
+
   it("only fetches visible cards, drops offscreen image references and reuses cached posters", async () => {
     let observe!: (visible: boolean) => void;
     const disconnect = vi.fn();

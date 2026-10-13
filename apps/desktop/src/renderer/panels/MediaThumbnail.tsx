@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Music2 } from "lucide-react";
 import { listen } from "@/bridge/events";
 import { convertFileSrc } from "@/bridge/ipc";
 import { getMediaThumbnail } from "../ipc";
@@ -78,7 +79,9 @@ export function MediaThumbnail({
   // MediaPool keeps offscreen cards mounted. Only visible/nearby cards pin a
   // poster and its decoded browser image; otherwise the floor grows forever.
   const src = useMediaPosterSrc(visible ? mediaId : null, mediaKind);
-  return <div ref={root} className={`media-thumbnail${src === null ? " is-placeholder" : ""}`}>
+  const isAudio = mediaKind.toLowerCase() === "audio";
+  return <div ref={root} className={`media-thumbnail${src === null ? " is-placeholder" : ""}${isAudio ? " is-audio" : ""}`}>
+    {isAudio && <Music2 className="media-audio-glyph" aria-hidden="true" />}
     {src !== null && <img src={src} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain" }} />}
   </div>;
 }

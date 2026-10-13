@@ -284,6 +284,21 @@
   background: var(--card);
 }
 
+.media-thumbnail.is-audio {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted-foreground);
+}
+
+.media-audio-glyph {
+  width: 40%;
+  height: 40%;
+  max-width: calc(36 * var(--ui-px));
+  max-height: calc(36 * var(--ui-px));
+  stroke-width: 1.5;
+}
+
 .media-item-name {
   display: block;
   width: 100%;
