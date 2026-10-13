@@ -16,7 +16,7 @@ test('export presets can be managed in the export dialog and reused after restar
     await newProject(page, { parentFolder, name: 'First preset project', canvas: { width: 1920, height: 1080, fpsNum: 30000, fpsDen: 1001 } });
     const trackId = await invokeCmd<string>(page, 'add_track', {});
     await invokeCmd(page, 'add_text_layer', { trackId, content: 'Preset preview', tStartUs: 0, durationUs: 1_000_000 });
-    await page.keyboard.press('Control+e');
+    await page.keyboard.press('ControlOrMeta+e');
     await page.getByRole('button', { name: 'Preset', exact: true }).click();
     await page.getByRole('menuitemradio', { name: /^1080p Full HD Landscape/ }).click();
     expect((await invokeCmd<AppSettings>(page, 'app_settings_get')).default_export_preset_id).toBe('builtin:match');
@@ -79,7 +79,7 @@ test('export presets can be managed in the export dialog and reused after restar
     const prefs = await invokeCmd<AppSettings>(second.page, 'app_settings_get');
     expect(prefs.default_export_preset_id).toBe(prefs.export_presets![0]!.id);
     await newProject(second.page, { parentFolder, name: 'Second preset project', canvas: { width: 1920, height: 1080, fpsNum: 60, fpsDen: 1 } });
-    await second.page.keyboard.press('Control+e');
+    await second.page.keyboard.press('ControlOrMeta+e');
     await expect(second.page.getByRole('button', { name: 'Preset', exact: true })).toContainText(longName);
     await second.page.getByRole('tab', { name: 'Video', exact: true }).click();
     await expect(second.page.getByLabel('Target bitrate', { exact: true })).toHaveValue('10');

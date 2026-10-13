@@ -14,7 +14,7 @@ export async function installResourceDiagnostics(app: ElectronApplication, page:
     const native = process.getBuiltinModule('module').createRequire(addon)(addon)
     const failures: unknown[] = []
     ;(globalThis as any).__e2eResourceFailures = failures
-    for (const channel of ['resources:acquire', 'resources:plan-export', 'backend:invoke']) {
+    for (const channel of ['resources:acquire', 'resources:plan-export', 'backend:invoke', 'backend:invokePublished']) {
       const handler = ipcMain._invokeHandlers.get(channel)
       if (!handler) throw new Error(`Missing E2E admission boundary: ${channel}`)
       ipcMain._invokeHandlers.set(channel, async (event: any, request: any) => {

@@ -54,15 +54,16 @@ test('a blocked import has its own deadline and preserves main diagnostics when 
   try {
     await newProject(page, { parentFolder: tmpDir('weftcut-diag-'), name: 'Import', canvas })
     await app.evaluate(({ ipcMain }) => {
-      const handler = ipcMain._invokeHandlers.get('backend:invoke')!
-      ipcMain._invokeHandlers.set('backend:invoke', (event: any, request: any) => {
+      const handler = ipcMain._invokeHandlers.get('backend:invokePublished')!
+      ipcMain._invokeHandlers.set('backend:invokePublished', (event: any, request: any) => {
         if (request.channel === 'import_media') return new Promise(() => {})
         return handler(event, request)
       })
     })
     await expect(importAndPlaceMedia(page, { mediaAbsPath: 'unused-by-hook' }, { timeout: 100 }))
       .rejects.toThrow(/importAndPlaceMedia did not complete within 100ms.*reserved_mib/)
-    // Fail the renderer's settings read without disturbing native telemetry.
+    // Diagnostics deliberately use raw IPC, outside the publication barrier.
+    // Fail that settings read without disturbing native telemetry.
     await app.evaluate(({ ipcMain }) => {
       const handler = ipcMain._invokeHandlers.get('backend:invoke')!
       ipcMain._invokeHandlers.set('backend:invoke', (event: any, request: any) => {

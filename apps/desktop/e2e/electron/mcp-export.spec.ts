@@ -42,7 +42,7 @@ test('MCP manages the shared preset library and exports by preset ID with per-jo
     // The existing export dropdown sees MCP writes live; there is no extra UI entry point.
     await waitForHook(page, 'exportTimeline');
     await expect(page.locator('.app-main')).toBeVisible();
-    await page.keyboard.press('Control+e');
+    await page.keyboard.press('ControlOrMeta+e');
     await page.getByRole('button', { name: 'Preset', exact: true }).click();
     await expect(page.getByRole('menuitemradio', { name: /^MCP draft/ })).toBeVisible();
     await call('rename_export_preset', { preset_id: preset.id, name: 'MCP review' });
@@ -128,10 +128,10 @@ test('MCP export reconnects, reports the actual renamed file, and retries public
     // A publication failure retains the completed staged file. UI retry uses
     // the same job and must not open another encoder or rerun the mux.
     await app.evaluate(({ ipcMain }) => {
-      const handler = ipcMain._invokeHandlers.get('backend:invoke')!;
+      const handler = ipcMain._invokeHandlers.get('backend:invokePublished')!;
       const trace = { encodes: 0, muxes: 0, publishes: 0 };
       (globalThis as any).__exportTrace = trace;
-      ipcMain._invokeHandlers.set('backend:invoke', (event: any, request: any) => {
+      ipcMain._invokeHandlers.set('backend:invokePublished', (event: any, request: any) => {
         if (request.channel === 'export_video_sink_start') trace.encodes++;
         if (request.channel === 'mux_export') trace.muxes++;
         if (request.channel === 'export_job_publish' && ++trace.publishes === 1) throw new Error('Injected publication failure');
@@ -156,12 +156,12 @@ test('MCP export reconnects, reports the actual renamed file, and retries public
     // before native entry to prove that cancellation does not release the edit
     // gate while a renderer stage is still outstanding.
     await app.evaluate(({ ipcMain }) => {
-      const handler = ipcMain._invokeHandlers.get('backend:invoke')!;
+      const handler = ipcMain._invokeHandlers.get('backend:invokePublished')!;
       let release!: () => void;
       const barrier = new Promise<void>(resolve => { release = resolve; });
       (globalThis as any).__releaseExportMux = release;
       (globalThis as any).__exportMuxHeld = false;
-      ipcMain._invokeHandlers.set('backend:invoke', async (event: any, request: any) => {
+      ipcMain._invokeHandlers.set('backend:invokePublished', async (event: any, request: any) => {
         if (request.channel === 'mux_export') { (globalThis as any).__exportMuxHeld = true; await barrier; }
         return handler(event, request);
       });

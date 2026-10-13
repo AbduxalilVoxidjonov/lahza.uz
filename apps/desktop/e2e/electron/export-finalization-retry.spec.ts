@@ -20,7 +20,7 @@ for (const action of ['retry', 'discard'] as const) {
       writeFileSync(output, 'previous complete output')
       await app.evaluate(({ ipcMain }, addon) => {
         const native = process.getBuiltinModule('module').createRequire(addon)(addon)
-        const handler = ipcMain._invokeHandlers.get('backend:invoke')!
+        const handler = ipcMain._invokeHandlers.get('backend:invokePublished')!
         let forcedCritical: boolean | null = null;
         const activity = native.resourcesActivity;
         native.resourcesActivity = (playing: boolean, pressure: boolean, critical: boolean) =>
@@ -36,7 +36,7 @@ for (const action of ['retry', 'discard'] as const) {
         }, 500)
         timer.unref()
         ipcMain.on('resources:release', (_event, id) => trace.releases.push(id))
-        ipcMain._invokeHandlers.set('backend:invoke', async (event: any, request: any) => {
+        ipcMain._invokeHandlers.set('backend:invokePublished', async (event: any, request: any) => {
           if (request.channel === 'export_video_sink_start') trace.encodes++
           if (request.channel === 'export_project_audio_only') trace.audio++
           if (request.channel !== 'mux_export') return handler(event, request)

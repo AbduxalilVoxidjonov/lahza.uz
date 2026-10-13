@@ -64,17 +64,21 @@ test('completed encoding waits for the occupied processing slot before mux', asy
     await app.evaluate(({ ipcMain }, { addon, allocation }) => {
       const native = process.getBuiltinModule('module').createRequire(addon)(addon)
       native.resourcesConfigure(JSON.stringify({ ...allocation, cpu_threads: 1, task_threads: 1, background_jobs: 1 }))
-      const handler = ipcMain._invokeHandlers.get('backend:invoke')!
-      ipcMain._invokeHandlers.set('backend:invoke', async (event: any, request: any) => {
+      const trace = { muxes: 0, released: false }
+      ;(globalThis as any).__muxSlotTrace = trace
+      const handler = ipcMain._invokeHandlers.get('backend:invokePublished')!
+      ipcMain._invokeHandlers.set('backend:invokePublished', async (event: any, request: any) => {
         if (request.channel !== 'mux_export') return handler(event, request)
+        trace.muxes++
         const slot = native.resourcesReserve(1, 64)
-        setTimeout(() => native.resourcesRelease(slot), 250)
+        setTimeout(() => { native.resourcesRelease(slot); trace.released = true }, 250)
         return handler(event, request)
       })
     }, { addon, allocation: settings.resource_allocation })
     const result = await driveExport(page, { outputAbsPath: path.join(tmpDir('weftcut-mux-slot-out-'), 'out.mp4'), settings: { audio: { include: false } } }, { hook: 'exportTimeline' })
     await testInfo.attach('slot-export', { body: JSON.stringify(result), contentType: 'application/json' })
     expect(result.done.ok, result.done.error).toBe(true)
+    expect(await app.evaluate(() => (globalThis as any).__muxSlotTrace)).toEqual({ muxes: 1, released: true })
   } finally { await app.close() }
 })
 
