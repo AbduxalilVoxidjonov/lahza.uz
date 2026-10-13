@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Music2 } from "lucide-react";
+import { AppIcon } from "@/components/AppIcon";
 import { listen } from "@/bridge/events";
 import { convertFileSrc } from "@/bridge/ipc";
 import { getMediaThumbnail } from "../ipc";
@@ -81,7 +82,7 @@ export function MediaThumbnail({
   const src = useMediaPosterSrc(visible ? mediaId : null, mediaKind);
   const isAudio = mediaKind.toLowerCase() === "audio";
   return <div ref={root} className={`media-thumbnail${src === null ? " is-placeholder" : ""}${isAudio ? " is-audio" : ""}`}>
-    {isAudio && <Music2 className="media-audio-glyph" aria-hidden="true" />}
+    {isAudio && <AppIcon icon={Music2} size="display" className="media-audio-glyph" aria-hidden="true" />}
     {src !== null && <img src={src} alt="" draggable={false} style={{ width: "100%", height: "100%", objectFit: "contain" }} />}
   </div>;
 }
