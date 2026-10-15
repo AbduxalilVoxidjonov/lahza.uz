@@ -1,0 +1,199 @@
+name: CI
+
+# R0-ORG-2. Manba qoralama: "Claude outputs/ci.yml".
+# Bosqichlar: versiyalar -> lint -> engine testlari (macOS/Windows/Linux, libass'li FFmpeg) ->
+# NFR-01 (tarmoqsiz) -> UI typecheck+build -> Tauri cargo check -> sidecar artefakti (M2-PKG-1).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  versions:
+    name: Versiyalar mosligi
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      # Faqat standart kutubxona: engine o'rnatilmaydi.
+      - run: python scripts/check_versions.py
+
+  lint:
+    name: Ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+      - run: pip install -e "engine[dev]"
+      - run: ruff check engine/src engine/tests eval scripts
+
+  engine:
+    name: Engine (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+      - uses: ./.github/actions/ffmpeg-libass
+      - run: pip install -e "engine[dev,onnx,fonts]"
+      - name: pytest
+        working-directory: engine
+        env:
+          LAHZA_DEV: "1"
+          # libass bo'lmasa subtitr testlari skip emas, yiqilsin (CI'da jim o'tkazib yuborilmaydi).
+          LAHZA_REQUIRE_LIBASS: "1"
+        run: pytest -ra
+
+  offline:
+    # NFR-01: oflayn rejimda 0 ta tarmoq so'rovi (docs/09). Ikki qatlam:
+    #  1) `unshare -rn` - jarayon tarmoqsiz namespace'da (faqat loopback);
+    #  2) LAHZA_NO_NETWORK=1 - conftest socket.connect/getaddrinfo'ni bloklaydi va aniq xato beradi.
+    name: NFR-01 tarmoqsiz testlar
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+      - uses: ./.github/actions/ffmpeg-libass
+      - run: pip install -e "engine[dev,onnx,fonts]"
+      - name: Foydalanuvchi namespace'lariga ruxsat (Ubuntu 24.04 AppArmor cheklovi)
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0 || true
+      - name: Namespace haqiqatan tarmoqsizligini tekshirish
+        run: |
+          if unshare -rn -- python -c "import socket; socket.create_connection(('1.1.1.1', 53), timeout=3)"; then
+            echo "::error::unshare -rn ichida tashqi tarmoq ochiq"; exit 1
+          fi
+          echo "ok: tashqi tarmoq yopiq"
+      - name: pytest (tarmoqsiz)
+        working-directory: engine
+        env:
+          LAHZA_DEV: "1"
+          LAHZA_NO_NETWORK: "1"
+          LAHZA_REQUIRE_LIBASS: "1"
+        run: |
+          unshare -rn -- bash -c '
+            ip link set lo up 2>/dev/null || true
+            pytest -ra -p no:cacheprovider
+          '
+      - name: CLI (tarmoqsiz)
+        env:
+          LAHZA_NO_NETWORK: "1"
+        run: unshare -rn -- python -m lahza_engine hw
+
+  ui:
+    name: UI typecheck + build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-dist
+          path: app/dist
+          retention-days: 3
+
+  tauri:
+    name: Tauri cargo check (${{ matrix.os }})
+    needs: ui
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: app/src-tauri
+      # tauri-build `frontendDist` (../dist) mavjudligini talab qiladi.
+      - uses: actions/download-artifact@v4
+        with:
+          name: ui-dist
+          path: app/dist
+      - name: Sidecar o'rinbosari (faqat check uchun; haqiqiy fayl `sidecar` jobida)
+        shell: bash
+        run: |
+          TRIPLE=$(rustc -vV | sed -n 's/^host: //p')
+          EXT=""; [[ "$RUNNER_OS" == "Windows" ]] && EXT=".exe"
+          mkdir -p app/src-tauri/binaries
+          echo stub > "app/src-tauri/binaries/lahza-engine-${TRIPLE}${EXT}"
+      - name: cargo check
+        working-directory: app/src-tauri
+        run: cargo check --locked
+
+  sidecar:
+    # M2-PKG-1: PyInstaller sidecar artefakti. Sekin - faqat main, qo'lda yoki `sidecar` yorlig'i bilan.
+    name: Sidecar (${{ matrix.os }})
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'sidecar')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
+      - uses: dtolnay/rust-toolchain@stable # target triple uchun (rustc -vV)
+      - run: pip install -e "engine[dev,onnx,fonts]"
+      - run: python scripts/build_sidecar.py --clean
+      - run: python scripts/build_sidecar.py --verify
+      - name: Tutun testi (sidecar ishga tushadimi)
+        shell: bash
+        run: |
+          TRIPLE=$(rustc -vV | sed -n 's/^host: //p')
+          EXT=""; [[ "$RUNNER_OS" == "Windows" ]] && EXT=".exe"
+          "app/src-tauri/binaries/lahza-engine-${TRIPLE}${EXT}" hw
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-${{ matrix.os }}
+          path: |
+            app/src-tauri/binaries/lahza-engine-*
+            build/sidecar/sidecar.json
+          retention-days: 14

@@ -1,0 +1,25 @@
+# Native runtime'lar versiyalari (R0-RT-1 da mahkamlanadi).
+# `ref` bo'sh bo'lsa build skriptlari ishlamaydi - versiya taxmin qilinmaydi.
+
+[whisper_cpp]
+repo = "https://github.com/ggml-org/whisper.cpp"
+ref = ""          # ANIQLANSIN: git tag yoki commit
+targets = ["whisper-cli"]
+
+[llama_cpp]
+repo = "https://github.com/ggml-org/llama.cpp"
+ref = ""          # ANIQLANSIN
+targets = ["llama-server"]
+
+[ffmpeg]
+repo = "https://git.ffmpeg.org/ffmpeg.git"
+ref = ""          # ANIQLANSIN
+# LGPL yig'ma: --enable-gpl va --enable-nonfree QO'SHILMAYDI (standart o'chiq), libx264/libx265 YO'Q (ADR-0004).
+# Bayroqlar mahkamlangan versiya bilan R0-RT-1 da tekshiriladi.
+configure_common = [
+  "--enable-shared", "--disable-static",
+  "--disable-doc", "--disable-debug",
+  "--enable-libass", "--enable-libfreetype", "--enable-libharfbuzz", "--enable-libfribidi",
+]
+configure_macos = ["--enable-videotoolbox", "--enable-audiotoolbox"]
+configure_windows = ["--enable-mediafoundation", "--enable-amf", "--enable-libvpl"]

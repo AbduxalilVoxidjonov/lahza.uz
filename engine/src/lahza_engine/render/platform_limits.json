@@ -1,0 +1,17 @@
+{
+  "_izoh": "Limitlar kodga qattiq yozilmaydi (TZ 10-bo'lim). Har relizdan oldin qayta tekshiriladi. null = manbalar bir-biriga zid yoki aniqlanmagan.",
+  "instagram_reels": {
+    "width": 1080,
+    "height": 1920,
+    "aspect": "9:16",
+    "min_width": 720,
+    "min_height": 1280,
+    "max_file_bytes": 4294967296,
+    "max_duration_s": null,
+    "_manbalar": {
+      "1080x1920, 9:16": "https://www.hopperhq.com/blog/instagram-reel-size/",
+      "720x1280, 4 GB": "https://moda.app/resources/sizes/instagram-reel",
+      "max_duration_s": "Zid manbalar: 90 s (moda.app) va 3 daqiqa (argil.ai) - ANIQLANSIN"
+    }
+  }
+}

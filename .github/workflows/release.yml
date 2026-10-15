@@ -1,0 +1,169 @@
+name: Release
+
+# Manba qoralama: "Claude outputs/release.yml". Tartib: docs/10-reliz-va-imzolash.md.
+# Talab: R0-RT-1 (third_party/runtimes.toml da versiyalar mahkamlangan) va imzolangan katalog.
+# Ishga tushirish: `v1.0.0` tegi push qilinadi yoki qo'lda (workflow_dispatch) versiya beriladi.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versiya (masalan 1.0.0) - manifestlardagi bilan bir xil bo'lishi shart"
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+  VERSION: ${{ inputs.version || github.ref_name }}
+
+jobs:
+  preflight:
+    name: Reliz oldi tekshiruvi
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Versiya raqami hamma manifestlarda bir xil
+        id: v
+        shell: bash
+        run: |
+          python scripts/check_versions.py --expect "$VERSION"
+          echo "version=${VERSION#v}" >> "$GITHUB_OUTPUT"
+      - name: Native runtime versiyalari mahkamlangan (R0-RT-1)
+        run: |
+          python - <<'EOF'
+          import sys, tomllib
+          d = tomllib.load(open("third_party/runtimes.toml", "rb"))
+          empty = [k for k, v in d.items() if not v.get("ref")]
+          if empty:
+              sys.exit("runtimes.toml: ref bo'sh: " + ", ".join(empty))
+          print("ok")
+          EOF
+
+  build:
+    name: Build (${{ matrix.os }})
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14 # aarch64-apple-darwin
+          - os: windows-latest # x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Native runtime'lar (LGPL FFmpeg + libass, whisper.cpp, llama.cpp)
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            brew install libass pkg-config nasm
+            scripts/build_runtimes.sh
+          else
+            pwsh scripts/build_runtimes.ps1
+          fi
+
+      - name: Engine bog'liqliklari
+        run: pip install -e "engine[dev,onnx,fonts]"
+
+      - name: Engine testlari (reliz darvozasi)
+        working-directory: engine
+        env:
+          LAHZA_DEV: "1"
+        run: pytest -ra -m "not libass"
+        # libass testlari CI'da (engine jobida) to'liq ishlaydi; bu yerda runtime'lar PATH'da emas.
+
+      - name: Engine sidecar (toza build + sha256)
+        run: |
+          python scripts/build_sidecar.py --clean
+          python scripts/build_sidecar.py --verify
+
+      - name: Katalog imzosini tekshirish
+        shell: bash
+        env:
+          LAHZA_CATALOG_PUBKEY: ${{ secrets.LAHZA_CATALOG_PUBKEY }}
+        run: |
+          test -n "$LAHZA_CATALOG_PUBKEY" || { echo "::error::LAHZA_CATALOG_PUBKEY siri yo'q"; exit 1; }
+          python -c "import os;from lahza_engine.models.catalog import load_catalog,verify;verify(load_catalog('catalog/catalog.json'),os.environ['LAHZA_CATALOG_PUBKEY']);print('ok')"
+
+      - name: Litsenziyalar jadvali (shu muhitdan)
+        run: python scripts/gen_licenses.py
+
+      - name: Tauri build + imzo + notarizatsiya
+        working-directory: app
+        env:
+          LAHZA_CATALOG_PUBKEY: ${{ secrets.LAHZA_CATALOG_PUBKEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows kod imzolash: sertifikat tanlangach (docs/10) shu yerga qo'shiladi - ANIQLANSIN.
+        run: |
+          npm ci
+          npm run tauri build
+
+      - name: Staple tekshiruvi (macOS)
+        if: runner.os == 'macOS'
+        run: xcrun stapler validate "app/src-tauri/target/release/bundle/macos/Lahza Studio.app"
+
+      - name: Xeshlar
+        shell: bash
+        working-directory: app/src-tauri/target/release/bundle
+        run: |
+          python - "SHA256SUMS-${{ matrix.os }}.txt" <<'EOF'
+          import hashlib, pathlib, sys
+          files = sorted(p for p in pathlib.Path(".").rglob("*") if p.suffix in {".dmg", ".exe"} and p.is_file())
+          lines = [f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.as_posix()}" for p in files]
+          pathlib.Path(sys.argv[1]).write_text("\n".join(lines) + "\n")
+          print("\n".join(lines))
+          EOF
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lahza-studio-${{ needs.preflight.outputs.version }}-${{ matrix.os }}
+          path: |
+            app/src-tauri/target/release/bundle/dmg/*.dmg
+            app/src-tauri/target/release/bundle/nsis/*.exe
+            app/src-tauri/target/release/bundle/SHA256SUMS-*.txt
+            build/sidecar/sidecar.json
+          if-no-files-found: error
+
+  draft-release:
+    name: GitHub reliz qoralamasi
+    needs: [preflight, build]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Qoralama reliz (qo'lda tekshirib, keyin e'lon qilinadi)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft \
+            --title "Lahza Studio ${{ needs.preflight.outputs.version }}" \
+            --notes "Reliz tekshiruvi: docs/10-reliz-va-imzolash.md" \
+            $(find dist -type f \( -name '*.dmg' -o -name '*.exe' -o -name 'SHA256SUMS-*.txt' \))

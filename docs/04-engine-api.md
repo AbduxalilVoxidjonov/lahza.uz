@@ -1,0 +1,142 @@
+# Engine API
+
+Manba: `engine/src/lahza_engine/api/app.py`. Engine faqat `127.0.0.1` da. Har so'rov `Authorization: Bearer <token>`; `<video>` va WebSocket uchun `?t=<token>`. Xato javobi: `{"detail": "<o'zbekcha xabar>"}` va HTTP kodi.
+
+CORS: UI engine'ga boshqa origin'dan murojaat qiladi, shuning uchun `CORSMiddleware` faqat Tauri webview origin'lariga (`tauri://localhost`, `http(s)://tauri.localhost`) ruxsat beradi; `LAHZA_DEV=1` da Vite dev server (`http://127.0.0.1:1420`, `http://localhost:1420`) ham qo'shiladi; qo'shimchalari — `LAHZA_CORS_ORIGINS` (vergul bilan). Token baribir majburiy. WebSocket uchun engine `websockets` paketiga bog'liq (uvicorn'ning o'zida WS yo'q).
+
+Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar epizod bazasida saqlangani uchun yo'llar `/v1/episodes/{id}/...` ko'rinishida.
+
+## Tizim
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/health` | — | `{"version": "0.1.0", "ok": true}` |
+| GET | `/v1/hardware` | — | `{"profile": {...}, "tier": "standard", "reasons": [...]}` |
+| GET | `/v1/capabilities?refresh=false` | — | `{"ffmpeg": bool, "libass": bool, "encoders": string[], "vad": "silero"\|"energy", "aligner": bool, "diarizer": bool, "face_detector": bool, "llm": bool}` |
+| POST | `/v1/diagnostics` | `{"out_dir"}` | `{"path"}` — zip |
+| POST | `/v1/system:reveal` | `{"path"}` | `{"ok": true}` |
+
+* `capabilities`: `libass` — `ffmpeg -filters` da `ass` filtri bor-yo'qligi (`render.capabilities.has_filter`); `encoders` — mavjud H.264/HEVC enkoderlari (`-encoders` ro'yxati, sinov kodlashsiz). Natija sessiyada keshlanadi; model o'rnatish/o'chirishdan keyin yoki `refresh=true` bilan yangilanadi.
+* `diagnostics`: `lahza-diagnostika-<vaqt>.zip` = `diagnostics.json` (engine/Python/paket versiyalari, apparat profili va darajasi, imkoniyatlar, o'rnatilgan modellar ID/vazifa/versiya, barcha epizodlardagi `failed/cancelled` bosqichlar — xato matni 200 belgigacha va uzun satrlar yashirilgan) + `engine.log.txt` (oxirgi 500 satr). Transkript (`sentences`/`words`), klip matnlari va media yo'llari **kirmaydi** (NFR-02). `out_dir` ota-papkasi mavjud bo'lmasa — 400.
+* `system:reveal`: macOS `open -R <yo'l>`, Windows `explorer /select,<yo'l>`, Linux `xdg-open <papka>`; shell'siz, argumentlar massivi (NFR-08). Yo'l mavjud bo'lmasa — 404.
+
+## Loglar
+
+`lahza serve` `Logs/engine.log` faylini yoqadi (aylanma: 2 MB × 5 fayl). Formatter (`core/logs.SafeFormatter`) 64 belgidan uzun satr argumentlarini, ro'yxat/lug'at argumentlarini va `Word/Sentence/Transcript/Clip` obyektlarini `<matn: N belgi>` ko'rinishida yashiradi, istisno xabarini 300 belgigacha qisqartiradi. Qoida: transkript matni log xabariga f-string bilan qo'shilmaydi.
+
+## Modellar
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/catalog/bundle` | — | `{"tier", "items": [{"task", "entry", "compat", "reason", "mandatory"}]}` |
+| GET | `/v1/models` | — | `{"models": [...], "defaults": {"asr": "<id>"}}` |
+| POST | `/v1/models:install` | `{"consent": true, "entry_ids": null}` | Job (`kind: install`) |
+| POST | `/v1/models:scan` | — | `{"added": [...]}` — `Models/llm/*.gguf` |
+| DELETE | `/v1/models/{id}` | — | `{"ok": true}` |
+| POST | `/v1/models/{id}:default` | — | `{"ok": true}` |
+| POST | `/v1/models/{id}:test` | — | `{"ok": bool, "detail"}` |
+| POST | `/v1/models:export-pack` | `{"path": "....lzpack", "model_ids?": string[]}` | Job (`kind: pack`, `meta.op = "export"`) |
+| POST | `/v1/models:import-pack` | `{"path"}` | Job (`kind: pack`, `meta.op = "import"`) |
+
+* `consent` bo'lmasa — 400 (NFR-01). `entry_ids` berilmasa, avtomatik to'plam o'rnatiladi; ASR birinchi.
+* `DELETE`: fayllar (faqat `Models/` ichida) va registry yozuvi o'chiriladi; model standart bo'lsa — shu vazifadagi boshqa modelga o'tadi, boshqasi bo'lmasa standart o'chiriladi. Noma'lum ID — 404.
+* `:test`: fayllar mavjudligi → katalogda bo'lsa har fayl sha256 → backend yuklanishi (faqat shu model bilan `build_services`). Natija `installed.json` dagi `self_test_ok` ga yoziladi.
+* `.lzpack` (zip): `manifest.json` (`format`, `registry` — yo'llar `Models/` ga nisbiy, `files: [{"path","sha256","size"}]`), `Models/...` fayllari, ixtiyoriy `signature` (manifest baytlarining Ed25519 imzosi, base64; eksportda kalit `LAHZA_PACK_PRIVKEY`). Import: har fayl sha256/hajmi doim tekshiriladi; `LAHZA_PACK_PUBKEY` sozlangan bo'lsa imzo majburiy (`LAHZA_DEV=1` da imzosiz ham qabul); zip-slip (`..`, absolyut yo'l, `\\`, `Models/` dan tashqari), symlink, bajariladigan fayllar (sarlavha: MZ/ELF/Mach-O/`#!`; kengaytma: `.exe .dll .so .dylib .sh .py ...`), manifestda yo'q yoki yetishmayotgan fayl — rad. Fayllar avval vaqtinchalik papkada tekshiriladi, keyin joyiga ko'chiriladi. Job natijasi: eksport `{"path","models","files"}`, import `{"imported","files"}`.
+
+## Loyihalar va import
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/projects` | — | `[{"id", "name", "created_at"}]` |
+| POST | `/v1/projects` | `{"name": "Biznes podkast"}` | `{"id", "name"}` |
+| GET | `/v1/projects/{id}/episodes` | — | `[{"id", "show_id", "title", "status", "project_dir", "highlight_mode", "created_at"}]` |
+| POST | `/v1/media:import` | `{"project_id", "path", "title?", "focus?", "num_speakers?", "force_lite?"}` | `{"episode_id", "job"}` |
+| GET | `/v1/episodes/{id}` | — | `{"id","show_id","title","status","project_dir","media": {"duration_ms","fps","width","height","path"} \| null, "highlight_mode": "llm"\|"lite"\|null}` |
+| POST | `/v1/episodes/{id}:reanalyze` | `{"force_lite?": bool, "focus?": string, "num_speakers?": int}` | Job (`kind: analyze`) |
+
+* Import va qayta tahlil shou lug'atini (shu shou + umumiy, `show_id = null`) tahlilga uzatadi: `hotwords` — atamalar (ASR), `lexicon_map` — `variant.lower() → atama` (normalize bosqichi). Shuningdek `aligner` (`Services.aligner`) uzatiladi.
+* Tahlil tugaganda `episodes.status` = `ready`/`failed`, `episodes.highlight_mode` = `llm`/`lite`.
+* `:reanalyze`: asl fayl `media.path` dan olinadi (yo'q bo'lsa 400; media yozuvi yo'q — 409; shu epizod allaqachon tahlilda — 409). Kesh tufayli o'zgarmagan bosqichlar qayta hisoblanmaydi.
+
+## Vazifalar
+
+| Metod | Yo'l | Javob |
+| --- | --- | --- |
+| GET | `/v1/jobs/{id}` | `{"id", "kind", "status", "progress", "stage", "error", "result", "meta", "created_at"}` |
+| POST | `/v1/jobs/{id}:cancel` | Job |
+| POST | `/v1/jobs/{id}:retry` | Job (yangi; `meta.retry_of` = eski ID) |
+| GET | `/v1/exports` | `[{"job": Job, "episode_id", "clip_id", "title"}]` |
+
+* `kind`: `analyze | export | install | pack`. `status`: `queued | running | done | failed | cancelled`. `stage`: `ingest | vad | asr | normalize | align | diarize | sentences | signals | highlight`, o'rnatilayotgan model ID'si yoki `export-pack`/`import-pack`. `created_at` — Unix vaqt (s).
+* Oqimlar: tahlil — 1 ta; eksport — `LAHZA_EXPORT_WORKERS` (standart 2, 1..8); `install`/`pack` — alohida 1 ta I/O oqimi.
+* `:retry` faqat `failed`/`cancelled` eksport uchun (aks holda 409), xuddi shu parametrlar bilan.
+* `/v1/exports` — joriy engine sessiyasidagi eksport vazifalari, yangisi oldin. Doimiy tarix `project.db` → `exports` jadvalida.
+
+## Transkript
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/episodes/{id}/transcript` | — | `{"sentences": [Sentence]}`; `Sentence = {"id", "start_ms", "end_ms", "speaker", "words": [Word], "text"}` |
+| PATCH | `/v1/episodes/{id}/words` | `{"sentence_id", "ord", "text"}` | `{"ok": true, "sentence": Sentence}` |
+| GET | `/v1/episodes/{id}/waveform?buckets=2000` | — | `{"duration_ms", "peaks": number[]}` |
+| GET | `/v1/episodes/{id}/speakers` | — | `[{"label", "display_name": string\|null}]` |
+| PATCH | `/v1/episodes/{id}/speakers/{label}` | `{"display_name"}` | `{"ok": true}` |
+
+* `PATCH words`: matn NFC/imloga normallashtiriladi. Bo'sh matn — so'z o'chiriladi va `ord` 0..n-1 qayta raqamlanadi; bo'shliqli matn — bir nechta so'zga bo'linadi (eski so'z vaqt oralig'i harf soniga proporsional taqsimlanadi). So'ng faqat shu gap qayta tekislanadi: `Services.aligner` bo'lsa `align.realign.realign_sentence` (wav: `<loyiha>/cache/audio16k.wav`), bo'lmasa so'z vaqtlari saqlanadi. `sentences.text` yangilanadi; matn o'zgargan bo'lsa `corrections` ga `before/after` yoziladi (`audio_chunk_path = "cache/audio16k.wav#<start_ms>-<end_ms>"`). Gap/so'z topilmasa — 404.
+* `waveform`: `buckets` 10..20000; har bo'lakdagi |maks| amplituda, butun fayl maksimumiga normallangan (0..1). `cache/waveform-<buckets>-<mtime>.json` da keshlanadi. Audio hali yo'q — 404.
+* `speakers`: yorliqlar gaplardagi `speaker_id` dan; ism `project.db → speakers` da saqlanadi. Bo'sh ism — `null`. Noma'lum yorliq — 404.
+
+## Kliplar
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/episodes/{id}/clips` | — | `[Clip]` |
+| POST | `/v1/episodes/{id}/clips` | `{"start_sentence_id", "end_sentence_id", "title?"}` | `Clip` |
+| PATCH | `/v1/episodes/{id}/clips/{cid}` | `{"start_ms?", "end_ms?", "title?", "caption?", "hashtags?", "status?"}` | `{"ok": true}` |
+| PUT | `/v1/episodes/{id}/clips/{cid}/cuts` | `{"cuts": [[start_ms, end_ms], ...]}` | `Clip` |
+| GET | `/v1/episodes/{id}/clips/{cid}/keyframes` | — | `[{"t_ms","layout","cx","cy","zoom","lane","source"}]` |
+| PUT | `/v1/episodes/{id}/clips/{cid}/keyframes` | `{"keyframes": [...]}` | `{"ok": true}` |
+| POST | `/v1/episodes/{id}/clips/{cid}:preview` | `{"t_ms", "style": StyleTemplate, "orthography?"}` | `image/jpeg` |
+| POST | `/v1/episodes/{id}/clips/{cid}:similar` | — | `[Clip]` (≤3) |
+| POST | `/v1/episodes/{id}/clips/{cid}:export` | `{"out_dir", "style", "orthography?", "filename_template?", "allow_no_subs?": false, "platform?": "instagram_reels"}` | Job (`kind: export`) |
+| GET | `/v1/episodes/{id}/proxy` | — | `video/mp4` (540p proksi) |
+
+* `status` qiymatlari: `nomzod | qabul | rad | eksport_qilingan` (boshqasi — 422). `qabul`/`rad` `feedback` jadvaliga yoziladi. `PATCH`: noma'lum klip — 404; `end_ms <= start_ms` yoki `start_ms < 0` — 400.
+* `POST clips` (qo'lda): gap oralig'i `highlight.boundaries.snap` bilan vaqtga aylantiriladi (pre/post-roll, qo'shni gapga kirmaydi; boshlanish pauzaga surilmaydi, minimal davomiylik majburiy emas, maksimum `hard_max_ms`). `source = "qolda"`, `status = "nomzod"`, `user_edited = 1`. `title` berilmasa — birinchi gap matni (80 belgi). Teskari tartib — 400, noma'lum gap — 404.
+* `PUT cuts`: har kesim `start < end` va klip ichida bo'lishi shart (aks holda 400); so'z o'rtasiga tushgan chegara butun so'zni olib tashlaydigan qilib kengaytiriladi; kesimlar saralanadi va ustma-ust/tutash bo'lganlari birlashtiriladi. Kesimlardan keyin < 1 s qolsa — 400. Natija `user_edited = 1`, `feedback`ga `tahrir`.
+* `keyframes`: `t_ms` — chiqish (kesimlardan keyingi) vaqti, 0..klip davomiyligi; `layout`: `focus|split|fit_blur|manual`; `cx, cy` 0..1; `zoom` 0.5..4; `lane`: `a|b`. PUT klipning barcha kalit kadrlarini almashtiradi va `source = "qolda"` saqlaydi; bir yo'lakda bir xil `t_ms` — 400.
+* `:preview`: `core.export.render_preview_frame` (1080×1920 kadr; libass yo'q bo'lsa subtitrsiz). `t_ms` klip davomiyligiga qisiladi. Funksiya mavjud bo'lmasa — 501.
+* `:similar`: Lite nomzodlar (signallar `signals` bosqichi keshidan, bo'lmasa qayta hisoblanadi) orasidan rad etilmagan mavjud kliplar bilan ham, bir-biri bilan ham ustma-ust tushmaydigan, signal bali va davomiyligi berilgan klipga eng yaqin ≤3 ta tanlanadi va `ai_lite` nomzod sifatida saqlanadi. `kind` aniqlanmaydi (`null`).
+* `:export`: libass yo'q va `allow_no_subs = false` bo'lsa — **422** (`detail` — aniq o'zbekcha xabar), vazifa yaratilmaydi. `project.db → exports` ga yozuv (`queued → running → done/failed/cancelled`, `job_id`, `path`, `error`, `finished_at`). `export_clip` ga shou nomi, epizod sarlavhasi, klip tartib raqami (vaqt bo'yicha, 1 dan), `filename_template` (standart `{shou}_{epizod}_{nn}_{sarlavha}`), `allow_no_subs`, `platform` uzatiladi.
+* Eksport natijasi (`job.result`): `{"video", "srt", "vtt", "caption", "cover", "encoder", "warnings": string[], "export_id"}`.
+
+## Lug'at, uslublar, shriftlar
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/lexicon?project_id=` | — | `[{"id","show_id","term","variants": string[],"kind": "ism"\|"brend"\|"atama"}]` |
+| POST | `/v1/lexicon` | `{"show_id?","term","variants","kind"}` | yozuv |
+| DELETE | `/v1/lexicon/{id}` | — | `{"ok": true}` |
+| GET | `/v1/styles` | — | `[{"id","name","template": StyleTemplate}]` |
+| POST | `/v1/styles` | `{"name","template"}` | yozuv |
+| PUT | `/v1/styles/{id}` | `{"name","template"}` | yozuv |
+| DELETE | `/v1/styles/{id}` | — | `{"ok": true}` |
+| POST | `/v1/styles:import` | `{"path"}` (.json) | yozuv |
+| POST | `/v1/styles/{id}:export` | `{"path"}` | `{"ok": true}` |
+| GET | `/v1/fonts` | — | `[{"family","path","ok","missing": string[]}]` |
+
+* `lexicon?project_id=X` — shu shou va umumiy (`show_id = null`) yozuvlar; parametrsiz — hammasi. `term`/`variants` normallashtiriladi, takror va `term` ga teng variantlar olib tashlanadi.
+* Uslublar `library.db → style_templates` da; `template.name` yozuv nomiga tenglanadi. Import fayli: `{"name","template"}` yoki yalang'och `StyleTemplate` JSON (≤ 1 MB); yaroqsiz — 400. Eksport `{"name","template"}` yozadi (`.json` kengaytmasi qo'shiladi).
+* `fonts`: `subtitle.fonts.list_fonts()` (shrift o'zbek glifflarini qamraydimi).
+
+## Hodisalar (WebSocket)
+
+`ws://127.0.0.1:<port>/v1/events?t=<token>` — noto'g'ri token bilan ulanish qabul qilinadi va darhol `4401` kod bilan yopiladi (qabulsiz yopish mijozga faqat HTTP 403 bo'lib ko'rinardi).
+
+```json
+{"type": "job", "ts": 1791957683.1, "job": {"id": "a1b2c3", "kind": "analyze", "status": "running", "progress": 0.42, "stage": "asr", "meta": {"episode_id": "e1"}}}
+```
+
+## Turlar
+
+TypeScript turlari: `app/src/api/types.ts`. Python modellari: `engine/src/lahza_engine/types.py`, `subtitle/style.py`, `models/catalog.py`. Ikkalasi bir xil bo'lishi CI'da qo'lda tekshiriladi (M2'da OpenAPI'dan avtomatik generatsiya rejalashtirilgan).

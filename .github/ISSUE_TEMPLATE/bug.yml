@@ -1,0 +1,74 @@
+name: Xato haqida xabar
+description: Dastur kutilgandek ishlamayapti
+title: "[Xato] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Rahmat! Iltimos, **video, audio yoki transkript matnini biriktirmang** - ular shaxsiy ma'lumot bo'lishi mumkin.
+        Diagnostika uchun loglar: macOS `~/Library/Application Support/Lahza Studio/Logs/`, Windows `%LOCALAPPDATA%\Lahza Studio\Logs\`.
+  - type: textarea
+    id: what
+    attributes:
+      label: Nima bo'ldi
+      description: Qisqa tavsif va xato matni (bo'lsa).
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Qanday takrorlanadi
+      placeholder: |
+        1. Loyiha yaratildi
+        2. 40 daqiqalik MP4 import qilindi
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Nima kutilgan edi
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Qism
+      options:
+        - O'rnatish / birinchi ishga tushirish
+        - Modellar yuklash / .lzpack
+        - Import / tahlil (ASR, highlight)
+        - Klip muharriri / subtitr
+        - Eksport / render
+        - Boshqa
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Dastur versiyasi
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operatsion tizim
+      options:
+        - macOS (Apple Silicon)
+        - Windows x64
+        - Linux (dasturchi muhiti)
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Kompyuter va daraja
+      description: "`lahza hw` natijasi yoki \"Boshlash\" sahifasidagi daraja (Lite / Standard / Pro), RAM, GPU."
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log parchasi
+      description: Transkript matnisiz (NFR-02). Xato qatorlari yetarli.
+      render: text

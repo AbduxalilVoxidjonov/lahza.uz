@@ -1,0 +1,106 @@
+import { isTauri } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import { useState } from "react";
+import { Link, useParams } from "react-router-dom";
+
+import { useCreateProject, useEpisodes, useImportMedia, useProjects } from "../api/hooks";
+import { Empty } from "../components/ui";
+import { useT, type MessageKey } from "../i18n";
+
+export function Projects() {
+  const t = useT();
+  const { projectId } = useParams();
+  const projects = useProjects();
+  const create = useCreateProject();
+  const [name, setName] = useState("");
+
+  return (
+    <div className="stack" style={{ gap: 20 }}>
+      <div className="page-head">
+        <h1>{t("proj.title")}</h1>
+        <form
+          className="row"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) create.mutate(name.trim(), { onSuccess: () => setName("") });
+          }}
+        >
+          <input className="input" style={{ width: 240 }} placeholder={t("proj.name")} value={name}
+                 onChange={(e) => setName(e.target.value)} />
+          <button className="btn primary" disabled={!name.trim() || create.isPending}>
+            {t("proj.create")}
+          </button>
+        </form>
+      </div>
+
+      {projects.data?.length === 0 && <Empty>{t("proj.empty")}</Empty>}
+      <div className="row" style={{ alignItems: "stretch" }}>
+        {projects.data?.map((p) => (
+          <Link key={p.id} to={`/projects/${p.id}`} className={`card nav-link${p.id === projectId ? " active" : ""}`}
+                style={{ minWidth: 200 }}>
+            {p.name}
+          </Link>
+        ))}
+      </div>
+
+      {projectId && <Episodes projectId={projectId} />}
+    </div>
+  );
+}
+
+function Episodes({ projectId }: { projectId: string }) {
+  const t = useT();
+  const episodes = useEpisodes(projectId);
+  const importMedia = useImportMedia();
+  const [focus, setFocus] = useState("");
+  const [lite, setLite] = useState(false);
+  const [manualPath, setManualPath] = useState("");
+
+  const pick = async () => {
+    let path: string | null = manualPath || null;
+    if (isTauri()) {
+      const res = await open({ multiple: false, filters: [{ name: "Video", extensions: ["mp4", "mov", "mkv"] }] });
+      path = typeof res === "string" ? res : null;
+    }
+    if (path) importMedia.mutate({ project_id: projectId, path, focus: focus || undefined, force_lite: lite });
+  };
+
+  return (
+    <section className="stack">
+      <div className="card stack">
+        <h2>{t("proj.import")}</h2>
+        <div className="row">
+          <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder={t("proj.focus")} value={focus}
+                 onChange={(e) => setFocus(e.target.value)} />
+          {!isTauri() && (
+            <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder="/yo'l/video.mp4" value={manualPath}
+                   onChange={(e) => setManualPath(e.target.value)} />
+          )}
+          <label className="row muted">
+            <input type="checkbox" checked={lite} onChange={(e) => setLite(e.target.checked)} /> {t("proj.lite")}
+          </label>
+          <button className="btn primary" onClick={() => void pick()} disabled={importMedia.isPending}>
+            {t("proj.import")}
+          </button>
+        </div>
+        <span className="muted">{t("proj.importHint")}</span>
+        {importMedia.error && <span className="error">{String(importMedia.error)}</span>}
+      </div>
+
+      <h2>{t("proj.episodes")}</h2>
+      <table className="table">
+        <tbody>
+          {episodes.data?.map((e) => (
+            <tr key={e.id}>
+              <td>
+                <Link to={`/episodes/${e.id}`}>{e.title}</Link>
+              </td>
+              <td className="muted">{t(`ep.status.${e.status}` as MessageKey)}</td>
+              <td className="muted mono">{e.created_at}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
