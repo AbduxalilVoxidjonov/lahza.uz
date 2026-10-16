@@ -1,13 +1,14 @@
-import { sourceIn, sourceOut } from '../../renderer/layerTiming'
-import { addTime, exactTime, compareTime, ZERO_TIME } from '../../renderer/timeMapping'
+import { localAtContent, sourceIn, sourceOut } from '../../renderer/layerTiming'
+import { addTime, approximateTime, exactTime, compareTime, ZERO_TIME } from '../../renderer/timeMapping'
 import { layerRateNumber } from '../../renderer/layerTiming'
 import type { TimingFields } from '../../shared/timeMapping'
 import type { CropRect } from '../../shared/crop'
 import { positionView, type PositionAnimation } from '../../shared/position'
 // apps/desktop/src/main/state/summary.ts
-import type { Animated, Composition, Effect, Link, Layer, LayerParams, Marker, MarkerAnchor, MediaItem, Outline, Project, Rgba, RoleMixSettings, Shadow, TextAlign, Track, TransitionKind, Uuid, VAlign } from './model'
+import type { Animated, Composition, Effect, Link, Layer, LayerParams, Marker, MarkerAnchor, MediaItem, Outline, Project, Rational, Rgba, RoleMixSettings, Shadow, TextAlign, Track, TransitionKind, Uuid, VAlign } from './model'
 import type { HistoryStatus } from './history'
 import { hasSourceWindow } from './mutations/helpers'
+import { snapFrameRound } from './snap'
 import type { DecodeRoute } from '../../shared/decode-route'
 
 // ── per-kind view structs — the layer-params projection the renderer reads
@@ -149,9 +150,32 @@ export function markerHibernating(c: Composition, m: Marker): boolean {
  *  should repeat a layer search for every marker. No derived state is cached. */
 export function markerHibernatingForLayer(m: Marker, layer: Layer | undefined): boolean {
   if (m.anchor === null) return false
+  return sourceInstantHibernating(m.anchor, layer)
+}
+
+/** A source instant of a layer — a marker's anchor, or the instant a tack's
+ *  range follows (ADR 0117), which stores the same pair without being a marker. */
+export type SourceInstant = Pick<MarkerAnchor, 'src_us' | 'src_fraction'>
+
+/** The hibernation rule itself, over a bare source instant: outside the
+ *  layer's half-open `[src_in, src_out)` window, or no layer with a window at
+ *  all. `markerHibernatingForLayer` is this for a marker; the tack projection
+ *  (`main/agent/tacks.ts`) asks the same question, so a tack stops following a
+ *  frame exactly when a marker on it would sleep. */
+export function sourceInstantHibernating(at: SourceInstant, layer: Layer | undefined): boolean {
   if (layer === undefined || !hasSourceWindow(layer.params)) return true
-  const time = addTime(exactTime(m.anchor.src_us), m.anchor.src_fraction ?? ZERO_TIME)
+  const time = addTime(exactTime(at.src_us), at.src_fraction ?? ZERO_TIME)
   return compareTime(time, sourceIn(layer.params)) < 0 || compareTime(time, sourceOut(layer)) >= 0
+}
+
+/** The timeline time a source instant of `layer` reads at, on the frame grid
+ *  of the composition holding it — the ONE source→timeline derivation:
+ *  `reconcileMarkers` writes an anchored marker's `t_us` with it. Tacks
+ *  follow displacement without this marker-specific frame snap. Callers have established that
+ *  the layer has a source window (`hasSourceWindow`). */
+export function sourceInstantTimelineUs(layer: Layer, at: SourceInstant, fps: Rational): number {
+  const local = localAtContent(layer.params, addTime(exactTime(at.src_us), at.src_fraction ?? ZERO_TIME))
+  return snapFrameRound(layer.t_start_us + approximateTime(local), fps.num, fps.den)
 }
 
 /** The layer of `c` an anchor names, or `undefined` when it lives elsewhere or
@@ -193,9 +217,15 @@ export function markerShownEnd(c: Composition, m: Marker): number | null {
 
 function markerShownEndForLayer(m: Marker, layer: Layer | undefined, hibernating: boolean): number | null {
   if (m.end_t_us === null || m.end_t_us === undefined) return null
-  if (m.anchor === null || hibernating) return m.end_t_us
-  if (layer === undefined || layer.t_end_us <= m.t_us) return m.end_t_us
-  return Math.min(m.end_t_us, layer.t_end_us)
+  if (m.anchor === null || hibernating || layer === undefined) return m.end_t_us
+  return sourceRegionShownEndUs(layer, m.t_us, m.end_t_us)
+}
+
+/** The clip rule of `markerShownEnd` over a bare awake region of `layer`
+ *  starting at timeline `tUs`: drawn as far as the clip still runs, unless the
+ *  clip's end sits on or before the start. */
+function sourceRegionShownEndUs(layer: Layer, tUs: number, endUs: number): number {
+  return layer.t_end_us <= tUs ? endUs : Math.min(endUs, layer.t_end_us)
 }
 
 /** Explicit label, else path basename, else the whole path. */

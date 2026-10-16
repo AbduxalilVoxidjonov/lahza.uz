@@ -2,6 +2,12 @@ import { create } from 'zustand'
 import { listen } from '@/bridge/events'
 import { invoke } from '@/bridge/ipc'
 import { AGENT_ACTIVITY_EVENT, AGENT_VIEW_EVENT, type AgentActivitySnapshot, type AgentActivityUpdate } from '../../shared/agent-activity'
+import { settleExpanded } from './expansion'
+
+/** The agent panel's tabs, in display order: Activity · Tacks · Changes. */
+export const AGENT_PANEL_TABS = ['activity', 'tacks', 'changes'] as const
+export type AgentPanelTab = (typeof AGENT_PANEL_TABS)[number]
+
 
 interface AgentPanelState {
   snapshot: AgentActivitySnapshot | null
@@ -12,6 +18,14 @@ interface AgentPanelState {
   expanded: Record<string, boolean>
   anchor: { id: string; offset: number } | null
   following: boolean
+  /** The open tab. The review focus (`reviewFocus.ts`) keeps an item only
+   *  while the tab listing it is open. */
+  tab: AgentPanelTab
+  /** The editor timeline's Review overlay (the Review lane of tack chips; the
+   *  Changes decorations on clips and lanes, `timeline/ReviewMarks.tsx`).
+   *  Runtime-only like the material it shows: on by default, kept across
+   *  project openings within one app run, not persisted. */
+  reviewOverlay: boolean
   receive: (snapshot: AgentActivitySnapshot) => void
   toggle: (id: string, defaultValue?: boolean) => void
 }
@@ -19,17 +33,21 @@ interface AgentPanelState {
 export const useAgentActivity = create<AgentPanelState>((set) => ({
   snapshot: null, ready: false, mode: 'editor', seenSession: null,
   filter: 'all', expanded: {}, anchor: null, following: true,
+  tab: 'activity', reviewOverlay: true,
   receive: snapshot => set(s => {
     // Revisions are monotonically increasing across project-open instances.
     if (s.snapshot && snapshot.revision <= s.snapshot.revision) return s
     const changedProject = s.snapshot?.workspace_id !== snapshot.workspace_id
     const newSession = snapshot.session && snapshot.session.id !== s.seenSession
     const retained = snapshot.evicted !== s.snapshot?.evicted ? new Set(snapshot.activities.flatMap(a => [a.id, `reads-${a.id}`, `session-${a.id}`])) : null
+    const kept = retained ? Object.fromEntries(Object.entries(s.expanded).filter(([key]) => key === 'connections' || key.startsWith('tack') || retained.has(key))) : s.expanded
+    // What a section shows moves with the snapshot; its state does not (expansion.ts).
+    const expanded = s.snapshot && !changedProject ? settleExpanded(s.snapshot, snapshot, kept) : kept
     return {
       snapshot, ready: true,
       mode: newSession ? 'agent' : changedProject ? 'editor' : s.mode,
       seenSession: snapshot.session?.id ?? (changedProject ? null : s.seenSession),
-      ...(retained ? { expanded: Object.fromEntries(Object.entries(s.expanded).filter(([key]) => key === 'connections' || retained.has(key))) } : {}),
+      ...(expanded !== s.expanded ? { expanded } : {}),
       ...(changedProject ? { filter: 'all' as const, expanded: {}, anchor: null, following: true } : {}),
     }
   }),
@@ -62,7 +80,12 @@ export async function wireAgentActivity(): Promise<() => void> {
     const activities = new Map((update.reset ? [] : current?.activities ?? []).map(a => [a.id, a]))
     for (const id of update.removed_ids) activities.delete(id)
     for (const a of update.activities) activities.set(a.id, a)
-    useAgentActivity.getState().receive({ ...update, activities: [...activities.values()] })
+    // Tacks ride the same delta: changed records replace in place, new ones
+    // append, so the merged list stays in creation order.
+    const tacks = new Map((update.reset ? [] : current?.tacks ?? []).map(t => [t.id, t]))
+    for (const id of update.removed_tack_ids ?? []) tacks.delete(id)
+    for (const t of update.tacks ?? []) tacks.set(t.id, t)
+    useAgentActivity.getState().receive({ ...update, activities: [...activities.values()], tacks: [...tacks.values()] })
   })
   const stopView = await listen<{ workspace_id: string }>(AGENT_VIEW_EVENT, e => {
     if (!disposed && e.payload.workspace_id === useAgentActivity.getState().snapshot?.workspace_id) {

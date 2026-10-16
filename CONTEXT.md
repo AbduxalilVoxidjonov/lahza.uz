@@ -1026,3 +1026,85 @@ duration, error and actual history IDs. Reverted describes an edit's current
 effect, independently of whether its call completed or failed. The bounded
 activity stream retains running calls and does not restore from disk.
 _Avoid_: diagnostic log entry, history entry, permanent transcript
+
+**Tack**:
+A time range an agent points the user at for review — a comment on what
+plays there. It keeps its length and moves with the content it covered,
+placed on read. It is current while its range plays what it played at
+creation, across every track, and outdated (内容已修改) otherwise — nothing
+else: no stale, no hibernating, no pinned clip (ADR 0117). Runtime-only within a
+project opening; not project content, not in history, never exported. The user
+resolves, dismisses or clears it, or converts it into an ordinary marker
+(ADR 0115). Named for the tailor's tack: a temporary thread mark pulled out
+once the seam is sewn. One letter from **Track** — never abbreviate either.
+UI word: Tack / 批注.
+_Avoid_: annotation, agent marker, review marker (it is not a marker), comment;
+标注 (the Motif callout overlay), 备注 (the marker's note field); stale or
+hibernating tack (both states are gone — say outdated)
+
+**Review lane**:
+The timeline row below the marker lane that carries tacks, one row the marker
+lane's height; tacks whose chips would overlap share one group chip with a
+count, whose menu lists them. Exists while the review overlay is on and the project opening
+has seen agent review material, so an agent at work never reflows the
+timeline. Belongs to the ruler family like the marker lane; not a scrub
+surface. UI word: the header reads Tacks / 批注; the row is the review lane /
+审阅行.
+_Avoid_: tack track, tack band (the pre-lane rendering), review track
+
+**Review baseline**:
+The project state the user last accepted, against which agent changes are
+reviewed. Owned by history, reset when a project is opened, advanced only by
+approval; Revert all restores it. One whole snapshot, in effect a private
+checkpoint, but not a checkpoint: never listed, named or deleted. UI word:
+Review baseline / 审阅基线.
+_Avoid_: base checkpoint, base commit, snapshot (unqualified)
+
+**Unreviewed change**:
+One entity-level difference between the review baseline and the current state
+that an agent-sourced commit touched since the baseline. A difference only the
+user caused is a user change and needs no review. Three classes, as a diff
+reads: added, removed, modified (新增 / 删除 / 修改) — a move to another track
+or time is a modification. Each entity is listed independently, even when
+several moved by the same amount; the list is settled as a whole. Timing is the entity's own
+before/after values; trim descriptions and edge marks additionally show that
+layer's own measured window cuts/extensions. Review infers no operation
+sequence or causal relationship between entities.
+Project-wide entities include an audio role's gain and media-pool membership
+changed by a recorded operation. They have no timeline footprint; unrecorded
+imports, derived media updates and preferences remain outside the diff.
+Current footprints and historical baseline footprints are separate. Removed
+entities have only a labelled historical footprint, never a guessed current
+position or ripple seam. See ADR 0116. UI word: Change / 变更.
+_Avoid_: diff entry, hunk, carried change, carrier, shift group;
+shifted / moved as classes of their own
+
+**Approve**:
+Make the current state the review baseline — all at once, the user's own
+differences with the agent's; there is no per-change approval (ADR 0119).
+Changes nothing in the project and records nothing. UI word: Approve all /
+全部批准.
+_Avoid_: accept, commit, apply
+
+**Revert all**:
+Restore the review baseline as the current state: one recorded, undoable
+commit by the user, under the history lock like a checkpoint restore. Takes
+the user's own differences since the baseline with the agent's; the baseline
+stays, so undoing it lists the same changes again. Dropping a single change is
+an edit (undo it, or edit it back), not a review action. UI word: Revert all /
+全部撤回.
+_Avoid_: reject, discard, rollback
+
+**Review focus**:
+The one tack or change the agent panel and the timelines point at together —
+chosen from a panel row, a review lane chip, a removed clip's ghost or the mini
+timeline's bands. Its row is highlighted, its chip solid, its time range washed
+across the editor's lanes and the clips it covers or follows outlined; the
+editor timeline scrolls it into view but never seeks (Locate does; the agent
+view's Jump only seeks its preview). Historical
+footprints are shown and located explicitly as baseline positions. One for
+both kinds, runtime-only. A change is focused in the set it was named in — the
+Review view's, or a selected call's own while its highlight is up — and the
+focus stays only while that list shows the item: deleted, approved, another
+tab, another row each let it go. No UI word of its own.
+_Avoid_: selection (that is clips'), highlight (the per-activity highlight)

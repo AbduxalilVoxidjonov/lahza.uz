@@ -36,10 +36,13 @@ test('agent panel separates views, work sessions and connection lifetime', async
     const trackId = JSON.parse((trackResource.contents[0] as { text: string }).text)[0].id as string
     expect((await call('begin_agent_session', { reason: 'Interview rough cut' })).isError).not.toBe(true)
     await expect(page.locator('.agent-mode-shell')).toBeVisible()
-    await expect(page.locator('.agent-session-header')).toContainText('Interview rough cut')
+    // One status row: the session's reason is its live state, End beside it.
+    const statusRow = page.locator('.agent-status-row')
+    await expect(statusRow.getByRole('status')).toHaveText('Interview rough cut')
+    await expect(statusRow.getByRole('button', { name: 'End work session', exact: true })).toBeVisible()
     const first = (await snapshot()).session!
     await call('set_history_lock', { locked: true, reason: 'Rough cut batch' })
-    await expect(page.getByRole('button', { name: 'Unlock undo', exact: true })).toBeVisible()
+    await expect(page.locator('.agent-history-lock').getByRole('button', { name: 'Unlock undo', exact: true })).toBeVisible()
     await page.locator('.agent-exit-button').click()
     expect((await snapshot()).session?.id).toBe(first.id)
     expect((await snapshot()).lock_reason).toBe('Rough cut batch')
@@ -90,6 +93,139 @@ test('agent panel separates views, work sessions and connection lifetime', async
     expect(await page.getByRole('button', { name: 'Locate object' }).count()).toBe(0)
   } finally {
     await Promise.allSettled(clients.map(c => c.close()))
+    await app.close()
+  }
+})
+
+test('tacks: listed in the panel, chipped in the review lane, converted into one undoable marker', async () => {
+  test.setTimeout(120_000)
+  const { app, page } = await launchApp()
+  let client: Client | null = null
+  try {
+    await newProject(page, { parentFolder: tmpDir('weftcut-agent-tacks-'), name: 'agent-tacks', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
+    const info = await page.evaluate(() => (window as any).api.mcp.getInfo()) as { url: string; bearer_token: string }
+    client = new Client({ name: 'Tack test agent', version: '1.0' })
+    await client.connect(new StreamableHTTPClientTransport(new URL(info.url), { requestInit: { headers: { Authorization: `Bearer ${info.bearer_token}` } } }))
+    const created = await client.callTool({ name: 'create_tacks', arguments: { tacks: [{ label: 'Long pause', body: 'Keep the breath?', kind: 'question', t_us: 0, end_t_us: 1_000_000 }] } })
+    expect(created.isError).not.toBe(true)
+    const markers = async () => {
+      const s = await invokeCmd<{ root_id: string; compositions: Record<string, { markers: Array<{ label: string; note: string }> }> }>(page, 'project_summary', {})
+      return s.compositions[s.root_id]!.markers
+    }
+
+    // The tack is a chip in the Review lane, a row of its own under the marker
+    // lane; the marker lane holds no tack.
+    const lane = page.getByTestId('timeline-review-lane')
+    await expect(lane.getByTestId('timeline-tack')).toHaveCount(1)
+    await expect(page.getByTestId('timeline-marker-lane').getByTestId('timeline-tack')).toHaveCount(0)
+    const markerBox = (await page.getByTestId('timeline-marker-lane').boundingBox())!
+    expect((await lane.boundingBox())!.y).toBeGreaterThanOrEqual(markerBox.y + markerBox.height - 1)
+    // The Quick Actions switch turns the overlay off and takes the row with it;
+    // the View menu turns it back on.
+    const overlaySwitch = page.locator('[data-quick-action="toggleReviewOverlay"]')
+    await expect(overlaySwitch).toHaveAttribute('aria-pressed', 'true')
+    await overlaySwitch.click()
+    await expect(overlaySwitch).toHaveAttribute('aria-pressed', 'false')
+    await expect(lane).toHaveCount(0)
+    await expect(page.getByTestId('timeline-tack')).toHaveCount(0)
+    await page.locator('.menu-trigger').nth(2).click()
+    await page.locator('.app-menu-item').filter({ hasText: /^Review overlay$/ }).click()
+    await expect(lane.getByTestId('timeline-tack')).toHaveCount(1)
+
+    // A chip click opens the Agent panel on its Tacks tab with the row selected
+    // and expanded.
+    const chip = page.getByTestId('timeline-tack')
+    await chip.click()
+    await expect(chip).toHaveAttribute('data-selected', 'true')
+    await expect(dockPanel(page, 'agent')).toHaveCount(1)
+    await expect(page.getByRole('tab', { name: /Tacks/ })).toHaveAttribute('aria-selected', 'true')
+    const row = page.locator('.agent-tack[data-selected="true"]')
+    await expect(row).toContainText('Long pause')
+    await expect(row.locator('.agent-tack-main')).toHaveAttribute('aria-expanded', 'true')
+    const wash = page.locator('[data-testid="review-focus-wash"][data-kind="tack"]')
+    await expect(wash.first()).toBeAttached()
+    // Bare lane lets the focus go: no selected chip, no wash.
+    const laneBox = (await lane.boundingBox())!
+    await lane.click({ position: { x: Math.min(laneBox.width - 10, 600), y: 4 } })
+    await expect(chip).not.toHaveAttribute('data-selected', 'true')
+    await expect(wash).toHaveCount(0)
+    // The row's own click focuses it again — chip solid, range washed over the
+    // lanes. (It also collapses the row; a second click reopens it.)
+    await page.locator('.agent-tack .agent-tack-main').click()
+    await expect(chip).toHaveAttribute('data-selected', 'true')
+    await expect(wash.first()).toBeAttached()
+    await page.locator('.agent-tack .agent-tack-main').click()
+    await page.getByRole('button', { name: 'Convert to marker' }).click()
+    await expect(page.locator('.agent-tack')).toHaveCount(0)
+    await expect.poll(markers).toEqual([expect.objectContaining({ label: 'Long pause', note: 'Keep the breath?' })])
+    await invokeCmd(page, 'project_undo', {})
+    await expect.poll(markers).toEqual([])
+    expect((await invokeCmd<AgentActivitySnapshot>(page, 'agent_activity_snapshot', {})).tacks).toEqual([])
+  } finally {
+    await client?.close()
+    await app.close()
+  }
+})
+
+test('changes: an agent edit is listed, highlighted and counted until reverted or approved', async () => {
+  test.setTimeout(120_000)
+  const { app, page } = await launchApp()
+  let client: Client | null = null
+  try {
+    await newProject(page, { parentFolder: tmpDir('weftcut-agent-changes-'), name: 'agent-changes', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
+    const info = await page.evaluate(() => (window as any).api.mcp.getInfo()) as { url: string; bearer_token: string }
+    client = new Client({ name: 'Change test agent', version: '1.0' })
+    await client.connect(new StreamableHTTPClientTransport(new URL(info.url), { requestInit: { headers: { Authorization: `Bearer ${info.bearer_token}` } } }))
+    const call = (name: string, args: Record<string, unknown> = {}) => client!.callTool({ name, arguments: args })
+    const trackResource = await client.readResource({ uri: 'project://tracks' })
+    const trackId = JSON.parse((trackResource.contents[0] as { text: string }).text)[0].id as string
+
+    // The work session pins the Review baseline; the agent's clip is the one change.
+    expect((await call('begin_agent_session', { reason: 'Add a title card' })).isError).not.toBe(true)
+    await expect(page.locator('.agent-mode-shell')).toBeVisible()
+    expect((await call('add_color_layer', { track_id: trackId, color: { r: 28, g: 76, b: 128, a: 255 }, t_start_us: 0, t_end_us: 1_000_000 })).isError).not.toBe(true)
+    await expect(page.getByRole('tab', { name: /Changes/ })).toHaveText('Changes1')
+    await expect(page.getByTestId('mini-change')).toHaveCount(1)
+    await page.locator('.agent-exit-button').click()
+    await expect(page.locator('.agent-mode-shell')).toHaveCount(0)
+
+    // Editor: the clip carries the added mark, and the status bar counts it.
+    await expect(page.locator('[data-testid="review-clip-mark"][data-review-mark="added"]')).toHaveCount(1)
+    const status = page.getByTestId('status-bar-review')
+    await expect(status).toHaveText('1 to review')
+    await status.click()
+    await expect(dockPanel(page, 'agent')).toHaveCount(1)
+    await expect(page.getByRole('tab', { name: /Changes/ })).toHaveAttribute('aria-selected', 'true')
+    await expect(page.locator('.agent-change')).toHaveCount(1)
+    await expect(page.locator('.agent-change')).toContainText('Added')
+
+    // A row click focuses the change: its clip is ringed and its range washed.
+    await page.locator('.agent-change .agent-change-main').click()
+    await expect(page.locator('.agent-change')).toHaveAttribute('data-selected', 'true')
+    const ring = page.locator('[data-layer-id] [data-testid="review-focus-outline"][data-focus="change"]')
+    await expect(ring).toHaveCount(1)
+    await expect(page.locator('[data-testid="review-focus-wash"][data-kind="change"]').first()).toBeAttached()
+
+    // Revert all: the clip leaves the project in one undoable step, and the
+    // list, the mark and the count with it.
+    await page.getByRole('button', { name: 'Revert all' }).click()
+    await expect(page.locator('.agent-change')).toHaveCount(0)
+    await expect(page.getByTestId('review-clip-mark')).toHaveCount(0)
+    await expect(page.getByTestId('status-bar-review')).toHaveCount(0)
+    // Undo brings the clip back, unreviewed as before.
+    await invokeCmd(page, 'project_undo', {})
+    await expect(page.locator('.agent-change')).toHaveCount(1)
+    await expect(page.locator('[data-testid="review-clip-mark"][data-review-mark="added"]')).toHaveCount(1)
+
+    // Approve all: the list, the highlight and the count go together.
+    await page.getByRole('button', { name: 'Approve all' }).click()
+    await expect(page.locator('.agent-change')).toHaveCount(0)
+    await expect(page.getByTestId('review-clip-mark')).toHaveCount(0)
+    await expect(page.getByTestId('status-bar-review')).toHaveCount(0)
+  } finally {
+    await client?.close()
     await app.close()
   }
 })

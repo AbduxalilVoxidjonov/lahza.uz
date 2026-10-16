@@ -42,6 +42,7 @@ import {
   type MediaDropSnapOptions,
 } from "./mediaDrag";
 import { previewTrackId } from "./placement";
+import { ReviewCuts, ReviewFocusWash, ReviewGhosts, ReviewWasFrames } from "./ReviewMarks";
 
 export function TrackLane({
   track,
@@ -592,6 +593,20 @@ export function TrackLane({
           )}
         </div>
       )}
+      {/* Removed clips of this lane under the Review overlay (ADR 0116):
+          outlines at their baseline place, before the blocks so a clip now on
+          that stretch paints over them — until pointed at, when one lifts
+          over the blocks as its edge alone and takes no press. */}
+      <ReviewGhosts
+        trackId={track.id}
+        pxPerSec={pxPerSec}
+        laneHeight={height}
+        fpsNum={fpsNum}
+        fpsDen={fpsDen}
+      />
+      {/* A focused change's old places on this lane: over the blocks
+          (`z-[3]`), so the clip now there cannot hide them. */}
+      <ReviewWasFrames trackId={track.id} pxPerSec={pxPerSec} laneHeight={height} />
       {/* Eye-off feedback: dim + freeze the whole layer area. When the
           track is enabled the wrapper is `display: contents` (no box, no
           layout impact); when disabled it's an unpositioned plain div, so
@@ -690,6 +705,16 @@ export function TrackLane({
         return blocks;
       })()}
       </div>
+      {/* The review focus's time range (ADR 0115), over the blocks: a clip
+          fills its lane but for a 4 px margin, so a wash beneath one showed
+          only as a sliver along its edges. Above a selected block (`z-[2]`,
+          earlier in the DOM), below a dragged one and the height handle
+          (`z-[3]`); paint only. */}
+      <ReviewFocusWash compositionId={compositionId} pxPerSec={pxPerSec} />
+      {/* Cut marks (ADR 0115): where material was taken out, from the lane's
+          top edge — after the blocks and the wash, so one at a clip's edge is
+          never under the clip. They take the click alone. */}
+      <ReviewCuts trackId={track.id} pxPerSec={pxPerSec} />
       {/* Absolute positioning ends inside the 1px lane border. Anchor at its
           center, then translate by half the handle's theme-scaled height. */}
       <div

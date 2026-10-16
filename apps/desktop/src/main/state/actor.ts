@@ -6,7 +6,7 @@ import { assertLockedLayersUnchanged } from './layerLocks'
 import type { Animated, AudioRole, Composition, Continuity, Extrapolate, Interpolation, LayerParams, MarkerAnchor, MotifRebindEntry, Project, Rational, Rgba, TransitionKind, Uuid , TextParams} from './model'
 import { blankProject, eachLayer, rootComposition } from './model'
 import type { IdGen } from './ids'
-import { History, type Actor, type EntityRef, type TrackFlagsPatch, type RoleFlagsPatch } from './history'
+import { History, type Actor, type EntityRef, type TrackFlagsPatch, type RoleFlagsPatch, type ReviewState, type OpDiff } from './history'
 import { mcpActor } from './mcp-actor'
 import { HISTORY_SUMMARY, groupAddMembersSummary, groupCreateSummary, layersEnabledSummary, moveToCompositionSummary, pastedLayersSummary, removedMediaSummary, roleGainSummary, type HistorySummary } from './history-labels'
 import { CommandFailure, ValidationFailure, type CommandError } from './errors'
@@ -182,6 +182,29 @@ export interface ActorHandle {
   restoreCheckpoint(id: Uuid): void
   deleteCheckpoint(id: Uuid): void
   listCheckpoints(): Array<{ id: Uuid; label: string; actor: Actor; created_at: string }>
+  /** Review (ADR 0115). The baseline compared against the current state —
+   *  memoized, computed only when asked. */
+  reviewState(): ReviewState
+  /** The baseline revision, without computing the state. */
+  reviewRevision(): number
+  /** Work session begin: pin the Review baseline to the session's `Pre-agent`
+   *  checkpoint (current state when `checkpointId` is absent or gone).
+   *  Initializes when there is none; re-pins only when nothing is unreviewed.
+   *  Returns whether the baseline was (re)pinned. */
+  pinReviewBaseline(checkpointId?: Uuid): boolean
+  /** Approval records nothing, emits no project change and ignores the
+   *  history lock. */
+  approveReviewAll(): void
+  /** Restore the Review baseline as one recorded commit — a revert path, so
+   *  under the history lock like restore_checkpoint (`HistoryLocked`);
+   *  `InvalidArgument` without a baseline. Burns restore's two ids. */
+  revertReviewAll(): void
+  /** What the recorded ops `ids` did — `History.opDiff`; a read. */
+  reviewOpDiff(ids: readonly Uuid[]): OpDiff
+  /** Told the new baseline revision on every baseline change (initialize,
+   *  re-pin, approval, attribution, reset) — synchronously, possibly inside a
+   *  commit; a consumer should defer its own work. */
+  subscribeReview(cb: (revision: number) => void): () => void
   dryRun(ops: DryRunOp[]): Array<{ ok: true; value: DryRunOutput } | { ok: false; error: CommandError }>
   /** Everything the call records is stamped with the agent `client` names
    *  (normalized; the fallback when absent), never the instance actor. */
@@ -209,6 +232,12 @@ export function createActor(opts: ActorOptions): ActorHandle {
   }
   const history = new History(opts.initial, actor, idGen(), clock()) // consumes the Initial op_id
   const subs = new Set<(e: ChangeEvent) => void>()
+  const reviewSubs = new Set<(revision: number) => void>()
+  history.onReviewChange((rev) => {
+    for (const cb of reviewSubs) {
+      try { cb(rev) } catch (err) { console.warn('[actor] review subscriber threw; continuing', err) }
+    }
+  })
   const motifCatalog: MotifCatalog = opts.motifCatalog ?? new MotifCatalog()
 
   function current(): Project { return history.current() }
@@ -661,6 +690,15 @@ export function createActor(opts: ActorOptions): ActorHandle {
     const snap = history.restoreCheckpoint(id, opId, clock(), who())!
     broadcastUnrecorded(`Restored checkpoint ${id}`, snap, { kind: 'Coarse' }, opId) // +1 broadcast id (the SECOND id)
   }
+  function revertReviewAll(): void {
+    opts.assertWritable?.()
+    const reason = history.lockReason()
+    if (reason !== null) throw new CommandFailure({ error: 'HistoryLocked', reason }) // 0 ids
+    if (history.reviewBaseline() === null) throw new CommandFailure({ error: 'InvalidArgument', field: 'review', detail: 'no review baseline' }) // 0 ids
+    const opId = idGen()
+    const snap = history.revertToReviewBaseline(opId, clock(), who())!
+    broadcastUnrecorded('Reverted unreviewed changes', snap, { kind: 'Coarse' }, opId)
+  }
   /** Drop a checkpoint. Absent id → CheckpointNotFound, burning ZERO ids (same
    *  peek-before-mint convention restoreCheckpoint follows) — and here nothing is
    *  minted on the success path either: deleting a checkpoint changes no project
@@ -957,7 +995,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
         // it was born on. Taken on trust exactly as `add_markers` takes its rows —
         // the caller derives `t_us` from the anchor it supplies, and this commit's
         // reconcile re-derives it right back.
-        case 'add_marker': { const comp = compositionArg(a); return { ok: true, value: commit(HISTORY_SUMMARY.markerAdd, markerRef, { kind: 'Coarse' }, (d) => applyAddMarker(d, idGen, parseNum(a.t_us, 't_us'), parseNumOpt(a.end_t_us, 'end_t_us') ?? null, (a.label as string) ?? 'm', { r: 0, g: 128, b: 255, a: 255 }, comp, undefined, (a.anchor as MarkerAnchor | null | undefined) ?? null)) } }
+        case 'add_marker': { const comp = compositionArg(a); return { ok: true, value: commit(HISTORY_SUMMARY.markerAdd, markerRef, { kind: 'Coarse' }, (d) => applyAddMarker(d, idGen, parseNum(a.t_us, 't_us'), parseNumOpt(a.end_t_us, 'end_t_us') ?? null, (a.label as string) ?? 'm', { r: 0, g: 128, b: 255, a: 255 }, comp, typeof a.note === 'string' ? a.note : undefined, (a.anchor as MarkerAnchor | null | undefined) ?? null)) } }
         // shift_layers — one delta over a set: the named layers (+ link partners
         // unless escaped) or everything starting at/after a time. One commit,
         // one undo; the value names what moved so the refs can too.
@@ -2082,6 +2120,12 @@ export function createActor(opts: ActorOptions): ActorHandle {
         }
         // Work-session lifecycle is owned by the host; a bare actor has no session.
         case 'end_agent_session': return { ok: true, result: toolRecord({ ended: null }) }
+        // Tacks live in the host's TackStore beside agent activity (ADR 0115),
+        // not in project state: a bare actor checks the arguments and refuses.
+        case 'create_tacks': case 'update_tack': case 'delete_tacks': {
+          mcpDef(name).parseDedicated!(a)
+          return { ok: false, error: { code: 'invalid_params', message: `${name} is served by the MCP host, not by the state actor — tacks are not project state` } }
+        }
         case 'begin_agent_session': {
           const p = mcpDef('begin_agent_session').parseDedicated!(a)
           const reason = p.reason as string
@@ -2241,7 +2285,7 @@ export function createActor(opts: ActorOptions): ActorHandle {
           // no snapshot. The work session and the two picture views live in the
           // MCP host, which answers them before a call reaches the actor.
           if (view === 'effects') return { ok: true, result: toolRecord(effectsCatalogView()) }
-          if (view === 'session' || view === 'media_thumbnail' || view === 'media_frame')
+          if (view === 'session' || view === 'tacks' || view === 'media_thumbnail' || view === 'media_frame')
             return { ok: false, error: { code: 'invalid_params', message: `view '${view}' is served by the MCP host, not by the state actor — call it over MCP, or read the matching resource` } }
           const compositionId = p.composition_id as string | null
           const scoped = compositionId !== null && SCOPED_PROJECT_VIEWS.has(view) ? `?composition=${compositionId}` : ''
@@ -2344,6 +2388,13 @@ export function createActor(opts: ActorOptions): ActorHandle {
     restoreCheckpoint,
     deleteCheckpoint,
     listCheckpoints,
+    reviewState: () => history.reviewState(),
+    reviewRevision: () => history.reviewRevision(),
+    pinReviewBaseline: (checkpointId) => history.pinReviewBaseline(checkpointId),
+    approveReviewAll: () => history.approveAll(),
+    revertReviewAll,
+    reviewOpDiff: (ids) => history.opDiff(ids),
+    subscribeReview(cb) { reviewSubs.add(cb); return () => reviewSubs.delete(cb) },
     dryRun,
     setUserMotifManifests(ms: Manifest[]) { motifCatalog.setUserManifests(ms) },
   }

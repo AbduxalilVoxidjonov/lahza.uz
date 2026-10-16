@@ -44,6 +44,7 @@ import { MCP_INSTRUCTIONS } from './instructions.js'
 import { effectsCatalogView } from '../../shared/effects/catalogView.js'
 import { withLog, NO_MCP_LOG, type McpCommitWindow, type McpLogDeps, type McpRowSummary } from './withLog.js'
 import { withCanonicalToolName } from './toolAliases.js'
+import { TACK_TOOLS, isTacksUri, readTacksResource, readTacksView, runTackTool } from './tackTools.js'
 
 type Backend = import('@weftcut/core').Backend
 
@@ -359,6 +360,10 @@ async function dispatchTool(
         const active = tsHost.agent.snapshot().session
         tsHost.agent.end(p.force === true ? 'forced' : 'agent')
         result = { ended: active === null ? null : tsHost.agent.snapshot().sessions.find((x) => x.id === active.id) ?? active }
+        // The client's open tacks that no longer point where they were made
+        // to — the agent's last chance to fix or resolve them. Omitted when none.
+        const review = active === null ? [] : tsHost.agent.tacks.toReview(active.client)
+        if (review.length) result.tacks_to_review = review
       } else {
         // The lock is taken here rather than through mcpCall because the OWNER
         // is the connection, which only this seam knows.
@@ -371,6 +376,13 @@ async function dispatchTool(
     } catch (e) {
       return toolErrorResult({ code: 'invalid_params', message: e instanceof Error ? e.message : String(e) })
     }
+  }
+  // Tacks are runtime review state beside the agent activity, not project
+  // state (ADR 0115): the host's store answers, and nothing reaches the actor.
+  if (tsHost?.agent && TACK_TOOLS.has(name)) return runTackTool(tsHost.agent.tacks, name, args)
+  if (tsHost?.agent && name === 'read_project' && args.view === 'tacks') {
+    const p = mcpDef('read_project').parseDedicated!(args)
+    return readTacksView(tsHost.agent.tacks, p.composition_id as string | null)
   }
   if (tsHost) {
     // Opening swaps the actor's whole state and moves the editor with it, so
@@ -548,6 +560,7 @@ export async function handleReadResource(
     // A resource read has no isError slot, so the start-screen refusal is the
     // protocol error, with the same text the tools answer.
     if (noProjectOpen(tsHost) && !APP_SCOPE_RESOURCES.has(uri)) throw new McpError(ErrorCode.InvalidRequest, NO_PROJECT_OPEN_MESSAGE)
+    if (tsHost.agent && isTacksUri(uri)) return readTacksResource(tsHost.agent.tacks, uri)
     const served = serveProjectResource(uri, tsHost.actor)
     if (served) return served
     // project://compiled / media://* / composition://meter stay Rust compute —

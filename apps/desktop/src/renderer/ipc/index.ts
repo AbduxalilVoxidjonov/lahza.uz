@@ -11,6 +11,7 @@ import type { CropRect } from '../../shared/crop';
 
 import { invoke } from "@/bridge/ipc";
 import type { PositionAnimation } from '../../shared/position';
+import { TACK_DELETE_CHANNEL, TACK_SET_STATUS_CHANNEL, type TackDeleteSelector, type TackStatus } from '../../shared/agent-activity';
 
 export function setPosition(layerId: string, position: PositionAnimation, geometryOnly = false): Promise<void> {
   return invoke<void>('set_position', { layerId, position, geometryOnly });
@@ -35,6 +36,22 @@ import type { MotifManifest } from "../render/motifs/catalog";
 import type { DecodeRoute } from "../render/decodeRoute";
 import type { RecentEntry } from "../../shared/recents";
 export type { RecentEntry } from "../../shared/recents";
+import type { ReviewActivityView, ReviewActionArgs, ReviewActionResult, ReviewView, ReviewViewArgs, ReviewViewUnchanged } from "../../shared/review";
+export { REVIEW_CHANGED_EVENT } from "../../shared/review";
+export type {
+  Change as ReviewChange,
+  ChangeAspect as ReviewChangeAspect,
+  ChangeClass as ReviewChangeClass,
+  EntityKey as ReviewEntityKey,
+  GroupDecoration as ReviewGroupDecoration,
+  ReviewActivityView,
+  ReviewActionArgs,
+  ReviewActionResult,
+  ReviewChangedPayload,
+  ReviewVersion,
+  ReviewView,
+  ReviewViewArgs,
+} from "../../shared/review";
 import type {
   AudioFxSnapshot,
   EnsureExportAudioFxResult,
@@ -1079,6 +1096,42 @@ export async function projectRestoreCheckpoint(checkpointId: string): Promise<vo
   return invoke<void>("project_restore_checkpoint", { checkpointId });
 }
 
+// ── Review (ADR 0115): two reads + two approvals ─────────────────────────────
+
+/// The Review baseline against the current project: unreviewed (agent-touched)
+/// changes, user-only changes and Group decorations. Main computes it only
+/// when asked, memoized per baseline and project revision. Refetch on
+/// `REVIEW_CHANGED_EVENT` and on `project:changed`. The user-only list comes
+/// only with `include_user`; `user_count` always does. With `held_content`,
+/// lists still the held ones answer as `ReviewViewUnchanged`.
+export async function reviewView(args: ReviewViewArgs = {}): Promise<ReviewView | ReviewViewUnchanged> {
+  return invoke<ReviewView | ReviewViewUnchanged>("review_view", { ...args });
+}
+
+/// What one agent call did: the history ops of an activity row, each diffed
+/// against its predecessor snapshot (adjacent ops folded). Independent of the
+/// Review baseline and the undo cursor. `available: false` (no changes) once
+/// any op has left the history window.
+export async function reviewActivityView(historyIds: readonly string[]): Promise<ReviewActivityView> {
+  return invoke<ReviewActivityView>("review_activity_view", { history_ids: [...historyIds] });
+}
+
+/// Approve everything: the baseline becomes the current state. Changes nothing
+/// in the project, records nothing, and is allowed under the history lock.
+/// Applied only while `version` (the view the user acted on) is still current;
+/// answers with whether it was, and the fresh view.
+export async function reviewApproveAll(args: ReviewActionArgs): Promise<ReviewActionResult> {
+  return invoke<ReviewActionResult>("review_approve_all", { ...args });
+}
+
+/// Revert everything: the baseline is restored as one recorded, undoable
+/// commit — the user's own differences with the agent's. Rejects under the
+/// history lock. Applied only while `version` is still the current view;
+/// answers with whether it was, and the fresh view.
+export async function reviewRevertAll(args: ReviewActionArgs): Promise<ReviewActionResult> {
+  return invoke<ReviewActionResult>("review_revert_all", { ...args });
+}
+
 // ============================================================
 // Work-session controls. Layout selection belongs to the renderer store.
 // ============================================================
@@ -1086,6 +1139,23 @@ export async function projectRestoreCheckpoint(checkpointId: string): Promise<vo
 /** Ends work locally; view selection is renderer-owned. */
 export async function agentSessionEnd(): Promise<void> {
   return invoke<void>("agent_session_end");
+}
+
+// ── Tacks (ADR 0115): the user's actions from the agent panel ───────────────
+// Served by main's TackStore beside agent activity, like the MCP tack verbs:
+// the change arrives through the activity delta, nothing is recorded, and the
+// history lock does not apply. Converting a tack is `addMarkerIn` (an ordinary
+// recorded marker) followed by `agentTacksDelete`.
+
+/// Resolve, dismiss or reopen tacks. Every id must still exist, or none changes.
+export async function agentTacksSetStatus(tackIds: readonly string[], status: TackStatus): Promise<void> {
+  return invoke<void>(TACK_SET_STATUS_CHANNEL, { tack_ids: [...tackIds], status });
+}
+
+/// Clear tacks: the listed ids, one work session's (`null`: those created
+/// outside any session), or every tack with one of the given statuses.
+export async function agentTacksDelete(selector: TackDeleteSelector): Promise<{ deleted_tack_ids: string[] }> {
+  return invoke<{ deleted_tack_ids: string[] }>(TACK_DELETE_CHANNEL, { ...selector });
 }
 
 // ============================================================

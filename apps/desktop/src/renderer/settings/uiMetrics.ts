@@ -25,6 +25,14 @@ export const UI_METRICS = {
     recordWidth: { default: 360, min: 280, max: 720 },
     /** Width always left to the preview column beside the record panel. */
     previewMinWidth: 480,
+    /** The mini timeline's review bands. */
+    miniTimeline: {
+      /** How near a point mark a band press still names it. */
+      pointSlop: 4,
+      /** Where the row of removals' baseline footprints starts, under the
+       * current change band (`.mini-change-historical`). */
+      historyRowTop: 5,
+    },
   },
 
   /** Log console floor; drags are remembered in baseline units. */
@@ -89,6 +97,23 @@ export const UI_METRICS = {
       regionHeight: 13,
       /** Line box of a marker name (`--font-size-fine`), for vertical centring. */
       labelLine: 9,
+    },
+    review: {
+      /** Review lane under the marker lane: one row of tack chips, the marker
+       * lane's height. Overlapping tacks share one group chip, so no tack
+       * set needs a taller row. */
+      laneHeight: 20,
+      /** A chip holds a fine-role name, like a marker region's capsule. */
+      chipHeight: 13,
+      /** Least chip width: the kind icon (`--icon-size-fine`) plus its padding,
+       * so a point tack is still a target with its kind on it. */
+      chipMinWidth: 13,
+      /** Least group chip width: the kind icon plus a two-digit count. */
+      groupMinWidth: 26,
+      /** The cut mark (▼) hanging from a track lane's top edge where material
+       * was taken out: small enough to leave a clip's name readable, and the
+       * distance under which two on one lane read as one. */
+      cutMark: { width: 7, height: 5, merge: 6 },
     },
   },
 

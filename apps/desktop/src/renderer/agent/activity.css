@@ -4,21 +4,32 @@
 .agent-activity-panel button:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 .agent-activity-panel button:disabled { opacity: .45; cursor: default; }
 .agent-activity-panel small { font-size: var(--font-size-micro); color: var(--muted-foreground); }
-.agent-connection-header { display: flex; gap: calc(4 * var(--ui-px)); justify-content: space-between; align-items: center; padding: calc(8 * var(--ui-px)); border-bottom: 1px solid var(--border); }
-.agent-connection-toggle { min-width: 0; }
+/* One status row: service toggle · live state (the session's reason, or what
+   runs) · End · settings. Every text in it keeps to one line. */
+.agent-status-row { display: flex; gap: calc(4 * var(--ui-px)); align-items: center; padding: calc(4 * var(--ui-px)) calc(6 * var(--ui-px)); border-bottom: 1px solid var(--border); min-width: 0; }
+.agent-status-row > button { flex: none; }
+.agent-status-row > .agent-connection-toggle { flex: 0 1 auto; min-width: 0; }
+.agent-connection-toggle > span:not(.agent-service-dot) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-connection-toggle > svg { flex: none; }
+.agent-status-sep { flex: none; color: var(--muted-foreground); }
+.agent-live-state { flex: 1 1 0; min-width: calc(48 * var(--ui-px)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted-foreground); }
+.agent-live-state.session { color: var(--foreground); }
+.agent-session-end { font-size: var(--font-size-caption); border: 1px solid var(--border); padding-block: calc(2 * var(--ui-px)) !important; white-space: nowrap; }
 .agent-service-dot { width: calc(7 * var(--ui-px)); height: calc(7 * var(--ui-px)); border-radius: 50%; background: var(--muted-foreground); flex: none; }
 .agent-service-dot.available { background: #66b98b; }
 .agent-connection-details { padding: calc(8 * var(--ui-px)) calc(14 * var(--ui-px)); border-bottom: 1px solid var(--border); overflow-wrap: anywhere; max-height: calc(180 * var(--ui-px)); overflow: auto; }
 .agent-connection-details > div { display: flex; flex-direction: column; gap: calc(3 * var(--ui-px)); margin-block: calc(8 * var(--ui-px)); }
 .agent-connection-details code { font-size: var(--font-size-micro); }
-.agent-live-state { display: flex; align-items: center; gap: calc(7 * var(--ui-px)); padding: calc(6 * var(--ui-px)) calc(14 * var(--ui-px)); color: var(--muted-foreground); }
-.agent-session-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: calc(4 * var(--ui-px)) calc(8 * var(--ui-px)); margin: 0 calc(10 * var(--ui-px)) calc(8 * var(--ui-px)); padding: calc(9 * var(--ui-px)); border: 1px solid var(--border); border-radius: 6px; }
-.agent-session-header p { grid-area: 1 / 1; margin: 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.agent-session-header strong { grid-area: 2 / 1; color: var(--muted-foreground); font-size: var(--font-size-micro); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.agent-session-header > button { grid-area: 1 / 2 / 3 / 3; align-self: center; font-size: var(--font-size-caption); }
-.agent-session-header > button, .agent-history-lock button, .agent-activity-actions button, .agent-activity-details > button { border: 1px solid var(--border); }
-.agent-history-lock { display: flex; align-items: center; gap: calc(6 * var(--ui-px)); padding: calc(8 * var(--ui-px)) calc(12 * var(--ui-px)); border-block: 1px solid var(--border); }
-.agent-history-lock > span { flex: 1; overflow-wrap: anywhere; min-width: 0; }
+.agent-history-lock button, .agent-activity-actions button, .agent-activity-details > button { border: 1px solid var(--border); }
+/* The timeline is showing one call's changes (per-activity highlight). */
+.agent-activity-highlight { display: flex; align-items: center; gap: calc(6 * var(--ui-px)); margin: 0 calc(10 * var(--ui-px)) calc(6 * var(--ui-px)); padding: calc(5 * var(--ui-px)) calc(8 * var(--ui-px)); border: 1px solid var(--primary); border-radius: var(--radius-control); color: var(--foreground); font-size: var(--font-size-caption); }
+.agent-activity-highlight > svg { color: var(--primary); flex: none; }
+.agent-activity-highlight > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.agent-activity-note { margin: 0 0 calc(8 * var(--ui-px)); color: var(--muted-foreground); font-size: var(--font-size-micro); }
+.agent-history-lock { display: flex; align-items: center; gap: calc(6 * var(--ui-px)); padding: calc(3 * var(--ui-px)) calc(6 * var(--ui-px)) calc(3 * var(--ui-px)) calc(12 * var(--ui-px)); border-bottom: 1px solid var(--border); }
+.agent-history-lock > svg { flex: none; }
+.agent-history-lock > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-history-lock > button { flex: none; font-size: var(--font-size-caption); padding-block: calc(2 * var(--ui-px)) !important; white-space: nowrap; }
 .agent-activity-toolbar { display: flex; align-items: center; gap: calc(3 * var(--ui-px)); padding: calc(6 * var(--ui-px)) calc(10 * var(--ui-px)); }
 .agent-activity-toolbar button[aria-pressed="true"] { background: var(--accent); color: var(--accent-foreground); }
 .agent-activity-toolbar button:last-child:not([aria-pressed]) { margin-left: auto; }
@@ -50,11 +61,89 @@ p.agent-activity-error { margin: calc(5 * var(--ui-px)) calc(7 * var(--ui-px)) c
 .agent-read-group > button { color: var(--muted-foreground); font-size: var(--font-size-caption); padding-block: calc(8 * var(--ui-px)); }
 .agent-read-group > article { margin-left: calc(12 * var(--ui-px)); }
 .agent-empty { padding: calc(28 * var(--ui-px)) calc(12 * var(--ui-px)); text-align: center; color: var(--muted-foreground); line-height: 1.7; }
+.agent-empty > p { margin: 0; }
+/* An empty list is one block: what lands here, then the retention note the
+   list would close with — which a non-empty list keeps as its footnote. */
+.agent-empty > .agent-empty-subtitle { max-width: calc(280 * var(--ui-px)); margin: calc(6 * var(--ui-px)) auto 0; font-size: var(--font-size-caption); line-height: 1.5; }
 .agent-retention-note { margin: 0; padding: calc(7 * var(--ui-px)) calc(12 * var(--ui-px)); color: var(--muted-foreground); font-size: var(--font-size-micro); line-height: 1.5; }
-.agent-activity-panel > footer { border-top: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* The retention note closes the list and scrolls with it. */
+.agent-retention-note.agent-list-footnote { padding: calc(10 * var(--ui-px)) calc(7 * var(--ui-px)) 0; }
 .agent-connect-dialog { width: min(var(--dialog-width-settings), 90vw); max-height: 85vh; background: var(--card); color: var(--foreground); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
 .agent-connect-dialog > header { display: flex; justify-content: space-between; align-items: center; padding: calc(12 * var(--ui-px)) calc(16 * var(--ui-px)); border-bottom: 1px solid var(--border); }
 .agent-connect-dialog-body { padding: calc(16 * var(--ui-px)); max-height: calc(85vh - calc(55 * var(--ui-px))); overflow: auto; font-size: var(--font-size-body); }
 .agent-spin { animation: agent-activity-spin 1.2s linear infinite; }
 @keyframes agent-activity-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .agent-spin { animation: none; } }
+/* Tabs: Activity · Tacks · Changes (one entry per review surface, AGENT_PANEL_TABS). */
+.agent-panel-tabs { display: flex; gap: calc(2 * var(--ui-px)); padding: 0 calc(10 * var(--ui-px)); border-bottom: 1px solid var(--border); }
+.agent-panel-tabs > button { border-radius: 0 !important; border-bottom: 2px solid transparent; color: var(--muted-foreground); padding-block: calc(7 * var(--ui-px)) !important; }
+.agent-panel-tabs > button[aria-selected="true"] { color: var(--foreground); border-bottom-color: var(--selection); }
+.agent-panel-tab-count { min-width: calc(16 * var(--ui-px)); padding: 0 calc(4 * var(--ui-px)); border-radius: 999px; background: color-mix(in srgb, var(--tack) 22%, transparent); color: var(--foreground); font-size: var(--font-size-micro); text-align: center; }
+/* The Tacks tab fills the rest of the panel, as the activity list does. */
+.agent-tacks { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.agent-tack-group-heading { display: flex; align-items: flex-start; gap: calc(4 * var(--ui-px)); }
+.agent-tack-group-heading > .agent-work-heading { flex: 1; min-width: 0; }
+.agent-tack-group-action { margin-top: calc(6 * var(--ui-px)); gap: calc(4 * var(--ui-px)); font-size: var(--font-size-caption); border: 1px solid var(--border); flex: none; }
+/* A group's resolved and dismissed tacks: a subheading inside the group, not
+   a second group heading. It starts at the rows' label column (27px, as the
+   row details do) and is only as wide as its words; its rows hang beneath
+   it, their kind icons on that same column. Clear is a quiet word sized like
+   the subheading — tidying up, below the heading's Resolve all. */
+.agent-tack-closed { margin: calc(2 * var(--ui-px)) 0 calc(4 * var(--ui-px)); }
+.agent-tack-closed-heading { display: flex; align-items: center; justify-content: space-between; gap: calc(4 * var(--ui-px)); padding-left: calc(20 * var(--ui-px)); }
+.agent-tack-closed-heading > button { flex: none; gap: calc(2 * var(--ui-px)); color: var(--muted-foreground); font-size: var(--font-size-caption); padding-block: calc(3 * var(--ui-px)) !important; }
+.agent-tack-closed > .agent-tack { margin-left: calc(20 * var(--ui-px)); }
+.agent-tack { padding: calc(2 * var(--ui-px)) 0 calc(4 * var(--ui-px)); border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); border-radius: var(--radius-control); }
+/* A tack or change row hovers and selects as a Playhead panel row does: one
+   fill over the whole row, the selection's over the hover's, no edge bar.
+   Its main button adds no fill of its own; the row's small actions do. */
+.agent-tack:hover, .agent-change:hover { background: var(--hover-neutral); }
+.agent-tack[data-selected="true"], .agent-change[data-selected="true"] { background: var(--selection-bg); }
+.agent-activity-panel .agent-tack-main:hover:not(:disabled) { background: none; }
+.agent-tack-row { display: flex; align-items: flex-start; gap: calc(2 * var(--ui-px)); }
+.agent-tack-row > button:not(.agent-tack-main) { flex: none; color: var(--muted-foreground); }
+.agent-tack-main { flex: 1; min-width: 0; align-items: flex-start !important; }
+.agent-tack-main > svg { flex: none; margin-top: calc(2 * var(--ui-px)); }
+.agent-tack-kind { color: var(--tack); }
+.agent-tack-kind.kind-issue { color: var(--warning); }
+.agent-tack-kind.kind-note { color: var(--muted-foreground); }
+.agent-tack-status { white-space: nowrap; }
+.agent-tack.status-resolved .agent-activity-copy > span, .agent-tack.status-dismissed .agent-activity-copy > span { color: var(--muted-foreground); }
+.agent-tack.status-dismissed .agent-activity-copy > span { text-decoration: line-through; }
+.agent-tack.unplaced .agent-activity-copy small { font-style: italic; }
+.agent-tack-body { margin: 0 0 calc(8 * var(--ui-px)); white-space: pre-wrap; overflow-wrap: anywhere; max-height: calc(220 * var(--ui-px)); overflow: auto; }
+/* Changes tab (ADR 0115): rows reuse the tack row layout; the class badge
+   carries the review hue, user-only rows ("show my changes") are muted. */
+.agent-panel-tab-count.tab-changes { background: color-mix(in srgb, var(--review-modified) 24%, transparent); }
+.agent-changes-approve-all, .agent-changes-revert-all { border: 1px solid var(--border); font-size: var(--font-size-caption); flex: none; }
+/* Revert all and Approve all sit together at the toolbar's end. */
+.agent-activity-toolbar .agent-changes-revert-all { margin-left: auto; }
+.agent-activity-toolbar .agent-changes-revert-all + button.agent-changes-approve-all:last-child { margin-left: 0; }
+/* An approve or revert all that named a list since changed: said in the toolbar. */
+.agent-changes-stale { flex: 1; min-width: 0; text-align: right; color: var(--muted-foreground); font-size: var(--font-size-micro); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agent-change-group-heading { display: flex; align-items: baseline; justify-content: space-between; gap: calc(8 * var(--ui-px)); margin: 0; padding: calc(10 * var(--ui-px)) calc(7 * var(--ui-px)) calc(4 * var(--ui-px)); font-size: var(--font-size-body); font-weight: 500; }
+.agent-change-group-heading > span { min-width: 0; overflow-wrap: anywhere; }
+.agent-change-group-heading > small { flex: none; }
+.agent-change { padding: calc(2 * var(--ui-px)) 0 calc(4 * var(--ui-px)); border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); border-radius: var(--radius-control); }
+.agent-change .agent-tack-row { align-items: center; padding-left: calc(7 * var(--ui-px)); }
+.agent-change-copy { padding-block: calc(4 * var(--ui-px)); }
+.agent-change-badge { flex: none; min-width: calc(58 * var(--ui-px)); padding: calc(1 * var(--ui-px)) calc(5 * var(--ui-px)); border-radius: var(--radius-control); font-size: var(--font-size-micro); text-align: center; border: 1px solid currentColor; }
+.agent-change-badge.class-added { color: var(--review-added); background: color-mix(in srgb, var(--review-added) 12%, transparent); }
+.agent-change-badge.class-modified { color: var(--review-modified); background: color-mix(in srgb, var(--review-modified) 12%, transparent); }
+.agent-change-badge.class-removed { color: var(--review-removed); background: color-mix(in srgb, var(--review-removed) 12%, transparent); }
+/* The work session that made the change. */
+.agent-change-copy small.agent-change-from { color: var(--muted-foreground); font-size: var(--font-size-micro); }
+.agent-change.source-user { opacity: .7; }
+.agent-change.source-user .agent-change-badge { border-style: dashed; }
+.agent-change-mine { flex: none; color: var(--muted-foreground); font-size: var(--font-size-micro); white-space: nowrap; }
+/* The review focus (shared with the timelines): a change row selects as a tack
+   row does. Its main button carries badge and copy; pressed, it is the row's
+   fill that shows it, not the toolbar's pressed fill. */
+.agent-change .agent-tack-row { padding-left: 0; }
+.agent-change-main { align-items: center !important; }
+.agent-tack-row > .agent-change-main[aria-pressed="true"] { color: inherit; background: none; }
+/* Tack states (ADR 0117): an open tack whose range plays differently from
+   when it was written carries a quiet badge; one whose composition is gone
+   sorts to the foot of its group, muted. */
+.agent-tack-outdated { flex: none; margin-top: calc(1 * var(--ui-px)); padding: 0 calc(5 * var(--ui-px)); border: 1px solid color-mix(in srgb, var(--warning) 55%, transparent); border-radius: 999px; color: var(--warning); font-size: var(--font-size-micro); white-space: nowrap; }
+.agent-tack.unplaced:not([data-selected="true"]) { opacity: .7; }

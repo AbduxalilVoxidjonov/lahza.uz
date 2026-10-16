@@ -16,6 +16,7 @@ import { root } from './__tests__/fixtures/project'
 import { DEFAULT_CAPTION_FONT_FAMILY } from '../../shared/fonts'
 import { EDIT_TRACE_ARG, EDIT_TRACE_PREFIX } from '../../shared/editTrace'
 import { applyDerivativesEvent } from './jobs-writeback'
+import { ExportJobs } from '../exportJobs'
 
 describe('mapChangeEvent', () => {
   it('maps a User ChangeEvent to the project:changed payload shape, refs included', () => {
@@ -87,6 +88,65 @@ describe('createTsActorHost — persistence-route integration', () => {
   }
 
   const publicationProject = { parentFolder: '/projects', name: 'Publication', width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 }
+
+  function makeExportSessionHost() {
+    const fixture = makeInMemoryDeps()
+    const sessions: Array<ReturnType<ExportJobs['rendererSession']>> = []
+    const jobs = new ExportJobs({
+      host: () => host,
+      native: async () => null,
+      send: event => {
+        // The renderer responds to this event by querying and announcing its
+        // session. Exercise that handshake against the real lifecycle owner.
+        if (event !== 'export:session_ready') return
+        const session = jobs.rendererSession()
+        jobs.rendererReady('renderer', session.root_id, session.generation)
+        sessions.push(session)
+      },
+    })
+    const host = createTsActorHost({ ...fixture.deps, exportJobs: jobs,
+      onWorkspaceChanging: () => jobs.forgetRenderer(),
+    })
+    return { ...fixture, host, jobs, sessions }
+  }
+
+  it('saves and closes without requesting an export session, then restores readiness on reopen and Save As', async () => {
+    const { host, sessions, vfs } = makeExportSessionHost()
+    host.start()
+    try {
+      const dir = await host.handleInvoke('project_new_workspace', publicationProject)
+      expect(sessions).toHaveLength(1)
+      const marker = await host.handleInvoke('add_marker', { tUs: 1_000_000 })
+      await host.published(() => host.handleInvoke('project_close', {}))
+      expect(host.openedProject()).toBeNull()
+      expect(host.publication().summary).toBeNull()
+      expect(sessions).toHaveLength(1)
+      const saved = JSON.parse(vfs[`${dir}/project.json`]!)
+      expect(saved.compositions[saved.root_id].markers).toEqual([expect.objectContaining({ id: marker })])
+
+      await host.handleInvoke('project_open', { path: dir })
+      expect(sessions).toHaveLength(2)
+      expect(sessions[1]?.root_id).toBe(host.actor.snapshot().root_id)
+      await host.handleInvoke('project_save_as', { path: '/projects/Copy' })
+      expect(sessions).toHaveLength(3)
+      await host.handleInvoke('project_new_workspace', { ...publicationProject, name: 'Next' })
+      expect(sessions).toHaveLength(4)
+      expect(sessions[3]?.root_id).toBe(host.actor.snapshot().root_id)
+      expect(sessions[3]?.root_id).not.toBe(sessions[0]?.root_id)
+    } finally { host.stop() }
+  })
+
+  it('restores export readiness for the retained project when saving on close fails', async () => {
+    const { deps, host, jobs, sessions } = makeExportSessionHost()
+    try {
+      const dir = await host.handleInvoke('project_new_workspace', publicationProject)
+      deps.fs.writeFile = () => { throw new Error('disk full') }
+      await expect(host.handleInvoke('project_close', {})).rejects.toThrow('disk full')
+      expect(host.openedProject()).toEqual({ dir })
+      expect(sessions).toHaveLength(2)
+      expect(sessions[1]).toEqual(jobs.rendererSession())
+    } finally { host.stop() }
+  })
 
   it('publishes versioned full views and receipts without changing raw results or MCP payloads', async () => {
     const { deps, sent } = makeInMemoryDeps()
@@ -528,6 +588,151 @@ describe('createTsActorHost — persistence-route integration', () => {
     expect(host.actor.historyStatus()).toEqual(before)
     expect(sent.length).toBe(sentBefore)
     host.stop()
+  })
+
+  it('review_view / review_approve_all serve the Review baseline and announce review:changed', async () => {
+    const { deps, sent } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      type View = { version: { session: number; revision: number; baseline_revision: number }; has_baseline: boolean; unreviewed: Array<{ id: string }>; user: Array<{ id: string }>; user_count: number }
+      type Approved = { applied: boolean; view: View }
+      expect(await host.handleInvoke('review_view', {})).toMatchObject({ has_baseline: false, unreviewed: [], user: [] })
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      await Promise.resolve()
+      // Attribution inside two commits: one coalesced notification.
+      expect(sent.filter((s) => s.event === 'review:changed')).toHaveLength(1)
+      const view = await host.handleInvoke('review_view', {}) as View
+      expect(view).toMatchObject({ has_baseline: true, version: { ...host.publication().version } })
+      expect(view.unreviewed).toHaveLength(2)
+      const before = host.publication().version
+      host.actor.lockHistory('agent at work')
+      const historyBefore = host.actor.historyStatus()
+      const { applied, view: approved } = await host.handleInvoke('review_approve_all', { version: view.version }) as Approved
+      expect(applied).toBe(true)
+      expect(approved).toMatchObject({ unreviewed: [], user: [] })
+      expect(approved.version.baseline_revision).toBeGreaterThan(view.version.baseline_revision)
+      // Approval is not a project write: no publication, no history entry.
+      expect(host.publication().version).toEqual(before)
+      expect(host.actor.historyStatus()).toEqual(historyBefore)
+      await Promise.resolve()
+      expect(sent.filter((s) => s.event === 'review:changed').at(-1)?.payload).toEqual({ baseline_revision: approved.version.baseline_revision })
+      // Closing accepts silently: nothing to review without an open project.
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      await host.handleInvoke('project_close', {})
+      expect(await host.handleInvoke('review_view', {})).toMatchObject({ has_baseline: false, unreviewed: [] })
+    } finally { host.stop() }
+  })
+
+  it('review_revert_all restores the baseline as one recorded commit, refused under the history lock', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      type View = { version: { session: number; revision: number; baseline_revision: number }; unreviewed: Array<{ id: string }> }
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      const view = await host.handleInvoke('review_view', {}) as View
+      expect(view.unreviewed).toHaveLength(1)
+      host.actor.lockHistory('agent at work')
+      const locked = host.actor.historyStatus()
+      await expect(host.handleInvoke('review_revert_all', { version: view.version })).rejects.toThrow(/HistoryLocked/)
+      expect(host.actor.historyStatus()).toEqual(locked)
+      host.actor.unlockHistory()
+      const before = host.publication().version
+      const len = host.actor.historyStatus().len
+      expect(await host.handleInvoke('review_revert_all', { version: view.version })).toMatchObject({ applied: true })
+      expect(host.actor.historyStatus().len).toBe(len + 1)
+      expect(host.publication().version.revision).toBeGreaterThan(before.revision)
+      expect(await host.handleInvoke('review_view', {})).toMatchObject({ unreviewed: [] })
+    } finally { host.stop() }
+  })
+
+  it('approve all and revert all apply only to the view the user acted on: a commit landing in between does nothing', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      type View = { version: { session: number; revision: number; baseline_revision: number }; unreviewed: Array<{ id: string; keys: string[] }> }
+      type Approved = { applied: boolean; view: View }
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      const seen = await host.handleInvoke('review_view', {}) as View
+      expect(seen.unreviewed).toHaveLength(1)
+      // The agent commits again between what the user saw and the click.
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      const len = host.actor.historyStatus().len
+      for (const channel of ['review_approve_all', 'review_revert_all']) {
+        const r = await host.handleInvoke(channel, { version: seen.version }) as Approved
+        expect(r.applied).toBe(false)
+        expect(r.view.unreviewed).toHaveLength(2)
+        expect(r.view.version.revision).toBeGreaterThan(seen.version.revision)
+      }
+      expect(host.actor.historyStatus().len).toBe(len)
+      // No version at all is no view the user acted on.
+      expect(await host.handleInvoke('review_approve_all', {})).toMatchObject({ applied: false })
+      expect(await host.handleInvoke('review_revert_all', {})).toMatchObject({ applied: false })
+      const fresh = await host.handleInvoke('review_view', {}) as View
+      expect(fresh.version.baseline_revision).toBe(seen.version.baseline_revision + 1)
+      // Against the current view it applies.
+      const r = await host.handleInvoke('review_approve_all', { version: fresh.version }) as Approved
+      expect(r).toMatchObject({ applied: true, view: { unreviewed: [] } })
+    } finally { host.stop() }
+  })
+
+  it('review_view answers a caller holding the current lists with the version alone', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      type View = { version: unknown; content_revision: number; unreviewed: unknown[] }
+      const held = await host.handleInvoke('review_view', {}) as View
+      expect(await host.handleInvoke('review_view', { held_content: held.content_revision }))
+        .toEqual({ unchanged: true, version: held.version, content_revision: held.content_revision, has_baseline: true, user_count: 0 })
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      const fresh = await host.handleInvoke('review_view', { held_content: held.content_revision }) as View
+      expect(fresh.unreviewed).toHaveLength(2)
+      expect(fresh.content_revision).toBeGreaterThan(held.content_revision)
+    } finally {
+      host.stop()
+    }
+  })
+
+  it('review_view sends the user-only list only when asked, and always its count', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      expect(host.actor.dispatch('add_track', {}).ok).toBe(true)
+      expect(await host.handleInvoke('review_view', {})).toMatchObject({ unreviewed: [{}], user: [], user_count: 1 })
+      expect(await host.handleInvoke('review_view', { include_user: true })).toMatchObject({ unreviewed: [{}], user: [{}], user_count: 1 })
+    } finally { host.stop() }
+  })
+
+  it('review_activity_view serves what one activity\'s ops did, and nothing with no project open', async () => {
+    const { deps } = makeInMemoryDeps()
+    const host = createTsActorHost(deps)
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      expect(host.mcpCall('add_track', '{}', 'test-agent').ok).toBe(true)
+      const op = host.actor.historyView(1).ops[0].op_id
+      const publication = host.publication().version
+      expect(await host.handleInvoke('review_activity_view', { history_ids: [op] }))
+        .toMatchObject({ available: true, reverted: false, changes: [{ class: 'added', id: expect.stringMatching(/^Track:/) }] })
+      // A read: no publication.
+      expect(host.publication().version).toEqual(publication)
+      expect(await host.handleInvoke('review_activity_view', { history_ids: ['gone', 3] })).toMatchObject({ available: false, changes: [] })
+      expect(await host.handleInvoke('review_activity_view', {})).toMatchObject({ available: false })
+      await host.handleInvoke('project_close', {})
+      expect(await host.handleInvoke('review_activity_view', { history_ids: [op] })).toMatchObject({ available: false, changes: [] })
+    } finally { host.stop() }
   })
 
   it('project_jump_to moves the cursor through the host and broadcasts project:changed', async () => {

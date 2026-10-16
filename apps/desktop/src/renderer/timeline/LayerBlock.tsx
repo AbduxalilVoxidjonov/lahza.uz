@@ -34,6 +34,7 @@ import {
 } from "./geometry";
 import { AudioRegionBand } from "./AudioRegionBand";
 import { PauseBands } from "./PauseBands";
+import { ReviewClipMarkLayer, ReviewGroupBadge, useLayerReviewTitle } from "./ReviewMarks";
 import { compUsFromSourceUs } from "./audioRegionGeometry";
 import { useArmedRegionSelect } from "./audioRegionArmStore";
 import { useAudioRegionDrag } from "./hooks/useAudioRegionDrag";
@@ -374,6 +375,9 @@ export function LayerBlock({
   const locked = layer.locked || trackLocked;
   const lockFeedback = useLockedClipFeedback(locked);
   const lockHint = t(trackLocked ? "timeline.clip_track_lock_hint" : "timeline.clip_lock_hint");
+  // Under the Review overlay a marked clip's tooltip says what its change did.
+  // A duplicate's clone carries its source's id and stays unmarked.
+  const reviewTitle = useLayerReviewTitle(previewOnly ? null : layer.id);
   // A duplicate leaves its sources where they are, so a source block draws as
   // if nothing were happening; the in-flight clone — one `previewOnly` block
   // per subject — is the only one that follows the pointer.
@@ -953,6 +957,7 @@ export function LayerBlock({
         layer.params.kind === "Text"
           ? textSnippet(layer.params.content, TEXT_NAME_MAX)
           : "",
+        reviewTitle ?? "",
       ]
         .filter(Boolean)
         .join("\n")}
@@ -963,6 +968,10 @@ export function LayerBlock({
         layerHeightPx={sliceHeight}
         pxPerSec={pxPerSec}
       />
+      {/* Review overlay (ADR 0115): paint only, `pointer-events: none`, inside
+          this box — no hit-testing or geometry of the clip changes with it. A
+          duplicate ghost carries its source's id and stays unmarked. */}
+      {!previewOnly && <ReviewClipMarkLayer layerId={layer.id} />}
       {locked && !previewOnly && (
         <span
           data-testid="layer-lock-badge"
@@ -1050,7 +1059,7 @@ export function LayerBlock({
       )}
       {dragIsInvalid && (
         <span
-          className={`pointer-events-none absolute inset-0 z-[1] rounded ${
+          className={`pointer-events-none absolute inset-0 z-[1] rounded-[inherit] ${
             dragValidity === "collision" ? "bg-red-500/30" : "bg-amber-500/25"
           }`}
           aria-hidden="true"
@@ -1066,10 +1075,15 @@ export function LayerBlock({
           {dragInvalidLabel}
         </span>
       )}
+      {/* The kind's accent IS the block's top edge: laid over the border box
+          with the block's own radius, so it bends round the corners instead of
+          poking square ends past them, and replaces the faint border line
+          rather than sitting a pixel below it. A sliced block's flat corners
+          come through `inherit` as well. */}
       {layer.params.kind !== "Color" && (
         <span
-          className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-0.5 opacity-90"
-          style={{ backgroundColor: layerTheme.accent }}
+          className="pointer-events-none absolute -inset-px z-[1] rounded-[inherit] border-t-2 opacity-90"
+          style={{ borderTopColor: layerTheme.accent }}
           aria-hidden="true"
         />
       )}
@@ -1080,7 +1094,7 @@ export function LayerBlock({
       {sourceTail.overhangFromFraction !== null && (
         <span
           data-testid="layer-overhang-tail"
-          className="pointer-events-none absolute inset-y-0 right-0 z-[1] rounded-r"
+          className="pointer-events-none absolute inset-y-0 right-0 z-[1] rounded-r-[inherit]"
           style={{
             left: `${sourceTail.overhangFromFraction * 100}%`,
             backgroundImage:
@@ -1131,6 +1145,9 @@ export function LayerBlock({
           clip a sliver, "is there anything in there" is the live question. */}
       {groupCompositionId !== null && !previewOnly && (
         <GroupMarkerBadge compositionId={groupCompositionId} layerId={layer.id} locked={locked} />
+      )}
+      {groupCompositionId !== null && !previewOnly && (
+        <ReviewGroupBadge layerId={layer.id} locked={locked} />
       )}
       {isEditing && showLabel ? (
         <AppInput

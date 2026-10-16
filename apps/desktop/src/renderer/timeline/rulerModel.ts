@@ -8,6 +8,7 @@ import {
 } from "../frames";
 import { formatRulerLabel } from "./geometry";
 import { UI_METRICS } from "../settings/uiMetrics";
+import type { TackKind } from "../../shared/agent-activity";
 
 /// View model for the two rows that measure TIME rather than content — the
 /// ruler's ticks and the marker lane's glyphs — for one (rate, zoom, viewport)
@@ -377,4 +378,128 @@ export function computeLaneMarkers(input: LaneMarkerInput): LaneMarker[] {
     if (next !== undefined) out[i]!.labelRoomPx = Math.max(0, next.xPx - out[i]!.xPx);
   }
   return out;
+}
+
+// ===== Review lane chips (ADR 0115) =========================================
+//
+// Tacks paint as chips in a lane of their own, one row high, never stacked: a
+// range drawn at 20 % over another 20 % range reads as a third colour, and a
+// third colour reads as a third kind of thing. Tacks whose chips would touch
+// are drawn as ONE group chip with a count instead — the place is on the
+// timeline, which tack is which is the list's (the group's menu, the Tacks
+// tab), as comment pins cluster on a zoomed-out canvas. Zooming in parts a
+// group whose tacks only met on screen.
+
+/// Clear space kept after a chip before the next one may start, in time-axis
+/// px — two chips edge to edge read as one.
+export const TACK_CHIP_GAP_PX = 2;
+
+/// Which kind a group chip wears: the one asking most of the user.
+const KIND_WEIGHT: Record<TackKind, number> = { issue: 2, question: 1, note: 0 };
+
+/// The fields of a placed tack this model reads (a `TackView` that is visible).
+export interface LaneTackSource {
+  id: string;
+  kind: TackKind;
+  t_us: number | null;
+  end_t_us: number | null;
+  label: string;
+}
+
+/// One placed tack, in the same row coordinates as `LaneMarker`.
+export interface LaneTack {
+  id: string;
+  kind: TackKind;
+  xPx: number;
+  /// The tack's own PAINTED width — the range's, or `minChipPx` when the range
+  /// is narrower (a point tack has none) — so a click target never shrinks to
+  /// a hairline.
+  widthPx: number;
+  label: string;
+  tUs: number;
+  endTUs: number | null;
+}
+
+/// One chip on the lane: a single tack, or the tacks whose chips would touch.
+export interface LaneTackGroup {
+  /// Start order, id on a tie. One member is a plain chip.
+  members: LaneTack[];
+  /// The single member's kind, or the group's most pressing (`KIND_WEIGHT`).
+  kind: TackKind;
+  xPx: number;
+  /// Painted width: the members' union, and for a group at least
+  /// `minGroupPx`, room for its kind icon and count.
+  widthPx: number;
+}
+
+/// Sweep a composition's tacks into the lane's chips, in start order.
+///
+/// Over EVERY placed tack, not the viewport's: what joins a group must be a
+/// fact about the tack set and the zoom, or scrolling would merge and part
+/// chips as neighbours entered and left the window. Culling is
+/// `windowLaneTacks`'s job, after this.
+///
+/// Groups by VISUAL extent — a point is as wide as its chip, a group as wide
+/// as its count needs — so two chips are disjoint on screen, which is the
+/// whole guarantee. Start order, id on a tie, so one tack set has exactly one
+/// layout whatever order the snapshot listed it in.
+export function groupLaneTacks(input: {
+  tacks: readonly LaneTackSource[];
+  pxPerSec: number;
+  /// Least painted chip width, in px — what the kind icon needs.
+  minChipPx: number;
+  /// Least painted group width, in px — the icon plus its count.
+  minGroupPx: number;
+  gapPx?: number;
+}): LaneTackGroup[] {
+  const { tacks, pxPerSec, minChipPx, minGroupPx } = input;
+  const gapPx = input.gapPx ?? TACK_CHIP_GAP_PX;
+  if (!(pxPerSec > 0)) return [];
+  const placed: LaneTack[] = [];
+  for (const t of tacks) {
+    if (t.t_us === null) continue;
+    const xPx = (t.t_us / US_PER_SEC) * pxPerSec;
+    const endTUs = t.end_t_us !== null && t.end_t_us > t.t_us ? t.end_t_us : null;
+    const rangePx = endTUs === null ? 0 : ((endTUs - t.t_us) / US_PER_SEC) * pxPerSec;
+    placed.push({
+      id: t.id,
+      kind: t.kind,
+      xPx,
+      widthPx: Math.max(rangePx, minChipPx),
+      label: t.label,
+      tUs: t.t_us,
+      endTUs,
+    });
+  }
+  placed.sort((a, b) => a.tUs - b.tUs || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  const groups: LaneTackGroup[] = [];
+  for (const tack of placed) {
+    const last = groups.at(-1);
+    if (last !== undefined && tack.xPx < last.xPx + last.widthPx + gapPx) {
+      last.members.push(tack);
+      if (KIND_WEIGHT[tack.kind] > KIND_WEIGHT[last.kind]) last.kind = tack.kind;
+      // A group's floor widens it, which can reach the next tack: that tack
+      // joins too, so no two chips ever touch.
+      last.widthPx = Math.max(last.widthPx, tack.xPx + tack.widthPx - last.xPx, minGroupPx);
+      continue;
+    }
+    groups.push({ members: [tack], kind: tack.kind, xPx: tack.xPx, widthPx: tack.widthPx });
+  }
+  return groups;
+}
+
+/// The chips the lane paints at one scroll offset, windowed by the very
+/// interval the ticks and markers use — a chip that popped in at a different
+/// offset than the tick under it would read as a different place. Painted
+/// extents, interval overlap: a chip wider than the window still paints.
+export function windowLaneTacks(
+  groups: readonly LaneTackGroup[],
+  view: { scrollLeftPx: number; viewportWidthPx: number; overscanPx?: number },
+): LaneTackGroup[] {
+  const { x0, x1 } = paintedWindowPx(
+    view.scrollLeftPx,
+    view.viewportWidthPx,
+    view.overscanPx ?? RULER_OVERSCAN_PX,
+  );
+  return groups.filter((g) => g.xPx + g.widthPx >= x0 && g.xPx <= x1);
 }

@@ -5,6 +5,7 @@ import { uuidV7Gen } from './ids'
 import { blankProject, eachLayer, rootComposition } from './model'
 import { buildProjectSummary } from './summary'
 import { routeChannel } from './router'
+import { CommandFailure } from './errors'
 import { createAutosave, type AutosaveController, type AutosaveFs } from './autosave'
 import { openProject, saveProjectAs, newWorkspace, makeEnqueueDerivatives, type WorkspaceNapi, type OrchestratorFs, type SchemaUpgradeReport } from './workspace-orchestrator'
 import type { RelinkFs, RelinkReport } from './relink'
@@ -12,10 +13,12 @@ import { serializeProjectToJson } from './persistence'
 import { currentEditTrace, editTraceId, EDIT_TRACE_ARG, runEditTrace } from '../../shared/editTrace'
 import { describeGridRepairs, type GridRepair } from './serialize'
 import { AgentActivityService } from '../agent/activity'
+import { runTackIpc } from '../agent/tackIpc'
 import { mcpActor } from './mcp-actor'
 import { AGENT_VIEW_EVENT } from '../../shared/agent-activity'
 import { PROJECT_OPENED_EVENT, type ProjectOpenedPayload } from '../../shared/project-events'
 import type { ProjectVersion, ProjectPublication, PublishedResult } from '../../shared/projectPublication'
+import { REVIEW_CHANGED_EVENT, type ReviewActivityArgs, type ReviewActivityView, type ReviewActionArgs, type ReviewActionResult, type ReviewChangedPayload, type ReviewVersion, type ReviewView, type ReviewViewArgs, type ReviewViewUnchanged } from '../../shared/review'
 import { runHybrid, type ComputeNapi, type HybridDeps } from './hybrids'
 import { recoverInterruptedImports } from './importRecovery'
 import { MotifCatalog, type Manifest } from '../../shared/motifs/catalog'
@@ -155,6 +158,10 @@ export interface TsActorHost {
   handleInvoke: (channel: string, args: Record<string, unknown>) => Promise<unknown>
   /** Full published view; reads during replacement retain the last settled view. */
   publication: () => ProjectPublication<ReturnType<typeof buildProjectSummary>>
+  /** The Review view (ADR 0115) against the published project — what
+   *  `review_view` serves; the user-only list only when `includeUser`. Empty
+   *  while no project is open. */
+  reviewView: (includeUser?: boolean) => ReviewView
   /** Preserve the raw operation result and add a renderer-only view barrier. */
   published: <T>(run: () => Promise<T>) => Promise<PublishedResult<T>>
   /** Host-level MCP call: delegates to actor.mcpCall, then emits the appropriate
@@ -523,6 +530,67 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     return { value, publication: before === publicationVersion.revision ? null : { ...publicationVersion } }
   }
 
+  /** The Review view: the actor's state now, named by the latest publication.
+   *  The two can differ only while a replacement defers the actor's events —
+   *  the state may then be ahead of what was published — and an approval or
+   *  revert is refused then (`reviewViewCurrent`), so no view of that window is ever
+   *  acted on. */
+  function reviewView(includeUser = false): ReviewView {
+    const s = actor.reviewState()
+    const version = { ...publicationVersion, baseline_revision: s.baseline_revision }
+    // Closing accepts unreviewed changes silently (ADR 0115): with no project
+    // open there is nothing to review, though the actor still holds one.
+    // What this reader reads: the user-only list's changes move it only when asked for.
+    const content_revision = includeUser ? s.content_revision_with_user : s.content_revision
+    if (publishedDir === null) return { version, content_revision, has_baseline: false, unreviewed: [], user: [], user_count: 0, decorations: [] }
+    return { version, content_revision, has_baseline: s.has_baseline, unreviewed: s.unreviewed, user: includeUser ? s.user : [], user_count: s.user.length, decorations: s.decorations }
+  }
+
+  /** `review_view` for a caller holding the lists of content revision
+   *  `held`: while they are still the current ones (and a project is open),
+   *  only the version and counts — the lists again otherwise. */
+  function reviewViewSince(includeUser: boolean, held: unknown): ReviewView | ReviewViewUnchanged {
+    const view = reviewView(includeUser)
+    if (publishedDir === null || held !== view.content_revision) return view
+    return { unchanged: true, version: view.version, content_revision: view.content_revision, has_baseline: view.has_baseline, user_count: view.user_count }
+  }
+
+  /** Is `held` — the version of the view the user acted on — still the
+   *  current view's? Any commit moves the publication revision and any
+   *  baseline change its revision; mid-replacement the actor may hold
+   *  changes no publication shows yet, so nothing is current then. */
+  function reviewViewCurrent(version: unknown): boolean {
+    if (typeof version !== 'object' || version === null || replacing || publishedDir === null) return false
+    const held = version as Partial<ReviewVersion>
+    return held.session === publicationVersion.session && held.revision === publicationVersion.revision
+      && held.baseline_revision === actor.reviewRevision()
+  }
+
+  /** What one activity's ops did (spec Part B, per-activity highlight). Like
+   *  `reviewView`, nothing to show with no project open. */
+  function reviewActivityView(ids: unknown): ReviewActivityView {
+    const wanted = Array.isArray(ids) ? ids.filter((x): x is string => typeof x === 'string') : []
+    if (publishedDir === null || wanted.length === 0) return { available: false, reverted: false, changes: [], decorations: [] }
+    return actor.reviewOpDiff(wanted)
+  }
+
+  // Baseline changes reach the renderer as one coalesced `review:changed` per
+  // microtask: attribution fires inside a commit and must not fan out into
+  // several refetches.
+  let reviewNotifyQueued = false
+  let reviewRevision = 0
+  actor.subscribeReview((revision) => {
+    reviewRevision = revision
+    if (reviewNotifyQueued) return
+    reviewNotifyQueued = true
+    queueMicrotask(() => {
+      reviewNotifyQueued = false
+      if (!emitting) return
+      try { deps.send(REVIEW_CHANGED_EVENT, { baseline_revision: reviewRevision } satisfies ReviewChangedPayload) }
+      catch (error) { console.warn('[ts-actor-host] review notification failed', error) }
+    })
+  })
+
   function reject(reason: string): never { throw new Error(reason) }
 
   // ── LogBus pin-row helpers ──────────────────────────────────────────────────
@@ -651,11 +719,29 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
         return actor.historyView(actor.historyCapacity())
       case 'projectSettings':
         return actor.snapshot().settings
+      case 'review': {
+        if (channel === 'review_activity_view') return reviewActivityView((args as Partial<ReviewActivityArgs>).history_ids)
+        const includeUser = (args as ReviewViewArgs).include_user === true
+        if (channel === 'review_view') return reviewViewSince(includeUser, (args as ReviewViewArgs).held_content)
+        // Approve all and revert all apply only to the view the user acted
+        // on; a stale one does nothing. Either way it answers with the fresh
+        // view: the surface that acted is the one reading it, so the
+        // recompute is wanted, not speculative. A refused revert (history
+        // lock) rejects as a command does.
+        const applied = reviewViewCurrent((args as Partial<ReviewActionArgs>).version)
+        if (applied && channel === 'review_approve_all') actor.approveReviewAll()
+        else if (applied && channel === 'review_revert_all') {
+          try { actor.revertReviewAll() }
+          catch (e) { if (e instanceof CommandFailure) throw new Error(JSON.stringify(e.err)); throw e }
+        }
+        return { applied, view: reviewView(includeUser) } satisfies ReviewActionResult
+      }
       case 'open': return persistence.open((args as { path: string }).path)
       case 'saveAs': return persistence.saveAs((args as { path: string }).path)
       case 'newWorkspace': return persistence.newWorkspace(args as never)
       case 'save': return persistence.save()
       case 'close': return persistence.close()
+      case 'tacks': return runTackIpc(agent.tacks, channel, args)
       case 'agentSessionEnd': agent.end('user'); return null
       // Compatibility for the old local channel: it now requests a view only.
       case 'agentSessionBegin': deps.send(AGENT_VIEW_EVENT, { workspace_id: agent.snapshot().workspace_id }); return null
@@ -791,6 +877,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     }),
     handleInvoke,
     publication,
+    reviewView,
     published,
     mcpCall,
     hybridDeps,

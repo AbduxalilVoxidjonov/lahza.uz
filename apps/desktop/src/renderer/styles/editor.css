@@ -93,6 +93,386 @@
   pointer-events: none;
 }
 
+/* Tacks (ADR 0115): a band along the strip's foot, below the marker pips'
+   full-height lines and region fills, in the one tack hue. The ranges arrive
+   merged (`tackCoverage`), so one opacity covers the band and an overlap never
+   darkens into a second shade. */
+.mini-tack {
+  position: absolute;
+  bottom: 0;
+  height: calc(5 * var(--ui-px));
+  background: var(--tack);
+  pointer-events: none;
+  border-radius: 1px;
+  opacity: 0.6;
+}
+
+/* The agent panel's selected tack, over the union at full strength while the
+   union steps back (the focus, below). */
+.mini-tack-selected {
+  opacity: 1;
+}
+
+.mini-tack-point {
+  width: 3px; /* fixed-px: time-axis tick weight */
+  margin-left: -1px; /* fixed-px: centres the tick on its frame */
+}
+
+/* Review changes (ADR 0115): a band along the strip's head, opposite the tack
+   band at its foot. A point change (a marker) keeps a visible tick width. */
+.mini-change {
+  position: absolute;
+  top: 0;
+  height: calc(4 * var(--ui-px));
+  min-width: 2px; /* fixed-px: time-axis tick weight */
+  pointer-events: none;
+  border-radius: 1px;
+  opacity: 0.85;
+}
+
+.mini-change-added { background: var(--review-added); }
+.mini-change-modified { background: var(--review-modified); }
+.mini-change-removed { background: var(--review-removed); }
+
+/* A removal's baseline footprint: the removed hue's own solid block, in a
+   row of its own just under the current band (`historyRowTop` in
+   UI_METRICS.agent.miniTimeline) — what now sits where it was keeps the band
+   above, so neither paints over the other. As tall as the band: the row and the hue
+   set it apart, not its weight. */
+.mini-change-historical {
+  top: calc(5 * var(--ui-px));
+  height: calc(4 * var(--ui-px));
+}
+
+/* Past the film's end: the strip runs on only so a removal's baseline
+   footprint there has somewhere to be. Shaded as no film; seeking stops at
+   its edge. */
+.mini-beyond-end {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  pointer-events: none;
+  border-left: 1px solid color-mix(in srgb, var(--muted-foreground) 45%, transparent);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--muted-foreground) 12%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+/* The review focus on the strip (agent/reviewFocus.ts), as the editor
+   timeline draws it: the focused range washed the strip's full height
+   (`.review-focus-wash`, under every mark), its own mark at full strength
+   and the rest of its band stepping back. No mark grows or rings outside its
+   box — a grown change covered the removal row 1px under it. A row under the
+   pointer rings its mark inside the mark's own box, without filling it. */
+.mini-focus-wash {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+.mini-focus-change .mini-change:not(.mini-change-selected):not(.mini-change-hover),
+.mini-focus-tack .mini-tack:not(.mini-tack-selected):not(.mini-tack-hover) {
+  opacity: 0.3;
+}
+
+/* Above the marks it shares a row with: a stepped-back mark laid over it
+   would let it show through and mix into a hue of neither. */
+.mini-change-selected {
+  opacity: 1;
+  z-index: 1;
+}
+
+.mini-change-hover,
+.mini-tack-hover {
+  background: transparent;
+  opacity: 1;
+  box-shadow: inset 0 0 0 1px var(--review-focus);
+}
+
+/* The bands' click targets: a strip of the band's own edge, a little taller
+   than the ink, over the full width. A press that names an item focuses it;
+   one on bare band falls through to the strip's seek. */
+.mini-band-hit {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+}
+
+.mini-band-hit-changes {
+  top: 0;
+  height: calc(10 * var(--ui-px));
+}
+
+.mini-band-hit-tacks {
+  bottom: 0;
+  height: calc(10 * var(--ui-px));
+}
+
+/* Review lane chips (ADR 0115, timeline/ReviewLane.tsx). Opaque: the fill is
+   the tack hue mixed into the lane's own surface, not laid over it at an
+   alpha, so a chip reads the same wherever it sits — and tacks that would
+   overlap share one group chip, so no two ever stack. The left edge is drawn in the full hue: it is
+   the tack's start, the one x a range chip states exactly. */
+.review-tack {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: calc(2 * var(--ui-px));
+  padding: 0 calc(2 * var(--ui-px));
+  overflow: hidden;
+  border-radius: 2px;
+  box-shadow: inset 2px 0 0 var(--tack);
+  background: color-mix(in srgb, var(--tack) 26%, var(--card));
+  color: var(--foreground);
+  font-size: var(--font-size-fine);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.review-tack:hover {
+  background: color-mix(in srgb, var(--tack) 42%, var(--card));
+}
+
+.review-tack-icon {
+  flex: none;
+  color: var(--tack);
+}
+
+.review-tack-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Selected: the whole hue, dark ink and a light ring, raised over the rest.
+   The others step back while one is chosen, so the eye lands on it. */
+.review-tack[data-selected] {
+  z-index: 1;
+  background: var(--tack);
+  color: var(--tack-foreground);
+  box-shadow: 0 0 0 1px var(--foreground);
+}
+
+.review-tack[data-selected] .review-tack-icon {
+  color: inherit;
+}
+
+.review-lane[data-selecting] .review-tack:not([data-selected]) {
+  opacity: 0.55;
+}
+
+/* A group chip: tacks that would overlap, drawn once with their count (the
+   kind icon is the most pressing member's). A button, so the chip's own
+   styling has to undo the button's. */
+.review-tack-group {
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.review-tack-group[data-open]:not([data-selected]) {
+  background: color-mix(in srgb, var(--tack) 42%, var(--card));
+}
+
+.review-tack-count {
+  flex: none;
+  min-width: calc(9 * var(--ui-px));
+  padding: 0 calc(2 * var(--ui-px));
+  border-radius: 2px;
+  background: var(--tack);
+  color: var(--tack-foreground);
+  font-weight: 600;
+  text-align: center;
+  line-height: calc(11 * var(--ui-px));
+}
+
+.review-tack[data-selected] .review-tack-count {
+  background: var(--tack-foreground);
+  color: var(--tack);
+}
+
+/* The Tacks tab row under the pointer names its chip: a ring, no fill, so it
+   never reads as the selection. */
+.review-tack[data-hovered]:not([data-selected]) {
+  box-shadow: inset 2px 0 0 var(--tack), 0 0 0 1px var(--tack);
+}
+
+/* The review focus across the editor's lanes (agent/reviewFocus.ts,
+   timeline/ReviewMarks.tsx). The wash lies over the clips, faint enough to
+   leave their pictures and names readable — beneath them it showed only in
+   the margins a clip leaves in its lane, and read as a mark there; its two
+   edges are drawn so a range on a busy lane still reads where it starts and
+   ends. A point is the one line. */
+.review-focus-wash {
+  --review-focus-hue: var(--tack);
+  background: color-mix(in srgb, var(--review-focus-hue) 14%, transparent);
+  box-shadow:
+    inset 1px 0 0 color-mix(in srgb, var(--review-focus-hue) 60%, transparent),
+    inset -1px 0 0 color-mix(in srgb, var(--review-focus-hue) 60%, transparent);
+}
+
+.review-focus-wash[data-kind="change"] {
+  --review-focus-hue: var(--review-focus);
+  background: color-mix(in srgb, var(--review-focus-hue) 9%, transparent);
+}
+
+.review-focus-wash[data-point] {
+  width: 2px; /* fixed-px: time-axis line weight */
+  margin-left: -1px; /* fixed-px: centres the line on its frame */
+  background: color-mix(in srgb, var(--review-focus-hue) 75%, transparent);
+  box-shadow: none;
+}
+
+/* A removal's baseline footprint (ADR 0116): where it was, which the content
+   now there need not have anything to do with. The removed hue, hatched like
+   its ghost, its edges dashed — never the solid current-range wash. */
+.review-focus-wash[data-historical] {
+  --review-focus-hue: var(--review-removed);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--review-focus-hue) 12%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+  box-shadow: none;
+  border-inline: 1px dashed color-mix(in srgb, var(--review-focus-hue) 75%, transparent);
+}
+
+.review-focus-wash[data-historical][data-point] {
+  border-inline: none;
+  background: repeating-linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--review-focus-hue) 85%, transparent) 0 3px,
+    transparent 3px 6px
+  );
+}
+
+/* A clip the focus names: one neutral hairline INSIDE its own box, just
+   inside a review mark's 2px edge. A ring outside the box ran over the lane's
+   edge and onto the clip next door, and left a gap that read as one more
+   shape; a coloured edge would be one more hue beside the change classes
+   (the tack's teal is a near twin of `added`). The wash says which kind is
+   focused, and for a change the other marks step back, which is most of the
+   signal. The row under the pointer gets a fainter line. */
+.review-focus-outline {
+  inset: 2px; /* fixed-px: inside the review mark's 2px edge */
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 1px var(--review-focus);
+}
+
+.review-focus-outline[data-focus="hover"] {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--review-focus) 55%, transparent);
+}
+
+/* A removed clip's ghost at its baseline place: a dashed edge, hatched. */
+.review-ghost {
+  border: 1px dashed var(--review-removed);
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--review-removed) 16%, transparent) 0 4px,
+    transparent 4px 8px
+  );
+}
+
+/* Always over the clips: the removed stretch as a thin removed-hue edge on
+   the lane's top, where cut marks hang — material gone from here, without a
+   box on whatever clip now sits there. */
+.review-ghost-edge {
+  height: calc(2 * var(--ui-px));
+  background: var(--review-removed);
+}
+
+.review-ghost-edge[data-recede] {
+  opacity: 0.45;
+}
+
+/* Lifted over the clips while it is pointed at: its dashed edge alone, as
+   the focused move's old place is drawn — no fill, so a clip that now sits
+   there (a ripple closed up over it) reads as dimmed under it, not as the
+   clip removed. Focused, it is named in its corner (`.review-ghost-label`). */
+.review-ghost[data-raised] {
+  background: none;
+  border-width: 1.5px;
+}
+
+/* A focused change's baseline place: a dashed box the shape of a clip — a
+   place, not a thing — its "before" name in its corner. The rest of the
+   timeline has dimmed (`.review-spotlight-dim`), so its edge reads as a layer
+   over a dimmed neighbour rather than a cut through it. */
+.review-was {
+  border: 1.5px dashed var(--review-focus);
+}
+.review-was-label {
+  position: absolute;
+  left: calc(3 * var(--ui-px));
+  top: calc(2 * var(--ui-px));
+  padding: 0 calc(3 * var(--ui-px));
+  border-radius: calc(2 * var(--ui-px));
+  background: var(--review-focus);
+  color: var(--review-foreground);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  line-height: var(--line-height-body);
+  white-space: nowrap;
+}
+/* While a change is focused, every clip but its own steps back. */
+/* The removed counterpart of the "before" name: the same chip, removed hue. */
+.review-ghost-label {
+  background: var(--review-removed);
+}
+
+.review-spotlight-dim {
+  background: color-mix(in srgb, var(--background) 62%, transparent);
+}
+
+/* A Group clip's "contains changes" count: the modified hue, solid. */
+.review-group-badge {
+  background: var(--review-modified);
+  color: var(--review-foreground);
+}
+
+/* A cut mark: the removed hue, nothing else — a ▼ from the lane's top edge
+   where material was taken out. */
+.review-cut path {
+  fill: var(--review-removed);
+}
+
+/* While a change is focused the other review marks step back — still there,
+   no longer competing with the one being looked at. */
+/* A removed marker's trace: its L (or capsule) in the removed hue, faded,
+   its baseline name struck through — a note that is no longer there. */
+.review-marker-ghost {
+  opacity: 0.7;
+}
+.review-marker-ghost[data-shape="point"] {
+  border-left: 2px solid var(--review-removed);
+  border-bottom: 2px solid var(--review-removed);
+}
+.review-marker-ghost[data-shape="region"] {
+  border: 1.5px dashed var(--review-removed);
+  border-radius: 2px;
+}
+.review-marker-ghost-label {
+  color: var(--review-removed);
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+
+.review-clip-mark[data-recede],
+.review-marker-mark[data-recede],
+.review-marker-ghost[data-recede],
+.review-marker-ghost-label[data-recede],
+.review-ghost[data-recede],
+.review-cut[data-recede] {
+  opacity: 0.45;
+}
+
 .mini-playhead {
   position: absolute;
   top: calc(-2 * var(--ui-px));

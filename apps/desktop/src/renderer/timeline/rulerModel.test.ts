@@ -14,8 +14,12 @@ import {
   MARKER_MIN_REGION_PX,
   RULER_OVERSCAN_PX,
   RULER_SCROLL_QUANTUM_PX,
+  TACK_CHIP_GAP_PX,
   computeLaneMarkers,
   computeRulerModel,
+  groupLaneTacks,
+  windowLaneTacks,
+  type LaneTackSource,
   type LaneMarkerSource,
   type RulerModel,
   type RulerModelInput,
@@ -703,5 +707,83 @@ describe("marker ordering and payload", () => {
       color: "#0a1b2c",
       tUs: 100_000,
     });
+  });
+});
+
+describe("review lane grouping", () => {
+  const MIN = 13;
+  const GROUP = 26;
+  const tk = (id: string, t_us: number | null, end_t_us: number | null = null, kind: LaneTackSource["kind"] = "note"): LaneTackSource =>
+    ({ id, kind, t_us, end_t_us, label: id });
+  const group = (tacks: LaneTackSource[], pxPerSec = 100) =>
+    groupLaneTacks({ tacks, pxPerSec, minChipPx: MIN, minGroupPx: GROUP });
+  const ids = (groups: ReturnType<typeof group>) => groups.map((g) => g.members.map((m) => m.id));
+
+  /// A deterministic jumble of points, short and long ranges, many overlapping.
+  function jumble(n: number): LaneTackSource[] {
+    let seed = 7;
+    const next = () => (seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648) / 2_147_483_648;
+    return Array.from({ length: n }, (_, i) => {
+      const t = Math.round(next() * 20_000_000);
+      const kind = next();
+      return tk(`t${i}`, t, kind < 0.3 ? null : t + Math.round(next() * (kind < 0.6 ? 50_000 : 3_000_000)));
+    });
+  }
+
+  it("never lets two chips touch, and accounts for every placed tack once", () => {
+    const tacks = [...jumble(200), tk("unplaced", null)];
+    const groups = group(tacks);
+    for (let i = 1; i < groups.length; i++) {
+      expect(groups[i]!.xPx).toBeGreaterThanOrEqual(groups[i - 1]!.xPx + groups[i - 1]!.widthPx + TACK_CHIP_GAP_PX);
+    }
+    // Each chip covers every member it stands for.
+    for (const g of groups) for (const m of g.members) expect(m.xPx + m.widthPx).toBeLessThanOrEqual(g.xPx + g.widthPx + 1e-9);
+    expect(ids(groups).flat().sort()).toEqual(tacks.filter((t) => t.t_us !== null).map((t) => t.id).sort());
+  });
+
+  it("is a function of the tack set, not of the order it arrives in", () => {
+    const tacks = jumble(60);
+    expect(group([...tacks].reverse())).toEqual(group(tacks));
+    // Same start: id breaks the tie, whichever is listed first.
+    expect(ids(group([tk("b", 0, 1_000_000), tk("a", 0, 1_000_000)]))).toEqual([["a", "b"]]);
+  });
+
+  it("gives a point and a too-short range the minimum chip width", () => {
+    const groups = group([tk("point", 1_000_000), tk("short", 3_000_000, 3_010_000), tk("range", 5_000_000, 6_000_000)]);
+    expect(groups.map((g) => [ids([g])[0], g.xPx, g.widthPx, g.members[0]!.endTUs])).toEqual([
+      [["point"], 100, MIN, null], [["short"], 300, MIN, 3_010_000], [["range"], 500, 100, 6_000_000],
+    ]);
+    // Grouped by that visual width: a second point 5 px on would sit on the
+    // first's chip, so the two share one.
+    expect(ids(group([tk("p1", 1_000_000), tk("p2", 1_050_000)]))).toEqual([["p1", "p2"]]);
+    // Zoomed in far enough, the same two part.
+    expect(ids(group([tk("p1", 1_000_000), tk("p2", 1_050_000)], 1000))).toEqual([["p1"], ["p2"]]);
+  });
+
+  it("groups overlapping runs over their union, wearing the most pressing kind", () => {
+    const groups = group([
+      tk("whole", 0, 4_000_000, "note"), tk("inner", 1_000_000, 2_000_000, "question"), tk("tail", 3_500_000, 5_000_000, "issue"),
+      tk("apart", 8_000_000, 9_000_000, "question"),
+    ]);
+    expect(groups.map((g) => [ids([g])[0], g.kind, g.xPx, g.widthPx])).toEqual([
+      [["whole", "inner", "tail"], "issue", 0, 500],
+      [["apart"], "question", 800, 100],
+    ]);
+  });
+
+  it("widens a group to fit its count, taking in what that width reaches", () => {
+    // Two points 1 px apart: their union is MIN + 1 wide, the group GROUP.
+    // A third point inside that width joins rather than touching it.
+    const groups = group([tk("a", 0), tk("b", 10_000), tk("c", 200_000)]);
+    expect(ids(groups)).toEqual([["a", "b", "c"]]);
+    expect(groups[0]!.widthPx).toBe(Math.max(GROUP, 20 + MIN));
+  });
+
+  it("culls after grouping, so what joins a group does not change with the scroll", () => {
+    const groups = group([tk("a", 0, 100_000_000), tk("b", 50_000_000, 51_000_000), tk("far", 120_000_000, 121_000_000)]);
+    const atStart = windowLaneTacks(groups, { scrollLeftPx: 0, viewportWidthPx: 1000, overscanPx: 0 });
+    const atFar = windowLaneTacks(groups, { scrollLeftPx: 11_500, viewportWidthPx: 1000, overscanPx: 0 });
+    expect(ids(atStart)).toEqual([["a", "b"]]);
+    expect(ids(atFar)).toEqual([["far"]]);
   });
 });

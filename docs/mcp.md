@@ -313,6 +313,7 @@ itself is an `isError` result whose text names the folder and the fix, with
 | `project://transitions` | a composition's transitions — the root's, or `project://transitions?composition=<id>` |
 | `project://settings` | the editing preferences `set_project_settings` writes (`auto_pair_audio_on_import`, `prefer_proxies`, `proxy_overrides`, `shot_review`, `pause_review`, `correction_script`) plus `metadata` (`name`, `created_at`, `modified_at`, `description`). `modified_at` moves on every recorded edit — the dirty signal; an unrecorded write leaves it, and undo, redo and a checkpoint restore put back the stamp of the state they return to, so compare it for change, not for order |
 | `project://session` | the active agent work session (or `null`), recent sessions and the history lock — read after `AgentSessionBusy` — plus the project state: `project` (`{ name, dir }` of the project the user has open, `null` on the start screen or after Close Project), `recent_projects` (the start screen's Recents, `[{ name, path }]`, newest first) and `default_parent_folder` (where New Project would create one, or `null`). The one non-error read of whether a project is open, and what `open_project` / `create_project` draw on (see *No project open* below) |
+| `project://tacks` | every **tack** of this project opening, oldest first — the review ranges agents left for the user (see *Tacks* below). Each is the stored record — `{ id, kind, label, body, status, range, session_id, connection_id, client, activity_id, created_at }` — plus what is derived at read time: `composition_id`, `t_us`, `end_t_us`, `state` (`visible` / `hibernating` / `stale`), `outdated` and `follows`. `project://tacks?composition=<id>` keeps the tacks placed in that composition (`not_found` for an unknown id); unlike the per-composition reads, the bare URI is the whole project opening, because a stale tack is placed nowhere |
 | `project://history` | recent ops + checkpoints (snapshot-free). Each op carries `summary` (English prose), `label_key` + optional `label_args` (its i18n key and interpolation values — `history.*`, see `main/state/history-labels.ts`), `affected` (Track/Layer/Marker refs) and `entity_labels` (names for `affected`, same length and order, resolved against whichever stored snapshot still **holds** each ref — the op's own for an add/update/move, its predecessor's for a delete — so a deleted entity still has a name). An `entity_labels` element is `{"text": "…"}` for a stored name, or `{"label_key": "…", "label_args": {…}}` for a derived one — a clip's kind (`kinds.color`), a track's role (`tracks.roles.a-roll`) or a track's position (`tracks.positional` with `{"n": 3}`) — which the UI translates. The envelope carries `window_start` and `evicted` — see below |
 | `project://compiled` | compiled audio IRGraph (JSON) |
 | `composition://meter` | latest PREVIEW master-bus level — `{ live: true, rms_db, peak_db }` while something is playing, `{ live: false }` once nothing has for 2 seconds. The preview UI pushes this reading at about 2 Hz, so the liveness window is a few pushes wide and polling faster than that returns the same numbers. A tap on the preview mixer, so it answers "how loud is what the user is hearing right now" and nothing about a render; a stopped transport reports `live: false` rather than a stale reading. Master bus only — the per-role levels the Role Mixer draws are a renderer-side tap and reach no MCP surface ([ADR 0066](adr/0066-a-role-meter-is-a-tap-not-a-bus.md)) |
@@ -328,7 +329,7 @@ The parameterised families are advertised by `resources/templates/list`
 (RFC 6570; `{?composition}` is the optional query): `project://layers/{id}`,
 `project://composition{?composition}`, `project://tracks{?composition}`,
 `project://markers{?composition}`, `project://links{?composition}`,
-`project://transitions{?composition}`, `media://{id}/thumbnail`,
+`project://transitions{?composition}`, `project://tacks{?composition}`, `media://{id}/thumbnail`,
 `media://{id}/frame/{t_us}`, `media://{id}/waveform`, `media://{id}/analysis`,
 `media://{id}/description`. `?composition=` is the ONE query a `project://`
 read takes: an unknown key, or a scope on a project-wide read, is refused rather
@@ -338,7 +339,7 @@ A client that cannot read MCP resources has the same views as a tool:
 `read_project { view, id?, t_us?, composition_id? }` with `view` one of
 `current`, `composition`, `compositions`, `media`, `tracks`, `layer` (needs
 `id`), `markers`, `links`, `transitions`, `settings`, `history`, `session`,
-`effects` (the effects catalog), and the two picture views `media_thumbnail` / `media_frame` (`id` is the media
+`effects` (the effects catalog), `tacks` (the `project://tacks` records; `composition_id` narrows), and the two picture views `media_thumbnail` / `media_frame` (`id` is the media
 id, `media_frame` also takes `t_us`; both answer an image content block from
 the same reader the `media://` resources use). The JSON views are served by the
 same function as the resource, so the two never disagree; `composition`,
@@ -376,10 +377,10 @@ to them.
   - Window defaults to `[0, min(60 s, duration))`; `start_us` changes the start, and an omitted end is `min(start + 60 s, duration)`. Explicit windows must be inside the source and at most 60 s. Walk long songs in windows. `max_points` (1..1000, default 200) bounds waveform output only; detection always uses the finest cache level.
   - Returns `{ media_id, time_basis: "source", audio_basis: "original_before_mix_and_effects", start_us, end_us, resolution_us, db_floor, peak_dbfs, rms_dbfs, waveform: [{ start_us, end_us, peak_dbfs, rms_dbfs }], onsets: [{ source_us, change_db, rms_dbfs }], onset_count, energy_changes: [{ source_us, change_db, rms_dbfs }], energy_change_count }`. Stereo RMS averages channel energies (no phase cancellation); peak takes the loudest channel. Cache quantization/clamping limits amplitude accuracy: these are neither true-peak nor LUFS measurements. Silence is the finite floor -120 dBFS; interval edges are approximate within one native bin, whose duration is `resolution_us`.
   - Onsets compare 10 ms following a candidate against 50 ms before it, requiring a rise of `onset_threshold_db` (1..30, default 6 dB) and energy above -40 dBFS. Energy changes compare 500 ms before/after, require at least 4 dB change, and report signed dB. Context outside the query avoids artificial onsets at its boundary; events requiring unavailable context at source edges are omitted. Timing is an envelope estimate (the 10 ms onset window can anticipate an attack), **not** a beat/downbeat, musical section or melody classifier. The strongest candidates survive spacing of 100 ms / 500 ms, respectively; at most 128 onsets and 32 changes are returned in time order. Counts before truncation reveal omitted candidates; narrow the window to inspect them.
-  - Alignment recipe: choose a candidate `source_us`, then set `src_in_us = source_us - (target_t_us - layer.t_start_us)` and `src_out_us = src_in_us + (layer.t_end_us - layer.t_start_us)` through `update_layer_params`. Check source bounds and audition. Analysis never edits the project or creates markers itself.
+  - Alignment recipe: choose a candidate `source_us`, then set `src_in_us = source_us - (target_t_us - layer.t_start_us)` and `src_out_us = src_in_us + (layer.t_end_us - layer.t_start_us)` through `update_layer_params`. Check source bounds and audition. Analysis never edits the project or creates markers itself; to show the user candidates, place tacks (`create_tacks`, *Tacks* below), not markers.
 
 - `detect_pauses { layer_id, threshold_amp?, min_pause_us?, bridge_us? }` → `{ pauses: [{ t_start_us, t_end_us }, ...], noise_floor_amp, peaks_source }`. Reads pre-computed peaks and decodes nothing — the peaks of what actually plays: the layer's baked effect-chain sibling's when they are ready, the media's otherwise, which `peaks_source` reports as `"fx"` or `"raw"`. A pause is a run in which the peak of EVERY channel stays under `threshold_amp` for at least `min_pause_us`; a loud run shorter than `bridge_us` inside one (a click, a cough, lip noise) does not end it. `noise_floor_amp` is the 10th percentile of the peaks inside the layer's source window — the number to derive a threshold from rather than guessing one. `layer_id` may name an `Audio` layer or a `VideoClip`: a pause is a fact about the audio that plays, so a VideoClip resolves to the Audio member of its link that shares its media, else to its link's only Audio member, and is refused with that rule named when it has neither ([ADR 0068](adr/0068-a-pause-is-a-fact-about-the-audio-that-plays.md)). Defaults `threshold_amp=0.02` (≈ -34 dBFS), `min_pause_us=500000`, `bridge_us=80000`.
-- `remove_pauses { layer_id, threshold_amp?, min_pause_us?, pad_us? }` → `{ surviving_layer_ids, removed, removed_us }` — the write beside that read: detect at the same parameters (same subject resolution, same peaks), then cut every pause out and **close** the gaps, as ONE recorded edit (a single undo restores the whole clip). What is cut is the pause's core, `[t_start_us + pad_us, t_end_us - pad_us)`: `pad_us` (default `100000`, the same on both sides) stays at each end, because erasing a pause outright makes speech breathless and clips the soft onset of a word that the peak window read as quiet. `2 * pad_us < min_pause_us` or `InvalidArgument`. A pause touching the clip's head or tail keeps its pad on the inner side only and is trimmed off to the clip's edge on the outer one; a linked audio/video partner goes with each removed slice — when the link holds a frame-grid member the cut list is landed on the composition's frame grid first, so both members are cut at one instant (an unlinked Audio subject keeps sample precision); everything downstream shifts left on every track of the composition, so touching cuts close as the one hole they are. Refuses whole, before any write, with `delete_layers { ripple: true }`'s refusals by name — `RippleInsideHole`, `RippleCollision`, `RippleLinkStraddles`, `RippleLockedLayer` / `TrackLocked`, each naming the layer that blocked (a layer starting exactly at time 0 does not block a leading pause: anchored at the origin, it stays while the material behind the cut closes up beneath it — ADR 0062's origin refinement) — plus `InvalidArgument` when the clip is one pause end to end, since removing every segment is a delete (`delete_layers`) rather than an edit. To review the pauses before any of them goes, use `detect_pauses` and one region `add_marker` per range instead. A hybrid: Rust reads the peaks, the TS actor commits ([ADR 0062](adr/0062-ripple-is-an-explicit-command-over-placement.md)).
+- `remove_pauses { layer_id, threshold_amp?, min_pause_us?, pad_us? }` → `{ surviving_layer_ids, removed, removed_us }` — the write beside that read: detect at the same parameters (same subject resolution, same peaks), then cut every pause out and **close** the gaps, as ONE recorded edit (a single undo restores the whole clip). What is cut is the pause's core, `[t_start_us + pad_us, t_end_us - pad_us)`: `pad_us` (default `100000`, the same on both sides) stays at each end, because erasing a pause outright makes speech breathless and clips the soft onset of a word that the peak window read as quiet. `2 * pad_us < min_pause_us` or `InvalidArgument`. A pause touching the clip's head or tail keeps its pad on the inner side only and is trimmed off to the clip's edge on the outer one; a linked audio/video partner goes with each removed slice — when the link holds a frame-grid member the cut list is landed on the composition's frame grid first, so both members are cut at one instant (an unlinked Audio subject keeps sample precision); everything downstream shifts left on every track of the composition, so touching cuts close as the one hole they are. Refuses whole, before any write, with `delete_layers { ripple: true }`'s refusals by name — `RippleInsideHole`, `RippleCollision`, `RippleLinkStraddles`, `RippleLockedLayer` / `TrackLocked`, each naming the layer that blocked (a layer starting exactly at time 0 does not block a leading pause: anchored at the origin, it stays while the material behind the cut closes up beneath it — ADR 0062's origin refinement) — plus `InvalidArgument` when the clip is one pause end to end, since removing every segment is a delete (`delete_layers`) rather than an edit. To let the user review the pauses before any of them goes, use `detect_pauses` and one `create_tacks` batch instead — an anchored region tack per range (*Tacks* below), not markers, which are the user's content. A hybrid: Rust reads the peaks, the TS actor commits ([ADR 0062](adr/0062-ripple-is-an-explicit-command-over-placement.md)).
 - `analyze_clip { layer_id, sensitivity?, min_shot_us?, passes? }` → `{ shots: [{ index, t_start_us, t_end_us, keyframe_t_us, brightness, motion, sharpness, flags: [...] }], cut_scores: [{ t_us, score }] }`. Deterministic shot boundaries + per-shot brightness / motion / sharpness (0..1, sharpness = variance-of-Laplacian) and `black` / `freeze` / `fade` flags for a VideoClip layer. Runs over the source (preferring the 720p proxy); source-absolute times clipped to the layer's source window. `cut_scores` is the raw cut signal, `shots` the cleaned segmentation. Defaults `sensitivity=0.4`, `min_shot_us=500000`, `passes=["shots","stats","events"]` (drop `stats`/`events` for timing only). Per-shot stat values are advisory (proxy-decode-derived, not bit-identical across machines); the flags are the deterministic signal.
 - `compare_frames { a: { layer_id, t_us }, b: { layer_id, t_us } }` → `{ phash_hamming, ssim, similar }`. Pairwise perceptual similarity of two video frames — dedup shots, match a cutaway. Each side names a VideoClip layer and a source-absolute `t_us` (same coordinate space as `media://{id}/frame/{t_us}` and `analyze_clip`'s `keyframe_t_us`); the two sides may be the same clip or different clips. `phash_hamming` is the 0..64 Hamming distance between the frames' DCT perceptual hashes (0 = identical, small = same frame re-encoded / rescaled); `ssim` is MSSIM in 0..1; `similar` is `phash_hamming <= 10 && ssim >= 0.5` (both must agree; the pHash is the strong signal and the loose SSIM floor keeps a source frame vs its lossy downscaled proxy similar while rejecting unrelated frames). Cross-aspect-ratio pairs are approximate (the MSSIM path squares both frames, so differing aspect ratios misalign) and lean on the aspect-independent pHash; same-clip dedup (one aspect ratio) is exact. Read-only, no cache; VideoClip layers only.
 - `describe_clip { layer_id, t_start_us?, t_end_us?, fps?, focus?, language?, backend? }` → `{ backend, model, segments: [{ t_start_us, t_end_us, text, tags: [...] }] }` — see "Video understanding" below.
@@ -638,7 +639,7 @@ Groups (see [features.md §Groups](features.md#groups)):
 - Reads: `project://compositions` lists every composition with its `ref_count`; a Group layer's `params.composition` names its composition.
 
 Markers + composition:
-- `add_marker { t_us, label, color, end_t_us?, anchor_layer_id?, composition_id? }` → `{ marker_id, composition_id, t_us, end_t_us, label, note, color, anchor, adjusted }` — markers are per composition; `update_marker` / `delete_marker` find theirs by id. Free unless `anchor_layer_id` names a clip for the mark to follow
+- `add_marker { t_us, label, color, end_t_us?, anchor_layer_id?, composition_id? }` → `{ marker_id, composition_id, t_us, end_t_us, label, note, color, anchor, adjusted }` — markers are per composition; `update_marker` / `delete_marker` find theirs by id. Free unless `anchor_layer_id` names a clip for the mark to follow. A marker is the user's content (saved, recorded, exported): an agent adds one when the user asks for markers, and points the user at something to review with `create_tacks` instead (*Tacks* below)
 - `update_marker { marker_id, patch }` / `delete_marker { marker_id }`
 - `set_marker_anchor { marker_id, layer_id }` — tie an existing marker to a clip of its own composition, or cut it loose with `layer_id: null`
 
@@ -742,6 +743,79 @@ Motif authoring (see [motif-workspaces.md](motif-workspaces.md)):
 - `end_agent_session { force? }` — ends the calling connection’s work session and releases its owned undo lock. Another connection cannot end it (`AgentSessionOwnerMismatch`, naming the holder) — unless it passes `force: true`, the takeover for a holder that is gone: the session ends with `end_reason: 'forced'` and its lock releases whoever's connection took it. Repeating after end is safe. The user can also end work or unlock locally in the agent panel. Ending work keeps the current view and activity; it does not cancel running operations, disconnect MCP or prohibit later calls.
 - `dry_run { operations }` — applies the batch against a clone, validates after each op (matching `commit()`), halts at the first error. Does not commit. Op variants: `add_color_layer`, `add_video_layer`, `add_audio_layer`, `add_text_layer`, `add_transition`, `update_layer`, `update_layer_params`, `move_layer`, `split_layer`, `delete_layers` (the lift only — `ripple: true` is refused). A rehearsed op runs under the same rule as the real call: an envelope time lands on the grid, and a start below 0 or a trim past the window is refused. Returns `{ results: [{ index, status, output? | error? }, ...], halted_at: number | null }`. Other tools (motifs, caption import, media import, undo/redo) are not dry-runnable.
 
+### Tacks
+
+A **tack** is how an agent points the user at a stretch of the film — a pause
+to check, a shot to judge, a cut to decide — without writing project content
+([ADR 0115](adr/0115-agent-review-lives-beside-the-project-not-in-it.md)).
+Markers are the user's: persisted, recorded, exported. A tack is runtime review
+state of the project opening, owned by the host beside agent activity: not in
+`Project`, not in history, not serialized or exported, untouched by `undo`,
+`redo`, checkpoint restore and `set_history_lock` (the tack verbs work while
+history is locked). None of the three verbs records a history entry or advances
+the project's revision, and opening, creating or reopening a project clears
+every tack, as it clears the activity stream; a call still running from the
+previous opening cannot create one in the new.
+
+A tack's `range` says what it follows. Without `anchor_layer_id` it is
+**edges** — `{ kind: "edges", composition_id, t_us, end_t_us, start, end }`:
+each end ties itself, independently, to the clip under it at creation, as
+`{ layer_id, src_us, src_fraction? }` in that clip's SOURCE time (converted
+exactly as `add_marker` converts with `anchor_layer_id`, after the times land
+on the frame grid). The clip under an instant is the first enabled layer with
+a source window (VideoClip, Audio, Group) on an enabled track, A roll tracks
+first, then the composition's tracks in order; a start sits on `[t_start_us,
+t_end_us)` and an end on `(t_start_us, t_end_us]`, so an end on a clip's out
+point is that clip's. When the start's clip also holds the end it keeps it. A
+point ties only its start; an end over a gap is `null` and keeps its time.
+With no clip under either end the range is **free** — `{ kind: "free",
+composition_id, t_us, end_t_us }` on the composition's clock, following
+nothing. With `anchor_layer_id` it is **anchored** — `{ kind: "anchored",
+layer_id, src_us, src_end_us }` — pinned to that one clip.
+
+Every read places it with the anchored-marker mapping (*Markers follow clips*): an anchored
+tack, or an edges tack's start, follows its clip through moves, trims, splits
+and into a Group; an edges start with no clip keeps its `t_us`. An edges end
+follows its clip while that still shows the frame, in the same composition,
+after the start; otherwise (clip deleted, frame trimmed away) it keeps the
+created length from the start. So a ripple upstream moves the tack, a cut
+closing up inside it shrinks it, and an anchored region is drawn only as far as
+its clip runs. The derived `state` is `visible`; `hibernating` when the start's
+clip no longer covers its frame (a trim or split moved past it — undo or
+re-extend wakes it); or `stale` when the start's clip — or a free tack's
+composition — exists nowhere. A stale tack stays listed. `t_us` / `end_t_us`
+are null unless visible.
+
+`outdated` is true once a clip the tack **covered** at creation has changed in
+anything but a pure move in time (both edges shifted by one delta, nothing else
+different) — trimmed, split, retimed, re-styled — or a covered clip other than
+the start's is gone; by anyone, agent or user, and undo clears it again. The
+covered clips are the anchor clips plus every layer overlapping the range on
+their tracks (an anchored tack: its clip's track); a free tack covers nothing.
+`follows` — `{ start: { layer_id } | null, end: { layer_id } | null }` — names
+the clip each end follows (an anchored region reports its clip for both).
+Every tack also carries who made it — `session_id` (the work session, null
+outside one), `connection_id`, `client`, `activity_id` (the creating call's row
+in the agent panel) — and its `status`, so an agent reading back sees what the
+user resolved or dismissed.
+
+**Feedback to the creating agent.** After any mutating call that committed,
+the open tacks of the CALLING client (by its declared name, so a reconnected
+agent still hears about its own) that the call moved, resized, put out of
+place or outdated ride on its result as `affected_tacks: [{ tack_id, label,
+change }]`, `change` one of `moved`, `resized`, `stale`, `hibernating`,
+`outdated` (the most serious when several apply). A JSON-object result gains
+the field in `structuredContent` and in its JSON text; a result with no JSON
+object text (plain text, an image) gains a trailing text block `{
+"affected_tacks": … }`. Reads, refusals and calls that changed none of the
+caller's tacks are unchanged. `end_agent_session` adds `tacks_to_review: [{
+tack_id, label, state, outdated }]` — the client's open tacks, from any of its
+sessions, that are stale, hibernating or outdated — when there are any.
+
+- `create_tacks { tacks: [{ label, body?, kind?, t_us, end_t_us?, anchor_layer_id?, composition_id? }] }` → `{ tack_ids, follows, hints? }` — a batch, because the canonical use (one per detected pause or shot) is many at once; every entry is validated before any is created, and the first refusal names its index (`tacks[3].t_us …`). `label` is a few words (at most 200 characters), `body` plain text (at most 4000), `kind` one of `note` (default), `issue`, `question`. Times land on the composition's frame grid as a marker's do; a region spans at least one frame and nothing starts before 0. Tacks go on the root unless `composition_id` names a Group. With `anchor_layer_id` the clip must have a source window (`WrongLayerKind` otherwise), sit in `composition_id` when that is given (`CrossCompositionSet`), and cover `t_us` (`InvalidArgument`); `end_t_us` may run past it. `follows` is each tack's, in input order. `hints` (omitted when empty) is soft advice, never a refusal: a label or body naming a time (`12:34`, `1:02.5`, `4s`, `250 ms`, `4秒` …) — the panel shows the live place, so describe the content — a tack with no clip under either end, and a tack at the place (both ends within 250 ms, a point only with a point) of another open tack of the same client, earlier or before it in the batch, since the Review lane shows tacks in one place as one group the user has to open. At most 1000 tacks per project opening: past that the whole batch is refused with `TackLimit` — the store never evicts, since a review item lost silently is worse than a refusal.
+- `update_tack { tack_id, patch: { label?, body?, kind?, status? } }` → the tack as `project://tacks` reads it. `status` is `open`, `resolved` or `dismissed`. A tack's place is fixed at creation; delete and re-create to move one. `TackNotFound` for an id this opening does not hold.
+- `delete_tacks { tack_ids? , session_id? }` → `{ deleted_tack_ids }` — exactly one selector: the listed ids (all must exist, or none goes), or every tack created in that work session.
+
 ### Agent panel and lifecycle
 
 Manual entry and exit (View menu / command palette / Exit to editor) only switch
@@ -776,7 +850,7 @@ the audio composition before rendering.
 User-invoked workflows discoverable in agent UIs (Claude Desktop slash menu, Cursor command palette):
 
 - `/auto-caption { layer_id, language? }` — walks the agent through `transcribe_clip` → `apply_transcripts` with the envelope's `segments` and `word_timing`, tagged with the clip as `source_layer_ids`.
-- `/cut-pauses { layer_id, threshold_amp?, min_pause_us?, pad_us? }` — one `remove_pauses` call at the given parameters: every pause is cut out with `pad_us` left standing at each end and the gaps close, tightening the clip in a single undoable edit. The prompt also carries the review-first alternative — `detect_pauses` → one anchored region `add_marker` per pause — for when they should be seen before any of them goes, names the defaults (including the pad) and spells out what each ripple refusal means and which layer it names.
+- `/cut-pauses { layer_id, threshold_amp?, min_pause_us?, pad_us? }` — one `remove_pauses` call at the given parameters: every pause is cut out with `pad_us` left standing at each end and the gaps close, tightening the clip in a single undoable edit. The prompt also carries the review-first alternative — `detect_pauses` → one `create_tacks` batch, an anchored region tack per pause — for when they should be seen before any of them goes, names the defaults (including the pad) and spells out what each ripple refusal means and which layer it names.
 - `/voiceover { script, voice, speed?, target_track_id? }` — `synthesize_speech` for an agent-supplied script. Prompts the agent to split long scripts at paragraph boundaries (tts-1 caps at 4096 chars).
 
 Each prompt closes with the missing-key recovery hint (Settings → API
@@ -906,7 +980,7 @@ machine-readably for clients that forward it — `code` is the envelope code
 that is not the caller's), then `message`, then whatever the mapper attached:
 the `error` variant, the ids, `options[]`. Nothing may live only there.
 
-Two refusal families come from the MCP host rather than the actor, so they are
+Three refusal families come from the MCP host rather than the actor, so they are
 not `CommandError` variants and stay out of `mcp.error-vocabulary`'s union:
 
 | `error` | Raised by | `code` | Text |
@@ -914,6 +988,8 @@ not `CommandError` variants and stay out of `mcp.error-vocabulary`'s union:
 | `NoProjectOpen` | any project tool while no project is open (the start screen, or after Close Project) — see *Projects and the no-project rule* | `invalid_request` | the one fixed message, `NO_PROJECT_OPEN_MESSAGE` in `main/mcp/toolResult.ts`: no project is open and the app is on its start screen; if the user asked for a particular project, `open_project` it (`read_project { view: "session" }` lists `recent_projects`) or `create_project` it, otherwise ask the user which project to work in; nothing was changed. A resource read has no `isError` slot, so a gated `resources/read` is a JSON-RPC `InvalidRequest` error with the same message |
 | `ProjectFolderMissing`, `NotProjectFolder`, `ProjectFolderExists`, `ProjectNameRequired`, `InvalidCanvasPreset` | `open_project` / `create_project` — a wrong or taken path or name; another argument fixes it | `invalid_params` | as below |
 | `ProjectSchemaUnreadable`, `ProjectSchemaTooNew`, `ProjectFileUnreadable`, `ProjectInvalid` | `open_project` — the right folder, but it cannot be opened here; no argument fixes it, so a client that retries on `invalid_params` must not loop on these | `invalid_request` | names the folder and the way out — a missing folder points at `recent_projects`, a folder without `project.json` at the folder that holds one or `create_project`, an existing target at another name or `open_project`, a newer schema at the version needed — and ends "Nothing was changed." The variant's own fields (`found` / `supported`, `detail`) ride `structuredContent` beside `error` |
+| `TackLimit`, `NoCurrentCall` | `create_tacks` — the project opening already holds 1000 tacks, or the call began in a project opening that has since been replaced; no argument fixes either | `invalid_request` | the count held and the way out (`delete_tacks` resolved, dismissed or a finished session's tacks); nothing was created |
+| `TackNotFound`, and `InvalidArgument`, `CompositionNotFound`, `LayerNotFound`, `WrongLayerKind`, `CrossCompositionSet` for a tack | `create_tacks` / `update_tack` / `delete_tacks` — the `TackStore`'s own refusals, named like the actor's | `invalid_params` | names the entry (`tacks[2].t_us …`) or id and the fix; `field` rides `structuredContent` beside `error`; nothing was changed |
 
 `create_project` without `parent_folder` when no project has ever been created
 (no `default_parent_folder`) is an `invalid_params` refusal naming

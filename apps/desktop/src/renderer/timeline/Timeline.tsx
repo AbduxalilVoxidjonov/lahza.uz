@@ -96,6 +96,7 @@ import {
 import type { MarqueeBox, MarqueeKind } from "./marqueeStore";
 import { DropStrip, DropStripHeader, DropStripSeam } from "./DropStrip";
 import { MarkerLane, MarkerLaneHeader } from "./MarkerLane";
+import { ReviewLane, ReviewLaneHeader } from "./ReviewLane";
 import { registerTimelineSurface } from "./timelineSurfaces";
 import { TimelineFixedRow } from "./TimelineFixedRow";
 import { TimelinePlayhead } from "./TimelinePlayhead";
@@ -205,6 +206,10 @@ import {
   type TransitionUpdateArgs,
 } from "./transitions";
 import { TransitionChipMenu } from "./TransitionChipMenu";
+import { ReviewFocusExit } from "./ReviewMarks";
+import { useAgentActivity } from "../agent/activityStore";
+import { useReviewConsumer } from "../agent/reviewStore";
+import { focusRevealScrollLeft, useFocusPaint } from "../agent/reviewFocus";
 
 interface TimelineProps {
   /// The composition this timeline renders — its Panel's own instance, never
@@ -283,6 +288,11 @@ export const Timeline = memo(function Timeline({
 }: TimelineProps) {
   const { t } = useTranslation();
   useUiScale(); // header column and row heights follow the layout theme
+  // The Review overlay's clip marks and ghosts read the Review view; a visible
+  // timeline under the overlay keeps it fresh (ADR 0115: computed only while a
+  // review surface shows). The leaves read their own slice of it.
+  const reviewOverlay = useAgentActivity((s) => s.reviewOverlay);
+  useReviewConsumer(visible && reviewOverlay);
   const headerColPx = headerColumnPx();
   // Right-click context-menu state. `null` when closed; otherwise
   // anchors the menu at the cursor and stores the target layer id.
@@ -374,6 +384,36 @@ export const Timeline = memo(function Timeline({
       }),
     [compositionId],
   );
+
+  // The review focus (ADR 0115): selecting a tack or change in the agent panel
+  // or on the Review lane brings its range into this Panel's view when it lies
+  // on this composition — by scrolling only. Never a seek: the playhead is the
+  // user's observation point, and the panel's Locate is the verb that moves it;
+  // nor a composition switch, which is Locate's too. Per select (a fresh focus
+  // object), not per tack movement, so a range the agent's edits drag along
+  // does not pull the view after it. A store subscription and not a read, so a
+  // focus change costs this whole tree no render.
+  useEffect(() => {
+    if (!visible) return;
+    return useFocusPaint.subscribe((s, prev) => {
+      const root = rootRef.current;
+      if (s.focus === prev.focus || s.focus === null || !root) return;
+      const here = compositionId ?? useProjectStore.getState().summary?.root_id ?? null;
+      const mine = s.reveal.filter((w) => w.compositionId === here);
+      if (mine.length === 0) return;
+      const pxPerUs = pxPerSecForScrollRef.current / 1_000_000;
+      const next = focusRevealScrollLeft(
+        {
+          startPx: Math.min(...mine.map((w) => w.startUs)) * pxPerUs,
+          endPx: Math.max(...mine.map((w) => w.endUs)) * pxPerUs,
+        },
+        { scrollLeftPx: root.scrollLeft, viewportPx: root.clientWidth - headerColumnPx() },
+      );
+      if (next === null) return;
+      root.scrollLeft = next;
+      setTimelineScrollLeftPx(compositionId, root.scrollLeft);
+    });
+  }, [visible, compositionId]);
 
   // Publish horizontal scroll for the ruler's tick window. Deliberately NOT
   // React state here: this component is the whole timeline tree, and a
@@ -1763,7 +1803,7 @@ export const Timeline = memo(function Timeline({
         <div
           ref={shellRef}
           data-testid="timeline-layout"
-          className={`relative grid min-h-0 min-w-0 w-full flex-1 grid-rows-[auto_auto_auto_minmax(0,1fr)] overflow-hidden ${insideGroup ? "" : "bg-card"}`}
+          className={`relative grid min-h-0 min-w-0 w-full flex-1 grid-rows-[auto_auto_auto_auto_minmax(0,1fr)] overflow-hidden ${insideGroup ? "" : "bg-card"}`}
           // One step off the panel surface for every depth below the root, capped so
           // a deep nest cannot walk the background into the foreground. Resolve tints
           // a compound clip's timeline the same way, and it is the one signal that
@@ -1789,6 +1829,12 @@ export const Timeline = memo(function Timeline({
           </TimelineFixedRow>
           <TimelineFixedRow compositionId={compositionId} widthPx={widthPx} header={<MarkerLaneHeader />}>
             <MarkerLane compositionId={compositionId} pxPerSec={pxPerSec} widthPx={widthPx}
+              viewportWidthPx={viewportWidthPx} fpsNum={fpsNum} fpsDen={fpsDen} />
+          </TimelineFixedRow>
+          {/* Under the marker lane (or the ruler, with markers hidden): agent
+              review material sits below the user's marks, above the tracks. */}
+          <TimelineFixedRow compositionId={compositionId} widthPx={widthPx} header={<ReviewLaneHeader />}>
+            <ReviewLane compositionId={compositionId} pxPerSec={pxPerSec} widthPx={widthPx}
               viewportWidthPx={viewportWidthPx} fpsNum={fpsNum} fpsDen={fpsDen} />
           </TimelineFixedRow>
           <TimelineFixedRow compositionId={compositionId} widthPx={widthPx} header={<DropStripHeader />}>
@@ -1926,6 +1972,7 @@ export const Timeline = memo(function Timeline({
               ))}
               <div className="grid min-h-4 flex-1" style={{ gridTemplateColumns: `${headerColPx}px ${widthPx}px` }}>
                 <div data-testid="timeline-track-header-background" className="sticky left-0 z-10 border-r border-border bg-card" />
+                <ReviewFocusExit />
                 <div data-testid="timeline-track-background" onPointerDown={(e) => beginMarquee(marqueeAnchor, "clip", e)}>
                   {orderedTracks.length === 0 && <EmptyHint mode={displayMode} />}
                 </div>

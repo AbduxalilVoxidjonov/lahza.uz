@@ -13,12 +13,16 @@ import {
   type ProjectSummary,
 } from "../ipc";
 import { useOpenComposition } from "../state/projectStore";
+import { seekLocalUs } from "../state/playheadProjection";
 import {
   PreviewSurface,
   type PreviewSurfaceHandle,
 } from "../preview/PreviewSurface";
 import { MiniTimeline } from "./MiniTimeline";
 import { AgentPanel } from "./AgentPanel";
+import { useCompositionTacks } from "./tackModel";
+import { selectChange, selectTack, useReviewFocus, type ReviewTarget } from "./reviewFocus";
+import { useChangeMarkLabel, useCompositionChangeRanges, useReviewConsumer } from "./reviewStore";
 import { Button } from "@/components/ui/button";
 import { WindowControls } from "../components/WindowControls";
 import { useUiScale } from '../settings/layoutTheme';
@@ -35,13 +39,17 @@ import { UI_METRICS } from '../settings/uiMetrics';
 /// agent mode the record panel IS the surface for activity.
 interface AgentModeProps {
   summary: ProjectSummary | null;
-  onSeek: (tUs: number) => void;
   /// Switch the renderer layout back to the editor.
   onExit: () => void;
 }
 
 /// Record-panel width bounds, in baseline units (UI_METRICS.agent).
 const AGENT = UI_METRICS.agent;
+
+const focusReviewItem = (item: ReviewTarget) => {
+  if (item.kind === "tack") selectTack(item.id);
+  else selectChange(item.id);
+};
 
 function clampRecordWidth(width: number, viewportWidth: number, scale: number): number {
   // Keep the preview column's minimum width so the video never collapses to
@@ -57,8 +65,6 @@ function clampRecordWidth(width: number, viewportWidth: number, scale: number): 
 export const AgentMode = forwardRef(function AgentMode(
   {
     summary,
-
-    onSeek,
     onExit,
   }: AgentModeProps,
   previewRef: ForwardedRef<PreviewSurfaceHandle>,
@@ -67,6 +73,13 @@ export const AgentMode = forwardRef(function AgentMode(
   // The mini timeline shows the OPEN composition; `summary` keeps the
   // project-wide fields (layer_count, history).
   const comp = useOpenComposition();
+  const tacks = useCompositionTacks(comp?.id ?? null);
+  const focus = useReviewFocus((s) => s.focus);
+  const hover = useReviewFocus((s) => s.hover);
+  // The mini timeline's change band is a review surface: keep the view fresh.
+  useReviewConsumer();
+  const changes = useCompositionChangeRanges(comp?.id ?? null);
+  const changeLabel = useChangeMarkLabel();
   const scale = useUiScale();
   const [recordWidthBase, setRecordWidth] = useState<number>(AGENT.recordWidth.default);
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
@@ -150,7 +163,17 @@ export const AgentMode = forwardRef(function AgentMode(
         <MiniTimeline
           durationUs={comp?.duration_us ?? 0}
           markers={comp?.markers ?? []}
-          onSeek={onSeek}
+          tacks={tacks}
+          focus={focus}
+          hover={hover}
+          changes={changes}
+          changeLabel={changeLabel}
+          // A band press focuses its item and shows its row in the panel
+          // beside the strip (tab, group and row opened; the tab scrolls to it).
+          onFocus={focusReviewItem}
+          // The strip is the open composition's own clock, as its ticks and
+          // playhead are: a press there names that composition's moment.
+          onSeek={(t) => seekLocalUs(comp?.id ?? null, t)}
           fpsNum={comp?.fps_num ?? 30}
           fpsDen={comp?.fps_den ?? 1}
         />
