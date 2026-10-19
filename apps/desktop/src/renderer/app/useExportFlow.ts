@@ -33,8 +33,6 @@ export function useExportFlow(deps: {
   setExportState: React.Dispatch<React.SetStateAction<ExportState | null>>;
   exportDialogOpen: boolean;
   setExportDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  closeConfirmOpen: boolean;
-  setCloseConfirmOpen: React.Dispatch<React.SetStateAction<boolean>>;
   runExportWithSettings: (settings: ExportSettings, path: string,
     range?: { startUs: number; endUs: number }, overwrite?: boolean) => Promise<void>;
   openRenderPlayPopup: (path: string) => Promise<void>;
@@ -45,33 +43,10 @@ export function useExportFlow(deps: {
   const [exportState, setExportState] = useState<ExportState | null>(null);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
-  // Close-guard: the window ✕ (or any close request) during a running
-  // export pops a confirm instead of silently killing the export. The ref
-  // mirrors export-busy so the close-requested listener (registered once)
-  // reads fresh state.
-  const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
-  const exportBusyRef = useRef(false);
-
-  // Close-guard wiring. "Busy" = an export that closing would kill;
-  // Completed exports and non-retryable failures do not block the window.
-  useEffect(() => {
-    exportBusyRef.current =
-      exportState !== null &&
-      exportState.kind !== "complete" &&
-      (exportState.kind !== "error" || !!exportState.onRetry);
-  }, [exportState]);
-  useEffect(() => {
-    const win = getCurrentWindow();
-    const unlisten = win.onCloseRequested((event) => {
-      if (exportBusyRef.current) {
-        event.preventDefault();
-        setCloseConfirmOpen(true);
-      }
-    });
-    return () => {
-      void unlisten.then((f) => f());
-    };
-  }, []);
+  // No close guard here: main's own `close` / `before-quit` handlers ask
+  // before an active export (including one waiting to retry its save) is
+  // discarded (`confirmQuit` in main/index.ts) — the one place every way of
+  // quitting passes through.
 
   // Taskbar progress mirrors the export lifecycle (ITaskbarList3 on
   // Windows, via Electron): indeterminate pulse while starting/preparing,
@@ -248,8 +223,6 @@ export function useExportFlow(deps: {
     setExportState,
     exportDialogOpen,
     setExportDialogOpen,
-    closeConfirmOpen,
-    setCloseConfirmOpen,
     runExportWithSettings,
     openRenderPlayPopup,
     revealExportedFile,

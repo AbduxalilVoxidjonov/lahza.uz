@@ -23,13 +23,15 @@ function translate(key: string, args?: Record<string, unknown>) {
 
 const isFocused = vi.fn<() => Promise<boolean>>()
 const send = vi.fn().mockResolvedValue(undefined)
+const setProgressBar = vi.fn().mockResolvedValue(undefined)
 
 beforeEach(() => {
   isFocused.mockReset().mockResolvedValue(false)
   send.mockClear()
+  setProgressBar.mockClear()
   // Keep the actual window and notification bridges: mocking getCurrentWindow
   // would hide the constant-true regression this test is intended to catch.
-  vi.stubGlobal('api', { window: { isFocused }, notification: { send } })
+  vi.stubGlobal('api', { window: { isFocused, setProgressBar }, notification: { send } })
 })
 afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 
@@ -86,5 +88,19 @@ describe('export desktop notifications', () => {
     await act(async () => { result.current.setExportState(terminalStates[0].state) })
     expect(result.current.exportState).toEqual(terminalStates[0].state)
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe('export taskbar progress', () => {
+  // The bridge used to drop this on the floor (a no-op), so the taskbar never
+  // showed an export. Through the real bridge to the native window API.
+  it('reaches the window API for each lifecycle step and clears on completion', async () => {
+    const { result } = setup()
+    await act(async () => { result.current.setExportState({ kind: 'starting' } as ExportState) })
+    expect(setProgressBar).toHaveBeenLastCalledWith({ status: 'indeterminate' })
+    await act(async () => { result.current.setExportState({ kind: 'error', detail: 'Encoder failed' }) })
+    expect(setProgressBar).toHaveBeenLastCalledWith({ status: 'error', progress: 100 })
+    await act(async () => { result.current.setExportState(terminalStates[0].state) })
+    expect(setProgressBar).toHaveBeenLastCalledWith({ status: 'none' })
   })
 })

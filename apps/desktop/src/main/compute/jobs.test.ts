@@ -97,6 +97,20 @@ describe('cancel and disconnect', () => {
     expect(h.jobs.snapshot().jobs).toEqual([])
   })
 
+  it('cancelAll ends every running job for its callers and tells native per job — the confirmed quit', async () => {
+    const h = harness()
+    const a = track(h.jobs.run(spec('k1')))
+    const b = track(h.jobs.run(spec('k2')))
+    await flush()
+    expect(h.jobs.running()).toBe(2)
+    h.jobs.cancelAll()
+    await flush()
+    expect(h.cancel.mock.calls.map(([id]) => id).sort()).toEqual(['job-1', 'job-2'])
+    expect(a.error).toBeInstanceOf(ComputeCancelledError)
+    expect(b.error).toBeInstanceOf(ComputeCancelledError)
+    expect(h.jobs.running()).toBe(0)
+  })
+
   it('one of two callers cancelling detaches it and leaves the job running', async () => {
     const h = harness()
     const a = caller(), b = caller()

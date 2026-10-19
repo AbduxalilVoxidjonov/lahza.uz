@@ -42,6 +42,7 @@ import { builtinAssetDir } from './motif/builtinAssets.js'
 import { createSecondary, actOnSecondary, secondaryExists, hardenWindow, restoreGeometry, rememberGeometry, quitIfLastUserWindowClosed } from './windows.js'
 import { registerScreenPick } from './screenPick.js'
 import type { SecondaryWinOpts } from './windowConfig.js'
+import { taskbarProgressArgs } from './taskbarProgress.js'
 import { shouldClearApplicationMenu } from './inputPolicy.js'
 import { WINDOWS_APP_USER_MODEL_ID } from './appIdentity.js'
 import { buildApplicationMenuTemplate, sanitizeMenuProjection } from './appMenu.js'
@@ -1276,7 +1277,7 @@ app.whenReady().then(async () => {
         updateResume.save(version, tsHost?.openedProject()?.dir ?? null)
         workspaceStore?.flush()
         windowGeometryStore?.flush()
-        if (!await confirmExportQuit()) throw new Error("Update restart cancelled while export is active");
+        if (!await confirmQuit()) throw new Error("Update restart cancelled while work is active");
         await tsHost?.shutdown()
         quitFlushed = true
       } catch (error) {
@@ -2083,6 +2084,12 @@ app.whenReady().then(async () => {
   ipcMain.handle('window:close', (e) => ctlWin(e)?.close())
   ipcMain.handle('window:isMaximized', (e) => !!ctlWin(e)?.isMaximized())
   ipcMain.handle('window:isFocused', (e) => !!ctlWin(e)?.isFocused())
+  // Taskbar progress for a long export (`useExportFlow.ts`); the mapping onto
+  // Electron's fraction + mode is `taskbarProgress.ts`.
+  ipcMain.handle('window:setProgressBar', (e, bar: unknown) => {
+    const { progress, mode } = taskbarProgressArgs(bar)
+    ctlWin(e)?.setProgressBar(progress, { mode })
+  })
   ipcMain.handle('window:setTitle', (e, title: string) => ctlWin(e)?.setTitle(title))
   // Color picker: freeze the invoking window for in-app (non-canvas) sampling.
   // PNG keeps the IPC payload small; the renderer derives the CSS→device pixel
@@ -2739,9 +2746,9 @@ app.whenReady().then(async () => {
   const win = await createWindow()
   win.webContents.on('render-process-gone', () => { void exportJobs.rendererGone().catch(console.error); });
   win.on('close', event => {
-    if (!exportJobs.isActive()) return;
+    if (!quitNeedsConfirm()) return;
     event.preventDefault();
-    void confirmExportQuit().then(confirmed => { if (confirmed && !win.isDestroyed()) win.close(); }).catch(console.error);
+    void confirmQuit().then(confirmed => { if (confirmed && !win.isDestroyed()) win.close(); }).catch(console.error);
   });
 
   win.once('ready-to-show', () => win.show())
@@ -2769,9 +2776,9 @@ app.on('window-all-closed', () => app.quit())
 // A null tsHost early-returns: nothing to flush before whenReady constructs the host.
 let quitFlushed = false
 app.on('before-quit', (event) => {
-  if (tsHost?.exportJobs?.isActive()) {
+  if (quitNeedsConfirm()) {
     event.preventDefault();
-    void confirmExportQuit().then(confirmed => { if (confirmed) app.quit(); }).catch(console.error);
+    void confirmQuit().then(confirmed => { if (confirmed) app.quit(); }).catch(console.error);
     return;
   }
   motifWatcher?.close(); motifWatcher = null
@@ -2804,19 +2811,44 @@ app.on('before-quit', (event) => {
     .finally(() => app.quit())
 })
 
-let exportQuitPrompt: Promise<boolean> | undefined;
-function confirmExportQuit(): Promise<boolean> {
-  if (exportQuitPrompt) return exportQuitPrompt;
+/** Something quitting would end without asking: an export (running, or
+ *  waiting to retry its save) or a transcription / description job. */
+function quitNeedsConfirm(): boolean {
+  return !!tsHost?.exportJobs?.isActive() || (computeJobs?.running() ?? 0) > 0
+}
+
+/** The one question every way of quitting asks (window close, app quit, update
+ *  restart). Each kind of work gets its own prompt, and NOTHING is ended until
+ *  every prompt is confirmed — staying at the second must not have already
+ *  discarded what the first was about. */
+let quitPrompt: Promise<boolean> | undefined;
+function confirmQuit(): Promise<boolean> {
+  if (quitPrompt) return quitPrompt;
   const jobs = tsHost?.exportJobs;
-  if (!jobs?.isActive()) return Promise.resolve(true);
-  exportQuitPrompt = (async () => {
+  const exporting = !!jobs?.isActive();
+  const computing = computeJobs?.running() ?? 0;
+  if (!exporting && computing === 0) return Promise.resolve(true);
+  quitPrompt = (async () => {
     const zh = app.getLocale().startsWith('zh');
-    const result = await dialog.showMessageBox({type:'question',
-      message:zh ? '导出尚未完成，是否取消并退出？' : 'An export is unfinished. Cancel it and quit?',
-      detail:zh ? '等待重试的导出也会被丢弃。退出前将等待清理完成。' : 'Pending export results will be discarded. Cleanup must finish before quitting.',
-      buttons:zh ? ['留在应用','取消导出并退出'] : ['Stay','Cancel export and quit'], defaultId:0,cancelId:0});
-    if (result.response !== 1) return false;
-    await jobs.drainForQuit(); return true;
-  })().finally(() => { exportQuitPrompt = undefined; });
-  return exportQuitPrompt;
+    if (exporting) {
+      const result = await dialog.showMessageBox({type:'question',
+        message:zh ? '导出尚未完成，是否取消并退出？' : 'An export is unfinished. Cancel it and quit?',
+        detail:zh ? '等待重试的导出也会被丢弃。退出前将等待清理完成。' : 'Pending export results will be discarded. Cleanup must finish before quitting.',
+        buttons:zh ? ['留在应用','取消导出并退出'] : ['Stay','Cancel export and quit'], defaultId:0,cancelId:0});
+      if (result.response !== 1) return false;
+    }
+    if (computing > 0) {
+      const result = await dialog.showMessageBox({type:'question',
+        message:zh ? '转写或描述仍在进行，是否中止并退出？' : 'A transcription or description is still running. Stop it and quit?',
+        detail:zh ? `将取消 ${computing} 个任务，尚未返回的结果不会保留。` : `${computing} job(s) will be cancelled; results not returned yet are lost.`,
+        buttons:zh ? ['留在应用','中止并退出'] : ['Stay','Stop and quit'], defaultId:0,cancelId:0});
+      if (result.response !== 1) return false;
+    }
+    // Native children (ffmpeg, the engines) are reaped per job, not left to
+    // the process exit.
+    computeJobs?.cancelAll();
+    if (exporting) await jobs!.drainForQuit();
+    return true;
+  })().finally(() => { quitPrompt = undefined; });
+  return quitPrompt;
 }

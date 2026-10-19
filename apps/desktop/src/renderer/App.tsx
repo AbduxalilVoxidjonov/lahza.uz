@@ -4,7 +4,6 @@ import { save as saveDialog } from "@/bridge/dialog";
 import { listen } from "@/bridge/events";
 import { MODEL_EVENTS } from "../shared/inference-models";
 import { onDescribeViewChanged } from "./search/searchIndexStore";
-import { getCurrentWindow } from "@/bridge/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -73,8 +72,6 @@ import {
 } from "./settings/SettingsPanel";
 import { MotifPicker } from "./motifs/MotifPicker";
 import { tenBitExportCapable } from "./render/exportSettings";
-import { AppDialog } from "./components/AppDialog";
-import { Button } from "@/components/ui/button";
 import { MotifStaleDialog } from "./panels/MotifStaleDialog";
 import { useAppNotices } from "./components/useAppNotices";
 import { SystemStatusPanel } from "./components/SystemStatusPanel";
@@ -517,7 +514,7 @@ export function App({ onCloseProject }: AppProps) {
     optimizeById,
     importMediaFiles,
   } = useImportReadiness({ summary, run, previewRef });
-  // Export lifecycle (state, close guard, taskbar/notification mirrors, the
+  // Export lifecycle (state, taskbar/notification mirrors, the
   // pipeline itself) lives in useExportFlow; the refs it takes as deps come
   // from useImportReadiness (other consumers below read them too).
   const {
@@ -525,8 +522,6 @@ export function App({ onCloseProject }: AppProps) {
     setExportState,
     exportDialogOpen,
     setExportDialogOpen,
-    closeConfirmOpen,
-    setCloseConfirmOpen,
     runExportWithSettings,
     openRenderPlayPopup,
     revealExportedFile,
@@ -1263,36 +1258,6 @@ export function App({ onCloseProject }: AppProps) {
             openSettings("performance");
           }}
         />
-      )}
-      {closeConfirmOpen && (
-        <AppDialog
-          title={t("close_guard.title")}
-          onClose={() => setCloseConfirmOpen(false)}
-          panelClassName="settings-panel"
-        >
-          <div className="settings-body">
-            <div className="settings-card">
-              <p className="settings-blurb">{t(exportState?.kind === "error" && exportState.onRetry ? "export.close_pending" : "close_guard.body")}</p>
-              <div className="export-actions">
-                <Button size="lg" onClick={() => setCloseConfirmOpen(false)}>
-                  {t("close_guard.stay")}
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="lg"
-                  onClick={() => {
-                    void (async () => {
-                      if (exportState?.kind === "error") await exportState.onDiscard?.();
-                      await getCurrentWindow().destroy();
-                    })();
-                  }}
-                >
-                  {t("close_guard.quit")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </AppDialog>
       )}
       {staleMotifs.length > 0 && (
         <MotifStaleDialog

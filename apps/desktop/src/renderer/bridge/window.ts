@@ -42,13 +42,10 @@ export function getCurrentWindow() {
       ),
     setTitle: (title: string) => window.api.window.setTitle(title),
     isFocused: () => window.api.window.isFocused(),
-    // No backend handler; no-op (emergency close confirmation).
-    destroy: () => Promise.resolve(),
-    // No backend subscription; returns a no-op unlisten.
-    onCloseRequested: (_cb: (event: { preventDefault: () => void }) => void | Promise<void>) =>
-      Promise.resolve(() => undefined),
-    // No backend handler; no-op.
-    setProgressBar: (_opts: unknown) => Promise.resolve(),
+    // Taskbar progress (`useExportFlow.ts`); main maps it onto Electron's
+    // fraction + mode (`main/taskbarProgress.ts`).
+    setProgressBar: (bar: { status: ProgressBarStatus; progress?: number }) =>
+      window.api.window.setProgressBar(bar),
   }
 }
 

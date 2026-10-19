@@ -60,7 +60,6 @@ vi.mock("@/bridge/window", () => ({
   ProgressBarStatus: { None: 0, Normal: 1, Error: 2 },
   SecondaryWindow: class { },
   getCurrentWindow: () => ({
-    onCloseRequested: () => () => { },
     isFocused: async () => true,
     setProgressBar: async () => { },
     setTitle: async () => { },

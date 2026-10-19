@@ -1633,12 +1633,6 @@ const zhCN: Resources = {
     restore: "还原",
     close: "关闭",
   },
-  close_guard: {
-    title: "导出进行中",
-    body: "导出尚未完成。现在退出将中止导出并留下不完整的输出文件。",
-    stay: "继续导出",
-    quit: "仍要退出",
-  },
   transport: {
     preparing_audio: "准备音频…",
     audio_failed: "音频播放失败",
@@ -1692,7 +1686,6 @@ const zhCN: Resources = {
     retry_finalize: "重试完成导出",
     discard_pending: "放弃导出",
     retry_hint: "可重试完成导出，无需重新编码。关闭项目或放弃导出将删除临时文件。",
-    close_pending: "此导出已完成编码，但尚未成功保存。关闭窗口会丢弃临时文件。请留在当前窗口重试完成导出。",
     finalize_mux: "正在写出文件…",
     complete: "已导出到 {{path}}",
     failed: "导出失败：{{detail}}",

@@ -122,6 +122,7 @@ const api: WeftcutApi = {
     close: (): Promise<void> => ipcRenderer.invoke('window:close') as Promise<void>,
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized') as Promise<boolean>,
     isFocused: (): Promise<boolean> => ipcRenderer.invoke('window:isFocused') as Promise<boolean>,
+    setProgressBar: (bar: { status: string; progress?: number }): Promise<void> => ipcRenderer.invoke('window:setProgressBar', bar) as Promise<void>,
     setTitle: (title: string): Promise<void> => ipcRenderer.invoke('window:setTitle', title) as Promise<void>,
     captureSnapshot: (): Promise<Uint8Array<ArrayBuffer>> =>
       ipcRenderer.invoke('window:captureSnapshot') as Promise<Uint8Array<ArrayBuffer>>,

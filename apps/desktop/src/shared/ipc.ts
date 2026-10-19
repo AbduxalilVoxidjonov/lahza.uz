@@ -441,6 +441,8 @@ export interface WeftcutApi {
     close(): Promise<void>
     isMaximized(): Promise<boolean>
     isFocused(): Promise<boolean>
+    /** Taskbar progress: `status` is a `ProgressBarStatus`, `progress` 0–100. */
+    setProgressBar(bar: { status: string; progress?: number }): Promise<void>
     setTitle(title: string): Promise<void>
     captureSnapshot(): Promise<Uint8Array<ArrayBuffer>>
     focus(): Promise<void>

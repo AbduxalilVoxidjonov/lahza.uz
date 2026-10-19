@@ -137,6 +137,15 @@ export class ComputeJobs {
     return true
   }
 
+  /** How many jobs are running — what quitting would end. */
+  running(): number { return this.byId.size }
+
+  /** Force-cancel every running job — the quit the user confirmed. Native is
+   *  told per job, so its children are reaped before the process goes. */
+  cancelAll(): void {
+    for (const entry of [...this.byId.values()]) if (!entry.settled) this.cancelJob(entry, 'user')
+  }
+
   snapshot(): ComputeJobsSnapshot {
     return structuredClone({ revision: this.revision, jobs: this.records() })
   }

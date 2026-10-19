@@ -1835,12 +1835,6 @@ const enUS = {
     restore: "Restore",
     close: "Close",
   },
-  close_guard: {
-    title: "Export in progress",
-    body: "An export is still running. Quitting now will abort it and leave a partial output file.",
-    stay: "Keep exporting",
-    quit: "Quit anyway",
-  },
   transport: {
     preparing_audio: "Preparing audio…",
     audio_failed: "Audio playback failed",
@@ -1902,7 +1896,6 @@ const enUS = {
     retry_finalize: "Retry finishing export",
     discard_pending: "Discard export",
     retry_hint: "Retry finishing the export without encoding again. Closing the project or discarding this export deletes its temporary files.",
-    close_pending: "This export is encoded but has not been saved successfully. Closing the window discards its temporary files. Stay to retry finishing the export.",
     finalize_mux: "Writing the output file…",
     complete: "Exported to {{path}}",
     failed: "Export failed: {{detail}}",
