@@ -1576,8 +1576,9 @@ mod tests {
     // create returns kVTCouldNotFindVideoDecoderErr and the decoder falls back
     // to its software format — which the probe must report as a CLEAN decline
     // (the resolver's silent software fallback), never a panic/abort. On a
-    // ProRes-engine Mac the same probe confirms the hw surface. Both outcomes
-    // are asserted; which one runs follows the silicon.
+    // ProRes-engine Mac the same probe can confirm the hw surface. Hosted Macs
+    // can also create a session but fail the first frame (VT -19092). Any probe
+    // error is a negative capability verdict; its diagnostic text is not an API.
     #[cfg(target_os = "macos")]
     #[test]
     fn videotoolbox_prores_probe_confirms_hw_or_declines_cleanly() {
@@ -1591,8 +1592,8 @@ mod tests {
             Err(reason) => {
                 println!("ProRes VT probe declined cleanly: {reason}");
                 assert!(
-                    reason.contains("not the hw surface"),
-                    "decline must be the software-format verdict, got: {reason}"
+                    !reason.trim().is_empty(),
+                    "an unavailable hardware lane must report a diagnostic"
                 );
             }
         }
@@ -1667,31 +1668,38 @@ mod tests {
         );
     }
 
-    // The same I420P10 session shape for ProRes — the codec the
-    // lane exists for. On a ProRes-engine Mac this is a true hw copy-back; on
-    // a base M1 the VT hwaccel init declines and libavcodec decodes the SAME
-    // open on the CPU — and the packed bytes are IDENTICAL either way (the
-    // ship-bytes contract: nothing downstream can tell which produced them),
-    // so the SHAPE assertion is host-independent.
+    // Exercise the production probe-before-open contract: an unavailable VT
+    // lane selects a fresh software decoder, rather than assuming libavcodec
+    // can recover inside a failed hardware session. Both paths must deliver
+    // the entire ProRes fixture in the same 10-bit transport shape.
     #[cfg(target_os = "macos")]
     #[test]
     fn videotoolbox_prores_session_ships_i420p10_transport_shape() {
-        use super::DecodeAccel;
+        use super::{probe_hw_first_frame, DecodeAccel};
         let p = concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/tests/fixtures/tiny_prores.mov"
         );
+        let accel = match probe_hw_first_frame(p, DecodeAccel::VideoToolbox) {
+            Ok(()) => DecodeAccel::VideoToolbox,
+            Err(reason) => {
+                println!("ProRes VT unavailable; verifying software fallback: {reason}");
+                DecodeAccel::Software
+            }
+        };
         let mut s = SwVideoStream::open_with_accel(
             p,
             SwOutFormat::I420p10,
-            DecodeAccel::VideoToolbox,
+            accel,
             OutScale::FULL,
         )
-        .expect("open ProRes on videotoolbox");
+        .expect("open ProRes on the probed lane");
         let mut frames = 0u32;
         while let Some(f) = s.next_frame().expect("decode") {
             assert_eq!(f.format, SwOutFormat::I420p10);
+            assert_eq!((f.width, f.height), (320, 240));
             assert_eq!(f.data.len(), 320 * 240 * 3);
+            assert!(f.data.as_chunks::<2>().0.iter().all(|px| px[1] < 4));
             frames += 1;
         }
         assert_eq!(frames, 8, "fixture carries 8 frames (8 fps x 1 s)");
