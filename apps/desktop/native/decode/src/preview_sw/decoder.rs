@@ -1687,13 +1687,8 @@ mod tests {
                 DecodeAccel::Software
             }
         };
-        let mut s = SwVideoStream::open_with_accel(
-            p,
-            SwOutFormat::I420p10,
-            accel,
-            OutScale::FULL,
-        )
-        .expect("open ProRes on the probed lane");
+        let mut s = SwVideoStream::open_with_accel(p, SwOutFormat::I420p10, accel, OutScale::FULL)
+            .expect("open ProRes on the probed lane");
         let mut frames = 0u32;
         while let Some(f) = s.next_frame().expect("decode") {
             assert_eq!(f.format, SwOutFormat::I420p10);
