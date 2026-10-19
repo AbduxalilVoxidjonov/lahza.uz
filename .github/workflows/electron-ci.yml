@@ -27,6 +27,10 @@ on:
         description: 'Run the unsigned packaging step'
         type: boolean
         default: true
+      full:
+        description: 'Include @matrix tests while preserving OS slices and determinism comparison'
+        type: boolean
+        default: false
       # The one switch `e2e_args` cannot reach: the decode gates are selected by
       # an environment variable, not by an argument (see the e2e step's env).
       decode_e2e:
@@ -418,7 +422,7 @@ jobs:
           # The @matrix tier (see playwright.config.ts) runs only on the nightly
           # sweep — per-PR it would blow the job budget. A dispatch opts in by
           # passing --full in e2e_args instead of getting it implicitly.
-          WEFTCUT_E2E_FULL: ${{ github.event_name == 'schedule' && '1' || '' }}
+          WEFTCUT_E2E_FULL: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full)) && '1' || '' }}
           # Dispatch runs are the scoped-diagnosis tool — tap the renderer
           # console so a wedge reports its last milestone in the job log.
           WEFTCUT_E2E_CONSOLE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}

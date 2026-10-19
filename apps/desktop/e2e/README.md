@@ -130,6 +130,17 @@ npm run e2e -- --project=serial                  # only the @serial gates
 npm run e2e -- --slice=overlap                   # one CI runner's share (slices.mjs)
 ```
 
+For a full three-platform CI sweep, use the dedicated `full` input so the
+workflow retains its parallel slices and cross-OS determinism comparison:
+
+```bash
+gh workflow run electron-ci.yml --repo WeftCut/WeftCut --ref main \
+  -f os=all -f full=true -f decode_e2e=true -f package=true
+```
+
+Keep `e2e_args` empty for that sweep. A non-empty `e2e_args` selects a scoped
+run, collapses each OS to one runner and disables the cross-OS comparison.
+
 The preflight always prints which tier it is running, so a smaller-than-expected
 test count is never a mystery.
 
