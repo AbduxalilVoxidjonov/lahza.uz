@@ -20,11 +20,10 @@ import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir } from '.
 // WEFTCUT_FORCE_HW_LANE and SKIPS CLEANLY when that lane did not engage on this
 // machine, so one spec covers every host with no per-machine config.
 //
-// LOCAL-ONLY, like the rest of the hardware-lane family: it needs a
-// VITE_WEFTCUT_E2E=1 build, the native-decode addon, and a real HW-decode lane,
-// none of which the hosted CI runners have — so it self-skips there behind
-// WEFTCUT_DECODE_E2E. The gate runs on a shared-texture-capable Windows box or a
-// videotoolbox Mac. CI at one worker never exercised the freeze; this spec and
+// Opt-in through WEFTCUT_DECODE_E2E: it needs a VITE_WEFTCUT_E2E=1 build,
+// the native-decode addon and an engaged HW-decode lane. Hosted Macs can run
+// VideoToolbox; other hosted runners may skip after probing their lane.
+// The gate also runs on a shared-texture-capable Windows box. This spec and
 // the four-worker export set on a real-GPU host are what guard the regression.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -219,9 +218,9 @@ test.describe('Preview reopen + GPU-crash stress on the hardware lane (ADR 0059)
       test.setTimeout(300_000)
       const h = await setupHardwareSession(lane, 'reopen')
       const { app, page, layerId } = h
-      test.skip(!h.engaged, `${lane} did not engage on this machine — lane unavailable`)
       const rounds: string[] = []
       try {
+        test.skip(!h.engaged, `${lane} did not engage on this machine — lane unavailable`)
         let gen = await resourceGen(page)
         for (let i = 1; i <= REOPEN_ROUNDS; i++) {
           const t0 = Date.now()
@@ -257,8 +256,12 @@ test.describe('Preview reopen + GPU-crash stress on the hardware lane (ADR 0059)
       test.setTimeout(300_000)
       const h = await setupHardwareSession(lane, 'gpucrash')
       const { app, page, layerId } = h
-      test.skip(!h.engaged, `${lane} did not engage on this machine — lane unavailable`)
       try {
+        test.skip(!h.engaged, `${lane} did not engage on this machine — lane unavailable`)
+        // Lane selection precedes asynchronous session startup and workspace
+        // source swaps. Measure playback only once a real frame has arrived,
+        // just as the reopen loop does before its playback assertion.
+        await expectHardwareBound(page, layerId, lane, 500_000, 45_000, 'before crash')
         await expectFramesAdvance(page, layerId, 1_000, 'before crash')
 
         // Crash the GPU process from a hidden window; observe child-process-gone.
