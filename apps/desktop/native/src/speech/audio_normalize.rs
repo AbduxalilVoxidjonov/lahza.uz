@@ -1,12 +1,15 @@
 //! Explicit, per-request peak normalization of the transcription WAV only.
 //! The source and the shared extraction cache are always read-only. A private
 //! temporary copy survives until inference ends, then is removed by RAII.
+//! Measuring and amplifying run in the user-compute lane, like the slice they
+//! read: transcription is waiting on them.
 use std::{path::PathBuf, process::Stdio};
 
 use anyhow::{Context, Result};
 use serde::Serialize;
 
 use crate::process::NoConsoleWindow;
+use crate::resources::{UserComputeBlock, UserComputeCaller};
 
 const TARGET_DBFS: f64 = -3.0;
 const MAX_GAIN_DB: f64 = 24.0;
@@ -51,7 +54,16 @@ fn report(peak: Option<f64>) -> NormalizationReport {
     }
 }
 
-pub async fn prepare(path: PathBuf, normalize: bool) -> Result<PreparedAudio> {
+/// The WAV transcription reads: `path` itself in original mode, else a
+/// normalized private copy. `observer` hears admission: the blocking reason
+/// while it waits, then `None` once normalization starts (see
+/// `resources::user_compute`). Original mode needs no admission and never
+/// calls it.
+pub async fn prepare(
+    path: PathBuf,
+    normalize: bool,
+    observer: impl FnMut(Option<UserComputeBlock>) + Send,
+) -> Result<PreparedAudio> {
     if !normalize {
         return Ok(PreparedAudio {
             path,
@@ -59,10 +71,11 @@ pub async fn prepare(path: PathBuf, normalize: bool) -> Result<PreparedAudio> {
             _directory: None,
         });
     }
-    let _permit = crate::jobs::ffmpeg_sem()
-        .acquire()
+    // One admission covers both passes. The refusal message is surfaced as is:
+    // it names the blocking reason and carries the capacity prefix.
+    let _permit = crate::resources::user_compute(UserComputeCaller::AudioNormalize, observer)
         .await
-        .context("acquire ffmpeg slot")?;
+        .map_err(anyhow::Error::msg)?;
     let measured = crate::ffmpeg::command()
         .no_console_window()
         .kill_on_drop(true)
@@ -171,7 +184,7 @@ mod tests {
     #[tokio::test]
     async fn original_mode_never_prepares_or_replaces_the_input() {
         let path = PathBuf::from("even-a-missing-file.wav");
-        let prepared = prepare(path.clone(), false).await.unwrap();
+        let prepared = prepare(path.clone(), false, |_| {}).await.unwrap();
         assert_eq!(prepared.path, path);
         assert!(prepared.normalization.is_none());
     }
@@ -182,7 +195,7 @@ mod tests {
         let path = dir.path().join("raw.wav");
         let original = wav(1600);
         std::fs::write(&path, &original).unwrap();
-        let prepared = prepare(path.clone(), true).await.unwrap();
+        let prepared = prepare(path.clone(), true, |_| {}).await.unwrap();
         assert_ne!(prepared.path, path);
         let report = prepared.normalization.as_ref().unwrap();
         assert!((report.gain_db - 23.23).abs() < 0.02, "{report:?}");
@@ -210,7 +223,7 @@ mod tests {
         assert!(!output.exists());
         assert!(path.exists());
         std::fs::write(&path, wav(0)).unwrap();
-        let silent = prepare(path.clone(), true).await.unwrap();
+        let silent = prepare(path.clone(), true, |_| {}).await.unwrap();
         assert_eq!(silent.path, path);
         assert_eq!(silent.normalization.unwrap().gain_db, 0.0);
     }
