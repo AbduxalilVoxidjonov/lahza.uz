@@ -41,8 +41,7 @@ export function getCurrentWindow() {
         ),
       ),
     setTitle: (title: string) => window.api.window.setTitle(title),
-    // No backend handler; safe default (used in a drag-drop guard).
-    isFocused: () => Promise.resolve(true),
+    isFocused: () => window.api.window.isFocused(),
     // No backend handler; no-op (emergency close confirmation).
     destroy: () => Promise.resolve(),
     // No backend subscription; returns a no-op unlisten.

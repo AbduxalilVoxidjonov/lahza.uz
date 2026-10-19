@@ -440,6 +440,7 @@ export interface WeftcutApi {
     toggleMaximize(): Promise<void>
     close(): Promise<void>
     isMaximized(): Promise<boolean>
+    isFocused(): Promise<boolean>
     setTitle(title: string): Promise<void>
     captureSnapshot(): Promise<Uint8Array<ArrayBuffer>>
     focus(): Promise<void>

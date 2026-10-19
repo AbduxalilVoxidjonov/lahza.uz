@@ -2082,6 +2082,7 @@ app.whenReady().then(async () => {
   })
   ipcMain.handle('window:close', (e) => ctlWin(e)?.close())
   ipcMain.handle('window:isMaximized', (e) => !!ctlWin(e)?.isMaximized())
+  ipcMain.handle('window:isFocused', (e) => !!ctlWin(e)?.isFocused())
   ipcMain.handle('window:setTitle', (e, title: string) => ctlWin(e)?.setTitle(title))
   // Color picker: freeze the invoking window for in-app (non-canvas) sampling.
   // PNG keeps the IPC payload small; the renderer derives the CSS→device pixel

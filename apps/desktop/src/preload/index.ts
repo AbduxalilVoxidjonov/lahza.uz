@@ -121,6 +121,7 @@ const api: WeftcutApi = {
     toggleMaximize: (): Promise<void> => ipcRenderer.invoke('window:toggleMaximize') as Promise<void>,
     close: (): Promise<void> => ipcRenderer.invoke('window:close') as Promise<void>,
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('window:isMaximized') as Promise<boolean>,
+    isFocused: (): Promise<boolean> => ipcRenderer.invoke('window:isFocused') as Promise<boolean>,
     setTitle: (title: string): Promise<void> => ipcRenderer.invoke('window:setTitle', title) as Promise<void>,
     captureSnapshot: (): Promise<Uint8Array<ArrayBuffer>> =>
       ipcRenderer.invoke('window:captureSnapshot') as Promise<Uint8Array<ArrayBuffer>>,
