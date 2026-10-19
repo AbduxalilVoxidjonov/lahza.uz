@@ -9,6 +9,7 @@ import {
   newProject,
   waitForHook,
   driveExport,
+  invokeCmd,
   importAndPlaceMedia,
   tmpDir,
   DECODE_ADDON,
@@ -68,6 +69,10 @@ interface NativePerf {
 }
 
 async function bootProject(page: Page, prefix: string): Promise<void> {
+  // The native leg starts while import/proxy work can still hold a task slot.
+  // Give the concurrent workload two slots on 3-core Macs; the balanced
+  // one-slot policy correctly returns busy instead of reaching the fidelity gate.
+  await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { processing: 'high' } } })
   await newProject(page, {
     parentFolder: tmpDir('weftcut-e2e-pf-proj-'),
     name: prefix + Date.now(),

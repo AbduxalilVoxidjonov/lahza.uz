@@ -83,6 +83,11 @@ interface NativePerf {
 }
 
 async function bootProject(page: Page, prefix: string): Promise<void> {
+  // These gates intentionally export before import/proxy work has drained.
+  // A 3-core hosted Mac's balanced policy admits only one task thread, so
+  // that setup otherwise tests the 15-second busy deadline, not native decode.
+  // High admits both tasks without changing the memory/pressure safeguards.
+  await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { processing: 'high' } } })
   await newProject(page, {
     parentFolder: tmpDir('weftcut-e2e-nw-proj-'),
     name: prefix + Date.now(),
