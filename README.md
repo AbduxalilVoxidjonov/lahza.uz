@@ -51,13 +51,26 @@ None of that rides on a stripped-down editor. Everything an agent can reach, you
 Copy the prompt in settings into your client, and your agent is holding the editor.
 
 - **It edits the project you are watching.** No import/export round trip, no separate headless copy.
-- **You can always see what it did.** Every tool call becomes a row in the Agent panel — *Trimmed clip · Ember.mp4*, *Added marker · Needs a look* — and the status bar echoes it. Nothing happens off the record.
 - **Every batch is reversible.** Agents checkpoint at logical boundaries, and each checkpoint is one click from being restored. The agent can also rehearse a whole multi-step edit against a throwaway clone first (`dry_run`) and find the collision before it touches your project.
 - **Multi-agent, with rules.** Sessions are per-connection. An agent that is mid-batch can `set_history_lock` so a stray Ctrl-Z doesn't land in the middle of its work — and the lock, plus the reason it gave, is shown to you.
 
-For a longer run, an agent can call `begin_agent_session` and fold the UI down to preview, scrub, and a record of what it is doing:
+### Watch and review in Agent view
 
-![Agent mode — the activity panel while an agent works](docs/assets/agent-mode.png)
+For a longer run, the agent can call `begin_agent_session` to open **Agent view**: a preview, a compact review timeline, and an Agent panel with **Activity**, **Tacks** and **Changes** tabs. Follow its tool calls in Activity while you watch the edit play, discuss specific passages with Tacks, then audit the result with **Timeline diff** in Changes. You can return to the full editor at any time.
+
+![Agent view with added, removed and modified clips and titles in the Changes panel, plus change and Tack ranges across the review timeline](docs/assets/timeline-review.png)
+
+*Agent view after an editing pass: Changes lists additions, removals and modifications. The timeline shows them in green, red and yellow, with Tack ranges in teal.*
+
+**Tacks** give the conversation a place. An agent leaves a note, issue or question on a time range; you locate and play it, then resolve, dismiss or convert the Tack into a marker to keep. Tacks follow the content they cover and become **outdated** when what plays there changes, including on other tracks. The agent can read their statuses and receives feedback when its edits affect its open Tacks.
+
+**Timeline diff** shows the result of the work. Open **Changes** to compare the current project with the state when you opened it or last chose **Approve all**. Inspect additions, removals and modifications, with before/after details and timeline highlights. **Approve all** makes the result your new review baseline; **Revert all** restores that baseline in one undoable step. Both include your own edits since the baseline.
+
+Try: *“Find the pauses in this interview and leave Tacks on the ones worth cutting. Let me review them before you edit.”* Review the passages, tell the agent which cuts to make, then use Timeline diff to approve or revert the result.
+
+Tacks last only for the current project opening. They are not saved or exported, and managing them adds nothing to undo history.
+
+<sub>Agent: `create_tacks` · `read_project { view: "tacks" }` · `update_tack` · `delete_tacks`</sub>
 
 ## Code as video: Motifs
 
