@@ -776,12 +776,10 @@ const zhCN: Resources = {
     keep_shot: "保留第 {{index}} 个镜头",
     // 缺失，不是零：没被采样过的区间没有亮度，写"0.00"等于报告了一个黑帧。
     stats_absent: "未测量",
-    // 按需的统计测量。按它作用的那些行命名——凡是没有数据的行它都会测；
-    // 提示语说明代价，因为代价正是它不自动执行的唯一原因。
+    // 按需测量尚无统计数据的镜头。
     measure: "测量镜头",
     measure_running: "测量中…",
-    measure_hint:
-      "每个镜头采样三帧，得出亮度、运动量和清晰度——每个镜头跑一遍 ffmpeg，所以要手动触发。",
+    measure_hint: "测量镜头的亮度、运动量和清晰度",
     // 禁用原因，与 apply_no_cuts 同一条规则：说明前置条件，
     // 而不是重复一个点不了的标签。
     measure_all_measured: "这个列表里的镜头都已测量过",
@@ -828,8 +826,7 @@ const zhCN: Resources = {
     // 同样的处理）。
     describe_all_one: "描述 {{count}} 个镜头",
     describe_all_other: "描述 {{count}} 个镜头",
-    describe_all_hint:
-      "把还没有描述的镜头逐个描述——每个都是各自一次本机模型运行，所以需要主动触发。",
+    describe_all_hint: "使用视觉模型批量描述镜头",
     // 运行期间这个按钮就是停止键。done 数的是已完成的运行，所以第一个还在跑
     // 的时候显示 0/7。
     describe_all_running: "停止（{{done}}/{{total}}）",

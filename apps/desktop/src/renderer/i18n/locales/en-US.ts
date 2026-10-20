@@ -856,13 +856,10 @@ const enUS = {
     // Absent and not zero: a span nothing has sampled has no brightness, and
     // "0.00" would report a black frame.
     stats_absent: "not measured",
-    // The on-demand stats pass. Named for the rows it acts on, because it acts
-    // on all of them that have nothing — the hint says what it costs, since the
-    // cost is the only reason it is not automatic.
+    // On-demand measurement of shots without statistics.
     measure: "Measure shots",
     measure_running: "Measuring…",
-    measure_hint:
-      "Sample three frames per shot for brightness, motion and focus — one ffmpeg pass per shot, so it is opt-in.",
+    measure_hint: "Measure shot brightness, motion and sharpness",
     // Disabled-button reasons, `apply_no_cuts`' rule: name the precondition
     // rather than repeat a label that cannot be acted on.
     measure_all_measured: "Every shot in this list is already measured",
@@ -917,8 +914,7 @@ const enUS = {
     // `project.tracks`, since it is read at 1 as often as at 30.
     describe_all_one: "Describe {{count}} shot",
     describe_all_other: "Describe {{count}} shots",
-    describe_all_hint:
-      "Describe every shot that has nothing yet, one after another — each is its own local model run, so it is opt-in.",
+    describe_all_hint: "Describe shots in bulk using a vision model",
     // While it runs the button IS the stop. `done` counts finished runs, so it
     // reads 0/7 while the first one is going.
     describe_all_running: "Stop ({{done}}/{{total}})",
