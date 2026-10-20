@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.smoothleft",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Silliq chapga",
+    "uz-Cyrl": "Силлиқ чапга",
+    "ru": "Плавно влево",
+    "en": "Smooth left"
+  },
+  "description": {
+    "uz": "Yumshoq chegara bilan chapga o'tish",
+    "uz-Cyrl": "Юмшоқ чегара билан чапга ўтиш",
+    "ru": "Мягкая шторка влево",
+    "en": "Soft-edged wipe left"
+  },
+  "backend": "xfade",
+  "preset": "smoothleft",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

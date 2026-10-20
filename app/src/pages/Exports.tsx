@@ -40,9 +40,7 @@ export function Exports() {
         {items.map((x) => (
           <li key={x.job.id} className="card stack">
             <div className="row" style={{ justifyContent: "space-between" }}>
-              <Link to={`/episodes/${x.episode_id}/clips/${x.clip_id}`}>
-                {x.title || (typeof x.job.meta["title"] === "string" ? x.job.meta["title"] : x.clip_id)}
-              </Link>
+              <ExportTitle item={x} />
               <ExportActions
                 job={x.job}
                 onRetry={() => retry.mutate(x.job.id)}
@@ -55,12 +53,36 @@ export function Exports() {
             {x.job.status === "done" && resultPath(x.job) && (
               <span className="muted mono">{t("exp.done", { path: resultPath(x.job) ?? "" })}</span>
             )}
+            {x.job.status === "done" && typeof x.job.result?.["edl"] === "string" && (
+              <span className="muted mono">EDL: {x.job.result["edl"] as string}</span>
+            )}
             <ResultWarnings job={x.job} />
           </li>
         ))}
       </ul>
     </div>
   );
+}
+
+const metaStr = (job: Job, k: string) => (typeof job.meta[k] === "string" ? (job.meta[k] as string) : null);
+
+/** Klip eksporti - klip muharririga, montaj renderi - montaj sahifasiga havola. */
+function ExportTitle({ item }: { item: ExportItem }) {
+  const t = useT();
+  const montageId = item.montage_id || metaStr(item.job, "montage_id");
+  const title = item.title || metaStr(item.job, "title");
+  if (montageId) {
+    return (
+      <span className="row" style={{ gap: 6 }}>
+        <span className="badge accent">{t("mon.badge")}</span>
+        <Link to={`/montages/${montageId}`}>{title || montageId}</Link>
+      </span>
+    );
+  }
+  if (item.episode_id && item.clip_id) {
+    return <Link to={`/episodes/${item.episode_id}/clips/${item.clip_id}`}>{title || item.clip_id}</Link>;
+  }
+  return <span>{title || item.job.id}</span>;
 }
 
 const resultPath = (job: Job): string | null => {

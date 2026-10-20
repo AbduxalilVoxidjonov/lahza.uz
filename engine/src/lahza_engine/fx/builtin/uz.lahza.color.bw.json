@@ -1,0 +1,31 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.color.bw",
+  "version": "1.0.0",
+  "kind": "color",
+  "name": {
+    "uz": "Oq-qora",
+    "uz-Cyrl": "Оқ-қора",
+    "ru": "Чёрно-белый",
+    "en": "Black & white"
+  },
+  "description": {
+    "uz": "Oq-qora tasvir",
+    "uz-Cyrl": "Оқ-қора тасвир",
+    "ru": "Чёрно-белое изображение",
+    "en": "Monochrome image"
+  },
+  "backend": "color",
+  "preset": "bw",
+  "params": [
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 1.0
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

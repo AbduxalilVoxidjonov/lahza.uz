@@ -13,5 +13,9 @@ Har bir ADR: kontekst → qaror → oqibatlar → ko'rib chiqilgan muqobillar. Q
 | [0007](0007-ass-yagona-manba.md) | Subtitr uchun yagona manba — ASS fayl | Qabul qilindi |
 | [0008](0008-ichki-imlo-rasmiy.md) | Ichki saqlash rasmiy imloda, o'girish faqat render paytida | Qabul qilindi |
 | [0009](0009-sendcmd-dinamik-crop.md) | Dinamik kadr uchun FFmpeg `sendcmd` + `crop` | Qabul qilindi |
+| [0010](0010-youtube-havola-import.md) | YouTube havolasidan import — yagona foydalanuvchi boshlaydigan tarmoq amali | Taklif |
+| [0011](0011-deklarativ-plaginlar.md) | Montaj plaginlari — kod emas, ma'lumot (deklarativ manifest) | Qabul qilindi |
+| [0012](0012-lahza-timeline.md) | Lahza Timeline — yagona montaj modeli, OpenTimelineIO bilan muvofiq | Qabul qilindi (qisman: montaj Timeline orqali; Reels klip renderi keyin o'tadi) |
+| [0013](0013-haqiqiy-kadr-tamoyili.md) | "Haqiqiy kadr" tamoyili — yangi kadr generatsiya qilinmaydi | Qabul qilindi |
 
 Yangi ADR shabloni: [`0000-shablon.md`](0000-shablon.md).

@@ -27,6 +27,15 @@ export function Shell() {
         <NavLink to="/projects" className={link}>
           {t("nav.projects")}
         </NavLink>
+        <div className="nav-group" role="group" aria-labelledby="nav-montage">
+          <span id="nav-montage" className="nav-group-title">{t("nav.montage")}</span>
+          <NavLink to="/templates" className={link}>
+            {t("nav.templates")}
+          </NavLink>
+          <NavLink to="/montages" className={link}>
+            {t("nav.montages")}
+          </NavLink>
+        </div>
         <NavLink to="/exports" className={link}>
           {t("nav.exports")}
         </NavLink>

@@ -1,0 +1,28 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.color.lut",
+  "version": "1.0.0",
+  "kind": "color",
+  "name": {
+    "uz": "LUT (.cube)",
+    "uz-Cyrl": "LUT (.cube)",
+    "ru": "LUT (.cube)",
+    "en": "LUT (.cube)"
+  },
+  "description": {
+    "uz": "Foydalanuvchining .cube LUT fayli",
+    "uz-Cyrl": "Фойдаланувчининг .cube LUT файли",
+    "ru": "Пользовательский LUT .cube",
+    "en": "Your own .cube LUT file"
+  },
+  "backend": "lut",
+  "preset": "cube",
+  "params": [
+    {
+      "id": "file",
+      "type": "file"
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

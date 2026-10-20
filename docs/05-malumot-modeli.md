@@ -7,6 +7,8 @@ erDiagram
   shows ||--o{ episodes : "o'z ichiga oladi"
   shows ||--o{ show_speakers : "taniydi"
   shows ||--o{ lexicon : "lug'at"
+  shows |o--o{ montages : "loyiha (ixtiyoriy)"
+  montages ||--o{ montage_exports : "render"
   media ||--o{ sentences : ""
   sentences ||--o{ words : ""
   media ||--o{ clips : ""
@@ -26,6 +28,9 @@ erDiagram
 | `lexicon` | `term`, `variants_json`, `kind` (`ism / brend / atama`), `show_id` (`NULL` — umumiy). Tahlilga `hotwords` (atamalar) va `lexicon_map` (variant → atama) bo'lib uzatiladi |
 | `style_templates` | Brend shablonlari: `name`, `json` (StyleTemplate), `updated_at` (v2) |
 | `settings` | Kalit-qiymat sozlamalar |
+| `montages` | Montaj (v3): `project_id` (→ `shows`, `ON DELETE SET NULL`), `name`, `template_id`, `sources_json` (manbalar + `media_id`, `path`), `overrides_json`, `timeline_json` (`lahza.timeline/1`, reja tayyor bo'lguncha `NULL`), `duration_ms`, `status` (`planning / ready / failed`), `error`, `job_id` (oxirgi rejalashtirish vazifasi), `user_edited`, `created_at`, `updated_at` |
+| `user_templates` | Foydalanuvchi video shablonlari (v3): `id` (`user.<uuid12>` yoki import qilingan id), `json` (`lahza.template/1`), `created_at`, `updated_at`. O'rnatilgan shablonlar bazada emas — `templates/builtin/*.json` |
+| `montage_exports` | Montaj renderlari (v3): `montage_id` (`ON DELETE CASCADE`), `job_id`, `path`, `status` (`queued → running → done / failed / cancelled`), `error`, `created_at`, `finished_at` |
 
 ## project.db (Epizod)
 
@@ -48,6 +53,10 @@ erDiagram
 ```
 Library/
   library.db
+  _montage/<montaj_id>/
+    cache/          manba tahlili keshi (montage.analyze, xesh bo'yicha JSON)
+    work/           preview kadrlari va render ish papkalari (<job_id>/) - ishdan keyin o'chiriladi
+    thumbs/         manba kichik kadrlari (<media_id>-<t_ms>.jpg)
   <Shou>/
     <Epizod>-<id>.lahza/
       project.db
@@ -58,7 +67,7 @@ Library/
 
 ## Migratsiya
 
-`db/store.py`: ikki baza alohida versiyalanadi — `LIBRARY_SCHEMA_VERSION` + `LIBRARY_MIGRATIONS` va `PROJECT_SCHEMA_VERSION` + `PROJECT_MIGRATIONS` (`{versiya: SQL}`; `SCHEMA_VERSION`/`MIGRATIONS` — loyiha bazasi uchun orqaga moslik nomlari). Eski baza ochilganda avval SQLite backup API bilan `<baza>.v<N>.bak` (masalan `project.v1.bak`, `library.v1.bak`) zaxira nusxa olinadi (WAL'dagi yozuvlar ham kiradi), so'ng migratsiyalar ketma-ket qo'llanadi. Yangiroq versiyada yaratilgan baza ochilmaydi (aniq xabar). Yangi bazalar `*.sql` dan to'g'ridan-to'g'ri oxirgi versiyada yaratiladi — `.sql` va migratsiya natijasi bir xil ustunlarga ega bo'lishi testda tekshiriladi.
+`db/store.py`: ikki baza alohida versiyalanadi — `LIBRARY_SCHEMA_VERSION` + `LIBRARY_MIGRATIONS` va `PROJECT_SCHEMA_VERSION` + `PROJECT_MIGRATIONS` (`{versiya: SQL}`; `SCHEMA_VERSION`/`MIGRATIONS` — loyiha bazasi uchun orqaga moslik nomlari). Eski baza ochilganda avval SQLite backup API bilan `<baza>.v<N>.bak` (masalan `project.v1.bak`, `library.v1.bak`) zaxira nusxa olinadi (WAL'dagi yozuvlar ham kiradi), so'ng migratsiyalar ketma-ket qo'llanadi. Yangiroq versiyada yaratilgan baza ochilmaydi (aniq xabar). Hozirgi versiyalar: kutubxona — **v3**, loyiha — **v2**. Yangi bazalar `*.sql` dan to'g'ridan-to'g'ri oxirgi versiyada yaratiladi — `.sql` va migratsiya natijasi bir xil ustunlarga ega bo'lishi testda tekshiriladi.
 
 ### v2 (M2)
 
@@ -66,3 +75,9 @@ Library/
 | --- | --- |
 | library | `episodes.highlight_mode` (`llm / lite`); `style_templates.updated_at`; `idx_lexicon_show` indeksi |
 | project | `exports.job_id`, `exports.finished_at`; `corrections.media_id`, `corrections.sentence_id` |
+
+### v3 (Montaj)
+
+| Baza | O'zgarish |
+| --- | --- |
+| library | Yangi jadvallar: `montages` (+ `idx_montages_project`), `user_templates`, `montage_exports` (+ `idx_montage_exports_montage`). Zaxira — `library.v2.bak` |

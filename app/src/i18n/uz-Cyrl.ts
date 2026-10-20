@@ -1,7 +1,9 @@
 // O'zbek (kirill) lug'ati. Asos - uz.ts; kalit yetishmasa yoki ortiqcha bo'lsa TS xato beradi (M2-APP-10).
 import type { Messages } from "./index";
 
+import { montageUzCyrl } from "./montage/uz-Cyrl";
 export const uzCyrl = {
+  ...montageUzCyrl,
   "app.name": "Lahza Studio",
   "nav.projects": "Лойиҳалар",
   "nav.exports": "Экспорт",

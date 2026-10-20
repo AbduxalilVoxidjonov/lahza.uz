@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.fadeblack",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Qoraga o'tish",
+    "uz-Cyrl": "Қорага ўтиш",
+    "ru": "Через чёрный",
+    "en": "Dip to black"
+  },
+  "description": {
+    "uz": "Qora kadr orqali o'tish",
+    "uz-Cyrl": "Қора кадр орқали ўтиш",
+    "ru": "Переход через чёрный кадр",
+    "en": "Transition through black"
+  },
+  "backend": "xfade",
+  "preset": "fadeblack",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

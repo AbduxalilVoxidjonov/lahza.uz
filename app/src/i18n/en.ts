@@ -1,7 +1,9 @@
 // Ingliz lug'ati. Kalit yetishmasa yoki ortiqcha bo'lsa TS xato beradi (M2-APP-10).
 import type { Messages } from "./index";
 
+import { montageEn } from "./montage/en";
 export const en = {
+  ...montageEn,
   "app.name": "Lahza Studio",
   "nav.projects": "Projects",
   "nav.exports": "Exports",

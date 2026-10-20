@@ -8,9 +8,14 @@ import { Shell } from "./components/Shell";
 import { ClipEditor } from "./pages/ClipEditor";
 import { Episode } from "./pages/Episode";
 import { Exports } from "./pages/Exports";
+import { Montage } from "./pages/Montage";
+import { MontageNew } from "./pages/MontageNew";
+import { Montages } from "./pages/Montages";
 import { Onboarding } from "./pages/Onboarding";
 import { Projects } from "./pages/Projects";
 import { Settings } from "./pages/Settings";
+import { TemplateEditor } from "./pages/TemplateEditor";
+import { Templates } from "./pages/Templates";
 import { Transcript } from "./pages/Transcript";
 import { useDocumentLang, useT } from "./i18n";
 import "./styles/app.css";
@@ -47,6 +52,11 @@ const router = createHashRouter([
       { path: "/episodes/:episodeId", element: <Episode /> },
       { path: "/episodes/:episodeId/transcript", element: <Transcript /> },
       { path: "/episodes/:episodeId/clips/:clipId", element: <ClipEditor /> },
+      { path: "/templates", element: <Templates /> },
+      { path: "/templates/:id", element: <TemplateEditor /> },
+      { path: "/montages", element: <Montages /> },
+      { path: "/montages/new", element: <MontageNew /> },
+      { path: "/montages/:id", element: <Montage /> },
       { path: "/exports", element: <Exports /> },
       { path: "/settings", element: <Settings /> },
     ],

@@ -258,3 +258,105 @@ def build_vtt(words: list[Word], timeline: Timeline, max_words: int = 7,
         safe = text.replace("-->", "→")
         out.append(f"{_clock(a, '.')} --> {_clock(b, '.')}\n{safe}\n")
     return "\n".join(out)
+
+
+# --- Montaj matn qatlami (TextItem: sarlavha, hook, CTA, lower-third, karta) -----------------
+
+TEXT_KIND_STYLE: dict[str, tuple[str, float, bool]] = {
+    # kind -> (ASS uslub nomi, shrift o'lchami ko'paytmasi (subtitr o'lchamiga nisbatan), quti)
+    "card": ("Card", 1.35, False),
+    "title": ("Title", 1.15, False),
+    "hook": ("Hook", 1.2, True),
+    "cta": ("Cta", 1.05, True),
+    "lower_third": ("Lower", 0.75, True),
+}
+SLIDE_PX = 80
+ANIM_MS = 250
+
+
+def _text_style_line(name: str, style: StyleTemplate, size: int, box: bool, align: int,
+                     margin_lr: int, margin_v: int) -> str:
+    bold = -1 if style.bold else 0
+    if box:
+        back = ass_color(style.box_color, 1 - max(style.box_opacity, 0.6))
+        border_style, outline = 3, max(8.0, style.outline_width)
+        outline_col = back
+    else:
+        back = ass_color("#000000", 1.0)
+        border_style, outline = 1, style.outline_width
+        outline_col = ass_color(style.outline_color)
+    return (f"Style: {name},{style.font_family},{size},{ass_color(style.primary_color)},"
+            f"{ass_color(style.highlight_color)},{outline_col},{back},{bold},0,0,0,100,100,0,0,"
+            f"{border_style},{outline},{style.shadow},{align},{margin_lr},{margin_lr},{margin_v},1")
+
+
+def _text_anchor(position: str, kind: str, zone: SubtitleSafeZone, width: int,
+                 height: int) -> tuple[int, int, int]:
+    """(ASS alignment, x, y) - matn qatlami joyi (Instagram interfeysi zonasidan tashqarida)."""
+    side = int(width * zone.side_pct)
+    if kind == "lower_third":
+        return 1, side, int(height * (1 - zone.bottom_pct)) - 20
+    if position == "upper":
+        return 8, width // 2, int(height * zone.top_pct) + 20
+    if position == "lower":
+        return 2, width // 2, int(height * (1 - zone.bottom_pct)) - 20
+    return 5, width // 2, height // 2
+
+
+def text_item_events(items: list, style: StyleTemplate, zone: SubtitleSafeZone | None = None,
+                     width: int = 1080, height: int = 1920, offset_ms: int = 0
+                     ) -> tuple[list[str], list[str]]:
+    """Montaj TextItem'lari -> (qo'shimcha Style qatorlari, Dialogue qatorlari).
+
+    `items` - `montage.model.TextItem` ro'yxati (vaqtlari chiqish vaqtida). Animatsiya:
+    fade -> \\fad, pop -> \\fscx/\\t, slide_up -> \\move. Karta foni rendererda chiziladi.
+    """
+    zone = zone or SubtitleSafeZone()
+    side = int(width * zone.side_pct)
+    styles: dict[str, str] = {}
+    events: list[str] = []
+    for it in items:
+        name, mult, box = TEXT_KIND_STYLE.get(it.kind, TEXT_KIND_STYLE["title"])
+        size = it.font_size or max(24, round(style.font_size * mult))
+        sname = f"{name}{size}"
+        align, x, y = _text_anchor(it.position, it.kind, zone, width, height)
+        if sname not in styles:
+            styles[sname] = _text_style_line(sname, style, size, box, align, side, 0)
+        tags = [f"\\an{align}"]
+        if it.animation == "slide_up":
+            tags.append(f"\\move({x},{y + SLIDE_PX},{x},{y},0,{ANIM_MS})\\fad({ANIM_MS},0)")
+        else:
+            tags.append(f"\\pos({x},{y})")
+        if it.animation == "fade":
+            tags.append(f"\\fad({ANIM_MS},{ANIM_MS})")
+        elif it.animation == "pop":
+            tags.append(f"\\fscx120\\fscy120\\t(0,{POP_MS},\\fscx100\\fscy100)")
+        lines = [escape(convert(x_, style.orthography)) for x_ in str(it.text).splitlines()]
+        text = "\\N".join(x_ for x_ in lines if x_.strip()) or " "
+        if style.uppercase and it.kind in ("hook", "cta"):
+            text = text.upper()
+        start, end = it.start_ms - offset_ms, it.end_ms - offset_ms
+        if end > 0 and end > start:
+            events.append(f"Dialogue: 1,{ass_time(start)},{ass_time(end)},{sname},,0,0,0,,"
+                          "{" + "".join(tags) + "}" + text)
+    return list(styles.values()), events
+
+
+def build_montage_ass(
+    text_items: list,
+    words: list[Word],
+    style: StyleTemplate,
+    zone: SubtitleSafeZone | None = None,
+    width: int = 1080,
+    height: int = 1920,
+    offset_ms: int = 0,
+) -> str:
+    """Montaj uchun yagona ASS: subtitr so'zlari (chiqish vaqtida) + TextItem qatlamlari."""
+    end = max([1, *(w.end_ms for w in words), *(t.end_ms for t in text_items)]) + 1000
+    doc = build_ass(words, Timeline(0, end), style, zone, width, height, offset_ms=offset_ms)
+    extra_styles, events = text_item_events(text_items, style, zone, width, height, offset_ms)
+    if extra_styles:
+        doc = doc.replace("\n\n[Events]", "\n" + "\n".join(extra_styles) + "\n\n[Events]", 1)
+    if events:
+        doc = doc.rstrip("\n") + "\n" + "\n".join(events) + "\n"
+    return doc

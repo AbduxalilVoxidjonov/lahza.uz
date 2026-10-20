@@ -65,12 +65,12 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 | GET | `/v1/jobs/{id}` | `{"id", "kind", "status", "progress", "stage", "error", "result", "meta", "created_at"}` |
 | POST | `/v1/jobs/{id}:cancel` | Job |
 | POST | `/v1/jobs/{id}:retry` | Job (yangi; `meta.retry_of` = eski ID) |
-| GET | `/v1/exports` | `[{"job": Job, "episode_id", "clip_id", "title"}]` |
+| GET | `/v1/exports` | `[{"job": Job, "episode_id", "clip_id", "montage_id", "title"}]` |
 
-* `kind`: `analyze | export | install | pack`. `status`: `queued | running | done | failed | cancelled`. `stage`: `ingest | vad | asr | normalize | align | diarize | sentences | signals | highlight`, o'rnatilayotgan model ID'si yoki `export-pack`/`import-pack`. `created_at` — Unix vaqt (s).
-* Oqimlar: tahlil — 1 ta; eksport — `LAHZA_EXPORT_WORKERS` (standart 2, 1..8); `install`/`pack` — alohida 1 ta I/O oqimi.
-* `:retry` faqat `failed`/`cancelled` eksport uchun (aks holda 409), xuddi shu parametrlar bilan.
-* `/v1/exports` — joriy engine sessiyasidagi eksport vazifalari, yangisi oldin. Doimiy tarix `project.db` → `exports` jadvalida.
+* `kind`: `analyze | export | install | pack | montage`. `status`: `queued | running | done | failed | cancelled`. `stage`: `ingest | vad | asr | normalize | align | diarize | sentences | signals | highlight`, montajda `analyze | plan`, montaj renderida `render`, o'rnatilayotgan model ID'si yoki `export-pack`/`import-pack`. `created_at` — Unix vaqt (s).
+* Oqimlar: tahlil va montaj rejalashtirish (`montage`) — bitta umumiy "heavy" oqim; eksport (klip va montaj render) — `LAHZA_EXPORT_WORKERS` (standart 2, 1..8); `install`/`pack` — alohida 1 ta I/O oqimi.
+* `:retry` faqat `failed`/`cancelled` eksport uchun (aks holda 409), xuddi shu parametrlar bilan (klip va montaj eksporti).
+* `/v1/exports` — joriy engine sessiyasidagi eksport vazifalari (klip va montaj), yangisi oldin. Klip eksportida `episode_id`/`clip_id`, montajda `montage_id` to'ldirilgan (qolganlari `null`). Doimiy tarix: klip — `project.db` → `exports`, montaj — `library.db` → `montage_exports`.
 
 ## Transkript
 
@@ -129,6 +129,61 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 * Uslublar `library.db → style_templates` da; `template.name` yozuv nomiga tenglanadi. Import fayli: `{"name","template"}` yoki yalang'och `StyleTemplate` JSON (≤ 1 MB); yaroqsiz — 400. Eksport `{"name","template"}` yozadi (`.json` kengaytmasi qo'shiladi).
 * `fonts`: `subtitle.fonts.list_fonts()` (shrift o'zbek glifflarini qamraydimi).
 
+## Montaj: plaginlar, video shablonlar, avtomontaj
+
+Manba: `api/routes_montage.py` (docs/11 5-6, 10-bo'limlar; ADR-0011/0012/0013). Modellar: `montage/model.py` (`MontageTimeline`, `lahza.timeline/1`), `templates/model.py` (`Template`, `lahza.template/1`), `fx/registry.py` (`FxManifest`, `lahza.fx/1`). Og'ir modullar (`fx.registry`, `templates.store`, `montage.analyze`, `montage.planner`, `render.montage_render`) endpoint ichida yuklanadi; modul yo'q bo'lsa — **501**.
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/fx?kind=` | — | `FxManifest[]` |
+| GET | `/v1/templates` | — | `Template[]` (avval o'rnatilganlar, keyin foydalanuvchiniki; `builtin` maydoni) |
+| GET | `/v1/templates/{id}` | — | `Template` |
+| POST | `/v1/templates` | `Template` (`id` ixtiyoriy) | `Template` |
+| PUT | `/v1/templates/{id}` | `Template` | `Template` |
+| DELETE | `/v1/templates/{id}` | — | `{"ok": true}` |
+| POST | `/v1/templates/{id}:duplicate` | `{"name?"}` | `Template` (foydalanuvchi nusxasi) |
+| POST | `/v1/templates:import` | `{"path"}` (.json) | `Template` |
+| POST | `/v1/templates/{id}:export` | `{"path"}` | `{"ok": true}` |
+| GET | `/v1/montages?project_id=` | — | `[{"id","name","template_id","status","duration_ms","created_at","updated_at","project_id"}]` |
+| POST | `/v1/montages` | `{"name?","project_id?","template_id","sources": [Source],"overrides?": Overrides}` | `{"montage_id","job"}` (Job `kind: montage`) |
+| GET | `/v1/montages/{id}` | — | `{"id","name","template_id","project_id","status","duration_ms","created_at","updated_at","sources","overrides","timeline": MontageTimeline\|null,"error","user_edited","job_id","exports": [MontageExport]}` |
+| PUT | `/v1/montages/{id}/timeline` | `MontageTimeline` | `{"ok": true, "timeline"}` |
+| POST | `/v1/montages/{id}:replan` | `{"template_id?","overrides?","force?": false}` | Job (`kind: montage`) |
+| POST | `/v1/montages/{id}:preview` | `{"t_ms", "timeline?": MontageTimeline}` | `image/jpeg` |
+| POST | `/v1/montages/{id}/media` | `{"path", "role": "music"}` | `{"media": MediaRef}` |
+| POST | `/v1/montages/{id}:render` | `{"out_dir","filename?","allow_no_subs?": false}` | Job (`kind: export`, `meta: {montage_id, title, export_id}`) |
+| GET | `/v1/montages/{id}/sources/{media_id}/thumb?t_ms=` | — | `image/jpeg` (320 px kenglik) |
+| DELETE | `/v1/montages/{id}` | — | `{"ok": true}` |
+
+`Source`: `{"kind":"file","path"}` \| `{"kind":"clip","episode_id","clip_id"}` \| `{"kind":"episode","episode_id"}`. `Overrides` (hammasi ixtiyoriy): `target_duration_ms` (5000..600000), `aspect` (`9:16|1:1|16:9`), `music_path`, `title`, `cta`, `shou`, `captions`, `caption_style` (StyleTemplate), `logo_path`, `transition`, `color` (plagin id). `MontageExport`: `{"id","job_id","path","status","error","created_at","finished_at"}`, `status`: `queued | running | done | failed | cancelled`.
+
+**Shablonlar**
+
+* O'rnatilgan shablonlar (`templates/builtin/*.json`, `uz.lahza.tpl.*`) o'zgartirilmaydi: PUT/DELETE — **409**. Foydalanuvchi shablonlari `library.db → user_templates` da.
+* POST: `id` bo'lmasa, bo'sh, o'rnatilgan shablon id'si yoki band bo'lsa — yangi `user.<uuid12>` beriladi; boshqa holatda berilgan id saqlanadi (`templates.store` id qoidasi: kichik lotin harflari, raqam, `.`, `-`, `_`). `builtin` doim `false`. PUT'da tanadagi `id` e'tiborsiz (yo'ldagi id ishlatiladi); noma'lum id — 404.
+* Validatsiya: pydantic + `templates.store.validate_template` (o'rinbosarlar `{sarlavha}`, `{shou}`, `{cta}`, intro/outro davomiyligi, o'tish uzunligi, plagin id'lari fx reestrida va turi mosligi). Xato — **400**, `detail` o'zbekcha (`shablon yaroqsiz: ...`).
+* `:duplicate`: istalgan (o'rnatilgan ham) shablondan `user.<uuid12>` nusxa; `name` berilmasa `"<nom> (nusxa)"`.
+* `:import`: faqat `.json`, hajmi ≤ 1 MB; `templates.store.load_template_file` (`schema` = `lahza.template/1` majburiy). Yaroqsiz — 400. id qoidasi POST bilan bir xil. `:export`: `.json` kengaytmasi qo'shiladi, ota-papka mavjud bo'lmasa — 400; fayl `builtin=false` bilan yoziladi.
+
+**Montaj yaratish va reja**
+
+* Manbalar: 1..50 ta (aks holda 400). `file` — fayl mavjud bo'lishi kerak (400). `episode`/`clip` — epizod (404), `media` yozuvi (yo'q bo'lsa 409 — tahlil qilinmagan), asl fayl (400), klip (404). Shablon — 404, `project_id` — 404, `music_path`/`logo_path` mavjud bo'lishi (400), `transition`/`color` reestrda bo'lishi (400). Har manbaga tartib bo'yicha `media_id` = `src1`, `src2`, ... va yechilgan asl fayl `path` beriladi (javobdagi `sources` da ko'rinadi; timeline'dagi `MediaRef.id` shu).
+* `montages` qatori `status = planning` bilan yoziladi va `montage` vazifasi ("heavy" navbat) yuboriladi: har manba uchun `montage.analyze.analyze_file` (kesh: `Library/_montage/<id>/cache/`), progress `analyze` 0..0.9; so'ng `montage.planner.plan_montage` (`plan`, 0.9..1) → `timeline_json`, `duration_ms`, `status = ready`, `user_edited = 0`. Xato (`PlanError` va boshqalar) — `status = failed`, `error` (o'zbekcha). Bekor qilish — `error = "rejalashtirish bekor qilindi"`.
+* Epizod manbalari **asl fayldan** tahlil qilinadi (proksi yoki `audio16k.wav` dan emas), so'ng `analyze.enrich_with_transcript` bilan epizod `project.db` gaplari, rad etilmagan kliplari (highlight) va `signals` bosqichi keshi (bo'lmasa qayta hisoblanadi) qo'shiladi. `MediaRef.origin`: `file` \| `clip:<episode_id>/<clip_id>` \| `episode:<episode_id>`.
+* Klip manbasi: tahlil klip oralig'i bilan cheklanadi — kesimlar (`clip_cuts`) chiqarib tashlanadi; shotlar va nutq oraliqlari saqlangan bo'laklarga kesiladi, gaplar (so'zlari kesim ichida bo'lganlari olib tashlanadi), emphasis va spiker almashuvlari filtrlanadi; `highlights` — klipning saqlangan bo'laklari (har biri `clip_id` bilan, ball 0..1).
+* Engine qayta ishga tushganda `planning` da qolib ketgan montaj o'qilganda avtomatik tiklanadi: timeline bo'lsa `ready`, bo'lmasa `failed` (`error` — qayta rejalashtirish taklifi).
+* `:replan`: `planning` holatida — 409. Montaj qo'lda tahrirlangan bo'lsa (`user_edited` yoki biror `VideoItem.user_edited`) va `force` bo'lmasa — **409** (qayta reja tahrirlarni almashtiradi). `template_id`/`overrides` berilsa saqlanadi, aks holda avvalgilari. Tahlil keshi qayta ishlatiladi. Qayta reja xatosida avvalgi timeline saqlanadi (`status = ready`, `error` to'ldiriladi).
+
+**Timeline tahriri, preview, render**
+
+* `PUT timeline`: `planning` da — 409. `MontageTimeline` validatsiyasi (element media'si mavjud, `src_out > src_in`, manba davomiyligi, takroriy id, birinchi elementda o'tish yo'q) — xato 400 (`timeline yaroqsiz: ...`). Har `media[].path` montajning mavjud media/manba yo'llaridan biri yoki mavjud fayl bo'lishi kerak; `brand.logo_path` mavjud bo'lishi; plagin id'lari (fx, o'tish, rang) reestrda bo'lishi — aks holda 400. Saqlanganda `user_edited = 1`, `status = ready`, `error = null`.
+* `:preview`: `render.montage_render.render_montage_frame` (bitta kadr; libass yo'q bo'lsa matnsiz). `t_ms` montaj davomiyligiga qisiladi. Ish fayli `Library/_montage/<id>/work/preview/` da yaratilib, javobdan keyin o'chiriladi. Timeline yo'q — 409.
+  Ixtiyoriy `timeline` (saqlanmagan draft) berilsa kadr shu bo'yicha chiziladi, saqlangan timeline o'zgarmaydi. Draft `PUT .../timeline` kabi validatsiya qilinadi (yaroqsiz — 400, noma'lum plagin — 400), lekin uning `media` yo'llari **faqat** montajning mavjud media'laridan (saqlangan timeline `media` + manbalar) bo'lishi mumkin — yangi fayl yo'li 400; saqlangan timeline'dagi media id'sining yo'lini almashtirish ham 400 (musiqa avval `POST .../media` bilan qo'shiladi). Draftda video elementlar yo'q — 409. UI draft o'zgarganda (debounce ~400 ms) shu maydonni yuboradi.
+* `POST /media` (muharrirdan musiqa): fayl `montage.analyze.probe_media` bilan tekshiriladi — topilmasa, o'qilmasa yoki **audio oqimi bo'lmasa** 400. Natija `MediaRef` (id `music`, band bo'lsa `music2`, `music3`...; `width/height/fps = 0`, `hash`) saqlangan timeline `media` lug'atiga qo'shiladi va montaj `user_edited` bo'ladi; xuddi shu fayl qayta qo'shilsa mavjud id qaytadi. `MusicItem` ni UI draft'ga yozadi va odatdagi `PUT .../timeline` bilan saqlaydi. `planning` yoki timeline yo'q — 409; `role` faqat `"music"` (boshqasi 422).
+* `:render`: timeline yo'q, `planning` yoki video elementsiz — 409. libass yo'q, `allow_no_subs = false` va timeline'da matn qatlami (`text`) yoki so'zli subtitr (`captions.enabled` + `words`) bor — **422** (aniq o'zbekcha xabar), vazifa yaratilmaydi. `out_dir` (yoki uning ota-papkasi) mavjud bo'lmasa — 400. Fayl nomi: `filename` yoki montaj nomi; `/ \ : * ? " < > |` → `_`, `.mp4` qo'shiladi, mavjud fayl ustiga yozilmaydi (`_2`, `_3`, ...). Enkoder klip eksportidagi kabi tanlanadi (`choose_encoder`, GPU). `render_montage` ish papkasi `Library/_montage/<id>/work/<job_id>/` (tugagach o'chiriladi). Natija (`job.result`): `{"video","edl","srt","warnings","encoder","export_id","montage_id"}`. `montage_exports` ga yozuv (`queued → running → done/failed/cancelled`).
+* `thumb`: `media_id` timeline `media` yoki `sources` dan; fayl yo'q — 404. `ffmpeg -ss t -i <fayl> -frames:v 1 -vf scale=320:-2` (yo'l faqat `-i` kirishi sifatida), `Library/_montage/<id>/thumbs/<media_id>-<t_ms>.jpg` da keshlanadi; `t_ms` media davomiyligiga qisiladi.
+* `DELETE`: rejalashtirish vazifasi ishlayotgan bo'lsa bekor qilinadi; `montages` (va kaskad bilan `montage_exports`) qatori va `Library/_montage/<id>/` papkasi o'chiriladi. Render qilingan videolar o'chirilmaydi.
+
 ## Hodisalar (WebSocket)
 
 `ws://127.0.0.1:<port>/v1/events?t=<token>` — noto'g'ri token bilan ulanish qabul qilinadi va darhol `4401` kod bilan yopiladi (qabulsiz yopish mijozga faqat HTTP 403 bo'lib ko'rinardi).
@@ -139,4 +194,4 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 
 ## Turlar
 
-TypeScript turlari: `app/src/api/types.ts`. Python modellari: `engine/src/lahza_engine/types.py`, `subtitle/style.py`, `models/catalog.py`. Ikkalasi bir xil bo'lishi CI'da qo'lda tekshiriladi (M2'da OpenAPI'dan avtomatik generatsiya rejalashtirilgan).
+TypeScript turlari: `app/src/api/types.ts`. Python modellari: `engine/src/lahza_engine/types.py`, `subtitle/style.py`, `models/catalog.py`, `montage/model.py`, `templates/model.py`, `fx/registry.py`. Ikkalasi bir xil bo'lishi CI'da qo'lda tekshiriladi (M2'da OpenAPI'dan avtomatik generatsiya rejalashtirilgan).

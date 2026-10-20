@@ -1,4 +1,6 @@
+import { montageUz } from "./montage/uz";
 export const uz = {
+  ...montageUz,
   "app.name": "Lahza Studio",
   "nav.projects": "Loyihalar",
   "nav.exports": "Eksport",

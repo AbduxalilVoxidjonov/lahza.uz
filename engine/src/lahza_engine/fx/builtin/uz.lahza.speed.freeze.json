@@ -1,0 +1,31 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.speed.freeze",
+  "version": "1.0.0",
+  "kind": "speed",
+  "name": {
+    "uz": "Kadrni to'xtatish",
+    "uz-Cyrl": "Кадрни тўхтатиш",
+    "ru": "Стоп-кадр",
+    "en": "Freeze frame"
+  },
+  "description": {
+    "uz": "Kadr dur_ms davomida to'xtab turadi (ovoz davom etadi)",
+    "uz-Cyrl": "Кадр dur_ms давомида тўхтаб туради (овоз давом этади)",
+    "ru": "Стоп-кадр на dur_ms (звук продолжается)",
+    "en": "Hold the frame for dur_ms (audio continues)"
+  },
+  "backend": "speed",
+  "preset": "freeze",
+  "params": [
+    {
+      "id": "dur_ms",
+      "type": "int",
+      "min": 100,
+      "max": 5000,
+      "default": 800
+    }
+  ],
+  "default_trigger": "on_emphasis",
+  "license": "Lahza"
+}

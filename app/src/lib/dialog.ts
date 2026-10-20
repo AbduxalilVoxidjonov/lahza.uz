@@ -26,6 +26,26 @@ export async function pickPath(o: PickOptions): Promise<string | null> {
   return typeof res === "string" ? res : null;
 }
 
+export const VIDEO_EXTS = ["mp4", "mov", "mkv", "webm", "m4v", "avi"];
+export const AUDIO_EXTS = ["mp3", "wav", "m4a", "aac", "flac", "ogg"];
+export const IMAGE_EXTS = ["png", "jpg", "jpeg", "webp"];
+
+/** Bir nechta fayl tanlash (Tauri); brauzerda yoki bekor qilinganda bo'sh ro'yxat. */
+export async function pickPaths(o: PickOptions): Promise<string[]> {
+  if (!isTauri()) return [];
+  const res = await open({
+    multiple: true,
+    title: o.title,
+    defaultPath: o.defaultPath,
+    filters: o.extensions ? [{ name: o.filterName ?? o.extensions.join(", "), extensions: o.extensions }] : undefined,
+  });
+  if (Array.isArray(res)) return res.filter((x): x is string => typeof x === "string");
+  return typeof res === "string" ? [res] : [];
+}
+
+/** Yo'lning oxirgi qismi (fayl nomi). */
+export const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
+
 /** Papka + fayl nomi (saqlash dialogi ruxsati so'ralmasligi uchun papka tanlanadi). */
 export function joinPath(dir: string, name: string): string {
   const sep = dir.includes("\\") && !dir.includes("/") ? "\\" : "/";

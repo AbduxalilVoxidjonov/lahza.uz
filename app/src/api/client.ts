@@ -56,12 +56,26 @@ async function request(path: string, init: RequestInit): Promise<Response> {
     try {
       const body = (await res.json()) as { detail?: unknown };
       if (typeof body.detail === "string") detail = body.detail;
+      else if (Array.isArray(body.detail)) detail = validationText(body.detail);
     } catch {
       /* matnsiz javob */
     }
     throw new ApiError(res.status, detail);
   }
   return res;
+}
+
+/** FastAPI/pydantic 422 javobi: [{loc, msg}] -> "maydon: xabar; ...". */
+function validationText(items: unknown[]): string {
+  return items
+    .map((it) => {
+      if (!it || typeof it !== "object") return String(it);
+      const o = it as { loc?: unknown; msg?: unknown };
+      const loc = Array.isArray(o.loc) ? o.loc.filter((x) => x !== "body").join(".") : "";
+      const msg = typeof o.msg === "string" ? o.msg : JSON.stringify(it);
+      return loc ? `${loc}: ${msg}` : msg;
+    })
+    .join("; ");
 }
 
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -72,6 +86,12 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
 /** Ikkilik javob (masalan, preview JPEG kadri). */
 export async function postBlob(path: string, body: unknown, signal?: AbortSignal): Promise<Blob> {
   const res = await request(path, { method: "POST", body: JSON.stringify(body), signal });
+  return await res.blob();
+}
+
+/** GET orqali ikkilik javob (masalan, manba thumb kadri) - token sarlavhada. */
+export async function getBlob(path: string, signal?: AbortSignal): Promise<Blob> {
+  const res = await request(path, { method: "GET", signal });
   return await res.blob();
 }
 

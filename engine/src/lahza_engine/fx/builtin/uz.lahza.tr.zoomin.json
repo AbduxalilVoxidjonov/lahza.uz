@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.zoomin",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Zoom o'tish",
+    "uz-Cyrl": "Зум ўтиш",
+    "ru": "Переход зумом",
+    "en": "Zoom in"
+  },
+  "description": {
+    "uz": "Yaqinlashib keyingi kadrga o'tish",
+    "uz-Cyrl": "Яқинлашиб кейинги кадрга ўтиш",
+    "ru": "Переход с приближением",
+    "en": "Zoom into the next shot"
+  },
+  "backend": "xfade",
+  "preset": "zoomin",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

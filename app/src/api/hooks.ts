@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClie
 import { useEffect, useState } from "react";
 
 import { useJobs } from "../store/jobs";
-import { del, eventsUrl, get, patch, post, postBlob, put } from "./client";
+import { del, eventsUrl, get, getBlob, patch, post, postBlob, put } from "./client";
 import type {
   Bundle,
   Capabilities,
@@ -12,12 +12,20 @@ import type {
   EpisodeDetail,
   ExportItem,
   FontInfo,
+  FxKind,
+  FxManifest,
   HardwareInfo,
   InstalledModel,
   Job,
   Keyframe,
   LexiconEntry,
   LexiconKind,
+  MediaRef,
+  MontageDetail,
+  MontageOverrides,
+  MontageSource,
+  MontageSummary,
+  MontageTimeline,
   Orthography,
   Project,
   Registry,
@@ -25,6 +33,7 @@ import type {
   Speaker,
   StyleRecord,
   StyleTemplate,
+  Template,
   Waveform,
 } from "./types";
 
@@ -435,7 +444,208 @@ export function useImportStyle() {
 export const useExportStyle = () =>
   useMutation({ mutationFn: (v: { id: string; path: string }) => post<Ok>(`/v1/styles/${v.id}:export`, { path: v.path }) });
 
+// ---------------------------------------------------------------- montaj: plaginlar va shablonlar
+
+/** Barcha plaginlar bir marta olinadi; tur bo'yicha filtr mijozda (`useFxOf`). */
+export const useFx = () =>
+  useQuery({ queryKey: ["fx"], queryFn: () => get<FxManifest[]>("/v1/fx"), staleTime: 5 * 60_000 });
+
+export function useFxOf(kinds: FxKind | FxKind[]): FxManifest[] {
+  const fx = useFx();
+  const list = Array.isArray(kinds) ? kinds : [kinds];
+  return (fx.data ?? []).filter((m) => list.includes(m.kind));
+}
+
+export const useTemplates = () =>
+  useQuery({ queryKey: ["templates"], queryFn: () => get<Template[]>("/v1/templates") });
+
+export const useTemplate = (id: string | undefined) =>
+  useQuery({
+    queryKey: ["template", id],
+    queryFn: () => get<Template>(`/v1/templates/${encodeURIComponent(id ?? "")}`),
+    enabled: !!id,
+  });
+
+function useTemplateMutation<V, R>(fn: (v: V) => Promise<R>) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (res) => {
+      if (res && typeof res === "object" && "id" in res && "name" in res) {
+        const tpl = res as unknown as Template;
+        qc.setQueryData(["template", tpl.id], tpl);
+      }
+      void qc.invalidateQueries({ queryKey: ["templates"] });
+    },
+  });
+}
+
+/** Yangi (`isNew`) - POST, aks holda PUT. Builtin - 409 (UI bunga yo'l qo'ymaydi). */
+export const useSaveTemplate = () =>
+  useTemplateMutation((v: { template: Template; isNew: boolean }) =>
+    v.isNew
+      ? post<Template>("/v1/templates", v.template)
+      : put<Template>(`/v1/templates/${encodeURIComponent(v.template.id)}`, v.template),
+  );
+
+export const useDeleteTemplate = () =>
+  useTemplateMutation((id: string) => del<Ok>(`/v1/templates/${encodeURIComponent(id)}`));
+
+export const useDuplicateTemplate = () =>
+  useTemplateMutation((v: { id: string; name?: string }) =>
+    post<Template>(`/v1/templates/${encodeURIComponent(v.id)}:duplicate`, v.name ? { name: v.name } : {}),
+  );
+
+export const useImportTemplate = () =>
+  useTemplateMutation((path: string) => post<Template>("/v1/templates:import", { path }));
+
+export const useExportTemplate = () =>
+  useMutation({
+    mutationFn: (v: { id: string; path: string }) =>
+      post<Ok>(`/v1/templates/${encodeURIComponent(v.id)}:export`, { path: v.path }),
+  });
+
+// ---------------------------------------------------------------- montajlar
+
+export const useMontages = (projectId?: string) =>
+  useQuery({
+    queryKey: ["montages", projectId ?? null],
+    queryFn: () =>
+      get<MontageSummary[]>(projectId ? `/v1/montages?project_id=${encodeURIComponent(projectId)}` : "/v1/montages"),
+  });
+
+/** Reja tuzilayotganda (WS uzilgan bo'lsa ham) holat vaqti-vaqti bilan qayta so'raladi. */
+export const useMontage = (id: string | undefined) =>
+  useQuery({
+    queryKey: ["montage", id],
+    queryFn: () => get<MontageDetail>(`/v1/montages/${id}`),
+    enabled: !!id,
+    refetchInterval: (q) => (q.state.data?.status === "planning" ? 3000 : false),
+  });
+
+export interface CreateMontageVars {
+  name?: string;
+  project_id?: string;
+  template_id: string;
+  sources: MontageSource[];
+  overrides?: MontageOverrides;
+}
+
+export function useCreateMontage() {
+  const qc = useQueryClient();
+  const upsert = useJobs((s) => s.upsert);
+  return useMutation({
+    mutationFn: (v: CreateMontageVars) => post<{ montage_id: string; job: Job }>("/v1/montages", v),
+    onSuccess: (res) => {
+      upsert(res.job);
+      void qc.invalidateQueries({ queryKey: ["montages"] });
+    },
+  });
+}
+
+export function useSaveTimeline(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (tl: MontageTimeline) =>
+      put<{ ok: boolean; timeline: MontageTimeline }>(`/v1/montages/${id}/timeline`, tl),
+    onSuccess: (res) => {
+      qc.setQueryData<MontageDetail>(["montage", id], (old) => (old ? { ...old, timeline: res.timeline } : old));
+      void qc.invalidateQueries({ queryKey: ["montages"] });
+    },
+  });
+}
+
+/** Qayta reja: qo'lda tahrirlangan elementlar bo'lsa engine 409 qaytaradi - `force` bilan qayta yuboriladi. */
+export function useReplanMontage(id: string) {
+  const qc = useQueryClient();
+  const upsert = useJobs((s) => s.upsert);
+  return useMutation({
+    mutationFn: (v: { template_id?: string; overrides?: MontageOverrides; force?: boolean }) =>
+      post<Job>(`/v1/montages/${id}:replan`, v),
+    onSuccess: (job) => {
+      upsert(job);
+      qc.setQueryData<MontageDetail>(["montage", id], (old) =>
+        old ? { ...old, status: "planning", error: null } : old,
+      );
+      void qc.invalidateQueries({ queryKey: ["montage", id] });
+    },
+  });
+}
+
+export function useRenderMontage(id: string) {
+  const qc = useQueryClient();
+  const upsert = useJobs((s) => s.upsert);
+  return useMutation({
+    mutationFn: (v: { out_dir: string; filename?: string; allow_no_subs?: boolean }) =>
+      post<Job>(`/v1/montages/${id}:render`, v),
+    onSuccess: (job) => {
+      upsert(job);
+      void qc.invalidateQueries({ queryKey: ["exports"] });
+    },
+  });
+}
+
+export function useDeleteMontage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => del<Ok>(`/v1/montages/${id}`),
+    onSuccess: (_r, id) => {
+      qc.removeQueries({ queryKey: ["montage", id] });
+      void qc.invalidateQueries({ queryKey: ["montages"] });
+    },
+  });
+}
+
+/**
+ * Montaj preview kadri. `timeline` berilsa (saqlanmagan draft) engine shu bo'yicha chizadi,
+ * aks holda saqlangan timeline. `rev` - ko'rsatilayotgan holat (draft yoki saqlangan) xeshi.
+ */
+export function useMontagePreview(p: { id: string; tMs: number; rev: unknown; timeline?: MontageTimeline | null; enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["montagePreview", p.id, p.tMs, p.rev],
+    queryFn: ({ signal }) =>
+      postBlob(`/v1/montages/${p.id}:preview`, p.timeline ? { t_ms: p.tMs, timeline: p.timeline } : { t_ms: p.tMs }, signal),
+    enabled: p.enabled ?? true,
+    staleTime: Infinity,
+    gcTime: 30_000,
+    placeholderData: keepPreviousData,
+    retry: false,
+  });
+}
+
+/** Muharrirdan musiqa qo'shish: engine faylni tekshiradi va saqlangan timeline `media` lug'atiga qo'shadi. */
+export function useAddMontageMedia(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { path: string; role: "music" }) => post<{ media: MediaRef }>(`/v1/montages/${id}/media`, v),
+    onSuccess: (res) => {
+      qc.setQueryData<MontageDetail>(["montage", id], (old) =>
+        old?.timeline ? { ...old, timeline: { ...old.timeline, media: { ...old.timeline.media, [res.media.id]: res.media } } } : old);
+    },
+  });
+}
+
+/** Timeline kartasi uchun manbadan kichik kadr. */
+export function useSourceThumb(p: { montageId: string; mediaId: string; tMs: number; enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["montageThumb", p.montageId, p.mediaId, p.tMs],
+    queryFn: ({ signal }) =>
+      getBlob(`/v1/montages/${p.montageId}/sources/${encodeURIComponent(p.mediaId)}/thumb?t_ms=${p.tMs}`, signal),
+    enabled: p.enabled ?? true,
+    staleTime: Infinity,
+    gcTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
 // ---------------------------------------------------------------- WebSocket hodisalari
+
+/** Montaj vazifasi (reja yoki render) tugaganda - muvaffaqiyatli yoki xato bilan. */
+function onMontageJobSettled(qc: QueryClient, job: Job) {
+  const mid = job.meta["montage_id"];
+  if (typeof mid === "string") void qc.invalidateQueries({ queryKey: ["montage", mid] });
+  void qc.invalidateQueries({ queryKey: ["montages"] });
+}
 
 function onJobDone(qc: QueryClient, job: Job) {
   const eid = job.meta["episode_id"] as string | undefined;
@@ -487,6 +697,10 @@ export function useEngineEvents() {
           if (!known) void qc.invalidateQueries({ queryKey: ["exports"] });
         }
         if (ev.job.status === "done") onJobDone(qc, ev.job);
+        const settled = ev.job.status === "done" || ev.job.status === "failed" || ev.job.status === "cancelled";
+        if (settled && (ev.job.kind === "montage" || typeof ev.job.meta["montage_id"] === "string")) {
+          onMontageJobSettled(qc, ev.job);
+        }
       };
       ws.onclose = () => {
         if (!closed) retry = setTimeout(connect, 2000);

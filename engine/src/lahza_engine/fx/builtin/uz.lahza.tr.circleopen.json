@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.circleopen",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Doira ochilishi",
+    "uz-Cyrl": "Доира очилиши",
+    "ru": "Круг",
+    "en": "Circle open"
+  },
+  "description": {
+    "uz": "Keyingi kadr doira bo'lib ochiladi",
+    "uz-Cyrl": "Кейинги кадр доира бўлиб очилади",
+    "ru": "Следующий кадр раскрывается кругом",
+    "en": "Next shot opens in a circle"
+  },
+  "backend": "xfade",
+  "preset": "circleopen",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

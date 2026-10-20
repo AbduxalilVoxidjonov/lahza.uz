@@ -1,0 +1,68 @@
+{
+  "schema": "lahza.template/1",
+  "id": "uz.lahza.tpl.podcast-hook",
+  "version": "1.0.0",
+  "name": {
+    "uz": "Podkast — kuchli hook",
+    "uz-Cyrl": "Подкаст — кучли ҳук",
+    "ru": "Подкаст — сильный хук",
+    "en": "Podcast — strong hook"
+  },
+  "description": {
+    "uz": "Suhbatning eng kuchli lahzasi bilan boshlanadigan 30-45 soniyalik Reels: karaoke subtitr, urg'uli gaplarda punch-in, oxirida obunaga chaqiruv.",
+    "uz-Cyrl": "Суҳбатнинг энг кучли лаҳзаси билан бошланадиган 30-45 сонияли Reels: караоке субтитр, урғули гапларда панч-ин, охирида обунага чақирув.",
+    "ru": "Reels на 30-45 секунд, начинающийся с самого сильного момента разговора: караоке-субтитры, наезд на акцентных фразах, призыв подписаться в конце.",
+    "en": "A 30-45 second Reel that opens on the strongest moment of the conversation: karaoke captions, punch-ins on emphasised lines, a subscribe call to action at the end."
+  },
+  "category": "podkast",
+  "builtin": true,
+  "aspect": "9:16",
+  "fps": 30.0,
+  "target_duration_ms": 40000,
+  "min_shot_ms": 3000,
+  "max_shot_ms": 45000,
+  "selection": "highlight",
+  "order": "ball",
+  "max_per_source": 2,
+  "respect_sentences": true,
+  "reframe": "auto",
+  "transition": {"plugin": "uz.lahza.tr.cut", "dur_ms": 0},
+  "fx": [
+    {
+      "plugin": "uz.lahza.motion.punch-in",
+      "trigger": "on_emphasis",
+      "params": {"zoom": 1.2, "kirish_ms": 120},
+      "max_count": 3,
+      "min_gap_ms": 6000
+    }
+  ],
+  "captions": true,
+  "caption_style": {
+    "name": "Karaoke qalin",
+    "font_family": "Inter",
+    "font_size": 78,
+    "bold": true,
+    "primary_color": "#FFFFFF",
+    "highlight_color": "#FFD400",
+    "outline_color": "#000000",
+    "outline_width": 6.0,
+    "position": "lower",
+    "uppercase": false,
+    "animation": "karaoke",
+    "max_words": 3,
+    "max_lines": 2,
+    "remove_fillers": true
+  },
+  "outro": {
+    "text": "{cta:Obuna bo'ling!}",
+    "dur_ms": 2500,
+    "kind": "cta",
+    "position": "middle",
+    "animation": "pop"
+  },
+  "music": {"required": false, "gain_db": -24.0, "duck": true, "fade_in_ms": 800, "fade_out_ms": 1500},
+  "source_gain_db": 0.0,
+  "mute_sources": false,
+  "loudnorm_lufs": -14.0,
+  "logo": false
+}

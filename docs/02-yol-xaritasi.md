@@ -18,9 +18,9 @@ Belgilar:
 
 Har vazifada ID bor (kod va PR'larda shu ID'ga havola qilinadi).
 
-## Hozirgi holat (2026-10-16)
+## Hozirgi holat (2026-10-20)
 
-Tekshiruv: engine `pytest` — **207 passed, 2 skipped** (libass'siz FFmpeg); `ruff` toza; UI typecheck + build o'tadi; jonli engine'ga qarshi 102 endpoint tekshiruvi o'tdi; brauzerda onboarding, galereya, klip muharriri, transkript, sozlamalar konsol xatosisiz ishlaydi. Haqiqiy ASR/LLM/ko'rish modellari bilan sinov — R0.
+Tekshiruv: engine `pytest` — **327 passed, 2 skipped** (libass'siz FFmpeg); `ruff` toza; UI typecheck + build o'tadi; jonli engine'ga qarshi 102 endpoint tekshiruvi o'tdi; montaj uchun jonli 215 tekshiruv o'tdi (6 o'rnatilgan shablon bilan haqiqiy montaj va render, 9:16 / 1:1 / 16:9, audio-video sinxron, `_edl.json` da `"haqiqiy_kadr": true`); brauzerda onboarding, galereya, klip muharriri, transkript, sozlamalar, shablonlar galereyasi va montaj muharriri konsol xatosisiz ishlaydi. Haqiqiy ASR/LLM/ko'rish modellari bilan sinov — R0.
 
 | Qism | Holat | Qayerda |
 | --- | --- | --- |
@@ -44,11 +44,18 @@ Tekshiruv: engine `pytest` — **207 passed, 2 skipped** (libass'siz FFmpeg); `r
 | Subtitrsiz rejim (`LibassMissing`), platforma limitlari ogohlantirishi | Ishlaydi, testlangan | `render/capabilities.py`, `limits.py` |
 | Enkoder tanlovi (VideoToolbox/NVENC/AMF/QSV/MF) | Kod bor; apparatda R0'da sinaladi | `render/encoders.py` |
 | Pipeline: kesh, qayta ishga tushirish, bekor qilish | Ishlaydi, testlangan (soxta ASR bilan uchidan-uchigacha) | `core/` |
-| SQLite sxema v2 (library/project alohida versiya), migratsiya, `corrections` | Ishlaydi, testlangan | `db/` |
+| SQLite sxema: kutubxona v3 (montaj jadvallari), loyiha v2; migratsiya, `corrections` | Ishlaydi, testlangan | `db/` |
 | Apparat aniqlash va daraja | Ishlaydi, testlangan | `models/hardware.py` |
 | Model katalogi: imzo, avtomatik to'plam | Ishlaydi, testlangan; katalogda hali `approved` model yo'q | `models/catalog.py`, `catalog/` |
 | Yuklab olish, model ombori; o'chirish/standart/sinov | Ishlaydi, testlangan | `models/downloader.py`, `store.py`, `api/routes_models.py` |
 | `.lzpack` eksport/import (sha256, ixtiyoriy Ed25519, zip-slip himoya) | Ishlaydi, testlangan | `models/lzpack.py` |
+| Montaj: Lahza Timeline `lahza.timeline/1` (video trek + o'tishlar, matn qatlami, musiqa, captions, brand, audio, color, provenance) | Ishlaydi, testlangan; Reels klip renderi hali eski `RenderJob` orqali | `montage/model.py` |
+| Video shablonlar `lahza.template/1`: 6 o'rnatilgan (4 tilda), import/eksport, validatsiya, o'rinbosarlar | Ishlaydi, testlangan | `templates/` |
+| Lahza FX `lahza.fx/1`: 22 o'rnatilgan plagin, oq ro'yxat, GPL filtrlar taqiqi (`check_graph`) | Ishlaydi, testlangan; `.lzfx` paket — yo'q | `fx/` |
+| Montaj tahlili (sahna, keskinlik, harakat, energiya, nutq; kesh) va deterministik rejalashtiruvchi (trigger'lar, intro/hook/outro, captions, musiqa) | Ishlaydi, testlangan; LLM reja — yo'q | `montage/analyze.py`, `planner.py` |
+| Montaj renderi (2 bosqich, xfade, rang, kartalar, ASS, logo, musiqa + ducking, loudnorm), preview kadr, `_edl.json` | Haqiqiy FFmpeg bilan testlangan; libass'li matn chizilishi bu muhitda skip | `render/montage_render.py`, `montage/report.py` |
+| Montaj API: `/v1/fx`, `/v1/templates*`, `/v1/montages*` | Ishlaydi, testlangan; jonli 215 tekshiruv | `api/routes_montage.py` |
+| UI: shablonlar galereyasi, shablon muharriri, yangi montaj, montaj muharriri, montajlar ro'yxati (4 til) | Typecheck + build o'tadi; brauzerda sinalgan | `app/src/pages/`, `components/montage/` |
 | Engine API (docs/04 to'liq), WebSocket (4401), token, CORS | Ishlaydi, testlangan; jonli 102 endpoint tekshiruvi | `api/` |
 | Eksport navbati: jadval, qayta urinish, `LAHZA_EXPORT_WORKERS`, fayl nomi shabloni | Ishlaydi, testlangan | `core/export.py`, `core/jobs.py` |
 | Aylanadigan loglar, diagnostika zip (transkriptsiz) | Ishlaydi, testlangan | `core/logs.py`, `core/diagnostics.py` |
@@ -56,6 +63,8 @@ Tekshiruv: engine `pytest` — **207 passed, 2 skipped** (libass'siz FFmpeg); `r
 | UI: onboarding, loyihalar, galereya, transkript muharriri, klip muharriri (timeline, preview, tablar), eksport navbati, sozlamalar (modellar, `.lzpack`, imkoniyatlar, lug'at, diagnostika) | Typecheck + build o'tadi; brauzer rejimida engine bilan qo'lda sinalgan | `app/src/` |
 | i18n: uz, uz-Cyrl, ru, en (338 kalit, TS bilan majburiy) | Ishlaydi | `app/src/i18n/` |
 | CI va reliz workflow'lari, PR/issue shablonlari, versiya/litsenziya skriptlari | Yozilgan; GitHub'da hali ishga tushirilmagan | `.github/`, `scripts/` |
+
+**Montaj bo'yicha keyinga qolganlar:** YouTube import (YT-1), NLE eksport (NLE-1), Lottie, musiqa zarbi, LLM reja, multicam, `.lzfx` import UI, libass'li matn chizilishi sinovi — [docs/11, 13-bo'lim](11-montaj-platformasi.md#13-yol-xaritasi).
 
 **Tashqi resurs talab qiladigan, hali bajarilmagan:** R0 ma'lumot to'plamlari va model o'lchovlari; katalogda `approved` modellar; native runtime'lar yig'ish; imzolash/notarizatsiya; yurist xulosasi; Rust `cargo check`; Tauri save-dialog ruxsati; LR-ASD; Core ML; libass'li render sinovi; real shriftlar; kirill subtitr; Pro bandlari; litsenziya kaliti.
 
@@ -191,13 +200,17 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 ## Pro — relizdan keyin
 
 - [ ] PRO-1 O'z-o'zini yaxshilash: muharrir tuzatishlari (`corrections`) → lug'at → fine-tune paketi
-- [ ] PRO-2 Ikki kamerali yozuv: audio kross-korrelyatsiya bilan sinxron, kamera tanlash
+- [ ] PRO-2 Ikki kamerali yozuv: audio kross-korrelyatsiya bilan sinxron, kamera tanlash — kengaytirilib v1.5 ga ko'chirildi: MC-1 ([`11-montaj-platformasi.md`](11-montaj-platformasi.md#13-yol-xaritasi))
 - [ ] PRO-3 "Hook oldinga": eng kuchli jumla klip boshiga 2–4 s
 - [ ] PRO-4 Kirill subtitr (lug'atli transliteratsiya)
 - [ ] PRO-5 Partiyaviy ishlov (bir nechta epizod navbatda)
 - [ ] PRO-6 Real natijalardan o'rganish: foydalanuvchi ko'rishlar sonini kiritadi → ball vaznlari moslashadi
-- [ ] PRO-7 Ixtiyoriy YouTube yuklab olish plagini (alohida ogohlantirish bilan)
+- [ ] PRO-7 Ixtiyoriy YouTube yuklab olish plagini (alohida ogohlantirish bilan) — M3 ga ko'chirildi: YT-1 ([ADR-0010](adr/0010-youtube-havola-import.md))
 - [ ] PRO-8 Windows on ARM va Linux
+
+## Kengaytma: Lahza Montaj (qisman amalga oshirildi)
+
+Plaginlar, retseptlar, multicam, video to'plamidan avtomontaj va montaj dasturlari bilan ko'prik — [`11-montaj-platformasi.md`](11-montaj-platformasi.md). U M3 ga qo'shimcha vazifalar (TL, NLE-1, YT-1, CLN-1) va yangi **v1.5 "Montaj"** hamda **v2.0 "Studiya"** bosqichlarini taklif qiladi (darvozalar GE1–GE3). Qabul qilingach, vazifalar shu faylga ko'chiriladi. 2026-10-20 holatiga ko'ra video shablonlar va montaj amalga oshirildi (TL-3, FX-2, FX-4, RCP-1 — `[x]`; TL-1, TL-2, FX-1, FX-3, FX-5, MNT-1…3 — `[~]`); vazifalar holati hozircha [docs/11, 13-bo'lim](11-montaj-platformasi.md#13-yol-xaritasi) da yuritiladi.
 
 ## Jamoa rollari (minimal)
 

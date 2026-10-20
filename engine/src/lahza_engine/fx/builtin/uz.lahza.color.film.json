@@ -1,0 +1,31 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.color.film",
+  "version": "1.0.0",
+  "kind": "color",
+  "name": {
+    "uz": "Kino",
+    "uz-Cyrl": "Кино",
+    "ru": "Плёнка",
+    "en": "Film"
+  },
+  "description": {
+    "uz": "Yumshoq kontrast, kino tusi",
+    "uz-Cyrl": "Юмшоқ контраст, кино туси",
+    "ru": "Мягкий контраст, киношный тон",
+    "en": "Soft contrast, filmic tone"
+  },
+  "backend": "color",
+  "preset": "film",
+  "params": [
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 1.0
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

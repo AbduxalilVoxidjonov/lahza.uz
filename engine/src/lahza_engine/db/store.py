@@ -10,8 +10,8 @@ from pathlib import Path
 from lahza_engine.types import Clip, ClipKind, ClipSource, ClipStatus, Sentence, Transcript, Word
 
 # Kutubxona (library.db) va epizod (project.db) sxemalari alohida versiyalanadi: bir bazadagi
-# o'zgarish ikkinchisini migratsiyaga majburlamasligi uchun. Hozircha ikkalasi ham v2.
-LIBRARY_SCHEMA_VERSION = 2
+# o'zgarish ikkinchisini migratsiyaga majburlamasligi uchun. Kutubxona v3 (montaj), loyiha v2.
+LIBRARY_SCHEMA_VERSION = 3
 PROJECT_SCHEMA_VERSION = 2
 SCHEMA_VERSION = PROJECT_SCHEMA_VERSION  # orqaga moslik
 
@@ -21,6 +21,42 @@ LIBRARY_MIGRATIONS: dict[int, str] = {
 ALTER TABLE episodes ADD COLUMN highlight_mode TEXT CHECK (highlight_mode IN ('llm','lite'));
 ALTER TABLE style_templates ADD COLUMN updated_at TEXT;
 CREATE INDEX IF NOT EXISTS idx_lexicon_show ON lexicon(show_id);
+""",
+    3: """
+CREATE TABLE IF NOT EXISTS montages (
+  id TEXT PRIMARY KEY,
+  project_id TEXT REFERENCES shows(id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  template_id TEXT NOT NULL,
+  sources_json TEXT NOT NULL,
+  overrides_json TEXT NOT NULL DEFAULT '{}',
+  timeline_json TEXT,
+  duration_ms INTEGER,
+  status TEXT NOT NULL DEFAULT 'planning' CHECK (status IN ('planning','ready','failed')),
+  error TEXT,
+  job_id TEXT,
+  user_edited INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_montages_project ON montages(project_id);
+CREATE TABLE IF NOT EXISTS user_templates (
+  id TEXT PRIMARY KEY,
+  json TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS montage_exports (
+  id TEXT PRIMARY KEY,
+  montage_id TEXT NOT NULL REFERENCES montages(id) ON DELETE CASCADE,
+  job_id TEXT,
+  path TEXT,
+  status TEXT NOT NULL DEFAULT 'queued',
+  error TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_montage_exports_montage ON montage_exports(montage_id);
 """,
 }
 PROJECT_MIGRATIONS: dict[int, str] = {

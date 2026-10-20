@@ -1,0 +1,75 @@
+{
+  "schema": "lahza.template/1",
+  "id": "uz.lahza.tpl.course-announce",
+  "version": "1.0.0",
+  "name": {
+    "uz": "Kurs e'loni",
+    "uz-Cyrl": "Курс эълони",
+    "ru": "Анонс курса",
+    "en": "Course announcement"
+  },
+  "description": {
+    "uz": "Kurs, dars yoki tadbir e'loni uchun 30-45 soniyalik video: boshida savolli hook matni, subtitr, muhim fikrlarda punch-in va oxirida ro'yxatdan o'tishga chaqiruv.",
+    "uz-Cyrl": "Курс, дарс ёки тадбир эълони учун 30-45 сонияли видео: бошида саволли ҳук матни, субтитр, муҳим фикрларда панч-ин ва охирида рўйхатдан ўтишга чақирув.",
+    "ru": "Видео на 30-45 секунд для анонса курса, урока или события: хук-текст в начале, субтитры, наезд на ключевых мыслях и призыв зарегистрироваться в конце.",
+    "en": "A 30-45 second video announcing a course, lesson or event: an opening hook line, captions, punch-ins on key points and a sign-up call to action at the end."
+  },
+  "category": "talim",
+  "builtin": true,
+  "aspect": "9:16",
+  "fps": 30.0,
+  "target_duration_ms": 40000,
+  "min_shot_ms": 2500,
+  "max_shot_ms": 20000,
+  "selection": "highlight",
+  "order": "berilgan",
+  "max_per_source": 3,
+  "respect_sentences": true,
+  "reframe": "auto",
+  "transition": {"plugin": "uz.lahza.tr.cut", "dur_ms": 0},
+  "fx": [
+    {
+      "plugin": "uz.lahza.motion.punch-in",
+      "trigger": "on_emphasis",
+      "params": {"zoom": 1.15, "kirish_ms": 150},
+      "max_count": 2,
+      "min_gap_ms": 8000
+    }
+  ],
+  "captions": true,
+  "caption_style": {
+    "name": "E'lon",
+    "font_family": "Inter",
+    "font_size": 72,
+    "bold": true,
+    "primary_color": "#FFFFFF",
+    "highlight_color": "#36C5F0",
+    "outline_color": "#000000",
+    "outline_width": 5.0,
+    "position": "lower",
+    "animation": "pop",
+    "max_words": 3,
+    "max_lines": 2,
+    "remove_fillers": true
+  },
+  "hook_text": {
+    "text": "{sarlavha}",
+    "dur_ms": 3500,
+    "kind": "hook",
+    "position": "upper",
+    "animation": "pop"
+  },
+  "outro": {
+    "text": "{cta:Ro'yxatdan o'ting — havola profilda}",
+    "dur_ms": 3000,
+    "kind": "card",
+    "background": "#0B1F3A",
+    "position": "middle",
+    "animation": "fade"
+  },
+  "music": {"required": false, "gain_db": -22.0, "duck": true, "fade_in_ms": 800, "fade_out_ms": 1500},
+  "source_gain_db": 0.0,
+  "mute_sources": false,
+  "loudnorm_lufs": -14.0,
+  "logo": true
+}

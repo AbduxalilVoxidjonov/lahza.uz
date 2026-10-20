@@ -1,6 +1,7 @@
 """Vazifalar navbati: og'ir ishlar fon oqimlarida, holati xotirada (TZ 3-bo'lim, NFR-04).
 
-Tahlil vazifalari bitta oqimda (GPU'da bir vaqtda bitta og'ir model), eksport - alohida oqimlarda
+Tahlil va montaj rejalashtirish (`montage`) vazifalari bitta oqimda (GPU'da bir vaqtda bitta og'ir
+model), eksport (klip va montaj render) - alohida oqimlarda
 (soni `LAHZA_EXPORT_WORKERS`, standart 2), model o'rnatish va .lzpack - alohida I/O oqimida.
 """
 
@@ -36,7 +37,7 @@ def export_workers_from_env() -> int:
 @dataclass
 class Job:
     id: str
-    kind: str  # analyze | export | install | pack
+    kind: str  # analyze | export | install | pack | montage
     status: str = "queued"  # queued | running | done | failed | cancelled
     progress: float = 0.0
     stage: str | None = None

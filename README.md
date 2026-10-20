@@ -2,9 +2,11 @@
 
 Uzun o'zbekcha podkast va videolardan eng qiziq lahzalarni AI yordamida topib, 9:16 formatdagi, o'zbekcha subtitrli Instagram Reels kliplarini yasaydigan **to'liq oflayn** desktop dastur — macOS (Apple Silicon) va Windows uchun. Video kompyuterdan chiqmaydi; modellar bir marta katalogdan, kompyuterga mos ravishda yuklanadi.
 
-> **Holat: M2 desktop alfa (kod darajasida), R0 kutilmoqda.** Engine testlari: **207 passed, 2 skipped** (libass'siz FFmpeg) — `make test`; `ruff` toza; UI typecheck + build o'tadi. Ishlaydi: import, VAD, imlo, tinish tiklash, gaplar, Lite highlight, reframe (avtomatik split, kalit kadrlar, sahna kesimlari), ASS/SRT/VTT subtitr, FFmpeg render, eksport navbati, `.lzpack`, diagnostika, to'liq Engine API; UI'da transkript muharriri, matn orqali montaj, timeline, preview, model menejeri, 4 til. **R0 ga bog'liq:** haqiqiy ASR/LLM/VAD/aligner/pyannote/BlazeFace modellari bilan o'lchov (kod tayyor), katalogda `approved` modellar, runtime'lar, imzolash, real shriftlar, libass'li render sinovi. CI workflow'lari ([`.github/workflows/`](.github/workflows/)) yozilgan, hali ishga tushirilmagan. Batafsil: [`docs/02-yol-xaritasi.md`](docs/02-yol-xaritasi.md).
+> **Holat: M2 desktop alfa (kod darajasida), R0 kutilmoqda.** Engine testlari: **327 passed, 2 skipped** (libass'siz FFmpeg) — `make test`; `ruff` toza; UI typecheck + build o'tadi. Ishlaydi: import, VAD, imlo, tinish tiklash, gaplar, Lite highlight, reframe (avtomatik split, kalit kadrlar, sahna kesimlari), ASS/SRT/VTT subtitr, FFmpeg render, eksport navbati, `.lzpack`, diagnostika, to'liq Engine API; **video shablonlar va montaj** (6 o'rnatilgan shablon, 22 FX plagin, Lahza Timeline, deterministik reja, render, `_edl.json`); UI'da transkript muharriri, matn orqali montaj, timeline, preview, shablonlar galereyasi va montaj muharriri, model menejeri, 4 til. **R0 ga bog'liq:** haqiqiy ASR/LLM/VAD/aligner/pyannote/BlazeFace modellari bilan o'lchov (kod tayyor), katalogda `approved` modellar, runtime'lar, imzolash, real shriftlar, libass'li render sinovi. CI workflow'lari ([`.github/workflows/`](.github/workflows/)) yozilgan, hali ishga tushirilmagan. Batafsil: [`docs/02-yol-xaritasi.md`](docs/02-yol-xaritasi.md).
 >
 > Foydalanuvchi qo'llanmasi: [`docs/qollanma.md`](docs/qollanma.md).
+>
+> **Kengaytma (qisman amalga oshirildi — video shablonlar va montaj):** [`docs/11-montaj-platformasi.md`](docs/11-montaj-platformasi.md) — Lahza Montaj: video yoki YouTube havola → Reels, montaj plaginlari va retseptlar, video to'plamidan avtomontaj, Premiere / DaVinci / Filmora / After Effects bilan ko'prik, "haqiqiy kadr" tamoyili.
 
 ## Repozitoriy xaritasi
 
@@ -16,9 +18,10 @@ lahza.uz/
 │   ├── 01-arxitektura.md    qatlamlar, jarayon modeli, xavfsizlik
 │   ├── 02-yol-xaritasi.md   0 dan Pro gacha: bosqichlar, vazifalar, darvozalar
 │   ├── 03-…10-*.md          muhit, API, ma'lumot modeli, katalog, pipeline, imlo, test, reliz
+│   ├── 11-montaj-platformasi.md  kengaytma: shablonlar, plaginlar, avtomontaj, NLE ko'prigi (qisman)
 │   └── adr/                 arxitektura qarorlari
 ├── engine/                  Python engine (FastAPI sidecar + CLI)
-│   ├── src/lahza_engine/    text, asr, vad, align, diarize, highlight, reframe, subtitle, render, models, core, db, api
+│   ├── src/lahza_engine/    text, asr, vad, align, diarize, highlight, reframe, subtitle, render, montage, templates, fx, models, core, db, api
 │   └── tests/               pytest
 ├── app/                     Desktop ilova
 │   ├── src/                 React + TypeScript UI

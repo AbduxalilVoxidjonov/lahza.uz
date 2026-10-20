@@ -35,6 +35,8 @@ class State:
         self.capabilities_cache: dict[str, Any] | None = None
         # Eksportni qayta urinish uchun parametrlar: job_id -> (eid, cid, body)
         self.export_params: dict[str, tuple[str, str, Any]] = {}
+        # Montaj eksportini qayta urinish uchun: job_id -> (montage_id, body)
+        self.montage_export_params: dict[str, tuple[str, Any]] = {}
 
     def services(self, refresh: bool = False) -> Services:
         with self._svc_lock:

@@ -7,6 +7,7 @@ Endpointlar mavzu bo'yicha modullarga bo'lingan:
 * `routes_episodes` - import, qayta tahlil, epizod, transkript, to'lqin shakli, spikerlar;
 * `routes_clips` - kliplar, matn orqali montaj, kalit kadrlar, preview, o'xshashlar, eksport;
 * `routes_library` - lug'at, uslub shablonlari, shriftlar;
+* `routes_montage` - fx plaginlari, video shablonlar, avtomontaj, timeline, montaj render;
 * `routes_models` - modellar, .lzpack;
 * `routes_system` - imkoniyatlar, diagnostika, Finder/Explorer'da ko'rsatish.
 """
@@ -30,6 +31,7 @@ from lahza_engine.api import (
     routes_episodes,
     routes_library,
     routes_models,
+    routes_montage,
     routes_system,
 )
 from lahza_engine.api.state import State
@@ -130,6 +132,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     routes_episodes.register(app, auth)
     routes_clips.register(app, auth)
     routes_library.register(app, auth)
+    routes_montage.register(app, auth)
     routes_system.register(app, auth)
 
     # ---- Hodisalar ---------------------------------------------------------

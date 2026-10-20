@@ -39,7 +39,7 @@ lahza = "lahza_engine.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*"]
+lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*", "fx/builtin/*.json", "templates/builtin/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

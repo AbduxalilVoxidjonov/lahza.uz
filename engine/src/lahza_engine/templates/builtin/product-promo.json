@@ -1,0 +1,63 @@
+{
+  "schema": "lahza.template/1",
+  "id": "uz.lahza.tpl.product-promo",
+  "version": "1.0.0",
+  "name": {
+    "uz": "Mahsulot — promo",
+    "uz-Cyrl": "Маҳсулот — промо",
+    "ru": "Товар — промо",
+    "en": "Product — promo"
+  },
+  "description": {
+    "uz": "Mahsulot yoki xizmat uchun 15-20 soniyalik promo: sarlavha kartasi, yorqin ranglar, tez kadrlar va oxirida harakatga chaqiruv kartasi.",
+    "uz-Cyrl": "Маҳсулот ёки хизмат учун 15-20 сонияли промо: сарлавҳа картаси, ёрқин ранглар, тез кадрлар ва охирида ҳаракатга чақирув картаси.",
+    "ru": "Промо на 15-20 секунд для товара или услуги: титульная карточка, яркие цвета, быстрые кадры и карточка с призывом к действию в конце.",
+    "en": "A 15-20 second promo for a product or service: a title card, vivid colour, quick shots and a call-to-action card at the end."
+  },
+  "category": "mahsulot",
+  "builtin": true,
+  "aspect": "9:16",
+  "fps": 30.0,
+  "target_duration_ms": 18000,
+  "min_shot_ms": 1500,
+  "max_shot_ms": 3500,
+  "selection": "scenes",
+  "order": "ball",
+  "max_per_source": 3,
+  "respect_sentences": true,
+  "reframe": "auto",
+  "transition": {"plugin": "uz.lahza.tr.zoomin", "dur_ms": 250},
+  "fx": [
+    {
+      "plugin": "uz.lahza.motion.punch-in",
+      "trigger": "every_n",
+      "every_n": 3,
+      "params": {"zoom": 1.15, "kirish_ms": 150},
+      "max_count": 3,
+      "min_gap_ms": 3000
+    }
+  ],
+  "color": "uz.lahza.color.vivid",
+  "captions": false,
+  "intro": {
+    "text": "{sarlavha}",
+    "dur_ms": 1500,
+    "kind": "card",
+    "background": "#111111",
+    "position": "middle",
+    "animation": "pop"
+  },
+  "outro": {
+    "text": "{cta:Hoziroq buyurtma bering}",
+    "dur_ms": 2500,
+    "kind": "card",
+    "background": "#111111",
+    "position": "middle",
+    "animation": "fade"
+  },
+  "music": {"required": false, "gain_db": -10.0, "duck": true, "fade_in_ms": 300, "fade_out_ms": 1500},
+  "source_gain_db": -6.0,
+  "mute_sources": false,
+  "loudnorm_lufs": -14.0,
+  "logo": true
+}

@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.slideup",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Yuqoriga siljish",
+    "uz-Cyrl": "Юқорига силжиш",
+    "ru": "Сдвиг вверх",
+    "en": "Slide up"
+  },
+  "description": {
+    "uz": "Kadr yuqoriga siljib almashadi",
+    "uz-Cyrl": "Кадр юқорига силжиб алмашади",
+    "ru": "Кадр сдвигается вверх",
+    "en": "Shot slides up"
+  },
+  "backend": "xfade",
+  "preset": "slideup",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

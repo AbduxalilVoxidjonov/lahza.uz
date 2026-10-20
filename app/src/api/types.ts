@@ -166,12 +166,15 @@ export interface Capabilities {
 
 export interface ExportItem {
   job: Job;
-  episode_id: string;
-  clip_id: string;
-  title: string;
+  /** Montaj render vazifalarida bo'sh bo'lishi mumkin (meta.montage_id ishlatiladi). */
+  episode_id?: string | null;
+  clip_id?: string | null;
+  title?: string | null;
+  /** Montaj renderi uchun (klip maydonlari bunda null). */
+  montage_id?: string | null;
 }
 
-export type JobKind = "analyze" | "export" | "install" | "pack";
+export type JobKind = "analyze" | "export" | "install" | "pack" | "montage";
 
 export interface Job {
   id: string;
@@ -301,4 +304,312 @@ export interface EngineEvent {
   type: "job";
   ts: number;
   job: Job;
+}
+
+// ================================================================ Lahza Montaj (docs/11, ADR-0011/0012)
+
+/** Lokalizatsiyalangan matn (`uz` majburiy). */
+export interface LocalText {
+  uz: string;
+  "uz-Cyrl"?: string | null;
+  ru?: string | null;
+  en?: string | null;
+}
+
+export type FxKind = "transition" | "motion" | "color" | "text" | "overlay" | "audio" | "speed";
+export type FxParamType = "float" | "int" | "enum" | "bool" | "color" | "string" | "path";
+
+export interface FxParamSpec {
+  id: string;
+  type: FxParamType;
+  min?: number | null;
+  max?: number | null;
+  values?: string[] | null;
+  default?: unknown;
+  /** Ixtiyoriy lokal nom (manifestda bo'lsa). */
+  name?: Record<string, string> | null;
+}
+
+/** GET /v1/fx - plagin manifesti (`lahza.fx/1`). */
+export interface FxManifest {
+  schema?: string;
+  id: string;
+  version: string;
+  kind: FxKind;
+  name: Record<string, string>;
+  description?: Record<string, string> | null;
+  backend: string;
+  params: FxParamSpec[];
+  default_trigger?: string | null;
+  license?: string | null;
+}
+
+export type Aspect = "9:16" | "1:1" | "16:9";
+export const ASPECTS: Aspect[] = ["9:16", "1:1", "16:9"];
+export type TemplateCategory = "podkast" | "elon" | "tadbir" | "mahsulot" | "intervyu" | "talim" | "boshqa";
+export type FxTrigger = "on_start" | "on_end" | "on_cut" | "on_emphasis" | "on_speaker_change" | "every_n";
+export type TextKind = "card" | "title" | "hook" | "cta" | "lower_third";
+export type TextPosition = "upper" | "middle" | "lower";
+export type TextAnimation = "none" | "fade" | "pop" | "slide_up";
+export type Selection = "highlight" | "scenes" | "full";
+export type ShotOrder = "berilgan" | "xronologik" | "ball";
+
+export interface TransitionRef {
+  plugin: string;
+  dur_ms: number;
+  params?: Record<string, unknown>;
+}
+
+export interface TextCard {
+  text: string;
+  dur_ms: number;
+  kind: TextKind;
+  background?: string | null;
+  position: TextPosition;
+  animation: TextAnimation;
+}
+
+export interface FxRule {
+  plugin: string;
+  trigger: FxTrigger;
+  params?: Record<string, unknown>;
+  every_n?: number | null;
+  max_count?: number | null;
+  min_gap_ms: number;
+}
+
+export interface MusicSpec {
+  required: boolean;
+  gain_db: number;
+  duck: boolean;
+  fade_in_ms: number;
+  fade_out_ms: number;
+}
+
+/** Video shablon (`lahza.template/1`). Javobda `None` maydonlar tushirib qoldiriladi. */
+export interface Template {
+  schema?: "lahza.template/1";
+  id: string;
+  version: string;
+  name: LocalText;
+  description?: LocalText | null;
+  category: TemplateCategory;
+  builtin: boolean;
+  aspect: Aspect;
+  fps: number;
+  target_duration_ms: number;
+  min_shot_ms: number;
+  max_shot_ms: number;
+  selection: Selection;
+  order: ShotOrder;
+  max_per_source?: number | null;
+  respect_sentences: boolean;
+  reframe: "auto" | "fit_blur" | "center";
+  transition?: TransitionRef | null;
+  fx: FxRule[];
+  color?: string | null;
+  captions: boolean;
+  caption_style?: StyleTemplate | null;
+  intro?: TextCard | null;
+  hook_text?: TextCard | null;
+  outro?: TextCard | null;
+  music?: MusicSpec | null;
+  source_gain_db: number;
+  mute_sources: boolean;
+  loudnorm_lufs?: number | null;
+  logo: boolean;
+}
+
+export interface MontageFormat {
+  aspect: Aspect;
+  w: number;
+  h: number;
+  fps: number;
+  audio_hz: number;
+}
+
+export interface MediaRef {
+  id: string;
+  path: string;
+  hash?: string | null;
+  duration_ms: number;
+  width: number;
+  height: number;
+  fps: number;
+  has_audio: boolean;
+  origin: string;
+}
+
+export interface FxRef {
+  plugin: string;
+  at_ms: number;
+  dur_ms?: number | null;
+  params: Record<string, unknown>;
+  source: "shablon" | "qolda";
+}
+
+export interface Crop {
+  cx: number;
+  cy: number;
+  zoom: number;
+}
+
+export type ItemReframe = "auto" | "focus" | "fit_blur" | "center";
+
+export interface VideoItem {
+  id: string;
+  media: string;
+  src_in_ms: number;
+  src_out_ms: number;
+  reframe: ItemReframe;
+  crop?: Crop | null;
+  speed: number;
+  volume_db: number;
+  mute: boolean;
+  transition_in?: TransitionRef | null;
+  fx: FxRef[];
+  role?: string | null;
+  reason: string;
+  user_edited: boolean;
+}
+
+export interface TextItem {
+  id: string;
+  start_ms: number;
+  end_ms: number;
+  text: string;
+  kind: TextKind;
+  background?: string | null;
+  position: TextPosition;
+  animation: TextAnimation;
+  font_size?: number | null;
+}
+
+export interface MusicItem {
+  media: string;
+  src_in_ms: number;
+  start_ms: number;
+  end_ms?: number | null;
+  gain_db: number;
+  duck: boolean;
+  fade_in_ms: number;
+  fade_out_ms: number;
+}
+
+export interface Captions {
+  enabled: boolean;
+  style: StyleTemplate;
+  words: Word[];
+}
+
+export interface Brand {
+  logo_path?: string | null;
+  logo_position: LogoPosition;
+  logo_opacity: number;
+}
+
+export interface AudioMix {
+  source_gain_db: number;
+  loudnorm_lufs?: number | null;
+  fade_ms: number;
+}
+
+export interface Provenance {
+  template_id?: string | null;
+  template_version?: string | null;
+  engine?: string | null;
+  created_at?: string | null;
+  planner?: string | null;
+  notes: string[];
+}
+
+/** Lahza Timeline (`lahza.timeline/1`) - JSON'da kalit `schema`. */
+export interface MontageTimeline {
+  schema: "lahza.timeline/1";
+  format: MontageFormat;
+  media: Record<string, MediaRef>;
+  video: VideoItem[];
+  text: TextItem[];
+  music: MusicItem[];
+  captions: Captions;
+  brand: Brand;
+  audio: AudioMix;
+  color?: FxRef | null;
+  provenance: Provenance;
+}
+
+export type MontageSource =
+  | { kind: "file"; path: string }
+  | { kind: "clip"; episode_id: string; clip_id: string }
+  | { kind: "episode"; episode_id: string };
+
+export interface MontageOverrides {
+  target_duration_ms?: number | null;
+  aspect?: Aspect | null;
+  music_path?: string | null;
+  title?: string | null;
+  cta?: string | null;
+  shou?: string | null;
+  captions?: boolean | null;
+  caption_style?: StyleTemplate | null;
+  logo_path?: string | null;
+  transition?: string | null;
+  color?: string | null;
+}
+
+export type MontageStatus = "planning" | "ready" | "failed";
+
+/** GET /v1/montages ro'yxati elementi. */
+export interface MontageSummary {
+  id: string;
+  name: string;
+  template_id: string;
+  status: MontageStatus;
+  duration_ms: number | null;
+  created_at: string;
+  updated_at: string;
+  project_id: string | null;
+}
+
+/** GET /v1/montages/{id} `exports[]` elementi. */
+export interface MontageExport {
+  id: string;
+  job_id: string | null;
+  path: string | null;
+  status: JobStatus;
+  error: string | null;
+  created_at: string | null;
+  finished_at: string | null;
+}
+
+/** Yechilgan manba: `media_id` (src1, src2, ...) = timeline `MediaRef.id`; epizod/klip uchun `title`. */
+export type MontageSourceResolved = MontageSource & { media_id?: string; path?: string; title?: string | null };
+
+/** GET /v1/montages/{id}. */
+export interface MontageDetail {
+  id: string;
+  name: string;
+  template_id: string;
+  project_id?: string | null;
+  status: MontageStatus;
+  duration_ms?: number | null;
+  created_at?: string;
+  updated_at?: string;
+  sources: MontageSourceResolved[];
+  overrides: MontageOverrides | null;
+  timeline: MontageTimeline | null;
+  /** Reja xatosi; qayta reja muvaffaqiyatsiz bo'lsa status=ready bo'lib qoladi va bu to'ldiriladi. */
+  error: string | null;
+  user_edited?: boolean;
+  /** Joriy/oxirgi reja vazifasi. */
+  job_id?: string | null;
+  exports: MontageExport[];
+}
+
+export interface MontageRenderResult {
+  video: string;
+  edl: string;
+  srt: string | null;
+  warnings: string[];
+  encoder?: string;
 }

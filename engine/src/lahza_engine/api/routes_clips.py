@@ -399,7 +399,8 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
     @app.get("/v1/exports")
     def exports(s: State = Depends(auth)) -> list[dict[str, Any]]:
         return [{"job": j.public(), "episode_id": j.meta.get("episode_id"),
-                 "clip_id": j.meta.get("clip_id"), "title": j.meta.get("title", "")}
+                 "clip_id": j.meta.get("clip_id"), "montage_id": j.meta.get("montage_id"),
+                 "title": j.meta.get("title", "")}
                 for j in s.jobs.list_jobs("export")]
 
     @app.post("/v1/jobs/{job_id}:retry")
@@ -409,6 +410,10 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             raise HTTPException(404, "vazifa topilmadi")
         if job.kind != "export" or job.status not in ("failed", "cancelled"):
             raise HTTPException(409, "faqat muvaffaqiyatsiz yoki bekor qilingan eksportni qayta urinish mumkin")
+        if job.meta.get("montage_id"):
+            from lahza_engine.api.routes_montage import retry_render
+
+            return retry_render(s, job).public()
         params = s.export_params.get(job_id)
         if params is None:
             raise HTTPException(409, "vazifa parametrlari topilmadi")

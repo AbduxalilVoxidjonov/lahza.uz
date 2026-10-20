@@ -2,7 +2,7 @@
 
 Lahza Studio uzun o'zbekcha podkast yoki videodan eng qiziq lahzalarni topadi. Ulardan 9:16 formatdagi, o'zbekcha subtitrli Reels kliplarini yasaydi. Hammasi **kompyuteringizda, internetsiz** ishlaydi: video hech qayerga yuborilmaydi.
 
-> **Versiya holati.** Bu qo'llanma joriy (R0 / M2) holatni tasvirlaydi. Barcha tasvirlangan imkoniyatlar oynada (UI) mavjud. Faqat model katalogi hali R0 bosqichida — [2-bo'lim](#2-birinchi-ishga-tushirish-va-modellar).
+> **Versiya holati.** Bu qo'llanma joriy (R0 / M2, 2026-10-20) holatni tasvirlaydi. Barcha tasvirlangan imkoniyatlar oynada (UI) mavjud. Faqat model katalogi hali R0 bosqichida — [2-bo'lim](#2-birinchi-ishga-tushirish-va-modellar).
 
 ## Mundarija
 
@@ -14,11 +14,12 @@ Lahza Studio uzun o'zbekcha podkast yoki videodan eng qiziq lahzalarni topadi. U
 6. [Klip muharriri](#6-klip-muharriri)
 7. [Transkript tahriri](#7-transkript-tahriri)
 8. [Eksport](#8-eksport)
-9. [Klaviatura yorliqlari](#9-klaviatura-yorliqlari)
-10. [Imlo rejimlari](#10-imlo-rejimlari)
-11. [Maxfiylik](#11-maxfiylik)
-12. [Diagnostika](#12-diagnostika)
-13. [Muammolar va yechimlar](#13-muammolar-va-yechimlar)
+9. [Video shablonlar va montaj](#9-video-shablonlar-va-montaj)
+10. [Klaviatura yorliqlari](#10-klaviatura-yorliqlari)
+11. [Imlo rejimlari](#11-imlo-rejimlari)
+12. [Maxfiylik](#12-maxfiylik)
+13. [Diagnostika](#13-diagnostika)
+14. [Muammolar va yechimlar](#14-muammolar-va-yechimlar)
 
 ---
 
@@ -214,7 +215,116 @@ Har bir klip uchun quyidagi fayllar yasaladi:
 * xato bo'lgan yoki bekor qilinganini qayta urinish;
 * tayyor faylni papkada ko'rsatish.
 
-## 9. Klaviatura yorliqlari
+## 9. Video shablonlar va montaj
+
+Bu bo'lim bir yoki bir nechta videodan tayyor montaj yasashni tushuntiradi. **Video shablon** — montaj retsepti: tuzilma (intro, kadrlar, outro), davomiylik, o'tishlar, harakat effektlari, rang, subtitr va musiqa. Lahza yangi kadr chizmaydi: montajdagi har bir kadr faqat siz tanlagan videolardan olinadi.
+
+Chap menyuda **Montaj** guruhi bor. Unda ikki bo'lim: **Shablonlar** va **Montajlar**.
+
+### Shablon tanlash
+
+**Shablonlar** sahifasi ("Video shablonlar") — shablonlar galereyasi. Yuqorida toifalar: **Podkast**, **E'lon**, **Tadbir**, **Mahsulot**, **Intervyu**, **Ta'lim**, **Boshqa** va **Mening shablonlarim**. O'rnatilgan 6 ta shablon:
+
+| Shablon | Toifa | Qisqacha |
+| --- | --- | --- |
+| Podkast — kuchli hook | Podkast | 30–45 s, eng kuchli lahza bilan boshlanadi, karaoke subtitr, urg'uli joyda punch-in, oxirida obunaga chaqiruv |
+| Tadbir — ritmli lavhalar | Tadbir | 20–30 s, 1,2–3 s lik yorqin kadrlar musiqa ostida, dissolve o'tishlar; **musiqa majburiy** |
+| Mahsulot — promo | Mahsulot | 15–20 s, sarlavha kartasi, yorqin rang, tez kadrlar, oxirida CTA kartasi, logotip |
+| Intervyu — toza | Intervyu | ~55 s, eng yaxshi lahzalar, boshida shou nomi pastki yozuv sifatida |
+| Kurs e'loni | Ta'lim | ~40 s, sarlavha va ro'yxatdan o'tishga chaqiruv |
+| Kun hikoyasi | Boshqa | ~30 s, videolardan xronologik hikoya, iliq ranglar, boshida sarlavha |
+
+Kartochkada shablon nomi, tavsifi, format va asosiy sozlamalar (**Effektlar**, **Subtitr**, **Musiqa majburiy**) ko'rinadi. **Qo'llash** — shu shablon bilan yangi montajni boshlaydi. **Ko'rish** — shablonni ochadi (o'rnatilgan shablon — faqat o'qish uchun).
+
+### Yangi montaj
+
+**Qo'llash** yoki **Montajlar → Yangi montaj** "Yangi montaj" sahifasini ochadi. U uch qadamdan iborat.
+
+**1. Shablon.** Shablonni tanlaysiz; tanlangani "Tanlandi: <nom>" deb ko'rsatiladi.
+
+**2. Videolar.** **Manba turi** ni tanlang:
+
+* **Fayllar** — **Videolarni tanlash** tugmasi (bir nechta faylni birdaniga tanlash mumkin) yoki **Video fayl yo'li** maydoniga yo'l yozib **Qo'shish**;
+* **Epizod kliplari** — **Loyiha** va **Epizod** ni tanlab, kerakli kliplarni qo'shing yoki **Hammasini qo'shish (N)**;
+* **Butun epizod** — epizodning to'liq videosi manba bo'ladi.
+
+Tanlanganlar **Tanlangan videolar** ro'yxatida. Tartibni ↑/↓ tugmalari yoki elementda `Alt+↑/↓` bilan o'zgartirasiz, `Delete` — olib tashlash. Shablonning tartib qoidasi "Berilgan tartibda" bo'lsa, montaj shu tartibda yig'iladi.
+
+**3. Sozlamalar.** Hammasi ixtiyoriy — bo'sh qolsa shablondagi qiymat olinadi ("Shablondan …"):
+
+* **Montaj nomi**, **Davomiylik** (5–600 s), **Format** (9:16, 1:1, 16:9);
+* **Musiqa fayli** — shablon musiqa talab qilsa majburiy (`*` va "Musiqa majburiy" belgisi). Faqat o'zingizga tegishli yoki litsenziyali musiqa ishlating;
+* **Sarlavha**, **CTA matni**, **Shou nomi** — shablon kartalaridagi o'rinbosarlar o'rniga qo'yiladi (pastda — [O'rinbosarlar](#orinbosarlar));
+* **Subtitr** (Shablondan / Yoqilgan / O'chirilgan), **O'tish**, **Rang**;
+* **Logotip fayli (PNG)** — shablon logotip kutsa-yu, fayl tanlanmasa, montaj logotipsiz bo'ladi.
+
+**Montaj qilish** ni bosing. "Montaj rejalashtirilmoqda": avval **Videolar tahlili** (sahnalar, keskinlik, harakat, ovoz energiyasi, nutq), keyin **Reja tuzish**. Reja deterministik: bir xil videolar va bir xil shablon har doim bir xil montaj beradi. Tayyor bo'lgach montaj muharriri ochiladi.
+
+### Montaj muharriri
+
+Yuqorida — preview ("Montaj preview (9:16)"), uning ostida **Timeline** uch qator bilan: **Video**, **Matn**, **Musiqa**. O'tishlar video elementlari orasida belgilanadi.
+
+* Timeline'ni bosib vaqtni tanlaysiz; preview shu kadrni ko'rsatadi. **Xavfsiz zona** ni yoqib qo'yish mumkin.
+* **Kattalashtirish** / **Kichiklashtirish** — timeline masshtabi.
+
+O'ng tarafda to'rt tab:
+
+* **Element** — tanlangan video element: **Manba oralig'i** (**Boshi** / **Oxiri**, bir kadrlik qadam bilan), **Tezlik**, **Ovoz** (**Ovozsiz**, **Balandlik**), **Kadr** (**Qo'lda kadrlash**, **Zoom**), **O'tish**, **Effektlar** (**Effekt qo'shish**, **Boshlanishi**, **Davomiyligi** — 0 bo'lsa element oxirigacha). Effekt yonida manbasi: "Shablondan" yoki "Qo'lda". **Chapga surish** / **O'ngga surish**, **Takrorlash**, o'chirish. Element **Manba** va **Nega tanlandi** ma'lumotini ham ko'rsatadi. Tahrirlangan element "Qo'lda tahrirlangan" deb belgilanadi.
+* Matn elementi tanlansa — **Matn**, **Turi** (Karta, Sarlavha, Hook, CTA, Pastki yozuv), **Joyi**, **Animatsiya** (Yo'q, Paydo bo'lish, Sakrash, Pastdan chiqish), **Fon**, **Boshi** / **Oxiri**. Yangi matn — **Matn qo'shish**.
+* **Umumiy** — butun montaj: **Subtitr uslubi**, **Rang**, **Musiqa** (**Musiqa qo'shish** / **Almashtirish** / **Olib tashlash**, **Nutq ustida pasaytirish**, **Musiqa balandligi**, **Kirish** / **Chiqish**), **Manbalar balandligi**, **Balandlikni me'yorlash**, **Kesimdagi fade**, logotip.
+* **Render** — pastda alohida.
+* **Hisobot** — har bir kadr qaysi manbadan, qaysi oraliqdan va nega olingani (`_edl.json` ning ko'rinishi).
+
+O'zgarishlarni **Saqlash** (`Cmd/Ctrl+S`) bilan saqlang.
+
+**Qayta reja** — shablon bo'yicha rejani qaytadan tuzadi. Saqlanmagan o'zgarishlar bo'lsa, ogohlantirish chiqadi; qo'lda tahrirlangan elementlar bo'lsa, ular almashtirilishi haqida alohida so'raladi. Qayta reja muvaffaqiyatsiz bo'lsa, avvalgi timeline saqlanib qoladi.
+
+Videolarda transkript bo'lmasa, subtitr chiqmaydi ("Manbalarda transkript yo'q - subtitr chiqmaydi."). Rejalashtiruvchi biror narsani qo'ya olmagan bo'lsa (masalan, hook matni uchun joy yetmasa), **Reja ogohlantirishlari** da yoziladi.
+
+### Render
+
+**Render** tabida **Eksport papkasi** va **Fayl nomi** ni kiriting, so'ng **Render** (`Cmd/Ctrl+E`). Jarayon tab ichida va **Eksport** sahifasida ko'rinadi; bekor qilish mumkin. Tayyor bo'lgach "Render tayyor" va fayllar chiqadi:
+
+| Fayl | Tarkibi |
+| --- | --- |
+| `<nom>.mp4` | Montaj (tanlangan formatda), matn kartalari va subtitr videoga chizilgan |
+| `<nom>_edl.json` | Montaj hisoboti (pastda) |
+| `<nom>.srt` | Subtitr fayli — subtitr yoqilgan va transkript bo'lsa |
+
+Oldingi renderlar ro'yxati — **Oldingi renderlar (N)**. Barcha montajlar **Montajlar** sahifasida: holati (Rejalashtirilmoqda / Tayyor / Xato), **Ochish**, o'chirish. Montaj o'chirilsa, render qilingan fayllar o'chirilmaydi.
+
+### Shablon yaratish, nusxa, import va eksport
+
+* **Nusxa olish** — o'rnatilgan shablon nusxasi **Mening shablonlarim** ga qo'shiladi. **Nusxa olib tahrirlash** — nusxani darhol muharrirda ochadi. O'rnatilgan shablonning o'zini o'zgartirib bo'lmaydi.
+* **Yangi shablon** — bo'sh shablondan boshlash.
+* Shablon muharriri bo'limlari: **Asosiy** (Nomi, Tavsif, Toifa, Format, Kadr/s, Davomiylik), **Kadrlarni tanlash** (Tanlash usuli — Eng yaxshi lahzalar / Sahnalar / To'liq videolar; Tartib — Berilgan tartibda / Xronologik / Ball bo'yicha; Min. kadr, Maks. kadr, Bitta manbadan maks., Gap o'rtasida kesmaslik), **Ko'rinish** (Kadrlash, O'tish, O'tish davomiyligi, Rang), **Effekt qoidalari**, **Subtitr**, **Tuzilma** (Intro kartasi, Hook matni, Outro / CTA), **Ovoz va brend** (Musiqa, Manbalar ovozini o'chirish, Logotip qo'yish).
+* **Effekt qoidalari**: **Qoida qo'shish** → **Plagin**, **Qachon** (Boshida, Oxirida, Har kesimda, Urg'uli joyda, Spiker almashganda, Har N-elementda), **Ko'pi bilan** (0 — cheklovsiz), **Min. oraliq**.
+* **Import (.json)** — shablon fayli yo'lini kiriting; tekshiruvdan o'tsa "Import qilindi: <nom>". **Eksport** — shablonni `.json` faylga saqlaydi. Fayl boshqa kompyuterdagi Lahza'ga import qilinadi. Shablon faqat ma'lumot (kod emas); noma'lum plagin yoki noto'g'ri qiymat bo'lsa, import aniq xabar bilan rad etiladi.
+
+### O'rinbosarlar
+
+Karta matnida (intro, hook, outro) quyidagilar ishlatiladi:
+
+| O'rinbosar | Nima qo'yiladi |
+| --- | --- |
+| `{sarlavha}` | Yangi montajdagi **Sarlavha** maydoni |
+| `{shou}` | **Shou nomi** maydoni |
+| `{cta}` | **CTA matni** maydoni |
+
+Standart qiymat ikki nuqtadan keyin yoziladi: `{cta:Obuna bo'ling!}` — CTA matni berilmasa, "Obuna bo'ling!" chiqadi. Qiymat ham, standart ham bo'lmasa va karta bo'sh qolsa, karta qo'yilmaydi.
+
+### "Haqiqiy kadr" va `_edl.json`
+
+Lahza montajda yangi kadr generatsiya qilmaydi: piksellar faqat sizning videolaringizdan olinadi; qo'shiladigan narsalar — o'tishlar, kadrlash/zoom, rang, matn kartalari, subtitr, logotip va musiqa. Buni har render yonidagi `<nom>_edl.json` tasdiqlaydi: unda `"haqiqiy_kadr": true` va har bir kadr uchun — manba fayl, manbadagi oraliq, montajdagi oraliq, qo'llangan o'tish, effekt va rang, kadr nega tanlangani. Xuddi shu ma'lumot muharrirdagi **Hisobot** tabida.
+
+### Cheklovlar
+
+* Kadrlarni tanlash qoida asosida (LLM'siz); musiqa zarbiga moslash, multicam va bir nechta variant hozircha yo'q.
+* YouTube havoladan import, Premiere / DaVinci / Filmora uchun eksport, Lottie animatsiyalar va `.lzfx` plagin paketlari — keyingi versiyalarda.
+* FFmpeg libass'siz bo'lsa (dasturchi muhiti) matn kartalari va subtitr videoga chizilmaydi; "Subtitrsiz eksport" tanlovi belgilansa render ogohlantirish bilan davom etadi, SRT alohida yoziladi.
+* Musiqa va videolar huquqi — sizning javobgarligingizda.
+
+## 10. Klaviatura yorliqlari
 
 Yorliqlar matn maydonida yozayotganingizda ishlamaydi. Mac'da `Cmd`, Windows'da `Ctrl` ishlatiladi.
 
@@ -240,7 +350,19 @@ Yorliqlar matn maydonida yozayotganingizda ishlamaydi. Mac'da `Cmd`, Windows'da 
 | `A` / `R` | Tanlangan kartochkani qabul qilish / rad etish |
 | `Cmd/Ctrl+E` | Belgilangan kliplarni (yoki belgilangan bo'lmasa, tanlangan kartochkani) eksport qilish |
 
-## 10. Imlo rejimlari
+**Montaj muharriri:**
+
+| Tugma | Amal |
+| --- | --- |
+| `←` / `→` | Bir kadr orqaga / oldinga |
+| `Shift+←` / `Shift+→` | Oldingi / keyingi element |
+| `Delete` | Tanlangan elementni o'chirish |
+| `Cmd/Ctrl+S` | Saqlash |
+| `Cmd/Ctrl+E` | Render |
+
+**Yangi montaj (tanlangan videolar ro'yxati):** `Alt+↑` / `Alt+↓` — tartibni o'zgartirish, `Delete` — olib tashlash.
+
+## 11. Imlo rejimlari
 
 Transkript ichida doim rasmiy imloda saqlanadi. Eksportda uch ko'rinishdan biri tanlanadi (Uslub → Imlo):
 
@@ -252,7 +374,7 @@ Transkript ichida doim rasmiy imloda saqlanadi. Eksportda uch ko'rinishdan biri 
 
 Yangi alifboda `oʻ→ö`, `gʻ→ğ`, `sh→ş`, `ch→ç`. Tutuq belgisi bilan ajratilgan `sʼh` (masalan, *Isʼhoq*) o'zgarmaydi. Batafsil: [docs/08-ozbek-imlosi.md](08-ozbek-imlosi.md).
 
-## 11. Maxfiylik
+## 12. Maxfiylik
 
 * **Videolar kompyuterdan chiqmaydi.** Tahlil, transkripsiya va render to'liq lokal bajariladi.
 * **Telemetriya yo'q.** Dastur foydalanish statistikasini yubormaydi.
@@ -267,7 +389,7 @@ Yangi alifboda `oʻ→ö`, `gʻ→ğ`, `sh→ş`, `ch→ç`. Tutuq belgisi bilan
 
   Ichidagi papkalar: `Models/` (modellar), `Library/` (shoular va epizodlar), `Logs/` (loglar).
 
-## 12. Diagnostika
+## 13. Diagnostika
 
 **Sozlamalar → Diagnostika paketi** bo'limida **Saqlanadigan papka** ni tanlab, **Paket yaratish** ni bosing. Tayyor bo'lgach "Saqlandi: <yo'l>" yozuvi va **Papkani ochish** tugmasi chiqadi. Paket faqat siz bosganingizda yaratiladi va hech qayerga avtomatik yuborilmaydi — uni o'zingiz yuborasiz.
 
@@ -283,7 +405,7 @@ Transkript matni, klip matnlari va fayl yo'llari paketga **kirmaydi**.
 
 Loglarning o'zi ma'lumotlar papkasidagi `Logs/engine.log` faylida (eng ko'pi 5 ta fayl, har biri 2 MB gacha).
 
-## 13. Muammolar va yechimlar
+## 14. Muammolar va yechimlar
 
 | Muammo | Sabab va yechim |
 | --- | --- |
@@ -296,4 +418,6 @@ Loglarning o'zi ma'lumotlar papkasidagi `Logs/engine.log` faylida (eng ko'pi 5 t
 | Subtitrda so'z xato yozilgan | Transkript tahririda tuzating. Takrorlanadigan ism yoki atamalarni lug'atga qo'shing. |
 | Brauzer yoki dasturchi rejimida eksport ishlamaydi | Eksport papkasi tanlanmagan. Uni **Eksport** sahifasida belgilang. |
 | Subtitrsiz video / render xatosi (dasturchi muhiti) | Tizimdagi FFmpeg libass'siz yig'ilgan. Rasmiy o'rnatuvchida FFmpeg dastur bilan birga keladi. Dasturchilar uchun: [docs/03-dasturchi-muhiti.md](03-dasturchi-muhiti.md#ffmpeg-va-libass). |
+| "Bu shablon uchun musiqa fayli majburiy." | Shablon musiqa talab qiladi (masalan, "Tadbir — ritmli lavhalar"). Yangi montajda **Musiqa fayli** ni tanlang yoki boshqa shablon oling. |
+| Montajda subtitr yo'q | Manba videolarda transkript yo'q (oddiy fayllar). Subtitr uchun videoni avval shouga import qilib tahlil qiling va **Epizod kliplari** yoki **Butun epizod** manbasidan foydalaning. |
 | macOS: "dasturni ochib bo'lmaydi" | Rasmiy `.dmg` dan o'rnating. Imzolanmagan nusxalarni macOS bloklaydi. |

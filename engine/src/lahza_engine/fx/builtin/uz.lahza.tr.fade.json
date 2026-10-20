@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.fade",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Silliq o'tish",
+    "uz-Cyrl": "Силлиқ ўтиш",
+    "ru": "Плавный переход",
+    "en": "Fade"
+  },
+  "description": {
+    "uz": "Kadrlar bir-biriga silliq o'tadi",
+    "uz-Cyrl": "Кадрлар бир-бирига силлиқ ўтади",
+    "ru": "Плавное смешивание кадров",
+    "en": "Smooth blend between shots"
+  },
+  "backend": "xfade",
+  "preset": "fade",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

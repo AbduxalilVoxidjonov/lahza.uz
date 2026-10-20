@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.wipeleft",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Chapga surish",
+    "uz-Cyrl": "Чапга суриш",
+    "ru": "Шторка влево",
+    "en": "Wipe left"
+  },
+  "description": {
+    "uz": "Yangi kadr chapga surilib ochiladi",
+    "uz-Cyrl": "Янги кадр чапга сурилиб очилади",
+    "ru": "Новый кадр открывается шторкой влево",
+    "en": "New shot wipes in to the left"
+  },
+  "backend": "xfade",
+  "preset": "wipeleft",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

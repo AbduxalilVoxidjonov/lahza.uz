@@ -1,7 +1,9 @@
 // Rus lug'ati. Kalit yetishmasa yoki ortiqcha bo'lsa TS xato beradi (M2-APP-10).
 import type { Messages } from "./index";
 
+import { montageRu } from "./montage/ru";
 export const ru = {
+  ...montageRu,
   "app.name": "Lahza Studio",
   "nav.projects": "Проекты",
   "nav.exports": "Экспорт",
