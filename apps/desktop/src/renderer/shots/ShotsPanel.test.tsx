@@ -27,7 +27,7 @@ const shots = vi.hoisted(() => ({
   getMediaFrame: vi.fn<(id: string, tUs: number) => Promise<string>>(),
   // Both halves of the description column, so the file can assert the one that
   // matters: opening the Panel reads the cache and never spends a model.
-  getMediaDescription: vi.fn<(id: string) => Promise<DescriptionCache | null>>(),
+  getMediaDescription: vi.fn<(id: string, purpose?: "clip" | "shot") => Promise<DescriptionCache | null>>(),
   describeClip: vi.fn(),
   getProjectSettings: vi.fn(),
   updateProjectSettings: vi.fn(),
@@ -71,7 +71,7 @@ import type {
   SpanStats,
   TrackSummary,
 } from "../ipc";
-import { resetDescriptionsStore } from "../describe/descriptionsStore";
+import { resetDescriptionsStore, setDescribing, setDescribeError, useDescriptionsStore } from "../describe/descriptionsStore";
 import { receiveComputeJobs } from "../compute/computeJobsStore";
 import type { ComputeJob, ComputePhase } from "../ipc";
 import { resetShotsStore } from "./shotsStore";
@@ -698,6 +698,23 @@ describe("ShotsPanel — the description column", () => {
     shots.shotFloorReportCached.mockResolvedValue(true);
   });
 
+  it("shows clip content separately and still offers every undescribed shot", async () => {
+    shots.getMediaDescription.mockImplementation(async (_id, purpose) => purpose === "shot" ? null : {
+      covered_ranges: [[0, 6_000_000]],
+      segments: [{ t_start_us: 0, t_end_us: 6_000_000, text: "whole clip content", tags: [] }],
+    });
+    openComposition(ROOT_ID, null);
+    setLayerSelection("l1", ["l1"]);
+    render(<ShotsPanel />);
+    expect((await screen.findByTestId("shots-clip-content")).textContent).toContain("whole clip content");
+    await waitFor(() => expect(screen.getAllByRole("listitem")).toHaveLength(2));
+    for (const row of screen.getAllByRole("listitem")) {
+      expect(row.textContent).toContain("Not described");
+      expect(row.textContent).not.toContain("whole clip content");
+    }
+    expect(screen.getByTestId("shots-describe-all").textContent).toContain("Describe 2 shots");
+  });
+
   it("says a shot is not described rather than leaving the cell blank", async () => {
     openComposition(ROOT_ID, null);
     setLayerSelection("l1", ["l1"]);
@@ -831,6 +848,7 @@ describe("ShotsPanel — describing one shot", () => {
     // view these rows read back.
     expect(shots.describeClip).toHaveBeenCalledWith({
       layerId: "l1",
+      purpose: "shot",
       tStartUs: 3_000_000,
       tEndUs: 7_000_000,
       // The call's job tag (ADR 0121) — host plumbing, not a view argument.
@@ -932,6 +950,7 @@ describe("ShotsPanel — describing one shot", () => {
     await waitFor(() => expect(shots.describeClip).toHaveBeenCalledTimes(1));
     expect(shots.describeClip).toHaveBeenCalledWith({
       layerId: "l1",
+      purpose: "shot",
       tStartUs: 3_000_000,
       tEndUs: 7_000_000,
       // The call's job tag (ADR 0121) — host plumbing, not a view argument.
@@ -1629,6 +1648,7 @@ describe("ShotsPanel — a running description job", () => {
   const job = (over: Partial<ComputeJob> & { phase: ComputePhase }): ComputeJob => ({
     job_id: "job-1",
     tool: "describe_clip",
+    purpose: "shot",
     layer_id: "l1",
     media_id: "m1",
     window: { t_start_us: 3_000_000, t_end_us: 7_000_000 },
@@ -1661,6 +1681,55 @@ describe("ShotsPanel — a running description job", () => {
   }
   const statusIn = (row: HTMLElement | undefined) =>
     row?.querySelector<HTMLElement>(".shots-description .compute-job-status") ?? null;
+
+  it.each(["clip", undefined] as const)("does not display %s description progress or Cancel on shot rows", async (purpose) => {
+    const rows = await review();
+    const current = job({ phase: { kind: "loading_model" } });
+    if (purpose === undefined) delete current.purpose;
+    else current.purpose = purpose;
+    publish([current]);
+    for (const row of rows) expect(statusIn(row)).toBeNull();
+    expect(screen.queryByRole("button", { name: "Cancel description" })).toBeNull();
+    expect(screen.queryByText("Loading model")).toBeNull();
+  });
+
+  it("does not display clip description progress when there are no shot rows", async () => {
+    shots.shotFloorReportCached.mockResolvedValue(false);
+    openComposition(ROOT_ID, null);
+    setLayerSelection("l1", ["l1"]);
+    render(<ShotsPanel />);
+    await screen.findByText(/has not been analyzed for shot cuts yet/);
+    publish([job({ purpose: "clip", phase: { kind: "loading_model" } })]);
+    expect(screen.queryByTestId("shots-describe-jobs")).toBeNull();
+  });
+
+  it("keeps clip progress out of local button tooltips and errors out of the panel", async () => {
+    const rows = await review();
+    act(() => setDescribing({ purpose: "clip", mediaId: "m1", srcStartUs: 0, srcEndUs: 6_000_000, requestId: "clip-run" }));
+    publish([job({ purpose: "clip", request_ids: ["clip-run"], phase: { kind: "loading_model" } })]);
+    for (const row of rows) expect(statusIn(row)).toBeNull();
+    // Shared model admission may disable a button, but it must not present
+    // another purpose's loading phase or Cancel as its own operation.
+    expect(screen.getByTestId("shots-describe-0").title).not.toBe("Loading model");
+    expect(screen.getByTestId("shots-describe-all").title).not.toBe("Loading model");
+    act(() => setDescribeError("clip", "clip-only failure"));
+    expect(screen.queryByTestId("shots-describe-error")).toBeNull();
+    act(() => setDescribeError("shot", "shot-only failure"));
+    expect(screen.getByTestId("shots-describe-error").textContent).toContain("shot-only failure");
+    act(() => setDescribeError("clip", ""));
+    expect(useDescriptionsStore.getState().errors.shot).toBe("shot-only failure");
+  });
+
+  it("selects a shot job even when an older clip job overlaps the same row", async () => {
+    const rows = await review();
+    publish([
+      job({ purpose: "clip", job_id: "clip-job", started_at: "2026-01-01T00:00:00Z", phase: { kind: "loading_model" } }),
+      job({ purpose: "shot", job_id: "shot-job", started_at: "2026-01-01T00:00:01Z", phase: { kind: "extracting", done: 2, total: 4 } }),
+    ]);
+    expect(statusIn(rows[1])?.textContent).toContain("Sampling frames 2/4");
+    fireEvent.click(within(rows[1]!).getByRole("button", { name: "Cancel description" }));
+    await waitFor(() => expect(shots.cancelComputeJob).toHaveBeenCalledWith("shot-job"));
+  });
 
   it("shows an agent's job on the rows its window covers, with Cancel, and nowhere else", async () => {
     const rows = await review();

@@ -809,6 +809,7 @@ const zhCN: Resources = {
     // 描述列的空状态。一个镜头没有描述是常态——这句话说清它处在哪种状态，
     // 而空白格会被读成一次永远没结束的加载。
     not_described: "未描述",
+    clip_content: "片段内容",
     // 唯一合理的过渡态，而且只在这一格没有别的可显示时出现：窗口与这一行
     // 相交的一次运行正在路上。
     describing: "正在描述…",
@@ -818,8 +819,7 @@ const zhCN: Resources = {
     // 已经有文字的行。说“再描述一次”而不是“重新描述”：这一行不是在被纠正，
     // 而是在被再问一次，对模型来说这是很正常的需求。
     describe_shot_again: "再次描述",
-    describe_shot_hint:
-      "问视觉模型这个镜头里有什么——一次本机模型运行，按 app 当前语言输出。",
+    describe_shot_hint: "使用视觉模型描述镜头",
     // 状态日志里怎么称呼单个镜头的这次运行。它会替代片段名被插进
     // log.describe_started / log.describe_done，这样批量跑出来的每一行都说清是哪个镜头。
     describe_shot_subject: "{{clip}} · 镜头 {{index}}",

@@ -1,5 +1,6 @@
-// What is described, per source — the state behind the shot rows' text column
-// and behind the search index's description entries.
+// What is described, per source and purpose. Clip content feeds its own panel
+// section and search; shot descriptions feed only the shot rows. Result maps
+// and subject-read coordinators are separate; model run admission is shared.
 //
 // Deliberately separate from `projectStore`, for `shotsStore`'s reason: a
 // description belongs to a source rather than to the project, and folding it
@@ -22,6 +23,7 @@ import { create } from "zustand";
 
 import { getMediaDescription, type DescSegment } from "../ipc";
 import { LatestRequestCoordinator } from "../state/latestRequest";
+import type { DescriptionPurpose } from "../../shared/description";
 
 /// The window a run is going against: a source id and a source-time span.
 ///
@@ -31,6 +33,7 @@ import { LatestRequestCoordinator } from "../state/latestRequest";
 /// in source time, which is the domain the rows and the cache already share, so
 /// "is this row waiting" is the same intersection the prose itself is found by.
 export interface DescribingSpan {
+  purpose?: DescriptionPurpose;
   mediaId: string;
   srcStartUs: number;
   srcEndUs: number;
@@ -40,12 +43,14 @@ export interface DescribingSpan {
 }
 
 interface DescriptionsState {
-  /// Segments by media id. A present `null` means the read came back with
+  /// Clip content by media id. A present `null` means the read came back with
   /// nothing — known not described, as opposed to an absent key, which means
   /// nobody has asked yet. Both render as "not described"; the distinction is
   /// what keeps `hydrateDescription` from re-reading a source it has an answer
   /// for.
   segments: ReadonlyMap<string, readonly DescSegment[] | null>;
+  /// Individual-shot results only; never fall back to clip content.
+  shotSegments: ReadonlyMap<string, readonly DescSegment[] | null>;
   /// The window a description run is going against, or null. Read by the rows:
   /// a cell with nothing to show says whether one is on its way.
   ///
@@ -54,17 +59,9 @@ interface DescriptionsState {
   /// a local 2.5 GB model and two concurrent spawns would contend for the same
   /// VRAM to answer half as fast.
   describing: DescribingSpan | null;
-  /// The last run's failure, for the Shots Panel's own slot — the engine's
-  /// sentence verbatim, or `""`.
-  ///
-  /// Here rather than on `shotsStore.error`, whose one slot is documented as
-  /// exclusive between the scan, a measurement and an apply. A describe run is
-  /// none of those and greys none of them, so it would be the first thing able
-  /// to overwrite a refusal the reviewer had not read yet.
-  ///
-  /// Not surfaced by the DIALOG, which keeps its own inline copy: it stays open
-  /// on a failure so the parameters survive, and it owns the one remedy button.
-  error: string;
+  /// Last failure per purpose. The Shots Panel reads/clears only `shot`;
+  /// clip failures are handled by the clip command and status log.
+  errors: Readonly<Record<DescriptionPurpose, string>>;
   /// A shot-by-shot sweep's progress, or null when none is running.
   ///
   /// Separate from `describing`, which goes null between the sweep's runs — a
@@ -76,8 +73,9 @@ interface DescriptionsState {
 
 const INITIAL: DescriptionsState = {
   segments: new Map(),
+  shotSegments: new Map(),
   describing: null,
-  error: "",
+  errors: { clip: "", shot: "" },
   batch: null,
 };
 
@@ -88,9 +86,22 @@ export const useDescriptionsStore = create<DescriptionsState>(() => ({
 /// One coordinator for the SUBJECT reads, so a slower answer for a source the
 /// user has navigated away from cannot publish over the newest one.
 const reads = new LatestRequestCoordinator();
+const shotReads = new LatestRequestCoordinator();
+// Remember requested shot views even while a read is in flight, so a settings
+// change or relink can re-read them without waiting for a panel remount.
+const requestedShots = new Set<string>();
 
-/// Which VIEW the map currently holds, as a counter. Bumped by
-/// `resyncDescriptionsForView`; captured by every read before it is issued and
+function segmentsForPurpose(purpose: DescriptionPurpose) {
+  const state = useDescriptionsStore.getState();
+  return purpose === "shot" ? state.shotSegments : state.segments;
+}
+
+function readDescription(mediaId: string, purpose: DescriptionPurpose) {
+  return purpose === "clip" ? getMediaDescription(mediaId) : getMediaDescription(mediaId, purpose);
+}
+
+/// Which view/source mapping the maps hold, as a counter. Bumped on settings
+/// changes and relinks; captured by every read before it is issued and
 /// compared before it publishes.
 ///
 /// A read already in the air when the view changes answers about the view being
@@ -120,9 +131,10 @@ function putIfCurrent(
   generation: number,
   mediaId: string,
   value: readonly DescSegment[] | null,
+  purpose: DescriptionPurpose = "clip",
 ): void {
   if (generation !== viewGeneration) return;
-  put(mediaId, value);
+  put(mediaId, value, purpose);
 }
 
 /// The file each answered source pointed at when it was last looked at.
@@ -133,10 +145,11 @@ const readAtPath = new Map<string, string>();
 function put(
   mediaId: string,
   value: readonly DescSegment[] | null,
+  purpose: DescriptionPurpose = "clip",
 ): void {
-  const next = new Map(useDescriptionsStore.getState().segments);
+  const next = new Map(segmentsForPurpose(purpose));
   next.set(mediaId, value);
-  useDescriptionsStore.setState({ segments: next });
+  useDescriptionsStore.setState(purpose === "shot" ? { shotSegments: next } : { segments: next });
 }
 
 /// Read one source's cached description, under the view the app's settings name.
@@ -145,16 +158,18 @@ function put(
 ///
 /// NEVER calls `describeClip`: opening the Panel on an undescribed clip must
 /// cost a cache probe and not a model run.
-export async function hydrateDescription(mediaId: string): Promise<void> {
-  if (useDescriptionsStore.getState().segments.has(mediaId)) return;
+export async function hydrateDescription(mediaId: string, purpose: DescriptionPurpose = "clip"): Promise<void> {
+  if (purpose === "shot") requestedShots.add(mediaId);
+  if (segmentsForPurpose(purpose).has(mediaId)) return;
   const generation = viewGeneration;
-  if (inFlight.get(mediaId) === generation) return;
-  inFlight.set(mediaId, generation);
+  const readKey = purpose === "clip" ? mediaId : `shot:${mediaId}`;
+  if (inFlight.get(readKey) === generation) return;
+  inFlight.set(readKey, generation);
   try {
-    await reads.run(
-      () => getMediaDescription(mediaId),
+    await (purpose === "shot" ? shotReads : reads).run(
+      () => readDescription(mediaId, purpose),
       (cache) =>
-        putIfCurrent(generation, mediaId, cache === null ? null : cache.segments),
+        putIfCurrent(generation, mediaId, cache === null ? null : cache.segments, purpose),
     );
   } catch (err) {
     // A read that cannot even be asked leaves the column saying "not
@@ -162,9 +177,9 @@ export async function hydrateDescription(mediaId: string): Promise<void> {
     // Recorded and not surfaced: a description is an extra on a row that is
     // legible without it, and the status log is where a describe failure belongs.
     console.warn("[descriptionsStore] description read failed", err);
-    putIfCurrent(generation, mediaId, null);
+    putIfCurrent(generation, mediaId, null, purpose);
   } finally {
-    if (inFlight.get(mediaId) === generation) inFlight.delete(mediaId);
+    if (inFlight.get(readKey) === generation) inFlight.delete(readKey);
   }
 }
 
@@ -191,14 +206,20 @@ export async function syncDescriptions(
 ): Promise<void> {
   const stale = [...readAtPath].filter(([id, path]) => sources.get(id) !== path);
   if (stale.length > 0) {
+    // Reject pending reads/runs from the previous source mapping. The sweep
+    // below reissues missing reads under this generation for both purposes.
+    viewGeneration += 1;
     // One new map for the whole batch: each `setState` is a store tick, and
     // the index marks itself dirty on every one of them.
     const next = new Map(useDescriptionsStore.getState().segments);
+    const nextShots = new Map(useDescriptionsStore.getState().shotSegments);
     for (const [id] of stale) {
       next.delete(id);
+      nextShots.delete(id);
       readAtPath.delete(id);
+      if (!sources.has(id)) requestedShots.delete(id);
     }
-    useDescriptionsStore.setState({ segments: next });
+    useDescriptionsStore.setState({ segments: next, shotSegments: nextShots });
   }
   for (const [id, path] of sources) readAtPath.set(id, path);
   const generation = viewGeneration;
@@ -221,6 +242,10 @@ export async function syncDescriptions(
       }
     }),
   );
+  for (const id of requestedShots) {
+    if (generation !== viewGeneration) return;
+    if (sources.has(id)) await hydrateDescription(id, "shot");
+  }
 }
 
 /// Forget every held description because the VIEW changed, then read them all
@@ -247,7 +272,7 @@ export async function resyncDescriptionsForView(
 ): Promise<void> {
   viewGeneration += 1;
   readAtPath.clear();
-  useDescriptionsStore.setState({ segments: new Map() });
+  useDescriptionsStore.setState({ segments: new Map(), shotSegments: new Map() });
   await syncDescriptions(sources);
 }
 
@@ -261,13 +286,14 @@ export async function resyncDescriptionsForView(
 /// Publishes only a non-empty answer. A `null` here would mean the read could
 /// not see what the run just wrote, and dropping prose already on screen for
 /// that is strictly worse than a column that is one window behind.
-export async function reloadDescription(mediaId: string): Promise<void> {
+export async function reloadDescription(mediaId: string, purpose: DescriptionPurpose = "clip"): Promise<void> {
+  if (purpose === "shot") requestedShots.add(mediaId);
   const generation = viewGeneration;
   try {
-    await reads.run(
-      () => getMediaDescription(mediaId),
+    await (purpose === "shot" ? shotReads : reads).run(
+      () => readDescription(mediaId, purpose),
       (cache) => {
-        if (cache !== null) putIfCurrent(generation, mediaId, cache.segments);
+        if (cache !== null) putIfCurrent(generation, mediaId, cache.segments, purpose);
       },
     );
   } catch (err) {
@@ -297,6 +323,7 @@ export function mergeDescription(
   srcStartUs: number,
   srcEndUs: number,
   fresh: readonly DescSegment[],
+  purpose: DescriptionPurpose = "clip",
 ): void {
   // Dropped outright when the view moved while the run was in flight. A setting
   // can be changed mid-run — nothing holds the window any more — and these
@@ -304,13 +331,15 @@ export function mergeDescription(
   // rows are asking now. `reloadDescription` behind it reads the new view, so
   // the row lands on the right answer rather than on a merge of two.
   if (runGeneration !== viewGeneration) return;
-  const prior = useDescriptionsStore.getState().segments.get(mediaId) ?? [];
+  if (purpose === "shot") requestedShots.add(mediaId);
+  const prior = segmentsForPurpose(purpose).get(mediaId) ?? [];
   const kept = prior.filter(
     (s) => !(s.t_start_us < srcEndUs && s.t_end_us > srcStartUs),
   );
   put(
     mediaId,
     [...kept, ...fresh].sort((a, b) => a.t_start_us - b.t_start_us),
+    purpose,
   );
 }
 
@@ -323,8 +352,8 @@ export function setDescribing(span: DescribingSpan | null): void {
   useDescriptionsStore.setState({ describing: span });
 }
 
-export function setDescribeError(error: string): void {
-  useDescriptionsStore.setState({ error });
+export function setDescribeError(purpose: DescriptionPurpose, error: string): void {
+  useDescriptionsStore.setState((s) => ({ errors: { ...s.errors, [purpose]: error } }));
 }
 
 export function setDescribeBatch(
@@ -343,6 +372,8 @@ export function setDescribeBatch(
 /// each is dropped by the same rule that catches a relink.
 export function resetDescriptionsStore(): void {
   reads.invalidate();
+  shotReads.invalidate();
+  requestedShots.clear();
   inFlight.clear();
   readAtPath.clear();
   // Bumped rather than zeroed: a read issued before the reset is still in the
@@ -365,16 +396,17 @@ export function resetDescriptionsStore(): void {
 /// empty state, so the two collapse here rather than in the component.
 export const useDescription = (
   mediaId: string | null,
+  purpose: DescriptionPurpose = "clip",
 ): readonly DescSegment[] | null =>
   useDescriptionsStore((s) =>
-    mediaId === null ? null : s.segments.get(mediaId) ?? null,
+    mediaId === null ? null : (purpose === "shot" ? s.shotSegments : s.segments).get(mediaId) ?? null,
   );
 
 export const useDescribing = (): DescribingSpan | null =>
   useDescriptionsStore((s) => s.describing);
 
-export const useDescribeError = (): string =>
-  useDescriptionsStore((s) => s.error);
+export const useDescribeError = (purpose: DescriptionPurpose): string =>
+  useDescriptionsStore((s) => s.errors[purpose]);
 
 export const useDescribeBatch = (): { done: number; total: number } | null =>
   useDescriptionsStore((s) => s.batch);
@@ -384,16 +416,18 @@ export const useDescribeBatch = (): { done: number; total: number } | null =>
 ///
 /// The same half-open intersection `segmentsForSpan` finds prose by, so a row
 /// that will receive the run's answer is exactly a row that says it is waiting.
-/// A whole-clip run therefore lights every row of that clip, and a per-shot run
-/// lights the one shot plus any neighbour the span reaches into.
+/// The purpose must match too: clip content cannot make shot rows wait for
+/// descriptions that will never be published to their cache.
 export function isDescribingSpan(
   describing: DescribingSpan | null,
   mediaId: string,
   srcStartUs: number,
   srcEndUs: number,
+  purpose: DescriptionPurpose = "clip",
 ): boolean {
   return (
     describing !== null &&
+    (describing.purpose ?? "clip") === purpose &&
     describing.mediaId === mediaId &&
     describing.srcStartUs < srcEndUs &&
     describing.srcEndUs > srcStartUs

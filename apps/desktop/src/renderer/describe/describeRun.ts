@@ -1,11 +1,10 @@
-// One description run, from the press to the prose on the rows — the whole of
-// it, so the describe command and the Shots Panel's buttons are literally the
-// same run.
+// One description execution flow. The caller names its purpose; every cache
+// read and write stays within that purpose, including the optimistic UI fill.
 //
 // Duplicating this in the Panel would have meant two statements of the log pair,
 // two of the in-flight flag and two of the optimistic-fill rule.
 //
-// It states NO run parameters. Sampling, focus and language are the user's
+// Sampling, focus and language are the user's
 // Settings → Video understanding, and Electron main injects all three into
 // `describe_clip` and into the `media://{id}/description` read from one provider
 // (`main/index.ts` `getVlm`) — the only arrangement under which the view a run
@@ -27,6 +26,7 @@ import i18n from "../i18n";
 import { computeFailureText, computeResourceReason } from "../compute/computeRefusalMessage";
 import { ComputeCancelledError, describeClip, logEmit } from "../ipc";
 import { jobIdForRequest, useComputeJobsStore } from "../compute/computeJobsStore";
+import type { DescriptionPurpose } from "../../shared/description";
 import {
   mergeDescription,
   reloadDescription,
@@ -37,6 +37,7 @@ import {
 
 /// What to describe, and what to call it in the log.
 export interface DescribeRunTarget {
+  purpose: DescriptionPurpose;
   layerId: string;
   mediaId: string;
   /// The span the run answers for, in SOURCE time — the domain the cache and the
@@ -69,10 +70,11 @@ export interface DescribeRunTarget {
 export async function runDescribe(target: DescribeRunTarget): Promise<string> {
   if (useDescriptionsStore.getState().describing !== null) return "";
   const { mediaId, srcStartUs, srcEndUs } = target;
+  const { purpose } = target;
 
-  setDescribeError("");
+  setDescribeError(purpose, "");
   const requestId = crypto.randomUUID();
-  setDescribing({ mediaId, srcStartUs, srcEndUs, requestId });
+  setDescribing({ mediaId, srcStartUs, srcEndUs, requestId, purpose });
   // Twenty seconds against a local model, so the run announces itself: without
   // a Started row the status badge has nothing to spin on and the user cannot
   // tell a slow engine from a dead one. One `op_id` pairs it with the terminal
@@ -93,6 +95,7 @@ export async function runDescribe(target: DescribeRunTarget): Promise<string> {
     // main's to fill (`ipc/index.ts` `describeClip` states the rule).
     const result = await describeClip({
       layerId: target.layerId,
+      purpose,
       ...(target.window === null
         ? {}
         : { tStartUs: target.window.tStartUs, tEndUs: target.window.tEndUs }),
@@ -109,8 +112,8 @@ export async function runDescribe(target: DescribeRunTarget): Promise<string> {
     // resolves the same key the run just wrote, so there is no longer a setting
     // at which the re-read would answer with some other view's segments over the
     // top of the ones just computed.
-    mergeDescription(mediaId, srcStartUs, srcEndUs, result.segments);
-    void reloadDescription(mediaId);
+    mergeDescription(mediaId, srcStartUs, srcEndUs, result.segments, purpose);
+    void reloadDescription(mediaId, purpose);
     void logEmit({
       level: "info",
       category: { kind: "Project" },
@@ -152,7 +155,7 @@ export async function runDescribe(target: DescribeRunTarget): Promise<string> {
     // and a speed refusal names the split to make. A generic "description
     // failed" would throw away the only actionable half.
     const message = refusalText(err);
-    setDescribeError(message);
+    setDescribeError(purpose, message);
     setDescribing(null);
     // Under the run's own `op_id`, or the Started row above never closes and the
     // status bar keeps a description spinning that has already failed. A

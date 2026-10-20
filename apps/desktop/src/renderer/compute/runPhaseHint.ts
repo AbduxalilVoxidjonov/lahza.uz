@@ -9,6 +9,7 @@
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { ComputeJob, ComputeTool } from "../ipc";
+import type { DescriptionPurpose } from "../../shared/description";
 import { useDescriptionsStore } from "../describe/descriptionsStore";
 import { useTranscribeRunStore } from "../speech/transcribeRun";
 import { computePhaseText } from "./computeJobView";
@@ -36,11 +37,13 @@ export function useTranscribeRunPhaseHint(): string | null {
   return runPhaseHint(t, "transcribe_clip", job, applying);
 }
 
-/// This window's description run (a lone press or a sweep's current shot), as
-/// a phase line, or null.
-export function useDescribeRunPhaseHint(): string | null {
+/// This window's description run, only when it belongs to the caller's purpose.
+/// Resource admission may still block both entry points; phase text must not cross.
+export function useDescribeRunPhaseHint(purpose: DescriptionPurpose): string | null {
   const { t } = useTranslation();
-  const requestId = useDescriptionsStore((s) => s.describing?.requestId ?? null);
+  const requestId = useDescriptionsStore((s) =>
+    s.describing && (s.describing.purpose ?? "clip") === purpose
+      ? s.describing.requestId ?? null : null);
   const job = useComputeJobForRequest(requestId);
   return runPhaseHint(t, "describe_clip", job);
 }

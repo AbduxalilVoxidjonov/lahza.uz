@@ -713,6 +713,17 @@
   font-style: italic;
 }
 
+.shots-clip-content {
+  padding-bottom: calc(8 * var(--ui-px));
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.shots-clip-content h3 {
+  margin: 0 0 calc(4 * var(--ui-px));
+  font-size: inherit;
+  font-weight: 600;
+}
+
 .shots-description-tag {
   margin-left: calc(4 * var(--ui-px));
   padding: 0 calc(4 * var(--ui-px));

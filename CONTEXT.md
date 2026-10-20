@@ -620,11 +620,10 @@ _Avoid_: download as a synonym for activation, silent model fallback
 **Description**:
 What a video-understanding model said about a stretch of one SOURCE: a list of
 described segments, each a source-absolute span with prose and short tags,
-cached per source and [Description view](#descriptions) and read back by media
-id. It
-belongs to the source the way a shot report does, so a shot row and a palette
-entry join it by time intersection alone — a segment that straddles a detected
-boundary belongs to both shots. Prose has no right answer to check it against,
+cached per source, purpose and [Description view](#descriptions), and read back
+by media id. Clip content and individual-shot descriptions have independent
+caches: clip content feeds its own panel section and the search palette; shot
+rows read only shot descriptions, joined by time intersection. Prose has no right answer to check it against,
 so it is never reviewed or edited, only read where it is useful and searched.
 UI word: Describe clip content / 描述片段内容; a row with none
 reads Not described / 未描述.
@@ -634,8 +633,10 @@ the word this glossary keeps away from shots), transcript
 
 **Description view**:
 The five inputs that key a source's cached description — engine, model, sampling
-rate, focus, interface language — taken together. `media://{id}/description`
-serves exactly one of them, and Electron main injects the four axes a user can
+rate, focus, interface language — taken together, within one purpose.
+`media://{id}/description` serves clip content and
+`media://{id}/shot-description` serves individual-shot descriptions. Electron
+main injects the four axes a user can
 move — the current model profile (which decides the first two) plus the sampling, the
 focus and the language — into that read and into `describe_clip` alike, so the
 view a gesture writes is the view the shot rows and the search index read back.
@@ -646,6 +647,14 @@ selection and, in advanced settings, its paths, sampling and focus; Settings →
 language.
 _Avoid_: default view (there is no privileged one any more), cached description
 (every run is cached; the view decides which is read), baseline
+
+**Description purpose**:
+The operation a description answers: clip content (`clip`) or individual-shot
+identification (`shot`). Independent of prompt focus. It separates disk caches,
+in-flight job identity, progress, errors and renderer results; one purpose never
+satisfies or overwrites the other. Shot rows show only shot-job progress;
+clip-job progress stays on timeline task bands. Legacy mixed caches are not
+reused. See ADR 0122.
 
 ## Links and Groups
 

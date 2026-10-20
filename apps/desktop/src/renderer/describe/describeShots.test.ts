@@ -28,9 +28,11 @@ import {
 } from "./describeShots";
 import {
   resetDescriptionsStore,
+  setDescribeError,
   useDescriptionsStore,
 } from "./descriptionsStore";
 import { ComputeCancelledError } from "../ipc";
+import { runDescribe } from "./describeRun";
 
 const SUBJECT = { layerId: "l-1", mediaId: "m-1", clipName: "reel.mp4" };
 
@@ -92,11 +94,11 @@ describe("describeShotRows", () => {
       .mockRejectedValueOnce(new Error("no video-understanding backend available"));
     await describeShotRows([shot(0), shot(1), shot(2)], SUBJECT);
     expect(mocks.describeClip).toHaveBeenCalledTimes(2);
-    expect(useDescriptionsStore.getState().error).toContain(
+    expect(useDescriptionsStore.getState().errors.shot).toContain(
       "no video-understanding backend available",
     );
     // The prose the first run landed stays — a stopped sweep is not a rollback.
-    expect(useDescriptionsStore.getState().segments.get("m-1")).toHaveLength(1);
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toHaveLength(1);
   });
 
   it("reports progress and clears it when the pass ends", async () => {
@@ -168,6 +170,30 @@ describe("describeOneShot", () => {
   });
   afterEach(resetDescriptionsStore);
 
+  it("keeps a shot run from replacing the clip content cache", async () => {
+    await runDescribe({ ...SUBJECT, purpose: "clip", srcStartUs: 0, srcEndUs: 1_000_000, window: null, label: "clip" });
+    const clipSegments = useDescriptionsStore.getState().segments.get("m-1");
+    mocks.describeClip.mockResolvedValue(answer("a close-up"));
+    await describeOneShot(shot(0), SUBJECT);
+    expect(useDescriptionsStore.getState().segments.get("m-1")).toEqual(clipSegments);
+    expect(mocks.describeClip.mock.calls[1]?.[0].purpose).toBe("shot");
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")?.[0]?.text).toBe("a close-up");
+    expect(mocks.getMediaDescription).toHaveBeenLastCalledWith("m-1", "shot");
+    mocks.describeClip.mockResolvedValue(answer("new clip content"));
+    await runDescribe({ ...SUBJECT, purpose: "clip", srcStartUs: 0, srcEndUs: 1_000_000, window: null, label: "clip" });
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")?.[0]?.text).toBe("a close-up");
+  });
+
+  it("a failed clip run does not replace or clear a shot error", async () => {
+    setDescribeError("shot", "shot failure");
+    mocks.describeClip.mockRejectedValue(new Error("clip failure"));
+    await runDescribe({ ...SUBJECT, purpose: "clip", srcStartUs: 0, srcEndUs: 1_000_000, window: null, label: "clip" });
+    expect(useDescriptionsStore.getState().errors).toEqual({ clip: expect.stringContaining("clip failure"), shot: "shot failure" });
+    mocks.describeClip.mockResolvedValue(answer("shot content"));
+    await describeOneShot(shot(0), SUBJECT);
+    expect(useDescriptionsStore.getState().errors).toEqual({ clip: expect.stringContaining("clip failure"), shot: "" });
+  });
+
   // The window is the ONLY thing a run states. Sampling, focus and language are
   // main's to inject from Settings → Video understanding, so a renderer that
   // sent any of them would be a second statement of a setting it does not own —
@@ -176,6 +202,7 @@ describe("describeOneShot", () => {
     await describeOneShot(shot(2), SUBJECT);
     expect(mocks.describeClip).toHaveBeenCalledWith({
       layerId: "l-1",
+      purpose: "shot",
       tStartUs: 2_000_000,
       tEndUs: 3_000_000,
       // The call's job tag (ADR 0121) — host plumbing, not a view parameter.
@@ -212,7 +239,7 @@ describe("describeOneShot", () => {
       op_id: rows[0].op_id,
       op_state: { state: "Ok" },
     });
-    expect(useDescriptionsStore.getState().error).toBe("");
+    expect(useDescriptionsStore.getState().errors.shot).toBe("");
     expect(useDescriptionsStore.getState().describing).toBeNull();
   });
 

@@ -429,7 +429,7 @@ export function LayerContextMenu({
   // The *Describe clip content* row's tooltip. Subscribed like the two above it, on
   // its own picture-clip gate.
   const describe = useDescribeState();
-  const describePhase = useDescribeRunPhaseHint();
+  const describePhase = useDescribeRunPhaseHint("clip");
   const describeHint =
     describe === "describe"
       ? undefined

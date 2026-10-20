@@ -314,6 +314,15 @@
             "description": "Target VideoClip layer id.",
             "type": "string"
           },
+          "purpose": {
+            "default": "clip",
+            "description": "Cache purpose: clip content (default) or individual shot identification.\nIndependent of prompt focus; results are never shared across purposes.",
+            "enum": [
+              "clip",
+              "shot"
+            ],
+            "type": "string"
+          },
           "t_end_us": {
             "description": "Optional window end in timeline microseconds. Defaults to the layer's\n`t_end_us`. Must lie within the layer.",
             "type": "integer"

@@ -826,11 +826,9 @@ export function App({ onCloseProject }: AppProps) {
     },
     // Describe RUNS rather than raising a dialog — its parameters are Settings
     // now (`commands/describeCommands.ts`). So this is not a bare slot: App
-    // lends the two things only it can do, revealing the Panel the run becomes
-    // visible in and opening the tab a missing engine is configured on.
+    // lends the Settings remedy. The timeline job band owns progress/Cancel.
     describeSelected: () =>
       void describeSelected({
-        revealShots: () => workspaceController?.openPanel("shots"),
         openSettings: () => openSettings("vlm"),
       }),
     // Opening the Panel is the whole command: it resolves its own subject from

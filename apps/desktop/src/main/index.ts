@@ -1737,9 +1737,9 @@ app.whenReady().then(async () => {
     // subject change — `describe_clip` is the only path that runs one, and only
     // a deliberate press reaches it.
     if (tsHost && channel === 'get_media_description') {
-      const a = (args ?? {}) as { media_id?: string }
+      const a = (args ?? {}) as { media_id?: string; purpose?: import('../shared/description').DescriptionPurpose }
       const host = tsHost
-      return await readMediaDescription(backend!, () => host, a.media_id ?? '', getVlm)
+      return await readMediaDescription(backend!, () => host, a.media_id ?? '', getVlm, a.purpose)
     }
     if (channel === 'shot_floor_sensitivity') return backend!.shotFloorSensitivity()
     // The detection defaults, straight off the addon. The review Panel seeds its

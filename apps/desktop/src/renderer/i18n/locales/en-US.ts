@@ -895,6 +895,7 @@ const enUS = {
     // ordinary case — the phrase says which state it is in, where a blank cell
     // would read as a load that never finished.
     not_described: "Not described",
+    clip_content: "Clip content",
     // The one legitimate transient, and only where the cell has nothing else to
     // show: a run whose window overlaps this row is on its way.
     describing: "Describing…",
@@ -906,8 +907,7 @@ const enUS = {
     // not being corrected, it is being asked a second time, which is a normal
     // thing to want from a model.
     describe_shot_again: "Describe again",
-    describe_shot_hint:
-      "Ask the vision model what is in this shot — one local model run, in the app's language.",
+    describe_shot_hint: "Describe the shot using a vision model",
     // What the status-log rows call one shot's run. Interpolated into
     // `log.describe_started` / `log.describe_done` in place of a clip name, so
     // a sweep's rows say which shot each one was.

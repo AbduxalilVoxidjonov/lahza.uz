@@ -24,6 +24,7 @@ const layer = (id: string, tStartUs: number, srcInUs: number, rate?: number): La
 const job = (id: string, over: Partial<ComputeJob>): ComputeJob => ({
   job_id: id,
   tool: "describe_clip",
+  purpose: "shot",
   layer_id: "L1",
   media_id: "m1",
   window: { t_start_us: 0, t_end_us: 0 },
@@ -58,7 +59,7 @@ describe("jobOverSourceSpan", () => {
     // Another clip of the same source, later on the timeline and later in it.
     ["L2", layer("L2", 20_000_000, 5_000_000)],
   ]);
-  const q = { tool: "describe_clip" as const, mediaId: "m1", srcStartUs: 6_000_000, srcEndUs: 8_000_000 };
+  const q = { tool: "describe_clip" as const, purpose: "shot" as const, mediaId: "m1", srcStartUs: 6_000_000, srcEndUs: 8_000_000 };
 
   it("finds a job on another clip of the same source by its source span", () => {
     const s = state([job("a", { layer_id: "L2", window: { t_start_us: 21_000_000, t_end_us: 22_000_000 } })]);

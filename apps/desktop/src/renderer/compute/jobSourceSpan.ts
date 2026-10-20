@@ -6,8 +6,19 @@
 // stretch of the source it covers.
 
 import { contentAtUs, type TimedParams } from "../layerTiming";
-import type { ComputeJob, ComputeTool, LayerSummary } from "../ipc";
+import type { ComputeJob, LayerSummary } from "../ipc";
+import type { DescriptionPurpose } from "../../shared/description";
 import type { ComputeJobsState } from "./computeJobsStore";
+
+// A description consumer must name its purpose; tool + span is insufficient.
+type SourceJobFilter =
+  | { tool: "describe_clip"; purpose: DescriptionPurpose }
+  | { tool: "transcribe_clip" };
+
+function matchesJob(job: ComputeJob, filter: SourceJobFilter): boolean {
+  return job.tool === filter.tool &&
+    (filter.tool !== "describe_clip" || (job.purpose ?? "clip") === filter.purpose);
+}
 
 /// The source span `[srcStartUs, srcEndUs)` the job reads through `layer`.
 export function jobSourceSpan(
@@ -27,11 +38,11 @@ export function jobSourceSpan(
 export function jobOverSourceSpan(
   s: ComputeJobsState,
   layerById: ReadonlyMap<string, LayerSummary>,
-  q: { tool: ComputeTool; mediaId: string; srcStartUs: number; srcEndUs: number },
+  q: SourceJobFilter & { mediaId: string; srcStartUs: number; srcEndUs: number },
 ): ComputeJob | null {
   let found: ComputeJob | null = null;
   for (const job of Object.values(s.jobs)) {
-    if (job.tool !== q.tool || job.media_id !== q.mediaId) continue;
+    if (!matchesJob(job, q) || job.media_id !== q.mediaId) continue;
     const layer = layerById.get(job.layer_id);
     if (!layer) continue;
     const span = jobSourceSpan(job, layer);
@@ -49,11 +60,11 @@ export function jobOverSourceSpan(
 export function jobsOutsideSpans(
   s: ComputeJobsState,
   layerById: ReadonlyMap<string, LayerSummary>,
-  q: { tool: ComputeTool; mediaId: string; spans: readonly { srcStartUs: number; srcEndUs: number }[] },
+  q: SourceJobFilter & { mediaId: string; spans: readonly { srcStartUs: number; srcEndUs: number }[] },
 ): ComputeJob[] {
   return Object.values(s.jobs)
     .filter((job) => {
-      if (job.tool !== q.tool || job.media_id !== q.mediaId) return false;
+      if (!matchesJob(job, q) || job.media_id !== q.mediaId) return false;
       const layer = layerById.get(job.layer_id);
       if (!layer) return true;
       const span = jobSourceSpan(job, layer);

@@ -263,6 +263,47 @@ describe("resyncDescriptionsForView", () => {
   });
   afterEach(resetDescriptionsStore);
 
+  it("hydrates and refreshes both purposes independently", async () => {
+    const clip = { ...CACHE, segments: [{ ...CACHE.segments[0]!, text: "clip content" }] };
+    const shot = { ...CACHE, segments: [{ ...CACHE.segments[0]!, text: "shot content" }] };
+    mocks.getMediaDescription.mockImplementation(async (_id, purpose) => purpose === "shot" ? shot : clip);
+    await Promise.all([hydrateDescription("m-1"), hydrateDescription("m-1", "shot")]);
+    expect(held("m-1")).toEqual(clip.segments);
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toEqual(shot.segments);
+    expect(mocks.getMediaDescription).toHaveBeenCalledTimes(2);
+    mocks.getMediaDescription.mockResolvedValue(null);
+    await resyncDescriptionsForView(new Map([["m-1", "a.mp4"]]));
+    expect(held("m-1")).toBeNull();
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toBeNull();
+    expect(mocks.getMediaDescription).toHaveBeenCalledTimes(4);
+  });
+
+  it("invalidates both purposes when the source is relinked or removed", async () => {
+    await syncDescriptions(new Map([["m-1", "a.mp4"]]));
+    await hydrateDescription("m-1", "shot");
+    mocks.getMediaDescription.mockResolvedValue(null);
+    await syncDescriptions(new Map([["m-1", "b.mp4"]]));
+    expect(held("m-1")).toBeNull();
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toBeNull();
+    await hydrateDescription("m-1", "shot");
+    await syncDescriptions(new Map());
+    expect(held("m-1")).toBeUndefined();
+    expect(useDescriptionsStore.getState().shotSegments.has("m-1")).toBe(false);
+  });
+
+  it("does not let an old shot read repopulate the cache after relinking", async () => {
+    await syncDescriptions(new Map([["m-1", "a.mp4"]]));
+    let settle!: (cache: DescriptionCache) => void;
+    mocks.getMediaDescription.mockReturnValueOnce(new Promise<DescriptionCache>((resolve) => { settle = resolve; }));
+    const pending = hydrateDescription("m-1", "shot");
+    mocks.getMediaDescription.mockResolvedValue(null);
+    await syncDescriptions(new Map([["m-1", "b.mp4"]]));
+    settle(CACHE);
+    await pending;
+    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toBeNull();
+    expect(held("m-1")).toBeNull();
+  });
+
   it("drops what is held and reads every source again", async () => {
     await hydrateDescription("m-1");
     expect(held("m-1")).toEqual(CACHE.segments);

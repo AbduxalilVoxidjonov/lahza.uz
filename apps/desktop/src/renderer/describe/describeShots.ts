@@ -119,15 +119,16 @@ export async function describeShotRows(
 ///
 /// States no view parameters, and needs none: sampling, focus and language come
 /// from the user's Settings → Video understanding through main's injection, so
-/// this one-press control and the describe command run at one view — and it is
-/// the view `media://{id}/description` serves, so the prose a row shows now is
-/// the prose it shows next session.
+/// each shot run uses the view `media://{id}/shot-description` reads back.
+/// Its explicit purpose keeps it separate from whole-clip descriptions even
+/// when the source window and every model setting are identical.
 export async function describeOneShot(
   shot: DescribableShot,
   subject: DescribeShotsSubject,
   onCancelled?: () => void,
 ): Promise<string> {
   return runDescribe({
+    purpose: "shot",
     ...(onCancelled ? { onCancelled } : {}),
     layerId: subject.layerId,
     mediaId: subject.mediaId,

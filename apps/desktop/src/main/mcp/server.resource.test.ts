@@ -56,10 +56,10 @@ describe('handleReadResource', () => {
   // the tool is the write half (`server.flip.test.ts`). One provider fills both,
   // so the whole view has to reach both — a missing axis here does not fail, it
   // reports every source as undescribed, which reads as lost prose.
-  it('forwards media://{id}/description with the WHOLE describe view, preference included', async () => {
+  it.each(['description', 'shot-description'])('forwards media://{id}/%s with the whole describe view', async (resource) => {
     const ts = tsHostStub()
     const spy = vi.fn(async (_u: string, _s?: string) => '{"ok":true,"result":{"contents":[]}}')
-    await handleReadResource(fakeBackend(spy), () => ts, 'media://m1/description', () => ({
+    await handleReadResource(fakeBackend(spy), () => ts, `media://m1/${resource}`, () => ({
       config: { qwen3_vl: { kind: 'local' } },
       preferred: 'byo_endpoint',
       language: 'zh-CN',

@@ -274,7 +274,7 @@ function useShotDescriptionState(
   row: ShotRow,
   mediaId: string,
 ): { overlapping: readonly DescSegment[]; waiting: boolean; job: ComputeJob | null } {
-  const segments = useDescription(mediaId);
+  const segments = useDescription(mediaId, "shot");
   const describing = useDescribing();
   // One Map per summary; the job selector answers a job record or null, so a
   // phase tick re-renders the rows the job covers and no other.
@@ -282,6 +282,7 @@ function useShotDescriptionState(
   const job = useComputeJobsStore((s) =>
     jobOverSourceSpan(s, layerById, {
       tool: "describe_clip",
+      purpose: "shot",
       mediaId,
       srcStartUs: row.srcStartUs,
       srcEndUs: row.srcEndUs,
@@ -293,7 +294,7 @@ function useShotDescriptionState(
   );
   const waiting =
     job !== null ||
-    isDescribingSpan(describing, mediaId, row.srcStartUs, row.srcEndUs);
+    isDescribingSpan(describing, mediaId, row.srcStartUs, row.srcEndUs, "shot");
   return { overlapping, waiting, job };
 }
 
@@ -315,7 +316,7 @@ function ShotsDescribeJobs({
   const ordinals = useProjectStore((s) => s.groupOrdinals);
   const jobs = useComputeJobsStore(
     useShallow((s) =>
-      jobsOutsideSpans(s, layerById, { tool: "describe_clip", mediaId, spans: rows }),
+      jobsOutsideSpans(s, layerById, { tool: "describe_clip", purpose: "shot", mediaId, spans: rows }),
     ),
   );
   if (jobs.length === 0) return null;
@@ -365,6 +366,22 @@ function ShotsDescribeJobs({
 /// the row, its status line — waiting for what, or how far — stands where
 /// "Describing" would, above any prose already there (ADR 0121). It cancels
 /// the job for everyone; a sweep stops with it.
+function ClipContentDescription({ mediaId, srcInUs, srcOutUs }: {
+  mediaId: string; srcInUs: number; srcOutUs: number;
+}) {
+  const { t } = useTranslation();
+  const segments = useDescription(mediaId);
+  useEffect(() => { void hydrateDescription(mediaId); }, [mediaId]);
+  const overlapping = segmentsForSpan(segments, srcInUs, srcOutUs);
+  if (overlapping.length === 0) return null;
+  return (
+    <section className="shots-clip-content" data-testid="shots-clip-content">
+      <h3>{t("shots_panel.clip_content")}</h3>
+      <ShotDescriptionCell overlapping={overlapping} waiting={false} job={null} />
+    </section>
+  );
+}
+
 function ShotDescriptionCell({
   overlapping,
   waiting,
@@ -439,7 +456,7 @@ function ShotDescribeAction({
   onDescribe: (row: ShotRow) => void;
 }) {
   const { t } = useTranslation();
-  const runPhase = useDescribeRunPhaseHint();
+  const runPhase = useDescribeRunPhaseHint("shot");
   const name = waiting
     ? t("shots_panel.describing")
     : overlapping.length === 0
@@ -948,9 +965,9 @@ function DescribeShotsButton({
   onSweep: (rows: readonly ShotRow[]) => void;
 }) {
   const { t } = useTranslation();
-  const segments = useDescription(mediaId);
+  const segments = useDescription(mediaId, "shot");
   const batch = useDescribeBatch();
-  const runPhase = useDescribeRunPhaseHint();
+  const runPhase = useDescribeRunPhaseHint("shot");
   // The rows with no prose over their span — the same intersection the cells
   // render by, so the count names exactly the cells that would fill.
   const undescribed = useMemo(
@@ -1163,7 +1180,7 @@ export function ShotsPanel() {
   const describeState = useDescribeState();
   const describing = useDescribing();
   const describeBatch = useDescribeBatch();
-  const describeError = useDescribeError();
+  const describeError = useDescribeError("shot");
 
   // Mount wiring. The defaults read is what the store reduces at, and the reset
   // on unmount is why a reopened Panel never shows an abandoned review.
@@ -1189,7 +1206,7 @@ export function ShotsPanel() {
   // rule is enforced.
   useEffect(() => {
     if (mediaId === null) return;
-    void hydrateDescription(mediaId);
+    void hydrateDescription(mediaId, "shot");
   }, [mediaId]);
   // A refusal is about the clip it was raised on, so it goes when the subject
   // does — `shotsStore` clears its own slot on the same event, and a sentence
@@ -1197,7 +1214,7 @@ export function ShotsPanel() {
   // on the LAYER: two clips of one source (a split's halves) are two subjects.
   const subjectLayerId = layer?.id ?? null;
   useEffect(() => {
-    setDescribeError("");
+    setDescribeError("shot", "");
   }, [subjectLayerId]);
 
   // The subject, restated on every summary tick. `setShotSubject` is idempotent
@@ -1303,6 +1320,7 @@ export function ShotsPanel() {
           {error !== "" && <p className="shots-error">{error}</p>}
         </div>
         <ShotsDescribeJobs mediaId={clip.media_id} rows={NO_ROWS} />
+        <ClipContentDescription mediaId={clip.media_id} srcInUs={clip.src_in_us} srcOutUs={clip.src_out_us} />
         {/* A whole-clip description needs no scan, so its refusal must have a
             home before one too. */}
         {describeError !== "" && (
@@ -1319,6 +1337,7 @@ export function ShotsPanel() {
 
   return (
     <div className="shots-panel" data-testid="shots-panel">
+      <ClipContentDescription mediaId={clip.media_id} srcInUs={clip.src_in_us} srcOutUs={clip.src_out_us} />
       {/* Above the rows, because the line is what the rows are a consequence
           of. The parameters are `null` only until their reads land, and the
           floor report is what the strip draws — the reduced one has already

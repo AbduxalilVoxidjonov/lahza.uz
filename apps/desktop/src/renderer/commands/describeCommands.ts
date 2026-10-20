@@ -4,10 +4,8 @@
 // Video understanding now, so there is nothing left to ask before starting —
 // which is why the menu label carries no ellipsis.
 //
-// Two things App owns and lends: revealing the Shots Panel, which is where the
-// run becomes visible, and opening Settings, which is the one failure with a
-// remedy. Everything else — the run, the log pair, the in-flight refusal — is
-// `describe/`'s.
+// App lends the Settings remedy. Progress and cancellation live on the clip's
+// timeline task band; this command has no dependency on the Shots Panel.
 //
 // Self-contained, so App lends `describeSelected` a `HandlerMap` slot and
 // nothing else — the same split `commands/pauseCommands.ts` documents, and
@@ -42,11 +40,8 @@ function isNoBackendConfigured(message: string): boolean {
 
 /// Describe the primary selected clip, start to finish.
 ///
-/// Reveals the Shots Panel BEFORE starting rather than after finishing. A
-/// whole-clip run lights every row of that clip (`descriptionsStore.ts`
-/// `isDescribingSpan`), so this is the press becoming visible — and with no
-/// dialog in the way and no cancel on the wire, a run the user cannot see is a
-/// run they cannot tell from a dead app.
+/// The timeline task band and status log show the run; it does not open or
+/// publish progress to the Shots Panel.
 ///
 /// The selection is read from the store, not from a captured value: the gate is
 /// evaluated live for the same reason, and App does not re-render on a
@@ -58,7 +53,6 @@ function isNoBackendConfigured(message: string): boolean {
 /// gate admits VideoClip alone, which is also why reading `media_id` off that
 /// view is exhaustive.
 export async function describeSelected(deps: {
-  revealShots: () => void;
   openSettings: () => void;
 }): Promise<void> {
   const layer = describeTarget();
@@ -68,8 +62,8 @@ export async function describeSelected(deps: {
   if (!layer) return;
   const params = layer.params;
   if (params.kind !== "VideoClip") return;
-  deps.revealShots();
   const message = await runDescribe({
+    purpose: "clip",
     layerId: layer.id,
     mediaId: params.media_id,
     // The clip's whole source window: no window arguments go on the wire, so

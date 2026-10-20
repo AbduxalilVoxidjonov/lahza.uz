@@ -1609,6 +1609,10 @@ async fn transcribe_clip_job(
 #[cfg(feature = "speech")]
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(super) struct DescribeClipArgs {
+    /// Cache purpose: clip content (default) or individual shot identification.
+    /// Independent of prompt focus; results are never shared across purposes.
+    #[serde(default)]
+    pub purpose: crate::vlm::DescriptionPurpose,
     /// Target VideoClip layer id.
     pub layer_id: String,
     /// Optional window start in timeline microseconds. Defaults to the layer's
@@ -1906,6 +1910,7 @@ async fn describe_clip_job(
         fps_milli,
         focus,
         &language,
+        args.purpose,
     );
     let dest = b.cache.description(&key);
 

@@ -153,8 +153,10 @@ export class ComputeJobs {
   private start(spec: ClipJobSpec, caller: ComputeCaller): Entry {
     const id = (this.deps.newId ?? randomUUID)()
     const at = this.iso()
+    const purpose = spec.args.purpose === 'shot' ? 'shot' : 'clip'
     const job: ComputeJob = {
       job_id: id, tool: spec.tool, layer_id: spec.layer_id, media_id: spec.media_id, window: { ...spec.window },
+      ...(spec.tool === 'describe_clip' ? { purpose } : {}),
       phase: { kind: 'queued', reason: null }, phase_since: at, started_at: at,
       origin: caller.client !== undefined ? { kind: 'agent', client: caller.client } : { kind: 'user' },
       callers: 0, caller_disconnected: false, request_ids: [],

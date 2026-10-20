@@ -20,7 +20,7 @@ export interface ClipJobSpec {
  *  description resolves to; it is hashed with the rest, never kept. */
 const ANSWER_ARGS: Record<ComputeTool, readonly string[]> = {
   transcribe_clip: ['backend', 'preferred_backend', 'language', 'normalize_audio', 'word_timestamps'],
-  describe_clip: ['backend', 'preferred_backend', 'language', 'fps', 'focus', 'vlm_config'],
+  describe_clip: ['backend', 'preferred_backend', 'language', 'fps', 'focus', 'vlm_config', 'purpose'],
 }
 
 /** A finished content hash. Anything else (`pending-…` while the import is
@@ -50,7 +50,7 @@ export function clipJobSpec(tool: ComputeTool, args: Record<string, unknown>): C
     tStart - layer.t_start_us, tEnd - layer.t_start_us,
     params.src_in_us ?? null, params.time_map ?? null, params.source_phase ?? null, params.content_window ?? null,
   ]
-  const answer = ANSWER_ARGS[tool].map((k) => [k, args[k] ?? null])
+  const answer = ANSWER_ARGS[tool].map((k) => [k, args[k] ?? (k === 'purpose' ? 'clip' : null)])
   const key = createHash('sha256').update(JSON.stringify([tool, source, answer])).digest('hex')
   return { tool, key, args, layer_id: layer.id, media_id: media.id, window: { t_start_us: tStart, t_end_us: tEnd } }
 }

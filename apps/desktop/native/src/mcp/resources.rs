@@ -106,6 +106,7 @@ struct ResourceState {
 /// transposition away from a silently wrong key.
 #[cfg(feature = "speech")]
 struct InjectedView<'a> {
+    purpose: crate::vlm::DescriptionPurpose,
     language: Option<&'a str>,
     fps: Option<f64>,
     focus: Option<&'a str>,
@@ -144,8 +145,16 @@ pub(crate) async fn read_resource(
         // /description — cached VLM view, needs the injected config; see
         // `read_description_resource`.
         #[cfg(feature = "speech")]
-        if let Some(id_part) = tail.strip_suffix("/description") {
+        if let Some((id_part, purpose)) = tail
+            .strip_suffix("/description")
+            .map(|id| (id, crate::vlm::DescriptionPurpose::Clip))
+            .or_else(|| {
+                tail.strip_suffix("/shot-description")
+                    .map(|id| (id, crate::vlm::DescriptionPurpose::Shot))
+            })
+        {
             let view = InjectedView {
+                purpose,
                 language: state.language.as_deref(),
                 fps: state.describe_fps,
                 focus: state.describe_focus.as_deref(),
@@ -373,6 +382,7 @@ async fn read_description_resource(
         vlm::fps_milli(fps),
         focus,
         &language,
+        view.purpose,
     );
     let path = b.cache.description(&key);
     crate::cache::touch_if_stale(&path);
@@ -601,6 +611,82 @@ pub(super) fn static_resources() -> Vec<ResourceDef> {
 mod stateless_tests {
     use super::*;
     use crate::napi_backend::Backend;
+
+    #[cfg(feature = "speech")]
+    #[tokio::test]
+    async fn description_resources_read_only_their_own_purpose() {
+        use crate::vlm::{self, DescriptionPurpose};
+        let b = Backend::new_for_test(std::sync::Arc::new(crate::events::VecEventSink::new()));
+        let id = Uuid::now_v7();
+        let hash = format!("description-test-{id}");
+        let cfg = vlm::BackendConfig::Endpoint {
+            url: "http://127.0.0.1:1/v1/chat/completions".into(),
+            api_key: None,
+            model: Some("test-model".into()),
+        };
+        let model = vlm::resolve::cache_model_identity(vlm::VlmBackend::ByoEndpoint, Some(&cfg));
+        let state = serde_json::json!({
+            "describe_preferred": "byo_endpoint",
+            "media": {
+                "id": id, "label": null, "path_abs": "/nonexistent", "path_rel": null,
+                "kind": "Video", "metadata": crate::state::MediaMetadata::default(),
+                "decode_route": { "route": "bypass" }, "waveform_path": null,
+                "conform_path": null, "thumbnails_dir": null,
+                "file_hash_blake3": hash, "file_size": 0, "file_mtime": 0,
+                "imported_at": chrono::Utc::now(),
+            },
+            "vlm_config": { "byo_endpoint": {
+                "kind": "endpoint", "url": "http://127.0.0.1:1/v1/chat/completions", "model": "test-model"
+            } }
+        }).to_string();
+        for (purpose, text, resource) in [
+            (DescriptionPurpose::Clip, "clip content", "description"),
+            (DescriptionPurpose::Shot, "shot content", "shot-description"),
+        ] {
+            let uri = format!("media://{id}/{resource}");
+            // A populated clip cache must still leave the shot resource absent.
+            let error = read_resource(&b, &uri, &state).await.unwrap_err();
+            assert!(
+                error.message.contains("no description computed yet"),
+                "{}",
+                error.message
+            );
+            let key = vlm::cache_key(
+                &hash,
+                vlm::VlmBackend::ByoEndpoint,
+                &model,
+                vlm::fps_milli(vlm::DEFAULT_FPS),
+                vlm::Focus::General,
+                &vlm::Language::default(),
+                purpose,
+            );
+            let path = b.cache.description(&key);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(
+                path,
+                serde_json::json!({ "covered_ranges": [[0, 100]],
+                    "segments": [{ "t_start_us": 0, "t_end_us": 100, "text": text, "tags": [] }]
+                })
+                .to_string(),
+            )
+            .unwrap();
+        }
+        for (resource, text) in [
+            ("description", "clip content"),
+            ("shot-description", "shot content"),
+        ] {
+            let result = read_resource(&b, &format!("media://{id}/{resource}"), &state)
+                .await
+                .unwrap();
+            let ResourceContent::Text { text: body, .. } = &result.contents[0] else {
+                panic!("expected JSON")
+            };
+            assert_eq!(
+                serde_json::from_str::<Value>(body).unwrap()["segments"][0]["text"],
+                text
+            );
+        }
+    }
 
     /// The injected field NAMES are the contract with
     /// `main/state/resource-views.ts`. A rename on either side degrades in

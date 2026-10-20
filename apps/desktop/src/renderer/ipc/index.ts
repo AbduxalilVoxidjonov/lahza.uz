@@ -3055,6 +3055,7 @@ export interface DescriptionCache {
 ///
 /// `requestId` and a cancelled job behave as on `transcribeClip`.
 export async function describeClip(args: {
+  purpose?: import("../../shared/description").DescriptionPurpose;
   layerId: string;
   tStartUs?: number;
   tEndUs?: number;
@@ -3062,6 +3063,7 @@ export async function describeClip(args: {
 }): Promise<SceneDescription> {
   return throwIfCancelled(await invoke<SceneDescription | ComputeCancelledPayload>("describe_clip", {
     layer_id: args.layerId,
+    purpose: args.purpose ?? "clip",
     ...(args.tStartUs === undefined ? {} : { t_start_us: args.tStartUs }),
     ...(args.tEndUs === undefined ? {} : { t_end_us: args.tEndUs }),
     ...(args.requestId ? { [COMPUTE_REQUEST_ID_ARG]: args.requestId } : {}),
@@ -3082,9 +3084,11 @@ export async function describeClip(args: {
 /// change. `describeClip` is the only call that spends a model.
 export async function getMediaDescription(
   mediaId: string,
+  purpose: import("../../shared/description").DescriptionPurpose = "clip",
 ): Promise<DescriptionCache | null> {
   return invoke<DescriptionCache | null>("get_media_description", {
     media_id: mediaId,
+    purpose,
   });
 }
 

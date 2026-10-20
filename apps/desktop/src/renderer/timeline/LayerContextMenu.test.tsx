@@ -534,4 +534,13 @@ describe("LayerContextMenu — a run in flight", () => {
       screen.getByRole("menuitem", { name: /Describe selected clip content/ }).getAttribute("title"),
     ).toBe("Sampling frames 4/9");
   });
+
+  it("does not show shot-identification progress on the clip-content command", () => {
+    gates.describe = "already_running";
+    setDescribing({ purpose: "shot", mediaId: "m1", srcStartUs: 0, srcEndUs: 1, requestId: "r1" });
+    publish([job({ tool: "describe_clip", purpose: "shot", phase: { kind: "loading_model" } })]);
+    renderMenu("VideoClip");
+    expect(screen.getByRole("menuitem", { name: /Describe selected clip content/ }).getAttribute("title"))
+      .toContain("A description is already running");
+  });
 });

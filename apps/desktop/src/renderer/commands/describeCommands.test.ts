@@ -1,12 +1,4 @@
-// The two things only this surface does, neither of which the run itself can be
-// asked about: it reveals the Shots Panel BEFORE the model starts, and it acts
-// on the one refusal that has a remedy.
-//
-// Both replaced a dialog. The reveal used to happen on success, because a modal
-// held the window until then; the remedy used to be a button inside that modal.
-// With no dialog, an unrevealed Panel means a run nobody can see, and a
-// `LogEntry` cannot carry an action — so these are the assertions that keep the
-// deletion honest.
+// The clip command owns its Settings remedy and does not open the Shots Panel.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,7 +54,6 @@ function deps() {
   const order: string[] = [];
   return {
     order,
-    revealShots: vi.fn(() => void order.push("reveal")),
     openSettings: vi.fn(() => void order.push("settings")),
   };
 }
@@ -73,23 +64,21 @@ describe("describeSelected", () => {
     mocks.runDescribe.mockReset().mockResolvedValue("");
   });
 
-  // The ordering IS the feature. A reveal after the run would leave the twenty
-  // rows that go busy hidden for the whole of it, and a run with no cancel on
-  // the wire that shows nothing is a run nobody can tell from a dead app.
-  it("reveals the Shots Panel before the run starts", async () => {
+  it("runs without a shots-panel dependency", async () => {
     const d = deps();
     mocks.runDescribe.mockImplementation(async () => {
       d.order.push("run");
       return "";
     });
     await describeSelected(d);
-    expect(d.order).toEqual(["reveal", "run"]);
+    expect(d.order).toEqual(["run"]);
   });
 
   it("runs over the layer's whole SOURCE span and sends no window", async () => {
     const d = deps();
     await describeSelected(d);
     expect(mocks.runDescribe).toHaveBeenCalledWith({
+      purpose: "clip",
       layerId: "l-1",
       mediaId: "m-1",
       srcStartUs: 3_000_000,
@@ -124,7 +113,6 @@ describe("describeSelected", () => {
     const d = deps();
     mocks.describeTarget.mockReturnValue(null);
     await describeSelected(d);
-    expect(d.revealShots).not.toHaveBeenCalled();
     expect(mocks.runDescribe).not.toHaveBeenCalled();
   });
 });

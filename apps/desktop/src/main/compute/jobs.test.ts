@@ -47,6 +47,18 @@ function caller(over: ComputeCaller = {}) {
 afterEach(() => { vi.useRealTimers() })
 
 describe('singleflight', () => {
+  it.each(['clip', 'shot', undefined])('publishes description purpose %s in job events', async (purpose) => {
+    const h = harness()
+    const c = caller()
+    const result = track(h.jobs.run(spec('description', { tool: 'describe_clip', args: { purpose } }), c.caller))
+    await flush()
+    expect(h.jobs.snapshot().jobs[0]?.purpose).toBe(purpose ?? 'clip')
+    expect(c.onPhase.mock.calls[0]?.[0].purpose).toBe(purpose ?? 'clip')
+    expect((h.send.mock.calls.at(-1)?.[1] as ComputeJobsUpdate).jobs[0]?.purpose).toBe(purpose ?? 'clip')
+    h.pending[0]!.resolve(OK)
+    await flush()
+    expect(result.value).toBe(OK)
+  })
   it('joins the same key into one native call with the job id injected', async () => {
     const h = harness()
     const a = track(h.jobs.run(spec(), { client: 'claude' }))

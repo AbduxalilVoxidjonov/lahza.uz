@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { Profiler } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import i18n from "../i18n";
 
 const mocks = vi.hoisted(() => ({ cancelComputeJob: vi.fn<(id: string) => Promise<boolean>>() }));
@@ -74,6 +74,13 @@ describe("jobBandRect", () => {
 });
 
 describe("ComputeJobBands", () => {
+  it("keeps clip description progress and cancellation on its timeline band", async () => {
+    renderBands();
+    publish([{ ...job({ tool: "describe_clip", phase: { kind: "loading_model" } }), purpose: "clip" }]);
+    expect(bands()[0]?.textContent).toContain("Loading model");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel description" }));
+    await waitFor(() => expect(mocks.cancelComputeJob).toHaveBeenCalledWith("job-1"));
+  });
   it("draws nothing on a clip without a job", () => {
     publish([job({ layer_id: "other", phase: { kind: "loading_model" } })]);
     renderBands();

@@ -60,4 +60,6 @@ export const HOST_RESOURCE_TEMPLATES = [
     description: 'The deterministic shot report of a media item — { shots, cut_scores }, source-absolute — computed on a miss, shared with analyze_clip.' },
   { uriTemplate: 'media://{id}/description', name: 'Media scene descriptions', mimeType: APP_JSON,
     description: 'Cached scene descriptions of a media item under the app\'s current view — { covered_ranges, segments }; 404 until describe_clip has run.' },
+  { uriTemplate: 'media://{id}/shot-description', name: 'Media shot descriptions', mimeType: APP_JSON,
+    description: 'Cached individual shot descriptions — { covered_ranges, segments }; 404 until describe_clip with purpose shot has run. Separate from clip content descriptions.' },
 ]

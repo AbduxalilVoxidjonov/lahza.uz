@@ -197,14 +197,14 @@ export function buildResourceInjection(
   if (uri.startsWith(PREFIX_MEDIA)) {
     const id = uri.slice(PREFIX_MEDIA.length).split('/')[0] ?? ''
     const media = snapshot.media_pool[id] ?? null
-    // media://{id}/description additionally needs the merged VLM backend config
+    // Both description resources additionally need the merged VLM backend config
     // (stateless, ADR 0024) so the cached-view reader can resolve the backend +
     // compute the cache key — and the four view axes that are part of that same
     // key, from the one provider `describe_clip`'s injection also reads. The
     // always-computable media reads (/thumbnail, /frame, /waveform, and the
     // shot-layer /analysis view) are self-contained — they need only the
     // resolved MediaItem, no injected config.
-    if (uri.endsWith('/description')) {
+    if (uri.endsWith('/description') || uri.endsWith('/shot-description')) {
       // Each axis omitted when there is no UI to speak for, so Rust's own
       // default decides — the `detectPauses` rule, stated once here rather
       // than once per axis. `'auto'` is such an absence: it is the setting's way

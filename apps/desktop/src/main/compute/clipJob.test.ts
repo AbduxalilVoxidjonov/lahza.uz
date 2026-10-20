@@ -14,6 +14,10 @@ const key = (args: Record<string, unknown>, tool: 'transcribe_clip' | 'describe_
   clipJobSpec(tool, { layer: layer(), media: media(), ...args })?.key
 
 describe('clipJobSpec', () => {
+  it('does not join shot identification to clip content description for the same span', () => {
+    expect(key({ purpose: 'shot' }, 'describe_clip')).not.toBe(key({ purpose: 'clip' }, 'describe_clip'))
+    expect(key({}, 'describe_clip')).toBe(key({ purpose: 'clip' }, 'describe_clip'))
+  })
   it('names the job by its first layer, media and resolved timeline window', () => {
     expect(clipJobSpec('describe_clip', { layer_id: 'l1', layer: layer(), media: media(), t_start_us: 2_000_000 })).toMatchObject({
       tool: 'describe_clip', layer_id: 'l1', media_id: 'm1', window: { t_start_us: 2_000_000, t_end_us: 5_000_000 },

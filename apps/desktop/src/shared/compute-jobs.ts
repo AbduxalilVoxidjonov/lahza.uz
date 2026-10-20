@@ -32,6 +32,8 @@ export type ComputeOrigin = { kind: 'user' } | { kind: 'agent'; client: string }
 export interface ComputeJob {
   job_id: string
   tool: ComputeTool
+  /** Present on description jobs. Omitted legacy records mean clip content. */
+  purpose?: import('./description').DescriptionPurpose
   /** The layer the first caller named. A caller on another layer over the same
    *  source span joins this job without changing it. */
   layer_id: string

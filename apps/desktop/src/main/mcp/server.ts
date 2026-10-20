@@ -681,7 +681,7 @@ const NOT_DESCRIBED = /no description computed yet for media|no video-understand
 /** The cached description for one source under the view the app's settings name
  *  — the resolver's backend at the configured sampling, focus and UI language —
  *  or `null` when nothing is cached there, read through the SAME
- *  `media://{id}/description` resource an agent reads.
+ *  `media://{id}/description` or `media://{id}/shot-description` resource an agent reads.
  *
  *  Exported for the renderer's description channel (`index.ts`), the way
  *  `readMediaFrameDataUrl` is. This resource serves ONE view, and the injection
@@ -697,8 +697,9 @@ export async function readMediaDescription(
   getTsHost: () => TsActorHost | null,
   mediaId: string,
   getVlm: VlmProvider,
+  purpose: import('../../shared/description').DescriptionPurpose = 'clip',
 ): Promise<unknown | null> {
-  const uri = `media://${mediaId}/description`
+  const uri = `media://${mediaId}/${purpose === 'shot' ? 'shot-description' : 'description'}`
   let res: ServerResult
   try {
     res = await handleReadResource(backend, getTsHost, uri, getVlm)

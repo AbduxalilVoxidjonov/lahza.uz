@@ -133,16 +133,27 @@ pub fn fps_milli(fps: f64) -> u32 {
     (fps * 1000.0).round() as u32
 }
 
-/// The content-addressed description cache key: `blake3(source_hash | backend |
-/// model | fps_milli | focus | language | prompt_template_version)`. A change to
-/// any input (different engine, different model file, different sampling rate,
-/// different prompt focus, a different output language, or a prompt-template
-/// bump) yields a fresh key, so stale descriptions are never reused.
-///
-/// `language` is in here for a sharper reason than the rest: [`Self::covers`]
-/// short-circuits a covered window with no engine spawn, so sharing a key across
-/// languages would hand English prose back to a Chinese request forever — the
-/// one input whose omission is not merely wasteful but uncorrectable.
+/// Cache ownership, independent of prompt focus. A clip description never
+/// satisfies an individual shot request, even when their source spans match.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, schemars::JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum DescriptionPurpose {
+    #[default]
+    Clip,
+    Shot,
+}
+
+impl DescriptionPurpose {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Clip => "clip",
+            Self::Shot => "shot",
+        }
+    }
+}
+
+/// Content-addressed key over purpose, source, engine, model, sampling, focus,
+/// language and prompt version. A versioned namespace excludes old mixed entries.
 pub fn cache_key(
     source_hash: &str,
     backend: VlmBackend,
@@ -150,8 +161,13 @@ pub fn cache_key(
     fps_milli: u32,
     focus: Focus,
     language: &Language,
+    purpose: DescriptionPurpose,
 ) -> String {
     let mut h = blake3::Hasher::new();
+    // Old entries mixed both purposes and cannot be assigned safely to either.
+    h.update(b"description-purpose-v1\0");
+    h.update(purpose.as_str().as_bytes());
+    h.update(b"\0");
     h.update(source_hash.as_bytes());
     h.update(b"\0");
     h.update(backend.as_str().as_bytes());
@@ -256,10 +272,43 @@ mod tests {
     }
 
     #[test]
+    fn clip_coverage_cannot_satisfy_a_shot_request() {
+        let root = tempfile::tempdir().unwrap();
+        let key = |purpose| {
+            cache_key(
+                "source",
+                VlmBackend::Qwen3Vl,
+                "model",
+                1000,
+                Focus::General,
+                &Language::default(),
+                purpose,
+            )
+        };
+        let clip_path = root.path().join(key(DescriptionPurpose::Clip));
+        let shot_path = root.path().join(key(DescriptionPurpose::Shot));
+        let mut clip = DescriptionCache::default();
+        clip.merge_window(0, 10_000_000, vec![seg(0, 10_000_000, "whole clip")]);
+        std::fs::write(&clip_path, serde_json::to_vec(&clip).unwrap()).unwrap();
+        assert!(!shot_path.exists());
+        let mut shot = DescriptionCache::default();
+        shot.merge_window(0, 1_000_000, vec![seg(0, 1_000_000, "close-up")]);
+        std::fs::write(&shot_path, serde_json::to_vec(&shot).unwrap()).unwrap();
+        let restored: DescriptionCache =
+            serde_json::from_slice(&std::fs::read(clip_path).unwrap()).unwrap();
+        assert_eq!(restored.segments_in(0, 1_000_000)[0].text, "whole clip");
+        assert!(restored.covers(0, 10_000_000));
+        let restored: DescriptionCache =
+            serde_json::from_slice(&std::fs::read(shot_path).unwrap()).unwrap();
+        assert_eq!(restored.segments_in(0, 1_000_000)[0].text, "close-up");
+        assert!(!restored.covers(0, 10_000_000));
+    }
+
+    #[test]
     fn cache_key_is_sensitive_to_every_input() {
         let en = Language::default();
         let key = |hash: &str, be, model: &str, fps, focus, lang: &Language| {
-            cache_key(hash, be, model, fps, focus, lang)
+            cache_key(hash, be, model, fps, focus, lang, DescriptionPurpose::Clip)
         };
         let base = key("h", VlmBackend::Qwen3Vl, "m", 1000, Focus::General, &en);
         assert_eq!(
@@ -305,6 +354,7 @@ mod tests {
             1000,
             Focus::General,
             &Language::parse(Some("zh-CN")),
+            DescriptionPurpose::Clip,
         );
         let b = cache_key(
             "h",
@@ -313,6 +363,7 @@ mod tests {
             1000,
             Focus::General,
             &Language::parse(Some("zh")),
+            DescriptionPurpose::Clip,
         );
         assert_eq!(a, b);
     }
