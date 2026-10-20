@@ -628,8 +628,9 @@ describe("ShotsPanel — Measure shots", () => {
     shots.attachShotStats.mockResolvedValue(MEASURED_TAIL);
     await review();
     expect(measureButton().disabled).toBe(false);
-    // The hint is what it costs — the only reason the pass is not automatic.
-    expect(measureButton().getAttribute("title")).toContain("three frames per shot");
+    expect(measureButton().getAttribute("title")).toBe(
+      "Measure shot brightness, motion and sharpness",
+    );
 
     fireEvent.click(measureButton());
     await waitFor(() => expect(measureButton().disabled).toBe(true));
