@@ -856,6 +856,40 @@ describe("ShotsPanel — describing one shot", () => {
     });
   });
 
+  it.each(["shots-describe-1", "shots-describe-all"])(
+    "bounds %s requests when the source endpoint projects past the clip by one microsecond",
+    async (buttonId) => {
+      const layer = clip({ id: "l1", mediaId: "m1", tStartUs: 1_000_000 });
+      layer.t_end_us -= 1;
+      useProjectStore.getState().apply(
+        summaryFixture({ root: { duration_us: 20_000_000, tracks: [track("t1", [layer])] } }),
+      );
+      shots.describeClip.mockImplementation(async (args: { tStartUs: number; tEndUs: number }) => {
+        if (args.tStartUs < layer.t_start_us || args.tEndUs > layer.t_end_us) {
+          throw new Error(
+            `description window [${args.tStartUs}, ${args.tEndUs}] is outside layer range [${layer.t_start_us}, ${layer.t_end_us}]`,
+          );
+        }
+        return {
+          backend: "qwen3_vl", model: "Qwen3VL-4B",
+          segments: [{
+            t_start_us: args.tStartUs - layer.t_start_us,
+            t_end_us: args.tEndUs - layer.t_start_us,
+            text: "a kitchen", tags: [],
+          }],
+        };
+      });
+      const rows = await review();
+      fireEvent.click(screen.getByTestId(buttonId));
+      await waitFor(() => expect(rows[1]?.textContent).toContain("a kitchen"));
+      expect(screen.queryByTestId("shots-describe-error")).toBeNull();
+      expect(shots.describeClip).toHaveBeenLastCalledWith(expect.objectContaining({
+        tStartUs: 3_000_000,
+        tEndUs: layer.t_end_us,
+      }));
+    },
+  );
+
   it("shows the run's prose on the row that asked for it", async () => {
     const rows = await review();
     fireEvent.click(screen.getByTestId("shots-describe-1"));

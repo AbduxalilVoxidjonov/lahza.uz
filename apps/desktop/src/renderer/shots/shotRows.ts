@@ -61,9 +61,9 @@ export interface ShotCandidate {
 
 /// One reviewable shot. Source times are the report's own domain; `tStartUs` /
 /// `tEndUs` are the same span seen on the layer's composition clock, for
-/// display only — unsnapped, because the apply path snaps its own cuts
-/// (`cutsToTimeline`) and a second snap here would show times an apply might
-/// not produce.
+/// display and description requests — unsnapped, but bounded by the layer.
+/// The apply path snaps its own cuts (`cutsToTimeline`); a second snap here
+/// would show times an apply might not produce.
 export interface ShotRow {
   /// Position in the reviewed list, from 0. Not `Shot.index`: a merge changes
   /// which ordinal a span holds, and the row is numbered as the user sees it.
@@ -196,8 +196,15 @@ export function shotRows(
   const params = layer.params;
   const frameDurUs = approxFrameDurUs(compositionFps.num, compositionFps.den);
   const scoreAt = new Map(reduced.cut_scores.map((c) => [c.t_us, c.score]));
+  // Source endpoints and timeline endpoints can differ by a microsecond after
+  // rounding. Fractional source phases can also project the first row before
+  // the clip. Description requests use these times, so intersect with the
+  // actual layer envelope while leaving interior cuts unsnapped.
   const toTimeline = (srcUs: number): number =>
-    layer.t_start_us + approximateTime(localAtContent(params, exactTime(srcUs)));
+    Math.max(layer.t_start_us, Math.min(
+      layer.t_end_us,
+      layer.t_start_us + approximateTime(localAtContent(params, exactTime(srcUs))),
+    ));
   const candidateAt = (srcUs: number): ShotCandidate | null => {
     const score = scoreAt.get(srcUs);
     return score === undefined

@@ -131,6 +131,40 @@ function layerAt(
 }
 
 describe("shotRows", () => {
+  it("keeps description windows inside a clip whose source span is one microsecond longer", () => {
+    const layer = layerAt(1_000_000, 2_000_000, 5_000_001);
+    layer.t_end_us = 4_000_000;
+    const report: ShotReport = {
+      shots: [shot(2_000_000, 5_000_001)],
+      cut_scores: [],
+    };
+    const [row] = shotRows(report, layer, FPS, NONE, NONE);
+    expect([row?.tStartUs, row?.tEndUs]).toEqual([
+      layer.t_start_us, layer.t_end_us,
+    ]);
+  });
+
+  it("bounds fractional source edges after slow-motion projection without snapping interior cuts", () => {
+    const layer = layerAt(1_000_000, 2_000_000, 5_000_001);
+    layer.t_end_us = 7_000_000;
+    Object.assign(layer.params, {
+      time_map: { kind: "Affine", rate: { num: 1, den: 2 } },
+      source_phase: { in: { num: 1, den: 3 }, out: { num: 0, den: 1 } },
+    });
+    const report: ShotReport = {
+      shots: [shot(2_000_000, 3_000_000), shot(3_000_000, 5_000_001)],
+      cut_scores: [{ t_us: 3_000_000, score: 1 }],
+    };
+    const rows = shotRows(report, layer, FPS, NONE, NONE);
+    expect(rows[0]?.tStartUs).toBe(layer.t_start_us);
+    expect(rows[1]?.tEndUs).toBe(layer.t_end_us);
+    expect(rows[0]?.tEndUs).toBeCloseTo(3_000_000 - 2 / 3, 6);
+    expect(rows[1]?.tStartUs).toBe(rows[0]?.tEndUs);
+    expect(rows.map((row) => [row.srcStartUs, row.srcEndUs])).toEqual([
+      [2_000_000, 3_000_000], [3_000_000, 5_000_001],
+    ]);
+  });
+
   it("projects each span into the layer's own composition without snapping", () => {
     const rows = shotRows(MEASURED, layerAt(1_000_000, 0, 6_000_000), FPS, NONE, NONE);
     expect(rows.map((r) => [r.srcStartUs, r.srcEndUs])).toEqual([
