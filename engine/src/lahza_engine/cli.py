@@ -1,6 +1,7 @@
 """`lahza` buyruq qatori (M1 CLI MVP va diagnostika).
 
     lahza serve --port 0 --token T      # Tauri sidecar rejimi
+    lahza serve --discovery             # + <data_dir>/engine.json (Adobe plaginlari)
     lahza hw                            # apparat va daraja
     lahza bundle                        # katalogdan mos model to'plami
     lahza analyze VIDEO --project-dir D [--lite]
@@ -29,6 +30,8 @@ def cmd_serve(a: argparse.Namespace) -> int:
     from lahza_engine import __version__
     from lahza_engine.api.app import create_app
     from lahza_engine.config import Settings
+    from lahza_engine.core.discovery import Discovery, discovery_enabled, pick_discovery_port
+    from lahza_engine.core.ipc import IpcServer, ipc_enabled
     from lahza_engine.core.llama_server import free_port
     from lahza_engine.core.logs import setup_file_logging
 
@@ -36,12 +39,43 @@ def cmd_serve(a: argparse.Namespace) -> int:
     # M2-APP-11 / NFR-12: Logs/engine.log (aylanma, transkript matnisiz - NFR-02).
     setup_file_logging(settings.logs_dir)
     logging.getLogger("lahza_engine").info("engine %s ishga tushdi", __version__)
-    port = a.port or free_port()
+    use_discovery = discovery_enabled(getattr(a, "discovery", False))
+    if a.port:
+        port = a.port
+    elif use_discovery:
+        # UXP manifest `network.domains` portlarni oldindan sanaydi - qat'iy ro'yxat.
+        port = pick_discovery_port()
+        if port is None:
+            print("Xato: Lahza engine uchun 47600, 47601 va 47602 portlarining hammasi band. "
+                  "Boshqa Lahza engine ishlayotgan bo'lishi mumkin - uni yoping yoki portlarni "
+                  "bo'shating.", file=sys.stderr, flush=True)
+            return 2
+    else:
+        port = free_port()
     token = a.token or os.environ.get("LAHZA_TOKEN")
+    discovery = None
+    if use_discovery and not token:
+        import secrets
+
+        token = secrets.token_urlsafe(24)
     app = create_app(settings, token=token)
+    if use_discovery and token:
+        # Adobe plaginlari engine'ni shu fayl orqali topadi (docs/04 "Adobe plaginlari").
+        discovery = Discovery(settings.data_dir, port, token, __version__)
+        discovery.start()
+        app.state.shutdown_hooks.append(discovery.stop)
+    if token and ipc_enabled(use_discovery):
+        # Fayl-IPC (`lahza.ipc/1`) - UXP'da HTTP ishlamasa zaxira transport.
+        ipc = IpcServer(app, settings.data_dir)
+        ipc.prepare()
+        app.state.background.append(ipc.run)
     # Tauri shu qatorni o'qib portni biladi (app/src-tauri/src/engine.rs).
     print(f"LAHZA_READY port={port}", flush=True)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
+    finally:
+        if discovery is not None:
+            discovery.stop()
     return 0
 
 
@@ -128,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
     s = sub.add_parser("serve")
     s.add_argument("--port", type=int, default=0)
     s.add_argument("--token")
+    s.add_argument("--discovery", action="store_true",
+                   help="<data_dir>/engine.json yozish (Adobe plaginlari uchun; LAHZA_DISCOVERY=1)")
     s.set_defaults(fn=cmd_serve)
 
     sub.add_parser("hw").set_defaults(fn=cmd_hw)

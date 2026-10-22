@@ -14,6 +14,8 @@ Endpointlar mavzu bo'yicha modullarga bo'lingan:
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import os
 import secrets
 import uuid
@@ -29,6 +31,7 @@ from lahza_engine import __version__
 from lahza_engine.api import (
     routes_clips,
     routes_episodes,
+    routes_hostplan,
     routes_library,
     routes_models,
     routes_montage,
@@ -50,10 +53,23 @@ class ProjectIn(BaseModel):
 TAURI_ORIGINS = ["tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"]
 # Vite dev server (app/vite.config.ts, `npm run dev`) - faqat LAHZA_DEV=1 da.
 DEV_ORIGINS = ["http://127.0.0.1:1420", "http://localhost:1420"]
+# Adobe plaginlari (docs/04 "Adobe plaginlari"):
+# * CEP paneli (After Effects) - HTML `file://` dan yuklanadi; Chromium (CEF) bunday sahifa
+#   so'rovlarida `Origin: null` yuboradi. "file://" - ba'zi CEF versiyalari uchun zaxira.
+#   CEP 11+ CORS tekshiruvini qat'iylashtirgan (CEP 12 HTML Extension Cookbook, "CORS checks").
+# * Premiere UXP - brauzer emas; rasmiy hujjat (developer.adobe.com/premiere-pro/uxp/resources/
+#   recipes/network) faqat "server Access-Control-Allow-Origin bilan UXP so'rovlariga ruxsat
+#   bersin" deydi, aniq Origin qiymatini aytmaydi. ANIQLANSIN: haqiqiy host'da Origin sarlavhasi
+#   (kutilgan: yo'q yoki "null"); yo'q bo'lsa CORS umuman qo'llanmaydi.
+# "null" origin har qanday sandbox iframe'da ham bo'ladi - shuning uchun token majburiy qoladi,
+# allow_credentials=False, engine faqat 127.0.0.1 da. O'chirish: LAHZA_ADOBE_CORS=0.
+ADOBE_ORIGINS = ["null", "file://"]
 
 
 def cors_origins() -> list[str]:
     origins = list(TAURI_ORIGINS)
+    if os.environ.get("LAHZA_ADOBE_CORS", "1") != "0":
+        origins += ADOBE_ORIGINS
     if os.environ.get("LAHZA_DEV") == "1":
         origins += DEV_ORIGINS
     extra = os.environ.get("LAHZA_CORS_ORIGINS", "")
@@ -65,13 +81,26 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     st = State(settings or Settings(), token or secrets.token_urlsafe(24))
 
     @asynccontextmanager
-    async def lifespan(_: FastAPI):
+    async def lifespan(a: FastAPI):
+        # Fon vazifalari (masalan, fayl-IPC sikli) - server event loop'ida.
+        tasks = [asyncio.create_task(f()) for f in getattr(a.state, "background", [])]
         yield
+        for t in tasks:
+            t.cancel()
+        for t in tasks:
+            with contextlib.suppress(BaseException):
+                await t
         st.jobs.shutdown()
+        for hook in list(getattr(a.state, "shutdown_hooks", [])):
+            # To'xtashda bitta ilgak xatosi qolganini to'xtatmasin.
+            with contextlib.suppress(Exception):
+                hook()
 
     app = FastAPI(title="Lahza Engine", version=__version__, docs_url=None, redoc_url=None,
                   lifespan=lifespan)
     app.state.lahza = st
+    app.state.shutdown_hooks = []  # to'xtashda chaqiriladi (masalan, engine.json o'chirish)
+    app.state.background = []  # coroutine fabrikalari: ishga tushishda task, to'xtashda bekor (fayl-IPC)
     # Token baribir majburiy; CORS faqat webview/dev origin'iga javobni o'qishga ruxsat beradi.
     app.add_middleware(CORSMiddleware, allow_origins=cors_origins(), allow_credentials=False,
                        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
@@ -133,6 +162,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     routes_clips.register(app, auth)
     routes_library.register(app, auth)
     routes_montage.register(app, auth)
+    routes_hostplan.register(app, auth)
     routes_system.register(app, auth)
 
     # ---- Hodisalar ---------------------------------------------------------

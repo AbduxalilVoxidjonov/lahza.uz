@@ -2,7 +2,7 @@
 
 Manba: `engine/src/lahza_engine/api/app.py`. Engine faqat `127.0.0.1` da. Har so'rov `Authorization: Bearer <token>`; `<video>` va WebSocket uchun `?t=<token>`. Xato javobi: `{"detail": "<o'zbekcha xabar>"}` va HTTP kodi.
 
-CORS: UI engine'ga boshqa origin'dan murojaat qiladi, shuning uchun `CORSMiddleware` faqat Tauri webview origin'lariga (`tauri://localhost`, `http(s)://tauri.localhost`) ruxsat beradi; `LAHZA_DEV=1` da Vite dev server (`http://127.0.0.1:1420`, `http://localhost:1420`) ham qo'shiladi; qo'shimchalari — `LAHZA_CORS_ORIGINS` (vergul bilan). Token baribir majburiy. WebSocket uchun engine `websockets` paketiga bog'liq (uvicorn'ning o'zida WS yo'q).
+CORS: UI engine'ga boshqa origin'dan murojaat qiladi, shuning uchun `CORSMiddleware` faqat Tauri webview origin'lariga (`tauri://localhost`, `http(s)://tauri.localhost`) ruxsat beradi; `LAHZA_DEV=1` da Vite dev server (`http://127.0.0.1:1420`, `http://localhost:1420`) ham qo'shiladi; Adobe plaginlari uchun `null` va `file://` (CEP paneli; `LAHZA_ADOBE_CORS=0` bilan o'chiriladi — "Adobe plaginlari" bo'limiga qarang); qo'shimchalari — `LAHZA_CORS_ORIGINS` (vergul bilan). Token baribir majburiy. WebSocket uchun engine `websockets` paketiga bog'liq (uvicorn'ning o'zida WS yo'q).
 
 Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar epizod bazasida saqlangani uchun yo'llar `/v1/episodes/{id}/...` ko'rinishida.
 
@@ -183,6 +183,74 @@ Manba: `api/routes_montage.py` (docs/11 5-6, 10-bo'limlar; ADR-0011/0012/0013). 
 * `:render`: timeline yo'q, `planning` yoki video elementsiz — 409. libass yo'q, `allow_no_subs = false` va timeline'da matn qatlami (`text`) yoki so'zli subtitr (`captions.enabled` + `words`) bor — **422** (aniq o'zbekcha xabar), vazifa yaratilmaydi. `out_dir` (yoki uning ota-papkasi) mavjud bo'lmasa — 400. Fayl nomi: `filename` yoki montaj nomi; `/ \ : * ? " < > |` → `_`, `.mp4` qo'shiladi, mavjud fayl ustiga yozilmaydi (`_2`, `_3`, ...). Enkoder klip eksportidagi kabi tanlanadi (`choose_encoder`, GPU). `render_montage` ish papkasi `Library/_montage/<id>/work/<job_id>/` (tugagach o'chiriladi). Natija (`job.result`): `{"video","edl","srt","warnings","encoder","export_id","montage_id"}`. `montage_exports` ga yozuv (`queued → running → done/failed/cancelled`).
 * `thumb`: `media_id` timeline `media` yoki `sources` dan; fayl yo'q — 404. `ffmpeg -ss t -i <fayl> -frames:v 1 -vf scale=320:-2` (yo'l faqat `-i` kirishi sifatida), `Library/_montage/<id>/thumbs/<media_id>-<t_ms>.jpg` da keshlanadi; `t_ms` media davomiyligiga qisiladi.
 * `DELETE`: rejalashtirish vazifasi ishlayotgan bo'lsa bekor qilinadi; `montages` (va kaskad bilan `montage_exports`) qatori va `Library/_montage/<id>/` papkasi o'chiriladi. Render qilingan videolar o'chirilmaydi.
+
+## Adobe plaginlari
+
+Premiere Pro (UXP) va After Effects (CEP) plaginlari engine'ni topadi, klip yoki montaj uchun **host-reja** (`lahza.hostplan/1`, `hostplan/model.py`) oladi va uni o'z dasturi API'si orqali sekvensiya/kompozitsiyaga qo'yadi. Render'ni Adobe qiladi.
+
+### Engine'ni topish (discovery)
+
+`lahza serve --discovery` (yoki `LAHZA_DISCOVERY=1`) ishga tushganda `<data_dir>/engine.json` yoziladi (`core/discovery.py`):
+
+```json
+{"port": 51234, "token": "…", "pid": 4321, "version": "0.1.0", "started_at": "2026-10-22T09:15:00Z"}
+```
+
+* `data_dir`: macOS `~/Library/Application Support/Lahza Studio`, Windows `%LOCALAPPDATA%\Lahza Studio` (`LAHZA_DATA_DIR` ustun).
+* Port: `--port` berilsa — o'sha. Aks holda `--discovery` rejimida **qat'iy** 47600 → 47601 → 47602 (UXP manifest `network.domains` portlarni oldindan sanaydi); uchalasi band bo'lsa o'zbekcha xato (stderr) va chiqish kodi 2. Tauri sidecar rejimi (`--port 0`, discovery'siz) — avvalgidek tasodifiy bo'sh port. Token: `--token`/`LAHZA_TOKEN` berilmasa tasodifiy (`secrets.token_urlsafe(24)`).
+* Fayl huquqi `0600` (Windows'da foydalanuvchi profilining odatiy ACL'i); yozish atomar (shu papkadagi vaqtinchalik fayl + `os.replace`).
+* To'xtaganda o'chiriladi: `uvicorn.run` dan keyin (`finally`), FastAPI lifespan ilgagi (`app.state.shutdown_hooks`), `atexit`, POSIX'da `SIGHUP`. SIGINT/SIGTERM'ni uvicorn ushlaydi va graceful to'xtaydi. Fayl faqat undagi `pid` o'zimizniki bo'lsa o'chiriladi.
+* Eski fayl (o'lik `pid`) ustiga yoziladi. Tirik boshqa engine fayli ham ustiga yoziladi (oxirgisi ustun, logda ogohlantirish). `SIGKILL` dan keyin fayl qolishi mumkin — plagin `pid` va `GET /v1/health` bilan tekshiradi.
+* Tauri sidecar rejimi (`--discovery` siz) o'zgarmagan: fayl yozilmaydi.
+
+### Fayl-IPC (`lahza.ipc/1`) — zaxira transport
+
+UXP'da HTTP ishlamasa (permission yoki macOS `http://` cheklovi) plagin (`adobe/premiere/src/transport.ts`) fayl orqali so'raydi. Engine tomoni — `core/ipc.py` (`IpcServer`); `--discovery` rejimida yoki `LAHZA_IPC=1` da yoqiladi (token bo'lishi shart).
+
+* Papkalar: `<data_dir>/ipc/requests/` va `<data_dir>/ipc/responses/`, huquqi `0700`.
+* So'rov: plagin `requests/<id>.json.tmp` yozadi va `requests/<id>.json` ga rename qiladi:
+  `{"v":1,"id","method","path":"/v1/...","headers":{"Authorization":"Bearer <token>"},"body":JSON|null,"created_at"}`.
+* Engine server event loop'idagi polling sikli (150 ms, lifespan fon vazifasi) faylni o'qiydi, **o'chiradi** va mavjud FastAPI ilovasini ichki ASGI chaqiruvi bilan bajaradi (`httpx.ASGITransport`, tarmoqsiz). Token tekshiruvi, validatsiya va xato matnlari oddiy HTTP bilan aynan bir xil (noto'g'ri token — `401`). Headerlardan faqat `Authorization` o'tadi; `body` JSON bo'lib yuboriladi.
+* Javob: `responses/<id>.json.tmp` → rename `responses/<id>.json`: `{"v":1,"id","status","body"}`. Plagin o'qib o'chiradi.
+* `id` faqat `[A-Za-z0-9-]{8,64}`; boshqa nomdagi fayl javobsiz o'chiriladi. `.tmp` e'tiborsiz. So'rov > 1 MB — `413`; JSON emas, `v != 1`, `id` fayl nomiga mos emas, yo'l `/v1/` bilan boshlanmaydi — `400`; metod `GET/POST/PUT/PATCH/DELETE` dan boshqa — `405`. Ilova ichidagi kutilmagan xato — `500`. Javobi JSON bo'lmagan endpointlar (`:preview` JPEG, proksi video) — `502` (`detail`: faqat HTTP orqali).
+* 5 daqiqadan eski so'rov/javob (va `.tmp`) fayllari tozalanadi (har 10 s). Bir vaqtda ≤ 8 so'rov bajariladi.
+
+### CORS
+
+| Mijoz | Origin | Manba |
+| --- | --- | --- |
+| CEP paneli (After Effects) | `null` (HTML `file://` dan yuklanadi, Chromium/CEF), zaxira `file://` | CEP 12 HTML Extension Cookbook — "CORS checks": CEP 11+ CORS tekshiruvi qat'iy, endpoint `Access-Control-Allow-Origin` qaytarishi kerak |
+| Premiere UXP | rasmiy hujjatda aniq qiymat yo'q (kutilgan: sarlavha yo'q yoki `null`) — **ANIQLANSIN** haqiqiy host'da | developer.adobe.com/premiere-pro/uxp/resources/recipes/network — "Request blocked by CORS" → serverda `Access-Control-Allow-Origin` |
+
+`null` origin har qanday sandbox iframe'da ham bo'ladi, shuning uchun himoya — token (har so'rovda majburiy), `allow_credentials=false` va faqat `127.0.0.1`. O'chirish: `LAHZA_ADOBE_CORS=0`.
+
+Eslatma (plagin uchun): Premiere UXP hujjati macOS'da `http://` URL cheklanishini aytadi; `http://127.0.0.1` ga ruxsat bor-yo'qligi haqiqiy host'da tekshirilsin (engine HTTPS bermaydi).
+
+### Endpointlar
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/hostplan/schema` | — | `{"schema": "lahza.hostplan/1", "engine": "0.1.0"}` |
+| POST | `/v1/episodes/{eid}/clips/{cid}:hostplan` | `{"out_dir", "style"?: StyleTemplate, "orthography"?: "official"\|"ascii"\|"new", "aspect"?: "9:16"\|"1:1"\|"16:9"}` | `HostPlan` |
+| POST | `/v1/montages/{id}:hostplan` | `{"out_dir"}` | `HostPlan` |
+
+* `out_dir` absolyut yo'l bo'lishi kerak; mavjud bo'lmasa yaratiladi, lekin ota papkasi mavjud bo'lishi shart (aks holda 400). Fayl (papka emas) — 400.
+* Klip: `out_dir/<slug>.srt` (mavjud `build_srt`, imlo/to'ldiruvchi/so'kinish qoidalari bilan) va `out_dir/<slug>_words.json` (`{"schema": "lahza.words/1", "orthography", "words": [{text,t0,t1}], "lines": [...], "style"}`) yoziladi; `slug` — klip sarlavhasidan. Epizod tahlil qilinmagan yoki asl fayl yo'q — 409; klip yo'q — 404.
+* Montaj: `planning` yoki timeline/video elementsiz — 409; yo'q — 404. Subtitr faqat `captions.enabled` va so'zlar bo'lsa (`<montaj-nomi-slug>.srt`, `_words.json`).
+* Hisob — `hostplan/build.py` (`plan_from_clip`, `plan_from_montage`), sinxron (yuz detektori bo'lsa va saqlangan reja bo'lmasa, klip uchun reframe rejasi shu so'rovda hisoblanadi).
+
+### Host-reja koordinata qoidalari
+
+* Vaqt — soniya. `rec_*` — sekvensiya vaqti; `src_*` — manba fayl vaqti; `TransformKey.t` — **element boshidan** (rec).
+* Qatlam anchor'i = manba kadr markazi. `scale_pct` — manba masshtabi (100 = asl), `pos_x/pos_y` — manba markazi tushadigan sekvensiya pikseli.
+* Crop oynasi `(x, y, w, h)` (manba px, `reframe.planner.crop_rect`) → `scale = W / w`, `pos_x = W/2 + (sw/2 − (x + w/2))·scale`, `pos_y = H/2 + (sh/2 − (y + h/2))·scale`. Render (`render/graph.py`: crop → `scale=W:H`) bilan gorizontal aniq bir xil; vertikal farq faqat crop enini juft songa yaxlitlashdan (≤ 0,3%). Isbot: `tests/test_hostplan_math.py`.
+* Kalit kadrlar: `CropKey.cut=True` → oldingi kalit `interp: "hold"`. Kamera kadr chetiga tegadigan (clamp) nuqtalarda qo'shimcha kalit qo'yiladi — host chiziqli interpolyatsiyasi render yo'lidan ≤ 2,5 manba px farq qiladi. Bo'lak ichida masshtab doimiy (birinchi kalit `zoom`'i, render kabi).
+* Layoutlar: `focus`/`manual` → bitta `main`; `fit_blur` → `bg` (to'ldirish: `max(W/sw, H/sh)`, `gaussian_blur` amount 60 ≈ ffmpeg `gblur=sigma=30`) + `main` (sig'dirish: `min(...)`), ikkalasi markazda; `split` → `top` `crop_rect=(0,0,W,H/2)` va `bottom` `(0,H/2,W,H/2)`, har biri o'z kamerasi bilan yarim kadr markaziga.
+* Klip: render bo'laklari (timeline segmenti × layout segmenti) → `VideoClipItem`lar ketma-ket (`transition_in: cut`). Layout manbai: qo'lda kalit kadrlar > saqlangan avto reja > (detektor bo'lsa) yangi reja; detektorsiz — xira fon (bazaga yozilmaydi).
+* SRT'ga `style.uppercase` engine'ning o'zida qo'llanadi (Premiere captions uslubini API orqali qo'yib bo'lmaydi); `captions.lines` va `_words.json` asl registrda.
+* Subtitr qatorlari — `subtitle/layout` (`style.max_words/max_lines`, xavfsiz zona eni), so'zlar rec vaqtida, imlo + so'kinish maskasi qo'llangan, to'ldiruvchilar olib tashlangan; `uppercase` va ranglarni plagin `captions.style` dan qo'llaydi. Qator ≤ 400 ms keyingisigacha ushlab turiladi (ASS kabi).
+* Markerlar: hook gapi (`kind: "hook"`), signallar keshi bo'lsa — signal bali ≥ 70 gaplar (`emphasis`). Montajda `role = "hook"` elementi boshida.
+* Montaj xaritasi: o'tishlar `dissolve/fade → cross_dissolve`, `fadeblack → dip_to_black`, `fadewhite → dip_to_white`, `wipe* → wipe`, `slide* → push`, `zoomin → zoom`, `cut → cut`, boshqasi → `cross_dissolve` + `not_translated`. O'tishli element `rec_in` oldingi element oxiri bilan `dur_s` ga ustma-ust (`MontageTimeline.item_starts`). Harakat (`punch-in`, `push-in`, `pan`, `zoom-out`) → `TransformKey`lar (montaj render `_camera`/`zoompan` formulasi bo'yicha hisoblanib, easing nuqtalari bilan); `shake`, `freeze`, audio fade, matn animatsiyasi, logotip, loudnorm → `not_translated`. Rang preset → `lumetri_preset`, LUT → `lut` (butun montaj rangi har elementga). `volume_db` = element + `audio.source_gain_db`.
 
 ## Hodisalar (WebSocket)
 

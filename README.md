@@ -6,6 +6,8 @@ Uzun o'zbekcha podkast va videolardan eng qiziq lahzalarni AI yordamida topib, 9
 >
 > Foydalanuvchi qo'llanmasi: [`docs/qollanma.md`](docs/qollanma.md).
 >
+> **Adobe plaginlari (loyiha):** [`docs/12-adobe-plaginlar.md`](docs/12-adobe-plaginlar.md) — Lahza paneli Premiere Pro (UXP) va After Effects (CEP) ichida: tahlil, lahzalar va dastur ichida Reels sekvensiyasi/kompozitsiyasi; desktop ilova bilan bitta engine. Kod: [`adobe/`](adobe/README.md).
+>
 > **Kengaytma (qisman amalga oshirildi — video shablonlar va montaj):** [`docs/11-montaj-platformasi.md`](docs/11-montaj-platformasi.md) — Lahza Montaj: video yoki YouTube havola → Reels, montaj plaginlari va retseptlar, video to'plamidan avtomontaj, Premiere / DaVinci / Filmora / After Effects bilan ko'prik, "haqiqiy kadr" tamoyili.
 
 ## Repozitoriy xaritasi
@@ -19,6 +21,7 @@ lahza.uz/
 │   ├── 02-yol-xaritasi.md   0 dan Pro gacha: bosqichlar, vazifalar, darvozalar
 │   ├── 03-…10-*.md          muhit, API, ma'lumot modeli, katalog, pipeline, imlo, test, reliz
 │   ├── 11-montaj-platformasi.md  kengaytma: shablonlar, plaginlar, avtomontaj, NLE ko'prigi (qisman)
+│   ├── 12-adobe-plaginlar.md     Premiere Pro va After Effects plaginlari (loyiha)
 │   └── adr/                 arxitektura qarorlari
 ├── engine/                  Python engine (FastAPI sidecar + CLI)
 │   ├── src/lahza_engine/    text, asr, vad, align, diarize, highlight, reframe, subtitle, render, montage, templates, fx, models, core, db, api
@@ -26,6 +29,7 @@ lahza.uz/
 ├── app/                     Desktop ilova
 │   ├── src/                 React + TypeScript UI
 │   └── src-tauri/           Tauri 2 (Rust): sidecar boshqaruvi
+├── adobe/                   Premiere Pro (UXP) va After Effects (CEP) ichidagi Lahza paneli — shared/, premiere/, after-effects/, scripts/
 ├── catalog/catalog.json     model katalogi (imzolanadi)
 ├── eval/                    baholash skriptlari va transkripsiya yo'riqnomasi
 ├── scripts/                 sidecar, runtime'lar, katalog imzosi, versiya va litsenziya skriptlari

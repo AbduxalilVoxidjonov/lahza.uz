@@ -212,6 +212,24 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 
 Plaginlar, retseptlar, multicam, video to'plamidan avtomontaj va montaj dasturlari bilan ko'prik — [`11-montaj-platformasi.md`](11-montaj-platformasi.md). U M3 ga qo'shimcha vazifalar (TL, NLE-1, YT-1, CLN-1) va yangi **v1.5 "Montaj"** hamda **v2.0 "Studiya"** bosqichlarini taklif qiladi (darvozalar GE1–GE3). Qabul qilingach, vazifalar shu faylga ko'chiriladi. 2026-10-20 holatiga ko'ra video shablonlar va montaj amalga oshirildi (TL-3, FX-2, FX-4, RCP-1 — `[x]`; TL-1, TL-2, FX-1, FX-3, FX-5, MNT-1…3 — `[~]`); vazifalar holati hozircha [docs/11, 13-bo'lim](11-montaj-platformasi.md#13-yol-xaritasi) da yuritiladi.
 
+## Kengaytma: Adobe plaginlari
+
+Lahza paneli Premiere Pro (UXP) va After Effects (CEP + ExtendScript) ichida; desktop ilova bilan bitta engine — [`12-adobe-plaginlar.md`](12-adobe-plaginlar.md), [ADR-0014](adr/0014-adobe-plaginlar.md). Kod `adobe/` da. Belgilar: `[x]` tayyor, `[~]` kod bor (Adobe'siz testlangan), `[ ]` boshlanmagan. Holat 2026-10-22.
+
+- [ ] ADB-0 Haqiqiy host spike'i (macOS + Windows): UXP'da `http://127.0.0.1` / `localhost` ga ulanish, UXP va CEP `Origin` sarlavhasi, `minVersion`, SRT → captions, tezlik, ducking API'lari — natija `12` ning ANIQLANSIN joylariga yoziladi
+- [~] ADB-1 Engine: `lahza serve --discovery` (`engine.json`, 0600), CORS (UXP/CEP origin'lari, token majburiy), `GET /v1/hostplan/schema`
+- [~] ADB-2 Engine: `lahza.hostplan/1` — `plan_from_clip` (kesimlar, reframe → Scale/Position, fit_blur, split, captions, markerlar) va `:hostplan` endpointi
+- [~] ADB-3 Engine: `plan_from_montage` (o'tishlar va motion fx xaritasi, rang/LUT, matn, musiqa, `not_translated`) va `/v1/montages/{id}:hostplan`
+- [~] ADB-4 `adobe/shared`: `hostplan.ts` (+ `assertHostPlan`), `EngineClient` (discovery, job polling), Python ↔ TS sxema mosligi testi
+- [~] ADB-5 Premiere UXP paneli: engine holati, tahlil, lahzalar, Reels, montaj, "nima o'tmadi"; `HostAdapter` (`premiere.ts` + `fake.ts`); `.ccx` paketlash
+- [~] ADB-6 After Effects CEP paneli: UI + `host.jsx` (`lahza_buildComp`, undo group, kalit kadrlar, xira fon, split, o'tishlar, karaoke subtitr, musiqa ducking); ES3 va mock AE testlari; dev o'rnatish skriptlari
+- [ ] ADB-7 Mustaqil "Lahza Engine" servisi (macOS LaunchAgent, Windows autostart) va plagin + engine o'rnatuvchisi
+- [ ] ADB-8 Qo'lda sinov matritsasi: Premiere 25.6 / 26.x / Beta, AE 25.x / 26.x × macOS / Windows ([`12`, 8-bo'lim](12-adobe-plaginlar.md#8-test-strategiyasi))
+- [ ] ADB-9 Tarqatish: `.zxp` imzo (ZXPSignCmd, `-tsa`), `.ccx`; Marketplace listing (maxfiylik siyosati, shartlar, bog'liqlik tavsifi); Adobe Developer Terms bo'yicha yurist xulosasi
+- [ ] ADB-10 AE'da UXP rasmiy bo'lganda AE panelini UXP'ga ko'chirish (CEP to'xtatilishini kuzatish)
+
+**GA1 darvozasi (Adobe plaginlari beta):** ADB-0 ochiq savollari yopilgan; ADB-8 matritsasining har katagida Reels sekvensiyasi/kompozitsiyasi quriladi, kadr va subtitr vaqti ±1 kadr, "nima o'tmadi" ro'yxati to'g'ri, undo bir qadamda; 3 ta ichki montajchi bir hafta haqiqiy ishda ishlatadi; imzolangan `.ccx` va `.zxp` toza mashinada o'rnatiladi.
+
 ## Jamoa rollari (minimal)
 
 ML muhandisi (ASR, alignment, LLM baholash) · Python backend (engine, pipeline, FFmpeg) · Frontend (Tauri + React) · QA / reliz muhandisi (CI, imzolash, o'rnatuvchilar) · SMM ekspert (highlight baholash, uslublar) · qisman lingvist (yo'riqnoma, imlo qoidalari).

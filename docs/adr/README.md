@@ -17,5 +17,6 @@ Har bir ADR: kontekst → qaror → oqibatlar → ko'rib chiqilgan muqobillar. Q
 | [0011](0011-deklarativ-plaginlar.md) | Montaj plaginlari — kod emas, ma'lumot (deklarativ manifest) | Qabul qilindi |
 | [0012](0012-lahza-timeline.md) | Lahza Timeline — yagona montaj modeli, OpenTimelineIO bilan muvofiq | Qabul qilindi (qisman: montaj Timeline orqali; Reels klip renderi keyin o'tadi) |
 | [0013](0013-haqiqiy-kadr-tamoyili.md) | "Haqiqiy kadr" tamoyili — yangi kadr generatsiya qilinmaydi | Qabul qilindi |
+| [0014](0014-adobe-plaginlar.md) | Adobe plaginlari: Premiere — UXP, After Effects — CEP + ExtendScript; umumiy engine va host-reja | Taklif |
 
 Yangi ADR shabloni: [`0000-shablon.md`](0000-shablon.md).

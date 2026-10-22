@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Faqat dev: Chrome'da http://localhost:8098 (CEP 12 Cookbook, ".debug" bo'limi). Imzolangan .zxp ga kiritilmaydi. -->
+<ExtensionList>
+  <Extension Id="uz.lahza.ae.panel">
+    <HostList>
+      <Host Name="AEFT" Port="8098"/>
+    </HostList>
+  </Extension>
+</ExtensionList>
