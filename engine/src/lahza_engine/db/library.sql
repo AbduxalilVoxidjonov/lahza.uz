@@ -85,3 +85,22 @@ CREATE TABLE IF NOT EXISTS montage_exports (
   finished_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_montage_exports_montage ON montage_exports(montage_id);
+
+-- v4: partiyaviy tahlil navbati (PRO-5). Holat engine qayta ishga tushganda shu jadvaldan tiklanadi.
+CREATE TABLE IF NOT EXISTS analysis_queue (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+  episode_id TEXT REFERENCES episodes(id) ON DELETE SET NULL,
+  path TEXT NOT NULL,
+  title TEXT,
+  options_json TEXT NOT NULL DEFAULT '{}',
+  position INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued','running','done','failed','cancelled')),
+  error TEXT,
+  job_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_analysis_queue_status ON analysis_queue(status, position);

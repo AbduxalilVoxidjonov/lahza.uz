@@ -10,7 +10,8 @@ from __future__ import annotations
 from lahza_engine.config import SubtitleSafeZone
 from lahza_engine.subtitle.layout import CaptionChunk, chunk_words, max_chars_per_line
 from lahza_engine.subtitle.style import StyleTemplate, ass_color
-from lahza_engine.text.orthography import convert, fold_for_match
+from lahza_engine.text.orthography import fold_for_match
+from lahza_engine.text.translit import display_text
 from lahza_engine.timeline import Timeline
 from lahza_engine.types import Word
 
@@ -109,8 +110,8 @@ class _Lexicon:
         return bool(self.keywords) and _fold_token(w.text) in self.keywords
 
     def plain(self, w: Word, style: StyleTemplate) -> str:
-        """Imlo rejimi + so'kinish maskasi (registr va ASS ekranlashsiz)."""
-        t = convert(w.text, style.orthography)
+        """Imlo rejimi/yozuv + so'kinish maskasi (registr va ASS ekranlashsiz)."""
+        t = display_text(w.text, style.orthography, style.script)
         if self.profanity and _fold_token(w.text) in self.profanity:
             t = mask_word(t)
         return t
@@ -154,8 +155,15 @@ def _render_chunk(chunk: CaptionChunk, active: Word | None, style: StyleTemplate
 
 
 def map_words(words: list[Word], timeline: Timeline, offset_ms: int = 0) -> list[Word]:
-    """Manba vaqtidagi so'zlar -> chiqish vaqti (o'chirilgan joydagilari tashlanadi)."""
+    """Manba vaqtidagi so'zlar -> chiqish vaqti (o'chirilgan joydagilari tashlanadi).
+
+    Hook prefiksi (PRO-3) bo'lsa, uning so'zlari chiqish boshida ikkinchi marta ham chiqadi.
+    """
     mapped: list[Word] = []
+    for w in words if timeline.prefix_ms else ():
+        a, b = timeline.prefix_to_out(w.start_ms), timeline.prefix_to_out(w.end_ms)
+        if a is not None and b is not None and b > a:
+            mapped.append(w.model_copy(update={"start_ms": a - offset_ms, "end_ms": b - offset_ms}))
     for w in words:
         a, b = timeline.to_out(w.start_ms), timeline.to_out(w.end_ms)
         if a is None or b is None or b <= a:
@@ -331,7 +339,8 @@ def text_item_events(items: list, style: StyleTemplate, zone: SubtitleSafeZone |
             tags.append(f"\\fad({ANIM_MS},{ANIM_MS})")
         elif it.animation == "pop":
             tags.append(f"\\fscx120\\fscy120\\t(0,{POP_MS},\\fscx100\\fscy100)")
-        lines = [escape(convert(x_, style.orthography)) for x_ in str(it.text).splitlines()]
+        lines = [escape(display_text(x_, style.orthography, style.script))
+                 for x_ in str(it.text).splitlines()]
         text = "\\N".join(x_ for x_ in lines if x_.strip()) or " "
         if style.uppercase and it.kind in ("hook", "cta"):
             text = text.upper()

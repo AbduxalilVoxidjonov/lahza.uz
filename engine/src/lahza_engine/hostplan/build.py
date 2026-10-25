@@ -44,6 +44,7 @@ from lahza_engine.subtitle.ass import _Lexicon, build_srt, clean_words, map_word
 from lahza_engine.subtitle.layout import chunk_words, max_chars_per_line
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.text.orthography import Orthography, convert
+from lahza_engine.text.translit import display_text
 from lahza_engine.timeline import Timeline
 from lahza_engine.types import Clip, Layout, Word
 
@@ -611,7 +612,7 @@ def plan_from_montage(tl, montage_id: str, name: str, out_dir: Path, settings: S
     animated = False
     for t in tl.text:
         text.append(TextOverlay(id=t.id, rec_in=_r(t.start_ms / 1000), rec_out=_r(t.end_ms / 1000),
-                                text=convert(t.text, style.orthography), kind=t.kind,
+                                text=display_text(t.text, style.orthography, style.script), kind=t.kind,
                                 background=t.background, position=t.position))
         animated = animated or t.animation != "none"
     if animated:

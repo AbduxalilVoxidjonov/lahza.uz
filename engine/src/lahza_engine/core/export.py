@@ -10,7 +10,7 @@ import shutil
 import sqlite3
 import string
 import tempfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from lahza_engine.config import Settings
@@ -33,8 +33,8 @@ from lahza_engine.render.profiles import evaluate_profile, profile_settings
 from lahza_engine.subtitle.ass import build_ass, build_srt, build_vtt
 from lahza_engine.subtitle.fonts import default_fonts_dir, has_fonts
 from lahza_engine.subtitle.style import StyleTemplate
-from lahza_engine.text.orthography import convert
-from lahza_engine.timeline import Timeline
+from lahza_engine.text.translit import display_text
+from lahza_engine.timeline import Timeline, clip_timeline
 from lahza_engine.types import Clip, Layout, Word
 
 log = logging.getLogger(__name__)
@@ -166,7 +166,23 @@ def observations_for_clip(
         speaker, overlap = _speech_at(spk_words, t_src) if spk_words else (None, False)
         obs.append(Observation(t_out, boxes, active, shot_cut=shot_cut, overlap_speech=overlap,
                                speaker=speaker))
-    return obs
+    return _with_hook_prefix(obs, timeline)
+
+
+def _with_hook_prefix(obs: list[Observation], timeline: Timeline) -> list[Observation]:
+    """Hook prefiksi (PRO-3): hook oralig'idagi kuzatuvlar chiqish boshiga nusxalanadi; asosiy
+    qism boshlanishi - kamera kesimi (tasvir keskin almashadi)."""
+    if not timeline.prefix_ms or not obs:
+        return obs
+    pre: list[Observation] = []
+    for o in obs:
+        t_src = timeline.to_src(o.t_ms)
+        t_pre = timeline.prefix_to_out(t_src)
+        if t_pre is not None and t_pre < timeline.prefix_ms:
+            pre.append(replace(o, t_ms=t_pre, shot_cut=not pre or o.shot_cut))
+    body = list(obs)
+    body[0] = replace(body[0], shot_cut=True)
+    return pre + body
 
 
 def build_layout_plan(
@@ -264,7 +280,7 @@ def export_clip(
         raise KeyError(media_id)
     src = Path(media["path"])
     W, H = settings.render.width, settings.render.height
-    tl = Timeline(clip.start_ms, clip.end_ms, clip.cuts)
+    tl = clip_timeline(clip)
     evaluation = evaluate_profile(platform, tl.duration_ms, W, H, settings=settings)
     if evaluation.errors:
         raise ValueError("; ".join(evaluation.errors))
@@ -301,8 +317,8 @@ def export_clip(
     vtt = out_dir / f"{base}.vtt"
     vtt.write_text(build_vtt(words, tl, style=style), encoding="utf-8")
     caption = out_dir / f"{base}_caption.txt"
-    title = convert(clip.title, style.orthography)
-    body = convert(clip.caption, style.orthography)
+    title = display_text(clip.title, style.orthography, style.script)
+    body = display_text(clip.caption, style.orthography, style.script)
     caption.write_text("\n\n".join(x for x in (title, body, " ".join(clip.hashtags)) if x) + "\n",
                        encoding="utf-8")
     cover: Path | None = out_dir / f"{base}_cover.jpg"
@@ -339,7 +355,7 @@ def render_preview_frame(
         raise KeyError(media_id)
     src = Path(media["path"])
     W, H = settings.render.width, settings.render.height
-    tl = Timeline(clip.start_ms, clip.end_ms, clip.cuts)
+    tl = clip_timeline(clip)
     t_out = max(0, min(tl.duration_ms - 1, int(t_out_ms)))
     words = _clip_words(conn, media_id, clip)
     layouts, _ = resolve_layouts(conn, src, clip, tl, detector, settings, media["width"],

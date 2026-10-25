@@ -7,12 +7,22 @@ import sqlite3
 from importlib import resources
 from pathlib import Path
 
-from lahza_engine.types import Clip, ClipKind, ClipSource, ClipStatus, Sentence, Transcript, Word
+from lahza_engine.types import (
+    Clip,
+    ClipHook,
+    ClipKind,
+    ClipSource,
+    ClipStatus,
+    Sentence,
+    Transcript,
+    Word,
+)
 
 # Kutubxona (library.db) va epizod (project.db) sxemalari alohida versiyalanadi: bir bazadagi
-# o'zgarish ikkinchisini migratsiyaga majburlamasligi uchun. Kutubxona v3 (montaj), loyiha v2.
-LIBRARY_SCHEMA_VERSION = 3
-PROJECT_SCHEMA_VERSION = 2
+# o'zgarish ikkinchisini migratsiyaga majburlamasligi uchun. Kutubxona v4 (v3 montaj, v4 tahlil
+# navbati), loyiha v3 (v3 - klip hook'i, PRO-3).
+LIBRARY_SCHEMA_VERSION = 4
+PROJECT_SCHEMA_VERSION = 3
 SCHEMA_VERSION = PROJECT_SCHEMA_VERSION  # orqaga moslik
 
 # {yangi_versiya: "SQL"}; ochishdan oldin zaxira nusxa (<baza>.v<N>.bak) olinadi.
@@ -58,6 +68,25 @@ CREATE TABLE IF NOT EXISTS montage_exports (
 );
 CREATE INDEX IF NOT EXISTS idx_montage_exports_montage ON montage_exports(montage_id);
 """,
+    4: """
+CREATE TABLE IF NOT EXISTS analysis_queue (
+  id TEXT PRIMARY KEY,
+  show_id TEXT NOT NULL REFERENCES shows(id) ON DELETE CASCADE,
+  episode_id TEXT REFERENCES episodes(id) ON DELETE SET NULL,
+  path TEXT NOT NULL,
+  title TEXT,
+  options_json TEXT NOT NULL DEFAULT '{}',
+  position INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'queued'
+    CHECK (status IN ('queued','running','done','failed','cancelled')),
+  error TEXT,
+  job_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  started_at TEXT,
+  finished_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_analysis_queue_status ON analysis_queue(status, position);
+""",
 }
 PROJECT_MIGRATIONS: dict[int, str] = {
     2: """
@@ -65,6 +94,10 @@ ALTER TABLE exports ADD COLUMN job_id TEXT;
 ALTER TABLE exports ADD COLUMN finished_at TEXT;
 ALTER TABLE corrections ADD COLUMN media_id TEXT;
 ALTER TABLE corrections ADD COLUMN sentence_id INTEGER;
+""",
+    3: """
+ALTER TABLE clips ADD COLUMN hook_start_ms INTEGER;
+ALTER TABLE clips ADD COLUMN hook_end_ms INTEGER;
 """,
 }
 MIGRATIONS = PROJECT_MIGRATIONS  # orqaga moslik
@@ -190,12 +223,13 @@ def save_clips(conn: sqlite3.Connection, clips: list[Clip], replace_ai: bool = T
             conn.execute(
                 "INSERT OR REPLACE INTO clips(id, media_id, start_ms, end_ms, start_sentence_id,"
                 " end_sentence_id, hook_sentence_id, title, caption, hashtags_json, kind, score,"
-                " scores_json, reason, status, source, llm_model_id)"
-                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                " scores_json, reason, status, source, llm_model_id, hook_start_ms, hook_end_ms)"
+                " VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (c.id, c.media_id, c.start_ms, c.end_ms, c.start_sentence_id, c.end_sentence_id,
                  c.hook_sentence_id, c.title, c.caption, json.dumps(c.hashtags, ensure_ascii=False),
                  c.kind.value if c.kind else None, c.score, json.dumps(c.scores), c.reason,
-                 c.status.value, c.source.value, c.llm_model_id),
+                 c.status.value, c.source.value, c.llm_model_id,
+                 c.hook.start_ms if c.hook else None, c.hook.end_ms if c.hook else None),
             )
             conn.execute("DELETE FROM clip_cuts WHERE clip_id = ?", (c.id,))
             conn.executemany(
@@ -221,6 +255,8 @@ def load_clips(conn: sqlite3.Connection, media_id: str) -> list[Clip]:
                 scores=json.loads(r["scores_json"]), reason=r["reason"],
                 status=ClipStatus(r["status"]), source=ClipSource(r["source"]),
                 llm_model_id=r["llm_model_id"], cuts=cuts,
+                hook=ClipHook(start_ms=r["hook_start_ms"], end_ms=r["hook_end_ms"])
+                if r["hook_start_ms"] is not None and r["hook_end_ms"] is not None else None,
             )
         )
     return out
@@ -292,6 +328,18 @@ def set_cuts(conn: sqlite3.Connection, clip_id: str, cuts: list[tuple[int, int]]
         conn.executemany("INSERT INTO clip_cuts(clip_id, start_ms, end_ms) VALUES (?,?,?)",
                          [(clip_id, a, b) for a, b in cuts])
         conn.execute("UPDATE clips SET user_edited = 1 WHERE id = ?", (clip_id,))
+        conn.execute("INSERT INTO feedback(clip_id, action) VALUES (?, 'tahrir')", (clip_id,))
+
+
+def set_hook(conn: sqlite3.Connection, clip_id: str, hook: ClipHook | None) -> None:
+    """Hook oldinga (PRO-3): yoqish/o'zgartirish yoki o'chirish (None).
+
+    Chiqish vaqti siljiydi, shuning uchun avtomatik kamera rejasi keshi (chiqish vaqtida) tashlanadi.
+    """
+    with conn:
+        conn.execute("UPDATE clips SET hook_start_ms = ?, hook_end_ms = ?, user_edited = 1 WHERE id = ?",
+                     (hook.start_ms if hook else None, hook.end_ms if hook else None, clip_id))
+        conn.execute("DELETE FROM reframe_keyframes WHERE clip_id = ? AND source = 'avto'", (clip_id,))
         conn.execute("INSERT INTO feedback(clip_id, action) VALUES (?, 'tahrir')", (clip_id,))
 
 

@@ -101,6 +101,9 @@ export const uz = {
   "orth.official": "Rasmiy (oʻ, gʻ)",
   "orth.ascii": "Oddiy (o', g')",
   "orth.new": "Yangi alifbo (ö, ğ, ş, ç)",
+  "style.script": "Yozuv",
+  "script.latin": "Lotin",
+  "script.cyrillic": "Кирилл",
 
   "exp.title": "Eksport navbati",
   "exp.empty": "Eksport vazifalari yo'q.",

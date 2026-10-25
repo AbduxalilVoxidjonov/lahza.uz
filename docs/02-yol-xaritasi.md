@@ -197,7 +197,7 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 - [ ] V1-2 O'rnatuvchilar: `.dmg` (staple), NSIS; toza VM'da internetsiz o'rnatish + `.lzpack`
 - [ ] V1-3 Oflayn litsenziya kaliti (Ed25519) — agar tijorat bo'lsa (TZ 19-bo'lim)
 - [~] V1-4 Foydalanuvchi qo'llanmasi (o'zbekcha) — `docs/qollanma.md` joriy holat uchun; v1.0 da yakunlanadi
-- [ ] V1-5 Litsenziyalar oynasi va `LICENSES-THIRD-PARTY.md` to'liq
+- [~] V1-5 Litsenziyalar oynasi va `LICENSES-THIRD-PARTY.md` to'liq — `make licenses` 538 komponent, Sozlamalar → Litsenziyalar; qolgani: 182 ta ANIQLANSIN (179 Windows/Linux crate — Windows'da qayta generatsiya), manba taklifi e-pochtasi, PyAV ichidagi GPL libx264/libx265 (R0-LEG-1)
 - [ ] V1-6 Instagram limitlarini qayta tekshirish (`render/platform_limits.json`)
 
 **G4 darvozasi:** reliz tekshiruvi (`docs/10-reliz-va-imzolash.md`) va yurist xulosasi.
@@ -208,11 +208,11 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 
 - [ ] PRO-1 O'z-o'zini yaxshilash: muharrir tuzatishlari (`corrections`) → lug'at → fine-tune paketi
 - [ ] PRO-2 Ikki kamerali yozuv: audio kross-korrelyatsiya bilan sinxron, kamera tanlash — kengaytirilib v1.5 ga ko'chirildi: MC-1 ([`11-montaj-platformasi.md`](11-montaj-platformasi.md#13-yol-xaritasi))
-- [ ] PRO-3 "Hook oldinga": eng kuchli jumla klip boshiga 2–4 s
-- [ ] PRO-4 Kirill subtitr (lug'atli transliteratsiya)
-- [ ] PRO-5 Partiyaviy ishlov (bir nechta epizod navbatda)
+- [x] PRO-3 "Hook oldinga": eng kuchli jumla klip boshiga 2–4 s — `highlight/hook_front.py`, keshdagi signallar, ~0.5 ms/klip; hostplan va montaj manbasi hook'ni hali hisobga olmaydi
+- [~] PRO-4 Kirill subtitr (lug'atli transliteratsiya) — `text/translit.py` + `text/data/cyrillic.json`; qolgani: lug'atni tilshunos ko'rib chiqishi, muharrir CSS preview'i, `lahza export --script`
+- [x] PRO-5 Partiyaviy ishlov (bir nechta epizod navbatda) — `core/batch.py`, `/v1/queue`, `lahza batch`; kuzatiladigan papka va pauza qilinmagan
 - [ ] PRO-6 Real natijalardan o'rganish: foydalanuvchi ko'rishlar sonini kiritadi → ball vaznlari moslashadi
-- [ ] PRO-7 Ixtiyoriy YouTube yuklab olish plagini (alohida ogohlantirish bilan) — M3 ga ko'chirildi: YT-1 ([ADR-0010](adr/0010-youtube-havola-import.md))
+- [~] PRO-7 Ixtiyoriy YouTube yuklab olish plagini (alohida ogohlantirish bilan) — M3 ga ko'chirildi: YT-1 ([ADR-0010](adr/0010-youtube-havola-import.md)); kod tayyor (`media/youtube.py`, standart o'chiq), yurist xulosasi (Q2) va katalog komponenti kutilmoqda
 - [ ] PRO-8 Windows on ARM va Linux
 
 ## Kengaytma: Lahza Montaj (qisman amalga oshirildi)

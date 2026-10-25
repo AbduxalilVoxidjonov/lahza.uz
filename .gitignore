@@ -33,3 +33,8 @@ eval/results/**
 # Maxfiy kalitlar
 *.key
 .env
+
+# Lokal relizlar: matn fayllari git'da, binarlar yo'q (versiyalar/README.md)
+versiyalar/*/*.app/
+versiyalar/*/*.zip
+versiyalar/*/*.dmg

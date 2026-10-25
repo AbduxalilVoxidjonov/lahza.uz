@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -13,8 +13,9 @@ from typing import Any
 from fastapi import HTTPException
 
 from lahza_engine.config import Settings
+from lahza_engine.core.batch import AnalysisQueue
 from lahza_engine.core.events import EventBus
-from lahza_engine.core.jobs import JobManager
+from lahza_engine.core.jobs import Job, JobManager
 from lahza_engine.core.services import Services, build_services
 from lahza_engine.db import store as db
 from lahza_engine.models import catalog as cat
@@ -37,6 +38,14 @@ class State:
         self.export_params: dict[str, tuple[str, str, Any]] = {}
         # Montaj eksportini qayta urinish uchun: job_id -> (montage_id, body)
         self.montage_export_params: dict[str, tuple[str, Any]] = {}
+        # Partiyaviy tahlil navbati (PRO-5): holat library.db'da, qayta ishga tushganda davom etadi.
+        self.queue = AnalysisQueue(self, self.jobs, self._start_queue_item)
+        self.queue.resume()
+
+    def _start_queue_item(self, item: dict[str, Any], on_change: Callable[[Job], None]) -> Job:
+        from lahza_engine.api.routes_queue import start_item
+
+        return start_item(self, item, on_change)
 
     def services(self, refresh: bool = False) -> Services:
         with self._svc_lock:

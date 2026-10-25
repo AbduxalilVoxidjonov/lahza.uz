@@ -84,9 +84,35 @@ export function skipCuts(cuts: readonly Range[], ms: number): number {
   return ms;
 }
 
-/** Manba vaqti -> chiqish (klip ichidagi, kesimlardan keyingi) vaqti. */
-export function srcToOut(clip: Pick<Clip, "start_ms" | "cuts">, ms: number): number {
-  let out = ms - clip.start_ms;
+type OutClip = Pick<Clip, "start_ms" | "cuts"> & { end_ms?: number; hook?: Clip["hook"] };
+
+/**
+ * PRO-3 "Hook oldinga": klip boshiga nusxalanadigan bo'laklar (manba vaqti, kesimlar chiqarilgan).
+ * Engine `Timeline(hook=...)` bilan bir xil hisob.
+ */
+export function hookPieces(clip: OutClip): Range[] {
+  const h = clip.hook;
+  if (!h) return [];
+  let a = Math.max(h.start_ms, clip.start_ms);
+  const b = clip.end_ms == null ? h.end_ms : Math.min(h.end_ms, clip.end_ms);
+  const out: Range[] = [];
+  for (const [s, e] of normalizeRanges(clip.cuts)) {
+    if (e <= a || s >= b) continue;
+    if (s > a) out.push([a, s]);
+    a = Math.max(a, e);
+  }
+  if (b > a) out.push([a, b]);
+  return out;
+}
+
+/** Hook prefiksining chiqishdagi davomiyligi (o'chiq bo'lsa 0). */
+export function hookPrefixMs(clip: OutClip): number {
+  return hookPieces(clip).reduce((n, [s, e]) => n + e - s, 0);
+}
+
+/** Manba vaqti -> chiqish (klip ichidagi, kesimlardan keyingi; hook prefiksidan keyingi) vaqti. */
+export function srcToOut(clip: OutClip, ms: number): number {
+  let out = ms - clip.start_ms + hookPrefixMs(clip);
   for (const [s, e] of clip.cuts) {
     if (e <= ms) out -= e - s;
     else if (s < ms) out -= ms - s;
@@ -94,15 +120,20 @@ export function srcToOut(clip: Pick<Clip, "start_ms" | "cuts">, ms: number): num
   return Math.max(0, Math.round(out));
 }
 
-/** Chiqish vaqti -> manba vaqti. */
-export function outToSrc(clip: Pick<Clip, "start_ms" | "cuts">, out: number): number {
-  let ms = clip.start_ms + out;
+/** Chiqish vaqti -> manba vaqti (hook prefiksi ichida - hook bo'lagining manba vaqti). */
+export function outToSrc(clip: OutClip, out: number): number {
+  let rest = out;
+  for (const [s, e] of hookPieces(clip)) {
+    if (rest < e - s) return s + Math.max(0, rest);
+    rest -= e - s;
+  }
+  let ms = clip.start_ms + rest;
   for (const [s, e] of normalizeRanges(clip.cuts)) {
     if (s <= ms) ms += e - s;
   }
   return ms;
 }
 
-export function outDuration(clip: Pick<Clip, "start_ms" | "end_ms" | "cuts">): number {
+export function outDuration(clip: Pick<Clip, "start_ms" | "end_ms" | "cuts"> & { hook?: Clip["hook"] }): number {
   return srcToOut(clip, clip.end_ms);
 }

@@ -1,5 +1,5 @@
-"""Kliplar: ro'yxat, tahrir, qo'lda yaratish, matn orqali montaj (cuts), kalit kadrlar, preview,
-o'xshash nomzodlar, eksport, eksportlar ro'yxati va qayta urinish."""
+"""Kliplar: ro'yxat, tahrir, qo'lda yaratish, matn orqali montaj (cuts), hook oldinga (PRO-3),
+kalit kadrlar, preview, o'xshash nomzodlar, eksport, eksportlar ro'yxati va qayta urinish."""
 
 from __future__ import annotations
 
@@ -22,7 +22,8 @@ from lahza_engine.db import store as db
 from lahza_engine.render.profiles import Platform, evaluate_profile
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.text.orthography import Orthography
-from lahza_engine.timeline import Timeline
+from lahza_engine.text.translit import Script
+from lahza_engine.timeline import Timeline, clip_timeline
 from lahza_engine.types import Clip, ClipSource, ClipStatus, Sentence
 
 MIN_CLIP_AFTER_CUTS_MS = 1000
@@ -48,6 +49,20 @@ class CutsIn(BaseModel):
     cuts: list[tuple[int, int]]
 
 
+class HookIn(BaseModel):
+    """Hook oldinga (PRO-3). enabled=false - o'chirish. Yoqishda: start_ms/end_ms (qo'lda oraliq),
+    yoki sentence_id (shu gap ichidagi eng kuchli bo'lak), yoki hech biri - avtomatik tanlov."""
+
+    enabled: bool
+    sentence_id: int | None = None
+    start_ms: int | None = Field(None, ge=0)
+    end_ms: int | None = Field(None, ge=0)
+
+
+HOOK_MANUAL_MIN_MS = 500
+HOOK_MANUAL_MAX_MS = 10_000
+
+
 class KeyframeIn(BaseModel):
     t_ms: int = Field(ge=0)
     layout: Literal["focus", "split", "fit_blur", "manual"]
@@ -66,12 +81,14 @@ class PreviewIn(BaseModel):
     t_ms: int = Field(ge=0)
     style: StyleTemplate = StyleTemplate()
     orthography: Orthography | None = None
+    script: Script | None = None  # PRO-4: berilsa uslubdagi yozuvni almashtiradi
 
 
 class ExportIn(BaseModel):
     out_dir: str
     style: StyleTemplate = StyleTemplate()
     orthography: Orthography | None = None
+    script: Script | None = None  # PRO-4: berilsa uslubdagi yozuvni almashtiradi
     filename_template: str | None = None
     allow_no_subs: bool = False  # libass yo'q bo'lsa subtitrsiz eksport (SRT/VTT baribir yoziladi)
     platform: Platform = "instagram_reels"
@@ -214,7 +231,7 @@ def submit_export(s: State, eid: str, cid: str, body: ExportIn, retry_of: str | 
     show_name = show[0]["name"] if show else "lahza"
     with s.project(eid) as conn:
         clip = _clip_or_404(conn, eid, cid)
-        evaluation = evaluate_profile(body.platform, Timeline(clip.start_ms, clip.end_ms, clip.cuts).duration_ms,
+        evaluation = evaluate_profile(body.platform, clip_timeline(clip).duration_ms,
                                       s.settings.render.width, s.settings.render.height, settings=s.settings)
         if evaluation.errors:
             raise HTTPException(400, "; ".join(evaluation.errors))
@@ -223,6 +240,8 @@ def submit_export(s: State, eid: str, cid: str, body: ExportIn, retry_of: str | 
     style = body.style
     if body.orthography:
         style = style.model_copy(update={"orthography": body.orthography})
+    if body.script:
+        style = style.model_copy(update={"script": body.script})
 
     def work(job: Job) -> dict[str, Any]:
         from lahza_engine.media.tools import find_tool
@@ -336,6 +355,54 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             db.set_cuts(conn, cid, cuts)
             return _clip_or_404(conn, eid, cid).model_dump(mode="json")
 
+    @app.get("/v1/episodes/{eid}/clips/{cid}/hook/candidates")
+    def hook_candidates(eid: str, cid: str, s: State = Depends(auth)) -> list[dict[str, Any]]:
+        from lahza_engine.highlight.hook_front import hook_candidates as find
+
+        pdir = s.episode_dir(eid)
+        with s.project(eid) as conn:
+            clip = _clip_or_404(conn, eid, cid)
+            sentences = db.load_transcript(conn, eid).sentences
+            signals = _signals(conn, pdir, eid, sentences)
+            return [{"start_ms": p.start_ms, "end_ms": p.end_ms, "sentence_ids": list(p.sentence_ids),
+                     "text": p.text, "score": p.score, "reasons": p.reasons}
+                    for p in find(clip, sentences, signals)]
+
+    @app.put("/v1/episodes/{eid}/clips/{cid}/hook")
+    def put_hook(eid: str, cid: str, body: HookIn, s: State = Depends(auth)) -> dict[str, Any]:
+        from lahza_engine.highlight.hook_front import pick_hook, snap_hook
+
+        pdir = s.episode_dir(eid)
+        with s.project(eid) as conn:
+            clip = _clip_or_404(conn, eid, cid)
+            if not body.enabled:
+                db.set_hook(conn, cid, None)
+                return _clip_or_404(conn, eid, cid).model_dump(mode="json")
+            sentences = db.load_transcript(conn, eid).sentences
+            if body.start_ms is not None or body.end_ms is not None:
+                if body.start_ms is None or body.end_ms is None or body.end_ms <= body.start_ms:
+                    raise HTTPException(400, "hook uchun start_ms < end_ms ikkalasi ham kerak")
+                if body.start_ms < clip.start_ms or body.end_ms > clip.end_ms:
+                    raise HTTPException(400, "hook klip chegarasi ichida bo'lishi kerak")
+                hook = snap_hook(clip, sentences, body.start_ms, body.end_ms)
+                if hook is None:
+                    raise HTTPException(400, "hook oralig'ida kesilmagan so'z yo'q")
+                if not (HOOK_MANUAL_MIN_MS <= hook.end_ms - hook.start_ms <= HOOK_MANUAL_MAX_MS):
+                    raise HTTPException(400, "hook davomiyligi 0.5-10 s oralig'ida bo'lishi kerak")
+            else:
+                if body.sentence_id is not None and not any(
+                    x.id == body.sentence_id and x.end_ms > clip.start_ms and x.start_ms < clip.end_ms
+                    for x in sentences
+                ):
+                    raise HTTPException(404, "gap klip ichida topilmadi")
+                signals = _signals(conn, pdir, eid, sentences)
+                pick = pick_hook(clip, sentences, signals, sentence_id=body.sentence_id)
+                if pick is None:
+                    raise HTTPException(409, "klip ichida mos hook bo'lagi topilmadi")
+                hook = pick.to_hook()
+            db.set_hook(conn, cid, hook)
+            return _clip_or_404(conn, eid, cid).model_dump(mode="json")
+
     @app.get("/v1/episodes/{eid}/clips/{cid}/keyframes")
     def get_keyframes(eid: str, cid: str, s: State = Depends(auth)) -> list[dict[str, Any]]:
         with s.project(eid) as conn:
@@ -346,7 +413,7 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
     def put_keyframes(eid: str, cid: str, body: KeyframesIn, s: State = Depends(auth)) -> dict[str, Any]:
         with s.project(eid) as conn:
             clip = _clip_or_404(conn, eid, cid)
-            dur = Timeline(clip.start_ms, clip.end_ms, clip.cuts).duration_ms
+            dur = clip_timeline(clip).duration_ms
             if any(k.t_ms > dur for k in body.keyframes):
                 raise HTTPException(400, "kalit kadr vaqti klip davomiyligidan oshmasligi kerak")
             seen = set()
@@ -367,11 +434,13 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
         style = body.style
         if body.orthography:
             style = style.model_copy(update={"orthography": body.orthography})
+        if body.script:
+            style = style.model_copy(update={"script": body.script})
         out = pdir / "work" / "preview" / f"{cid}-{uuid.uuid4().hex[:8]}.jpg"
         out.parent.mkdir(parents=True, exist_ok=True)
         with s.project(eid) as conn:
             clip = _clip_or_404(conn, eid, cid)
-            dur = Timeline(clip.start_ms, clip.end_ms, clip.cuts).duration_ms
+            dur = clip_timeline(clip).duration_ms
             t = min(body.t_ms, max(0, dur - 1))
             try:
                 render_preview_frame(conn, eid, clip, t, style, s.settings, out,

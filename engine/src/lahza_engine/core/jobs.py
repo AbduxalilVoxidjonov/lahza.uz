@@ -37,7 +37,7 @@ def export_workers_from_env() -> int:
 @dataclass
 class Job:
     id: str
-    kind: str  # analyze | export | install | pack | montage
+    kind: str  # analyze | export | install | pack | montage | download
     status: str = "queued"  # queued | running | done | failed | cancelled
     progress: float = 0.0
     stage: str | None = None
@@ -63,13 +63,18 @@ class JobManager:
         self._export = ThreadPoolExecutor(max_workers=self.export_workers, thread_name_prefix="export")
         self._io = ThreadPoolExecutor(max_workers=1, thread_name_prefix="io")
         self._lock = threading.Lock()
+        # To'xtash boshlandi: bekor qilinayotgan vazifalar foydalanuvchi bekor qilgani emas
+        # (masalan, tahlil navbati elementlarini keyingi ishga tushishda tiklash uchun).
+        self.closing = False
 
     def submit(self, kind: str, fn: Callable[[Job], dict[str, Any] | None],
                *, on_change: Callable[[Job], None] | None = None, **meta: Any) -> Job:
         job = Job(id=uuid.uuid4().hex[:12], kind=kind, meta=meta, on_change=on_change)
         with self._lock:
             self.jobs[job.id] = job
-        pool = {"export": self._export, "install": self._io, "pack": self._io}.get(kind, self._heavy)
+        # `download` (YouTube havolasi, YT-1) - tarmoq I/O: og'ir tahlil oqimini band qilmaydi.
+        pool = {"export": self._export, "install": self._io, "pack": self._io,
+                "download": self._io}.get(kind, self._heavy)
         self._notify(job)
         future = pool.submit(self._run, job, fn)
 
@@ -123,6 +128,7 @@ class JobManager:
         return job
 
     def shutdown(self) -> None:
+        self.closing = True
         for j in self.jobs.values():
             j.cancel.set()
         self._heavy.shutdown(wait=False, cancel_futures=True)

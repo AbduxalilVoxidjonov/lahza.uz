@@ -77,8 +77,23 @@ def _analysis_running(s: State, eid: str) -> bool:
                for j in s.jobs.list_jobs("analyze"))
 
 
+def create_episode(s: State, project_id: str, src: Path, title: str | None) -> tuple[str, Path]:
+    """Epizod qatori va `.lahza` papkasi (import va partiyaviy navbat uchun umumiy)."""
+    shows = s.lib("SELECT * FROM shows WHERE id = ?", (project_id,))
+    if not shows:
+        raise HTTPException(404, "loyiha topilmadi")
+    eid = uuid.uuid4().hex[:12]
+    title = title or src.stem
+    pdir = s.settings.library_dir / shows[0]["name"] / f"{title}-{eid[:6]}.lahza"
+    pdir.mkdir(parents=True, exist_ok=True)
+    s.lib_write("INSERT INTO episodes(id, show_id, title, project_dir, status) VALUES (?,?,?,?,?)",
+                (eid, project_id, title, str(pdir), "analyzing"))
+    return eid, pdir
+
+
 def submit_analysis(s: State, eid: str, show_id: str, pdir: Path, src: Path,
-                    focus: str | None, num_speakers: int | None, force_lite: bool) -> Job:
+                    focus: str | None, num_speakers: int | None, force_lite: bool,
+                    *, on_change: Callable[[Job], None] | None = None, **meta: Any) -> Job:
     from lahza_engine.core.analyze import analyze
     from lahza_engine.core.runner import StageContext
     from lahza_engine.media.probe import fast_hash
@@ -108,7 +123,7 @@ def submit_analysis(s: State, eid: str, show_id: str, pdir: Path, src: Path,
                         " WHERE id = ?", (status, mode, eid))
             conn.close()
 
-    return s.jobs.submit("analyze", work, episode_id=eid)
+    return s.jobs.submit("analyze", work, on_change=on_change, episode_id=eid, **meta)
 
 
 def wav_peaks(wav: Path, buckets: int) -> tuple[int, list[float]]:
@@ -160,15 +175,7 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
         src = Path(body.path)
         if not src.is_file():
             raise HTTPException(400, "fayl topilmadi")
-        shows = s.lib("SELECT * FROM shows WHERE id = ?", (body.project_id,))
-        if not shows:
-            raise HTTPException(404, "loyiha topilmadi")
-        eid = uuid.uuid4().hex[:12]
-        title = body.title or src.stem
-        pdir = s.settings.library_dir / shows[0]["name"] / f"{title}-{eid[:6]}.lahza"
-        pdir.mkdir(parents=True, exist_ok=True)
-        s.lib_write("INSERT INTO episodes(id, show_id, title, project_dir, status) VALUES (?,?,?,?,?)",
-                    (eid, body.project_id, title, str(pdir), "analyzing"))
+        eid, pdir = create_episode(s, body.project_id, src, body.title)
         job = submit_analysis(s, eid, body.project_id, pdir, src, body.focus, body.num_speakers,
                               body.force_lite)
         return {"episode_id": eid, "job": job.public()}

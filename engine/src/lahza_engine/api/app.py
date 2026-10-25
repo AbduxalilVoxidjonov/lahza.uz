@@ -5,6 +5,8 @@ Token `Authorization: Bearer <t>` sarlavhasida yoki media/WS uchun `?t=<t>` para
 
 Endpointlar mavzu bo'yicha modullarga bo'lingan:
 * `routes_episodes` - import, qayta tahlil, epizod, transkript, to'lqin shakli, spikerlar;
+* `routes_queue` - partiyaviy tahlil navbati (bir nechta epizod ketma-ket);
+* `routes_youtube` - YouTube havolasidan import (YT-1, standart o'chiq, alohida jarayon);
 * `routes_clips` - kliplar, matn orqali montaj, kalit kadrlar, preview, o'xshashlar, eksport;
 * `routes_library` - lug'at, uslub shablonlari, shriftlar;
 * `routes_montage` - fx plaginlari, video shablonlar, avtomontaj, timeline, montaj render;
@@ -37,10 +39,12 @@ from lahza_engine.api import (
     routes_library,
     routes_models,
     routes_montage,
+    routes_queue,
     routes_setup,
     routes_skills,
     routes_stickers,
     routes_system,
+    routes_youtube,
 )
 from lahza_engine.api.state import State
 from lahza_engine.config import Settings
@@ -170,6 +174,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     routes_models.register(app, auth)
     routes_setup.register(app, auth)
     routes_episodes.register(app, auth)
+    routes_queue.register(app, auth)
     routes_clips.register(app, auth)
     routes_library.register(app, auth)
     routes_stickers.register(app, auth)
@@ -178,6 +183,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     routes_system.register(app, auth)
     routes_interop.register(app, auth)
     routes_skills.register(app, auth)
+    routes_youtube.register(app, auth)
 
     # ---- Hodisalar ---------------------------------------------------------
     @app.websocket("/v1/events")
@@ -188,12 +194,25 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
             await ws.close(code=4401)
             return
         q = st.bus.subscribe()
-        try:
+
+        async def pump() -> None:
             while True:
                 await ws.send_json(await q.get())
-        except WebSocketDisconnect:
+
+        # Mijoz uzilishini (yoki server to'xtashini) receive orqali sezamiz: faqat send kutilsa,
+        # hodisa bo'lmaganda handler abadiy osilib, uvicorn to'xtashini to'sardi.
+        sender = asyncio.create_task(pump())
+        try:
+            while not sender.done():
+                msg = await ws.receive()
+                if msg.get("type") == "websocket.disconnect":
+                    break
+        except (WebSocketDisconnect, RuntimeError):
             pass
         finally:
+            sender.cancel()
+            with contextlib.suppress(BaseException):
+                await sender
             st.bus.unsubscribe(q)
 
     return app

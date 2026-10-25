@@ -45,7 +45,22 @@ flowchart TB
 3. Rust portni saqlaydi; UI `invoke("engine_info")` orqali port va tokenni oladi (`app/src/api/client.ts`).
 4. Har HTTP so'rov `Authorization: Bearer <token>` bilan; `<video>` va WebSocket uchun `?t=<token>`.
 5. Engine qulasa — Rust 1…5 s kutib, ko'pi bilan 5 marta qayta ishga tushiradi; UI keyingi `engine_info` chaqiruvida yangi portni oladi.
-6. Ilova yopilganda engine o'ldiriladi; engine o'z navbatida `llama-server` kabi bola jarayonlarni to'xtatadi.
+6. Ilova yopilganda engine to'xtatiladi; engine o'z navbatida `llama-server`, ffmpeg kabi bola jarayonlarni o'ldiradi ("Engine hayot sikli" pastda).
+
+### Engine hayot sikli (yetim jarayonlar himoyasi, 0.2.1)
+
+Sidecar PyInstaller **onefile**: bitta engine = ikki jarayon (bootloader + Python bolasi). 0.2.0 gacha
+Tauri faqat bootloader'ga SIGKILL yuborardi - Python bolasi yetim qolardi; `/v1/events` WebSocket
+handler'i uzilishni sezmay osilib qolgani uchun yetim engine SIGTERM'ga ham javob bermasdi.
+Himoya qatlamlari:
+
+* **Rust** (`engine.rs`): sidecar alohida jarayon guruhida (`set_process_group`); `RunEvent::Exit` da
+  guruhga SIGTERM → 2,5 s kutish → SIGKILL. Ilovaga kelgan SIGTERM/SIGINT/SIGHUP ham shu yo'lga.
+* **Python** (`core/lifecycle.py`, `cli._run_server`): SIGTERM/SIGINT da uvicorn `should_exit`,
+  `timeout_graceful_shutdown=2`, 5 s dan oshsa `os._exit`; chiqishda barcha avlod jarayonlar SIGKILL.
+* **Watchdog** (force quit/crash, Rust kodi ishlamaganda): Tauri `--parent-pid <pid> --watch-stdin`
+  uzatadi; ota pid yo'qolsa, stdin pipe EOF bo'lsa yoki bootloader o'lib ppid o'zgarsa engine ~1 s
+  ichida o'zini to'xtatadi.
 
 Engine'ga uzatiladigan muhit o'zgaruvchilari:
 

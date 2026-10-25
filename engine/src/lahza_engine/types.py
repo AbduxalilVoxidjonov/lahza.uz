@@ -64,6 +64,16 @@ class ClipSource(StrEnum):
     MANUAL = "qolda"
 
 
+class ClipHook(BaseModel):
+    """PRO-3 "Hook oldinga": klip ichidagi kuchli bo'lak (manba vaqtida, so'z chegaralarida).
+
+    Render'da shu bo'lak klip boshiga nusxa sifatida qo'yiladi, keyin klip boshidan davom etadi.
+    """
+
+    start_ms: int
+    end_ms: int
+
+
 class Clip(BaseModel):
     id: str
     media_id: str
@@ -84,6 +94,9 @@ class Clip(BaseModel):
     llm_model_id: str | None = None
     cuts: list[tuple[int, int]] = Field(
         default_factory=list, description="Matn orqali o'chirilgan oraliqlar (manba vaqtida)"
+    )
+    hook: ClipHook | None = Field(
+        None, description="Hook oldinga (PRO-3): None - o'chiq (standart), aks holda prefiks bo'lagi"
     )
 
     @property

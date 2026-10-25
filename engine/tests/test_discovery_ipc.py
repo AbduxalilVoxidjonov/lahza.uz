@@ -170,8 +170,7 @@ def test_pick_discovery_port_skips_busy():
 def serve_env(tmp_path, monkeypatch):
     import signal
 
-    import uvicorn
-
+    from lahza_engine import cli
     from lahza_engine.core import logs
 
     monkeypatch.setattr(logs, "setup_file_logging", lambda *_a, **_k: None)
@@ -180,11 +179,11 @@ def serve_env(tmp_path, monkeypatch):
     monkeypatch.delenv("LAHZA_IPC", raising=False)
     seen: dict = {}
 
-    def fake_run(app, host, port, log_level):
+    def fake_run(app, port, a, cleanup):
         seen["port"] = port
         seen["background"] = len(app.state.background)
 
-    monkeypatch.setattr(uvicorn, "run", fake_run)
+    monkeypatch.setattr(cli, "_run_server", fake_run)
     hup = getattr(signal, "SIGHUP", None)
     old = signal.getsignal(hup) if hup is not None else None
     yield seen

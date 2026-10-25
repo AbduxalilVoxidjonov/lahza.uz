@@ -44,6 +44,16 @@ Qonun matni rasmiy e'lon qilingach, bu qoidalar uning matni bo'yicha qayta teksh
 
 Lotin → kirill o'girish lug'at bilan (e/э, ц, ё, ю, я kabi bir ma'noli bo'lmagan holatlar uchun) — PRO-4.
 
+Kod: `engine/src/lahza_engine/text/translit.py`, lug'at: `text/data/cyrillic.json`, testlar: `engine/tests/test_translit.py`. Subtitr uslubida `script: "latin" | "cyrillic"` (standart `latin`); eksport/preview so'rovida ham `script` bilan almashtirish mumkin. Kirill tanlansa imlo rejimi e'tiborga olinmaydi.
+
+* `oʻ→ў`, `gʻ→ғ`, `sh→ш`, `ch→ч`, `q→қ`, `h→ҳ`, `x→х`, `j→ж`, `y→й`; `ng → нг`.
+* `ye/yo/yu/ya → е/ё/ю/я`, lekin `yoʻ → йў` (yoʻl → йўл).
+* `e` so'z boshida va unlidan keyin → `э`, qolgan joyda → `е`.
+* `ts` so'z boshida/oxirida va `tsi`+unli oldidan → `ц` (operatsiya → операция); boshqa joyda `т+с` (ketsa → кетса).
+* Tutuq `ʼ → ъ` (maʼno → маъно); `sʼh`/`cʼh` dagi tutuq tushadi (Isʼhoq → Исҳоқ).
+* Lug'at: `words` — butun so'z (sentyabr → сентябрь), `stems` — so'z boshi, qo'shimchalar umumiy qoida bilan (obyektlar → объектлар), `keep` — o'girilmaydigan nomlar. `CyrillicLexicon.merged()` / `load_lexicon(extra=...)` bilan kengaytiriladi.
+* URL, e-pochta, `@nom`, raqamlar va lotin brendlar (c/w yoki o'zbek lotinida yo'q harfli, ichida katta harfli — iPhone, YouTube) o'zgarmaydi.
+
 ## Shrift talabi
 
 Dastur bilan yetkaziladigan har shrift quyidagi gliflarni o'z ichiga olishi shart (`REQUIRED_GLYPHS`): `ʻ ʼ Ö ö Ğ ğ Ş ş Ç ç Ў ў Қ қ Ғ ғ Ҳ ҳ`. Testdan o'tmagan shrift ro'yxatda ko'rsatilmaydi (M3-SUB-3).

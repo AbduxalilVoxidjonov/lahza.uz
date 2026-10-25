@@ -7,6 +7,7 @@ import type { Clip, Sentence } from "../api/types";
 import { StatusBadge } from "../components/ClipBadges";
 import { NoSubsWarning } from "../components/NoSubsWarning";
 import { FrameTab } from "../components/editor/FrameTab";
+import { HookFront } from "../components/editor/HookFront";
 import { InfoTab } from "../components/editor/InfoTab";
 import { PreviewPane } from "../components/editor/PreviewPane";
 import { StyleTab } from "../components/editor/StyleTab";
@@ -182,6 +183,7 @@ function EditorView({ clip, episodeId }: { clip: Clip; episodeId: string }) {
             {tab === "text" && (
               <>
                 <QueryState query={transcript} />
+                <HookFront clip={clip} episodeId={episodeId} onSeek={player.seek} />
                 <TextTab clip={clip} episodeId={episodeId} words={clipWords} onSeek={player.seek} />
               </>
             )}

@@ -70,7 +70,7 @@ const style = shape({
   name: str, font_family: str, font_size: num, bold: bool, primary_color: str, highlight_color: str,
   outline_color: str, outline_width: num, shadow: num, box: bool, box_color: str, box_opacity: num,
   position, uppercase: bool, animation: one("karaoke", "pop", "none"), max_words: num, max_lines: num,
-  orthography: one("official", "ascii", "new"), pop_scale: num, keywords: list(str), remove_fillers: bool,
+  orthography: one("official", "ascii", "new"), script: optional(one("latin", "cyrillic")), pop_scale: num, keywords: list(str), remove_fillers: bool,
   filler_words: list(str), mask_profanity: bool, profanity_words: list(str), logo_path: v => v === null || str(v), logo_position: logo, logo_opacity: num,
 });
 const timelineShape = shape({

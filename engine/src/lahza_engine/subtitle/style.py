@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
 from lahza_engine.text.orthography import Orthography
+from lahza_engine.text.translit import Script
 
 _HEX = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
@@ -37,6 +38,8 @@ class StyleTemplate(BaseModel):
     max_words: int = Field(3, ge=1, le=8)
     max_lines: int = Field(2, ge=1, le=3)
     orthography: Orthography = Orthography.OFFICIAL
+    # Yozuv (PRO-4): "cyrillic" - lotin matn lug'atli transliteratsiya bilan kirillga o'giriladi.
+    script: Script = Script.LATIN
     # "pop": faol so'z boshida shu foizdan 100% gacha kichrayadi.
     pop_scale: int = Field(115, ge=100, le=160)
     # Kalit so'zlar doim highlight rangida va qalin chiqadi.

@@ -5,6 +5,7 @@
     lahza hw                            # apparat va daraja
     lahza bundle                        # katalogdan mos model to'plami
     lahza analyze VIDEO --project-dir D [--lite]
+    lahza batch VIDEO... --out-dir D [--lite]   # partiyaviy tahlil (ketma-ket)
     lahza clips --project-dir D
     lahza export --project-dir D --clip ID --out OUT [--orthography new]
 """
@@ -12,6 +13,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -23,9 +25,22 @@ def _print(obj) -> None:
 
 
 def cmd_serve(a: argparse.Namespace) -> int:
-    import logging
+    # Ota jarayon watchdog'i eng boshida: ilova engine yuklanayotganda o'ldirilsa ham chiqamiz.
+    a.server_slot = {}
+    if a.parent_pid or a.watch_stdin:
+        from lahza_engine.core import lifecycle
 
-    import uvicorn
+        def on_parent_lost(_reason: str) -> None:
+            lifecycle.arm_hard_exit(a.shutdown_timeout)
+            server = a.server_slot.get("server")
+            if server is None:
+                lifecycle.finish(0)  # server hali ishga tushmagan - yumshoq to'xtatadigan narsa yo'q
+            server.should_exit = True  # main_loop har 0.1 s tekshiradi
+
+        lifecycle.ParentWatchdog(on_parent_lost, parent_pid=a.parent_pid,
+                                 watch_stdin=a.watch_stdin).start()
+
+    import logging
 
     from lahza_engine import __version__
     from lahza_engine.api.app import create_app
@@ -71,12 +86,52 @@ def cmd_serve(a: argparse.Namespace) -> int:
         app.state.background.append(ipc.run)
     # Tauri shu qatorni o'qib portni biladi (app/src-tauri/src/engine.rs).
     print(f"LAHZA_READY port={port}", flush=True)
-    try:
-        uvicorn.run(app, host="127.0.0.1", port=port, log_level="warning")
-    finally:
-        if discovery is not None:
-            discovery.stop()
+    cleanup = discovery.stop if discovery is not None else (lambda: None)
+    _run_server(app, port, a, cleanup)  # haqiqiy serverda qaytmaydi (lifecycle.finish)
+    cleanup()
     return 0
+
+
+SERVE_HOST = "127.0.0.1"
+
+
+def _run_server(app, port: int, a: argparse.Namespace, cleanup) -> None:  # type: ignore[no-untyped-def]
+    """uvicorn + to'xtash himoyasi (docs/01 "Engine hayot sikli"); oxirida `os._exit`."""
+    import uvicorn
+
+    from lahza_engine.core import lifecycle
+
+    class _Server(uvicorn.Server):
+        def handle_exit(self, sig, frame) -> None:  # type: ignore[no-untyped-def]
+            # SIGTERM/SIGINT: uvicorn `should_exit` + majburiy chiqish taymeri.
+            lifecycle.arm_hard_exit(a.shutdown_timeout)
+            super().handle_exit(sig, frame)
+
+        async def shutdown(self, sockets=None) -> None:  # type: ignore[no-untyped-def]
+            try:
+                await super().shutdown(sockets=sockets)
+            finally:
+                # uvicorn signalni keyin qayta ko'taradi (raise_signal) - bola jarayonlar undan oldin.
+                with contextlib.suppress(Exception):
+                    cleanup()
+                lifecycle.kill_descendants()
+
+    # Uzilgan WebSocket (`/v1/events`) handler'ini cheksiz kutmaslik.
+    config = uvicorn.Config(app, host=SERVE_HOST, port=port, log_level="warning",
+                            timeout_graceful_shutdown=2)
+    server = _Server(config)
+    getattr(a, "server_slot", {})["server"] = server  # cmd_serve watchdog'i uchun
+    code = 0
+    try:
+        server.run()
+    except KeyboardInterrupt:
+        code = 130
+    finally:
+        with contextlib.suppress(Exception):
+            cleanup()
+    # Og'ir vazifadagi ThreadPool oqimlari (non-daemon) interpreter chiqishini to'sadi -
+    # kutmasdan, bola jarayonlarni o'ldirib chiqamiz.
+    lifecycle.finish(code)
 
 
 def cmd_hw(a: argparse.Namespace) -> int:
@@ -99,28 +154,87 @@ def cmd_bundle(a: argparse.Namespace) -> int:
     return 0
 
 
-def cmd_analyze(a: argparse.Namespace) -> int:
-    from lahza_engine.config import Settings
-    from lahza_engine.core.analyze import analyze
-    from lahza_engine.core.runner import StageContext
+def _build_services(settings):
     from lahza_engine.core.services import build_services
-    from lahza_engine.db import store as db
-    from lahza_engine.media.probe import fast_hash
     from lahza_engine.models.store import ModelStore
 
-    settings = Settings()
-    src = Path(a.video)
-    pdir = Path(a.project_dir)
+    return build_services(ModelStore(settings.models_dir))
+
+
+def _analyze_one(settings, svc, src: Path, pdir: Path, media_id: str, lite: bool,
+                 focus: str | None, prefix: str = "") -> dict:
+    """Bitta video tahlili (`analyze` va `batch` buyruqlari uchun umumiy)."""
+    from lahza_engine.core.analyze import analyze
+    from lahza_engine.core.runner import StageContext
+    from lahza_engine.db import store as db
+    from lahza_engine.media.probe import fast_hash
+
     conn = db.open_project(pdir)
-    svc = build_services(ModelStore(settings.models_dir))
-    ctx = StageContext(
-        media_id=a.media_id, media_hash=fast_hash(src), project_dir=pdir, conn=conn,
-        services={"src": str(src), "svc": svc, "force_lite": a.lite, "focus": a.focus},
-        on_progress=lambda st, f: print(f"[{f * 100:5.1f}%] {st}", file=sys.stderr, flush=True),
-    )
-    res = analyze(ctx, settings)
+    try:
+        ctx = StageContext(
+            media_id=media_id, media_hash=fast_hash(src), project_dir=pdir, conn=conn,
+            services={"src": str(src), "svc": svc, "force_lite": lite, "focus": focus},
+            on_progress=lambda st, f: print(f"{prefix}[{f * 100:5.1f}%] {st}", file=sys.stderr, flush=True),
+        )
+        return analyze(ctx, settings)
+    finally:
+        conn.close()
+
+
+def cmd_analyze(a: argparse.Namespace) -> int:
+    from lahza_engine.config import Settings
+
+    settings = Settings()
+    res = _analyze_one(settings, _build_services(settings), Path(a.video), Path(a.project_dir),
+                       a.media_id, a.lite, a.focus)
     _print({"mode": res["highlight"]["mode"], "clips": res["highlight"]["clips"]})
     return 0
+
+
+def cmd_batch(a: argparse.Namespace) -> int:
+    """Partiyaviy tahlil (PRO-5): videolar ketma-ket, har biri `<out-dir>/<nom>.lahza` ga.
+    Bitta faylning xatosi qolganlarini to'xtatmaydi; Ctrl+C - qolganlari bekor qilinadi.
+    Chiqish kodi: hammasi tayyor - 0, aks holda 1."""
+    from lahza_engine.config import Settings
+
+    settings = Settings()
+    out = Path(a.out_dir)
+    videos = [Path(v) for v in a.videos]
+    items: list[dict] = []
+    used: set[Path] = set()
+    svc = None
+    interrupted = False
+    for i, src in enumerate(videos, 1):
+        prefix = f"[{i}/{len(videos)}] "
+        if interrupted:
+            items.append({"video": str(src), "status": "cancelled"})
+            continue
+        pdir = out / f"{src.stem}.lahza"
+        n = 2
+        while pdir in used:
+            pdir = out / f"{src.stem}-{n}.lahza"
+            n += 1
+        used.add(pdir)
+        print(f"{prefix}{src.name}", file=sys.stderr, flush=True)
+        if not src.is_file():
+            items.append({"video": str(src), "status": "failed", "error": "fayl topilmadi"})
+            continue
+        try:
+            if svc is None:
+                svc = _build_services(settings)
+            res = _analyze_one(settings, svc, src, pdir, a.media_id, a.lite, a.focus, prefix)
+            items.append({"video": str(src), "project_dir": str(pdir), "status": "done",
+                          "mode": res["highlight"]["mode"], "clips": len(res["highlight"]["clips"])})
+        except KeyboardInterrupt:
+            interrupted = True
+            items.append({"video": str(src), "project_dir": str(pdir), "status": "cancelled"})
+        except Exception as e:  # noqa: BLE001 - xato hisobotga yoziladi, navbat davom etadi
+            items.append({"video": str(src), "project_dir": str(pdir), "status": "failed",
+                          "error": str(e) or type(e).__name__})
+            print(f"{prefix}xato: {type(e).__name__}", file=sys.stderr, flush=True)
+    counts = {k: sum(1 for x in items if x["status"] == k) for k in ("done", "failed", "cancelled")}
+    _print({"items": items, **counts})
+    return 0 if counts["done"] == len(items) else 1
 
 
 def cmd_clips(a: argparse.Namespace) -> int:
@@ -164,6 +278,12 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--token")
     s.add_argument("--discovery", action="store_true",
                    help="<data_dir>/engine.json yozish (Adobe plaginlari uchun; LAHZA_DISCOVERY=1)")
+    s.add_argument("--parent-pid", type=int, default=None,
+                   help="ota jarayon (Tauri) pid'i: u o'lsa engine o'zini to'xtatadi")
+    s.add_argument("--watch-stdin", action="store_true",
+                   help="stdin EOF bo'lsa (ota jarayon yopildi) engine o'zini to'xtatadi")
+    s.add_argument("--shutdown-timeout", type=float, default=5.0,
+                   help="yumshoq to'xtashdan keyin majburiy chiqishgacha soniya")
     s.set_defaults(fn=cmd_serve)
 
     sub.add_parser("hw").set_defaults(fn=cmd_hw)
@@ -179,6 +299,14 @@ def main(argv: list[str] | None = None) -> int:
     an.add_argument("--lite", action="store_true", help="LLM'siz (signal + qoidalar)")
     an.add_argument("--focus", help="ustuvor mavzu")
     an.set_defaults(fn=cmd_analyze)
+
+    ba = sub.add_parser("batch", help="bir nechta videoni ketma-ket tahlil qilish")
+    ba.add_argument("videos", nargs="+")
+    ba.add_argument("--out-dir", required=True, help="har video uchun <nom>.lahza papkasi shu yerda")
+    ba.add_argument("--media-id", default="m1")
+    ba.add_argument("--lite", action="store_true", help="LLM'siz (signal + qoidalar)")
+    ba.add_argument("--focus", help="ustuvor mavzu")
+    ba.set_defaults(fn=cmd_batch)
 
     c = sub.add_parser("clips")
     c.add_argument("--project-dir", required=True)

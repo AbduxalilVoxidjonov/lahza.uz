@@ -3,10 +3,14 @@
 //! * Har ishga tushishda yangi sessiya tokeni (NFR-08).
 //! * Engine stdout'ga `LAHZA_READY port=NNNN` yozadi - port shundan olinadi.
 //! * Engine qulasa, kamayib boruvchi tezlikda (1, 2, ... 5 s) qayta ishga tushiriladi, ko'pi bilan 5 marta.
-//! * Ilova yopilganda engine o'ldiriladi.
+//! * Ilova yopilganda engine to'xtatiladi: avval SIGTERM butun jarayon guruhiga (PyInstaller onefile
+//!   bootloader + Python bolasi + ffmpeg/llama-server), ~2.5 s kutish, keyin SIGKILL (`kill`).
+//! * Chuqur himoya: engine `--parent-pid <pid> --watch-stdin` bilan ishga tushadi - ilova force quit/
+//!   crash bo'lsa (Rust kodi ishlamaydi) engine o'zi chiqadi (engine/src/lahza_engine/core/lifecycle.py).
+//! * SIGTERM/SIGINT/SIGHUP ilovaga kelsa ham engine to'xtatilib, ilova toza chiqadi (`install_signal_handlers`).
 
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -14,6 +18,8 @@ use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
 const MAX_RESTARTS: u32 = 5;
+/// Yumshoq to'xtash (SIGTERM) uchun kutish; so'ng SIGKILL.
+const GRACEFUL_STOP: Duration = Duration::from_millis(2500);
 
 #[derive(Clone, Serialize)]
 pub struct EngineInfo {
@@ -62,7 +68,11 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
         .shell()
         .sidecar("lahza-engine")
         .map_err(|e| e.to_string())?
-        .args(["serve", "--port", "0"])
+        .args(["serve", "--port", "0", "--watch-stdin", "--parent-pid"])
+        .args([std::process::id().to_string()])
+        // Bootloader, Python bolasi va ularning bolalari bitta guruhda - birga to'xtatiladi
+        // (Windows: Job Object).
+        .set_process_group(true)
         .env("LAHZA_TOKEN", &state.token)
         .env("LAHZA_BIN_DIR", resources.join("bin"))
         .env(
@@ -144,6 +154,97 @@ pub fn kill(app: &AppHandle) {
     }
     let child = state.child.lock().ok().and_then(|mut c| c.take());
     if let Some(child) = child {
-        let _ = child.kill();
+        stop_child(child, GRACEFUL_STOP);
+    }
+}
+
+/// Avval SIGTERM (guruhga), `grace` ichida chiqmasa - SIGKILL (guruhga) va kutish.
+fn stop_child(child: CommandChild, grace: Duration) {
+    #[cfg(unix)]
+    {
+        // set_process_group(true): pgid == bootloader pid.
+        let pgid = child.pid() as libc::pid_t;
+        if pgid > 1 && unsafe { libc::killpg(pgid, libc::SIGTERM) } == 0 {
+            let deadline = Instant::now() + grace;
+            while Instant::now() < deadline {
+                // ESRCH: guruhda hech kim qolmadi.
+                if unsafe { libc::killpg(pgid, 0) } != 0 {
+                    break;
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    let _ = (grace, Instant::now());
+    // Guruhga SIGKILL (Windows: Job Object terminate) + bootloader'ni yig'ish.
+    if let Err(e) = child.kill() {
+        eprintln!("[engine] to'xtatishda xato: {e}");
+    }
+}
+
+/// Ilovaga kelgan SIGTERM/SIGINT/SIGHUP: engine'ni to'xtatib, ilovani toza yopish.
+/// Signal handler faqat self-pipe'ga bayt yozadi (async-signal-safe); ish alohida oqimda.
+#[cfg(unix)]
+pub fn install_signal_handlers(app: &AppHandle) {
+    use std::sync::atomic::{AtomicI32, Ordering};
+    static WRITE_FD: AtomicI32 = AtomicI32::new(-1);
+
+    extern "C" fn on_signal(_sig: libc::c_int) {
+        let fd = WRITE_FD.load(Ordering::Relaxed);
+        if fd >= 0 {
+            let b = [1u8];
+            unsafe {
+                libc::write(fd, b.as_ptr() as *const libc::c_void, 1);
+            }
+        }
+    }
+
+    let mut fds = [0 as libc::c_int; 2];
+    if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
+        return;
+    }
+    for fd in fds {
+        unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) };
+    }
+    WRITE_FD.store(fds[1], Ordering::Relaxed);
+    for sig in [libc::SIGTERM, libc::SIGINT, libc::SIGHUP] {
+        unsafe {
+            let mut sa: libc::sigaction = std::mem::zeroed();
+            sa.sa_sigaction = on_signal as *const () as usize;
+            // Ikkinchi signal - odatiy xatti-harakat (majburiy chiqish).
+            sa.sa_flags = libc::SA_RESETHAND;
+            libc::sigemptyset(&mut sa.sa_mask);
+            libc::sigaction(sig, &sa, std::ptr::null_mut());
+        }
+    }
+    let handle = app.clone();
+    let read_fd = fds[0];
+    std::thread::spawn(move || {
+        let mut b = [0u8; 1];
+        loop {
+            let n = unsafe { libc::read(read_fd, b.as_mut_ptr() as *mut libc::c_void, 1) };
+            if n == 1 {
+                break;
+            }
+            if n == 0 || std::io::Error::last_os_error().kind() != std::io::ErrorKind::Interrupted {
+                return;
+            }
+        }
+        kill(&handle);
+        handle.exit(0);
+    });
+}
+
+#[cfg(not(unix))]
+pub fn install_signal_handlers(_app: &AppHandle) {}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn graceful_stop_budget_is_short() {
+        assert!(GRACEFUL_STOP >= Duration::from_secs(2) && GRACEFUL_STOP <= Duration::from_secs(3));
     }
 }

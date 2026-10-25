@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { useFonts } from "../../api/hooks";
-import type { LogoPosition, Orthography, StyleTemplate } from "../../api/types";
+import type { LogoPosition, Orthography, Script, StyleTemplate } from "../../api/types";
 import { useT } from "../../i18n";
 import { ListInput } from "../ListInput";
 import { PathPicker } from "../PathPicker";
@@ -11,6 +11,7 @@ import { StyleLibrary } from "./StyleLibrary";
 const POSITIONS: StyleTemplate["position"][] = ["lower", "middle", "upper"];
 const ANIMATIONS: StyleTemplate["animation"][] = ["karaoke", "pop", "none"];
 const ORTHS: Orthography[] = ["official", "ascii", "new"];
+const SCRIPTS: Script[] = ["latin", "cyrillic"];
 const LOGO_POS: LogoPosition[] = ["top_left", "top_right", "bottom_left", "bottom_right"];
 
 type Change = (s: Partial<StyleTemplate>) => void;
@@ -139,8 +140,15 @@ export function StyleTab({ style, onChange, onReplace }: { style: StyleTemplate;
       <Section title={t("style.cleanup")}>
         <label className="field">
           {t("style.orthography")}
-          <select className="select" value={style.orthography} onChange={(e) => onChange({ orthography: e.target.value as Orthography })}>
+          <select className="select" value={style.orthography} disabled={style.script === "cyrillic"}
+                  onChange={(e) => onChange({ orthography: e.target.value as Orthography })}>
             {ORTHS.map((o) => <option key={o} value={o}>{t(`orth.${o}`)}</option>)}
+          </select>
+        </label>
+        <label className="field">
+          {t("style.script")}
+          <select className="select" value={style.script ?? "latin"} onChange={(e) => onChange({ script: e.target.value as Script })}>
+            {SCRIPTS.map((s) => <option key={s} value={s} lang={s === "cyrillic" ? "uz-Cyrl" : "uz"}>{t(`script.${s}`)}</option>)}
           </select>
         </label>
         <Check label={t("style.removeFillers")} checked={style.remove_fillers} onChange={(v) => onChange({ remove_fillers: v })} />

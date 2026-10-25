@@ -1687,8 +1687,9 @@ dependencies = [
 
 [[package]]
 name = "lahza-studio"
-version = "0.1.0"
+version = "0.2.1"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "tauri",

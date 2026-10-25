@@ -76,8 +76,6 @@ def test_enabled_by_env(monkeypatch):
 
 @pytest.mark.parametrize("via_env", [False, True])
 def test_serve_discovery_writes_and_removes(tmp_path, monkeypatch, via_env):
-    import uvicorn
-
     from lahza_engine import cli
 
     monkeypatch.setenv("LAHZA_DATA_DIR", str(tmp_path / "data"))
@@ -92,7 +90,9 @@ def test_serve_discovery_writes_and_removes(tmp_path, monkeypatch, via_env):
         seen["auth_ok"] = TestClient(app).get(
             "/v1/health", headers={"Authorization": f"Bearer {seen['token']}"}).status_code
 
-    monkeypatch.setattr(uvicorn, "run", fake_run)
+    # Haqiqiy server os._exit bilan tugaydi - testda `_run_server` almashtiriladi.
+    monkeypatch.setattr(cli, "_run_server",
+                        lambda app, port, a, cleanup: fake_run(app, cli.SERVE_HOST, port, "warning"))
     argv = ["serve", "--port", "45678"]
     if via_env:
         monkeypatch.setenv("LAHZA_DISCOVERY", "1")
@@ -106,13 +106,11 @@ def test_serve_discovery_writes_and_removes(tmp_path, monkeypatch, via_env):
 
 
 def test_serve_without_discovery_writes_nothing(tmp_path, monkeypatch):
-    import uvicorn
-
     from lahza_engine import cli
 
     monkeypatch.setenv("LAHZA_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.delenv("LAHZA_DISCOVERY", raising=False)
-    monkeypatch.setattr(uvicorn, "run", lambda *a, **k: None)
+    monkeypatch.setattr(cli, "_run_server", lambda *a, **k: None)
     assert cli.main(["serve", "--port", "45679", "--token", "x"]) == 0
     assert not (tmp_path / "data" / "engine.json").exists()
 

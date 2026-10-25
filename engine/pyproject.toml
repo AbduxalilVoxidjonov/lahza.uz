@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lahza-engine"
-version = "0.1.0"
+version = "0.2.1"
 description = "Lahza Studio engine: oflayn o'zbekcha podkast -> Reels pipeline"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }
@@ -32,6 +32,9 @@ diarization = ["pyannote.audio>=4.0"]
 vision = ["mediapipe>=0.10", "opencv-python-headless>=4.9"]
 align = ["torch>=2.3", "torchaudio>=2.3"]
 fast-hash = ["xxhash>=3.4"]
+# YT-1 (ADR-0010): YouTube havolasidan import - faqat dasturchi muhiti uchun; mahsulotda yt-dlp
+# katalogdan komponent sifatida keladi (ilovaga qo'shilmaydi). PyPI paketi - Unlicense, exe EMAS.
+youtube = ["yt-dlp>=2025.11.12", "yt-dlp-ejs"]
 dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10", "pyinstaller>=6.6"]
 
 [project.scripts]
@@ -41,7 +44,7 @@ lahza = "lahza_engine.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*", "fx/builtin/*.json", "templates/builtin/*.json", "stickers/assets/*", "editing_skills/builtin/*.json"]
+lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*", "fx/builtin/*.json", "templates/builtin/*.json", "stickers/assets/*", "editing_skills/builtin/*.json", "text/data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

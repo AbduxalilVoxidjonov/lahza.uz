@@ -89,7 +89,9 @@ CREATE TABLE IF NOT EXISTS clips (
   llm_model_id TEXT,
   style_template_id TEXT,
   user_edited INTEGER NOT NULL DEFAULT 0,
-  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  hook_start_ms INTEGER,  -- v3: PRO-3 "hook oldinga" (NULL - o'chiq)
+  hook_end_ms INTEGER  -- v3
 );
 
 CREATE TABLE IF NOT EXISTS clip_cuts (

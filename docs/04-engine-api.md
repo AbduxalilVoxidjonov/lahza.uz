@@ -60,6 +60,53 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 * Tahlil tugaganda `episodes.status` = `ready`/`failed`, `episodes.highlight_mode` = `llm`/`lite`.
 * `:reanalyze`: asl fayl `media.path` dan olinadi (yo'q bo'lsa 400; media yozuvi yo'q — 409; shu epizod allaqachon tahlilda — 409). Kesh tufayli o'zgarmagan bosqichlar qayta hisoblanmaydi.
 
+## YouTube havolasidan import (YT-1, ADR-0010)
+
+Funksiya **standart holatda o'chiq** va yurist xulosasidan oldin relizga kirmaydi ([ADR-0010](adr/0010-youtube-havola-import.md)). Asl fayl importi (`/v1/media:import`) o'zgarmagan.
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/settings/youtube-import` | — | `YoutubeImportStatus` |
+| PUT | `/v1/settings/youtube-import` | `{"enabled": bool}` | `YoutubeImportStatus` |
+| POST | `/v1/media:import-url` | `{"project_id", "url", "consent": true, "title?", "focus?", "num_speakers?", "force_lite?"}` | `{"job"}` (`kind: download`) |
+
+`YoutubeImportStatus`: `{"enabled", "installed", "version", "ejs", "js_runtime", "ffmpeg"}` — `enabled` `library.db` → `settings` (`key = "youtube_import"`, `{"enabled": bool}`; sxema o'zgarmagan); `installed`/`version` — yt-dlp topildimi; `ejs` — yt-dlp-ejs; `js_runtime` — `deno | node | bun | null`; `ffmpeg` — birlashtirish uchun FFmpeg.
+
+* `:import-url` xatolari (shu tartibda tekshiriladi): funksiya o'chiq — **403**; `consent` `true` emas yoki yo'q — **400**; havola qabul qilinmadi — 400 (faqat `youtube.com|www.|m.` → `/watch?v=ID`, `/shorts/ID`, `/live/ID` va `youtu.be/ID`; ID — 11 belgi `[A-Za-z0-9_-]`; boshqa domen, playlist, kanal, login/port bor havola rad etiladi); loyiha topilmasa — 404; `num_speakers` 1..20 dan tashqari — 400; yt-dlp o'rnatilmagan — **409** ("komponent o'rnatilmagan"); shu video allaqachon yuklanmoqda — 409.
+* Yuklash `download` vazifasida (I/O oqimi), **yt-dlp esa alohida jarayonda** (`multiprocessing` spawn, `media/youtube.py`): bolaga faqat kanonik havola (`https://www.youtube.com/watch?v=ID`, playlist parametrlarisiz), chiqish papkasi va sozlamalar beriladi; engine jarayoni `yt_dlp` ni import qilmaydi. Tarmoq faqat shu jarayonda va amal davomida (NFR-01). `remote_components = []` — yt-dlp-ejs internetdan olinmaydi.
+* yt-dlp qidiruvi: `LAHZA_YTDLP_PATH` (papka(lar), `os.pathsep` bilan), `<data_dir>/Components/yt-dlp` (katalog komponenti uchun joy), engine muhiti (dasturchi: `make setup-youtube` = `pip install -e "engine[youtube]"`). JS runtime: `<data_dir>/Components/{deno,node,bun}/`, `LAHZA_BIN_DIR`, sidecar `bin/`, PATH.
+* Format: mp4, balandligi ≤ 1080 (`bv*[height<=1080][ext=mp4]+ba[ext=m4a]/b[height<=1080][ext=mp4]/…`), birlashtirish loyihadagi FFmpeg bilan (`find_tool("ffmpeg")`); FFmpeg yo'q bo'lsa faqat bitta fayldagi format.
+* Fayl: `<data_dir>/Imports/youtube/<video_id>/<video_id>.mp4`. Uzilsa `.part` saqlanadi va qayta urinishda davom ettiriladi (`continuedl`). Muvaffaqiyatli yuklangan video qayta import qilinsa, tarmoqsiz qayta ishlatiladi (`lahza-download.json`).
+* Progress: `job.stage = "download"`, `job.progress` 0..1 (video+audio — 0.85/0.15 ulush), `job.meta.download = {"downloaded_bytes", "total_bytes", "speed", "eta"}`, `job.meta.title` — video sarlavhasi.
+* Bekor qilish: `POST /v1/jobs/{id}:cancel` — bola jarayon o'ldiriladi, video papkasi (qisman fayllar) o'chiriladi. Engine to'xtayotganda qisman fayllar qoldiriladi.
+* Xato: `job.status = failed`, `job.error` — o'zbekcha tushuntirish, `job.meta.error_code`: `not_installed | network | private | age_restricted | login_required | unavailable | live | js_runtime | format_unavailable | ffmpeg | crashed | invalid_url | unknown`.
+* Tayyor bo'lgach oddiy import oqimi: `create_episode` (sarlavha — `title` yoki video sarlavhasi, `/ \ : * ? " < > |` → `_`) + `analyze` vazifasi (`meta.source_url`). `job.result = {"episode_id", "analysis_job_id", "path", "title", "reused"}`, `job.meta.episode_id` ham to'ldiriladi.
+* Partiyaviy navbatga (`/v1/queue`) URL elementi hali qo'shilmagan (ochiq masala).
+
+## Partiyaviy tahlil navbati (PRO-5)
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/queue?project_id=` | — | `[QueueItem]` — `position` tartibida, tugaganlari ham |
+| POST | `/v1/queue` | `{"project_id", "paths": string[], "focus?", "num_speakers?", "force_lite?"}` | `[QueueItem]` — qo'shilganlari |
+| DELETE | `/v1/queue/{id}` | — | `{"ok": true}` |
+| POST | `/v1/queue/{id}:cancel` | — | QueueItem |
+| POST | `/v1/queue/{id}:retry` | — | QueueItem |
+| POST | `/v1/queue:reorder` | `{"ids": string[]}` | `[QueueItem]` |
+| POST | `/v1/queue:clear` | `{"project_id?"}` | `{"removed": int}` |
+
+`QueueItem`: `{"id", "project_id", "episode_id", "path", "title", "options": {"focus", "num_speakers", "force_lite"}, "position", "status", "progress", "stage", "error", "job_id", "created_at", "started_at", "finished_at"}`. `status`: `queued | running | done | failed | cancelled`.
+
+* Navbat `library.db` → `analysis_queue` da saqlanadi (docs/05). Bir vaqtda faqat **bitta** element ishlaydi: navbat keyingi elementni oldingisi tugagach "heavy" oqimga yuboradi, shuning uchun tartib va olib tashlash ishga tushgunga qadar kuchda. Har element `/v1/media:import` bilan bir xil oqimdan o'tadi: ishga tushganda epizod yaratiladi (`episode_id` to'ldiriladi) va `analyze` vazifasi (`meta.queue_item_id`) yuboriladi. Progress — shu vazifaning `job` hodisalari; `progress`/`stage` faqat `running` element uchun.
+* Bitta elementning xatosi (fayl yo'qolgan, ASR xatosi va h.k.) navbatni to'xtatmaydi: element `failed` + `error`, keyingisi boshlanadi.
+* `POST /v1/queue`: loyiha topilmasa — 404; `paths` bo'sh — 400; birorta fayl topilmasa — 400 (`detail` da yo'llar, hech biri qo'shilmaydi); `num_speakers` 1..20 dan tashqari — 400; ko'pi bilan 500 fayl.
+* `:cancel`: kutayotgan element darhol `cancelled`; ishlayotganining vazifasi bekor qilinadi (holat vazifa to'xtaganda yoziladi). Tugagan element — 409.
+* `DELETE`: ishlayotgan element — 409 ("avval bekor qiling"). Noma'lum ID — 404 (`navbat elementi topilmadi`).
+* `:retry`: faqat `failed`/`cancelled` (aks holda 409); element navbat oxiriga qo'yiladi, epizodi bo'lsa o'sha epizod qayta tahlil qilinadi.
+* `:reorder`: `ids` — kutayotgan (`queued`) elementlar, yangi tartibda birinchi; qolgan kutayotganlar eski tartibda keyin. Kutmayotgan/noma'lum yoki takroriy ID — 400.
+* `:clear`: `done/failed/cancelled` elementlarni ro'yxatdan o'chiradi (epizodlar qoladi).
+* Tiklanish: engine ishga tushganda `running` elementlar `queued` ga qaytariladi va navbat avtomatik davom etadi (o'sha epizod, bosqich keshi bilan). Engine to'xtayotganda bekor qilingan vazifa elementni `cancelled` qilmaydi.
+
 ## Vazifalar
 
 | Metod | Yo'l | Javob |
@@ -69,8 +116,8 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 | POST | `/v1/jobs/{id}:retry` | Job (yangi; `meta.retry_of` = eski ID) |
 | GET | `/v1/exports` | `[{"job": Job, "episode_id", "clip_id", "montage_id", "title"}]` |
 
-* `kind`: `analyze | export | install | pack | montage`. `status`: `queued | running | done | failed | cancelled`. `stage`: `ingest | vad | asr | normalize | align | diarize | sentences | signals | highlight`, montajda `analyze | plan`, montaj renderida `render`, o'rnatilayotgan model ID'si yoki `export-pack`/`import-pack`. `created_at` — Unix vaqt (s).
-* Oqimlar: tahlil va montaj rejalashtirish (`montage`) — bitta umumiy "heavy" oqim; eksport (klip va montaj render) — `LAHZA_EXPORT_WORKERS` (standart 2, 1..8); `install`/`pack` — alohida 1 ta I/O oqimi.
+* `kind`: `analyze | export | install | pack | montage | download`. `status`: `queued | running | done | failed | cancelled`. `stage`: `ingest | vad | asr | normalize | align | diarize | sentences | signals | highlight`, montajda `analyze | plan`, montaj renderida `render`, o'rnatilayotgan model ID'si yoki `export-pack`/`import-pack`. `created_at` — Unix vaqt (s).
+* Oqimlar: tahlil va montaj rejalashtirish (`montage`) — bitta umumiy "heavy" oqim; eksport (klip va montaj render) — `LAHZA_EXPORT_WORKERS` (standart 2, 1..8); `install`/`pack`/`download` (YouTube) — alohida 1 ta I/O oqimi.
 * `:retry` faqat `failed`/`cancelled` eksport uchun (aks holda 409), xuddi shu parametrlar bilan (klip va montaj eksporti).
 * `/v1/exports` — joriy engine sessiyasidagi eksport vazifalari (klip va montaj), yangisi oldin. Klip eksportida `episode_id`/`clip_id`, montajda `montage_id` to'ldirilgan (qolganlari `null`). Doimiy tarix: klip — `project.db` → `exports`, montaj — `library.db` → `montage_exports`.
 
@@ -261,6 +308,8 @@ Eslatma (plagin uchun): Premiere UXP hujjati macOS'da `http://` URL cheklanishin
 ```json
 {"type": "job", "ts": 1791957683.1, "job": {"id": "a1b2c3", "kind": "analyze", "status": "running", "progress": 0.42, "stage": "asr", "meta": {"episode_id": "e1"}}}
 ```
+
+Partiyaviy navbat o'zgarganda (qo'shish, holat, tartib, o'chirish) — `{"type": "queue", "ts": ..., "item": QueueItem | null}` (`null` — bir nechta element o'zgardi yoki element o'chirildi; mijoz `/v1/queue` ni qayta so'raydi).
 
 ## Turlar
 

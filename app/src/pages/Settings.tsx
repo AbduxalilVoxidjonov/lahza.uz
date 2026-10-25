@@ -3,10 +3,12 @@ import { ExternalAssetsPanel } from "../components/settings/ExternalAssetsPanel"
 import { CapabilitiesPanel } from "../components/settings/CapabilitiesPanel";
 import { DiagnosticsPanel } from "../components/settings/DiagnosticsPanel";
 import { LexiconManager } from "../components/settings/LexiconManager";
+import { LicensesPanel } from "../components/settings/LicensesPanel";
 import { ModelManager } from "../components/settings/ModelManager";
 import { ShortcutsTable } from "../components/settings/ShortcutsTable";
+import { YoutubeImportPanel } from "../components/settings/YoutubeImportPanel";
 import { LOCALE_NAMES, useT, type Locale } from "../i18n";
-import type { Orthography } from "../api/types";
+import type { Orthography, Script } from "../api/types";
 import { LOCALES, useSettings } from "../store/settings";
 
 export function Settings() {
@@ -32,14 +34,23 @@ export function Settings() {
             <option value="new">{t("orth.new")}</option>
           </select>
         </label>
+        <label className="field" style={{ width: 260 }}>
+          {t("style.script")}
+          <select className="select" value={style.script ?? "latin"} onChange={(e) => setStyle({ script: e.target.value as Script })}>
+            <option value="latin">{t("script.latin")}</option>
+            <option value="cyrillic" lang="uz-Cyrl">{t("script.cyrillic")}</option>
+          </select>
+        </label>
       </section>
       <ModelManager />
       <CapabilitiesPanel />
       <ExternalAssetsPanel />
+      <YoutubeImportPanel />
       <EditingSkillsPanel />
       <LexiconManager />
       <DiagnosticsPanel />
       <ShortcutsTable />
+      <LicensesPanel />
       <p className="muted">{t("set.privacy")}</p>
     </div>
   );

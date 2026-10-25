@@ -4,6 +4,8 @@ export type Tier = "unsupported" | "lite" | "standard" | "pro";
 export type Task = "asr" | "align" | "vad" | "diarization" | "vision" | "llm";
 export type Compat = "recommended" | "slow" | "incompatible";
 export type Orthography = "official" | "ascii" | "new";
+/** Subtitr yozuvi (PRO-4): "cyrillic" - lug'atli transliteratsiya engine'da. */
+export type Script = "latin" | "cyrillic";
 export type ClipStatus = "nomzod" | "qabul" | "rad" | "eksport_qilingan";
 export type ClipSource = "ai_llm" | "ai_lite" | "qolda";
 export type ClipKind = "maslahat" | "hikoya" | "kulgili" | "bahsli_fikr" | "fakt" | "savol_javob";
@@ -174,7 +176,8 @@ export interface ExportItem {
   montage_id?: string | null;
 }
 
-export type JobKind = "analyze" | "export" | "install" | "pack" | "montage";
+/** `download` - YouTube havolasidan yuklash (YT-1); `meta.download`: {downloaded_bytes, total_bytes, speed, eta}. */
+export type JobKind = "analyze" | "export" | "install" | "pack" | "montage" | "download";
 
 export interface Job {
   id: string;
@@ -229,6 +232,20 @@ export interface Clip {
   source: ClipSource;
   llm_model_id?: string | null;
   cuts: [number, number][];
+  /** PRO-3 "Hook oldinga": null/yo'q - o'chiq; aks holda shu bo'lak (manba vaqti) klip boshiga nusxalanadi. */
+  hook?: ClipHook | null;
+}
+
+export interface ClipHook {
+  start_ms: number;
+  end_ms: number;
+}
+
+export interface HookCandidate extends ClipHook {
+  sentence_ids: number[];
+  text: string;
+  score: number;
+  reasons: string[];
 }
 
 export interface StyleTemplate {
@@ -250,6 +267,8 @@ export interface StyleTemplate {
   max_words: number;
   max_lines: number;
   orthography: Orthography;
+  /** Yozuv; yo'q bo'lsa "latin" (eski shablonlar). */
+  script?: Script;
   /** Pop animatsiyasi kattalashuvi, % (100..160). */
   pop_scale: number;
   keywords: string[];
@@ -289,6 +308,7 @@ export const DEFAULT_STYLE: StyleTemplate = {
   max_words: 3,
   max_lines: 2,
   orthography: "official",
+  script: "latin",
   pop_scale: 115,
   keywords: [],
   remove_fillers: false,
@@ -300,10 +320,29 @@ export const DEFAULT_STYLE: StyleTemplate = {
   logo_opacity: 0.8,
 };
 
-export interface EngineEvent {
-  type: "job";
-  ts: number;
-  job: Job;
+export type EngineEvent =
+  | { type: "job"; ts: number; job: Job }
+  /** Partiyaviy navbat o'zgardi; `item: null` - bir nechta element yoki o'chirish. */
+  | { type: "queue"; ts: number; item: QueueItem | null };
+
+/** Partiyaviy tahlil navbati elementi (PRO-5, `/v1/queue`). */
+export interface QueueItem {
+  id: string;
+  project_id: string;
+  /** Element ishga tushganda yaratiladi. */
+  episode_id: string | null;
+  path: string;
+  title: string | null;
+  options: { focus?: string | null; num_speakers?: number | null; force_lite?: boolean };
+  position: number;
+  status: JobStatus;
+  progress: number;
+  stage: string | null;
+  error: string | null;
+  job_id: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
 }
 
 // ================================================================ Lahza Montaj (docs/11, ADR-0011/0012)

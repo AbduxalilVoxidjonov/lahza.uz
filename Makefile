@@ -3,10 +3,10 @@ PY ?= python3
 VENV := engine/.venv
 BIN := $(VENV)/bin
 
-.PHONY: setup test test-ui test-engine test-offline typecheck build-ui lint check-versions licenses ci \
+.PHONY: setup test test-ui test-engine test-offline typecheck build-ui lint check-versions licenses check-licenses ci \
 	dev-engine dev-ui sidecar sidecar-dry tauri-dev clean
 
-.PHONY: setup-local setup-local-llm build-local smoke-local
+.PHONY: setup-local setup-local-llm setup-youtube build-local smoke-local bump-version release-local
 
 # Apple Silicon local alpha. --consent explicitly allows the initial model download.
 # Models are not included in the application bundle; subsequent inference is offline.
@@ -22,11 +22,28 @@ setup-local:
 setup-local-llm:
 	$(BIN)/python scripts/setup_local_llm.py --stage --model --consent
 
+# YT-1 (ADR-0010, ixtiyoriy): yt-dlp + yt-dlp-ejs engine muhitiga (tarmoq - faqat shu buyruqda).
+# YouTube uchun JavaScript runtime ham kerak: Deno >= 2.3 (`brew install deno`) PATH yoki LAHZA_BIN_DIR da.
+# Funksiya standart o'chiq: Sozlamalar -> "YouTube havolasidan import".
+setup-youtube:
+	$(BIN)/pip install -e "engine[youtube]"
+
 build-local:
 	$(BIN)/python scripts/build_sidecar.py
 	cd app && npm run tauri build -- --config src-tauri/tauri.local.conf.json --bundles app
 	codesign --force --deep --sign - "app/src-tauri/target/release/bundle/macos/Lahza Studio.app"
 	codesign --verify --deep --strict "app/src-tauri/target/release/bundle/macos/Lahza Studio.app"
+
+# Versiyani hamma manifestlarda o'zgartiradi: V=0.2.0 yoki V=patch|minor|major (scripts/bump_version.py).
+bump-version:
+	@test -n "$(V)" || (echo 'V=x.y.z yoki V=patch|minor|major kerak'; exit 1)
+	$(PY) scripts/bump_version.py "$(V)"
+
+# Lokal reliz: bump -> testlar -> build-local -> versiyalar/<V>/ (zip, NOTES.md, SHA256SUMS) + CHANGELOG.
+# Test yiqilsa to'xtaydi; versiyalar/<V>/ bo'lsa ustidan yozmaydi. Commit/teg qo'lda.
+release-local:
+	@test -n "$(V)" || (echo 'V=x.y.z yoki V=patch|minor|major kerak'; exit 1)
+	$(PY) scripts/release_local.py "$(V)"
 
 smoke-local:
 	@test -n "$(VIDEO)" || (echo 'VIDEO=/absolute/podcast.mp4 kerak'; exit 1)
@@ -62,11 +79,16 @@ lint:
 check-versions:
 	$(PY) scripts/check_versions.py
 
+# V1-5: LICENSES-THIRD-PARTY.md + app/src/generated/licenses.json (UI "Litsenziyalar" oynasi). Oflayn.
 licenses:
 	$(BIN)/python scripts/gen_licenses.py
 
+# Ro'yxat yangiligi: generatsiya natijasi fayllardagidan farq qilsa 1 qaytaradi.
+check-licenses:
+	$(BIN)/python scripts/gen_licenses.py --check
+
 # CI'ning lokal ekvivalenti (cargo check'siz): versiyalar + lint + testlar + UI typecheck va build.
-ci: check-versions lint test-offline test-ui build-ui
+ci: check-versions check-licenses lint test-offline test-ui build-ui
 
 dev-engine:
 	LAHZA_DEV=1 LAHZA_TOKEN=dev-token LAHZA_CATALOG=$(CURDIR)/catalog/catalog.json \

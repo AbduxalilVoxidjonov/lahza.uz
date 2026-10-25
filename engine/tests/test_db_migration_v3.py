@@ -38,7 +38,7 @@ def _cols(conn, table: str) -> set[str]:
 def test_library_v2_to_v3(tmp_path: Path) -> None:
     _v2_library(tmp_path / "library.db")
     conn = db.open_library(tmp_path)
-    assert db.schema_version(conn) == 3
+    assert db.schema_version(conn) == db.LIBRARY_SCHEMA_VERSION
     assert {"id", "project_id", "name", "template_id", "sources_json", "overrides_json", "timeline_json",
             "status", "error", "user_edited", "created_at", "updated_at"} <= _cols(conn, "montages")
     assert {"id", "json", "created_at", "updated_at"} <= _cols(conn, "user_templates")
@@ -67,4 +67,4 @@ def test_library_v2_to_v3(tmp_path: Path) -> None:
     assert conn.execute("SELECT count(*) FROM montage_exports").fetchone()[0] == 0
     conn.close()
     db.open_library(tmp_path).close()
-    assert not (tmp_path / "library.v3.bak").exists()
+    assert not (tmp_path / "library.v3.bak").exists() and not (tmp_path / "library.v4.bak").exists()

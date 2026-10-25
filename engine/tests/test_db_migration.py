@@ -29,6 +29,8 @@ CREATE TABLE exports (id TEXT PRIMARY KEY, clip_id TEXT NOT NULL, path TEXT, pro
   status TEXT NOT NULL, error TEXT, created_at TEXT NOT NULL DEFAULT (datetime('now')));
 CREATE TABLE corrections (id INTEGER PRIMARY KEY AUTOINCREMENT, audio_chunk_path TEXT NOT NULL,
   before_text TEXT NOT NULL, after_text TEXT NOT NULL, at TEXT NOT NULL DEFAULT (datetime('now')));
+CREATE TABLE clips (id TEXT PRIMARY KEY, media_id TEXT NOT NULL, start_ms INTEGER NOT NULL,
+  end_ms INTEGER NOT NULL);
 INSERT INTO schema_version VALUES (1);
 INSERT INTO corrections(audio_chunk_path, before_text, after_text) VALUES ('a', 'b', 'c');
 """
@@ -50,7 +52,7 @@ def _make(path: Path, sql: str) -> None:
 def test_library_v1_to_latest(tmp_path: Path) -> None:
     _make(tmp_path / "library.db", V1_LIBRARY)
     conn = db.open_library(tmp_path)
-    assert db.schema_version(conn) == db.LIBRARY_SCHEMA_VERSION == 3
+    assert db.schema_version(conn) == db.LIBRARY_SCHEMA_VERSION == 4
     assert "highlight_mode" in _cols(conn, "episodes") and "updated_at" in _cols(conn, "style_templates")
     assert conn.execute("SELECT title FROM episodes WHERE id='e1'").fetchone()[0] == "Ep"
     bak = tmp_path / "library.v1.bak"
@@ -61,13 +63,13 @@ def test_library_v1_to_latest(tmp_path: Path) -> None:
     assert old.execute("SELECT count(*) FROM episodes").fetchone()[0] == 1  # WAL'dagi yozuvlar ham
     conn.close()
     db.open_library(tmp_path).close()  # qayta ochish - migratsiyasiz
-    assert not (tmp_path / "library.v2.bak").exists() and not (tmp_path / "library.v3.bak").exists()
+    assert not any((tmp_path / f"library.v{v}.bak").exists() for v in (2, 3, 4))
 
 
 def test_project_v1_to_v2(tmp_path: Path) -> None:
     _make(tmp_path / "project.db", V1_PROJECT)
     conn = db.open_project(tmp_path)
-    assert db.schema_version(conn) == db.PROJECT_SCHEMA_VERSION == 2
+    assert db.schema_version(conn) == db.PROJECT_SCHEMA_VERSION == 3
     assert {"job_id", "finished_at"} <= _cols(conn, "exports")
     assert {"media_id", "sentence_id"} <= _cols(conn, "corrections")
     assert conn.execute("SELECT after_text FROM corrections").fetchone()[0] == "c"
@@ -90,9 +92,10 @@ def test_fresh_dbs_are_v2_and_match_migrated_columns(tmp_path: Path) -> None:
     lib = db.open_library(tmp_path / "lf")
     _make(tmp_path / "lm" / "library.db", V1_LIBRARY)
     lib_m = db.open_library(tmp_path / "lm")
-    for t in ("episodes", "style_templates", "lexicon", "montages", "user_templates", "montage_exports"):
+    for t in ("episodes", "style_templates", "lexicon", "montages", "user_templates", "montage_exports",
+              "analysis_queue"):
         assert _cols(lib, t) == _cols(lib_m, t)
-    assert db.schema_version(fresh) == 2 and db.schema_version(lib) == 3
+    assert db.schema_version(fresh) == db.PROJECT_SCHEMA_VERSION and db.schema_version(lib) == 4
 
 
 def test_v2_helpers(tmp_path: Path) -> None:

@@ -33,6 +33,9 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
       # Faqat standart kutubxona: engine o'rnatilmaydi.
       - run: python scripts/check_versions.py
+      # V1-5: litsenziyalar ro'yxati yangiligi. Python qismi venv'ga bog'liq - keshdan (licenses.json);
+      # npm/Rust/runtime/shrift/model qismlari lock fayllar va katalogdan tekshiriladi.
+      - run: python scripts/gen_licenses.py --check --reuse python
 
   lint:
     name: Ruff

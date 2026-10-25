@@ -668,6 +668,10 @@ function onJobDone(qc: QueryClient, job: Job) {
     case "export":
       if (eid) void qc.invalidateQueries({ queryKey: ["clips", eid] });
       break;
+    case "download":
+      // YT-1: yuklangandan keyin epizod yaratildi va tahlil boshlandi.
+      void qc.invalidateQueries({ queryKey: ["episodes"] });
+      break;
     case "install":
     case "pack":
       void qc.invalidateQueries({ queryKey: ["models"] });
@@ -696,6 +700,12 @@ export function useEngineEvents() {
         try {
           ev = JSON.parse(m.data as string) as EngineEvent;
         } catch {
+          return;
+        }
+        if (ev.type === "queue") {
+          // Partiyaviy navbat (PRO-5): ro'yxat va yangi epizodlar qayta so'raladi.
+          void qc.invalidateQueries({ queryKey: ["queue"] });
+          void qc.invalidateQueries({ queryKey: ["episodes"] });
           return;
         }
         if (ev.type !== "job") return;
