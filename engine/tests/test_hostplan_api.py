@@ -186,6 +186,9 @@ def test_plan_from_montage_mapping(tmp_path):
     from lahza_engine.hostplan.build import plan_from_montage
 
     tl = _timeline(tmp_path)
+    from lahza_engine.montage.model import StickerItem
+
+    tl.stickers = [StickerItem(id="sticker1", path=str(tmp_path / "badge.png"), start_ms=0, end_ms=1000)]
     plan = plan_from_montage(tl, "m1", "Mening montajim", tmp_path / "out", Settings(data_dir=tmp_path))
     HostPlan.model_validate(plan.to_json())
     kinds = [v.transition_in.kind if v.transition_in else None for v in plan.video]
@@ -197,7 +200,7 @@ def test_plan_from_montage_mapping(tmp_path):
     assert plan.sequence.duration_s == pytest.approx(tl.duration_ms / 1000)
     assert plan.video[5].speed == 2.0 and plan.video[5].rec_out - plan.video[5].rec_in == pytest.approx(1.5)
     notes = " | ".join(plan.not_translated)
-    for word in ("shake", "freeze", "circleopen", "animatsiya"):
+    for word in ("shake", "freeze", "circleopen", "animatsiya", "Stiker"):
         assert word in notes
     # punch-in: 0.5 s da boshlanadi, 0.62 s da 1.25x, 1.5 s dan keyin 1x
     keys = plan.video[0].layers[0].keys

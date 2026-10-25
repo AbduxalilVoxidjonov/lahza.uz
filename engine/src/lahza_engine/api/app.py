@@ -30,11 +30,16 @@ from pydantic import BaseModel
 from lahza_engine import __version__
 from lahza_engine.api import (
     routes_clips,
+    routes_editing_agent,
     routes_episodes,
     routes_hostplan,
+    routes_interop,
     routes_library,
     routes_models,
     routes_montage,
+    routes_setup,
+    routes_skills,
+    routes_stickers,
     routes_system,
 )
 from lahza_engine.api.state import State
@@ -155,15 +160,24 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     def cancel_job(job_id: str, s: State = Depends(auth)) -> dict[str, Any]:
         if job_id not in s.jobs.jobs:
             raise HTTPException(404, "vazifa topilmadi")
-        return s.jobs.cancel(job_id).public()
+        job = s.jobs.cancel(job_id)
+        if job.meta.get("op") == "setup":
+            from lahza_engine.models.setup import coordinator
+            coordinator(s.store, s.jobs).cancel(job_id)
+        return job.public()
 
+    routes_editing_agent.register(app, auth)
     routes_models.register(app, auth)
+    routes_setup.register(app, auth)
     routes_episodes.register(app, auth)
     routes_clips.register(app, auth)
     routes_library.register(app, auth)
+    routes_stickers.register(app, auth)
     routes_montage.register(app, auth)
     routes_hostplan.register(app, auth)
     routes_system.register(app, auth)
+    routes_interop.register(app, auth)
+    routes_skills.register(app, auth)
 
     # ---- Hodisalar ---------------------------------------------------------
     @app.websocket("/v1/events")

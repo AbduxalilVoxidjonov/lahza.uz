@@ -69,12 +69,14 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
             "LAHZA_CATALOG",
             resources.join("catalog").join("catalog.json"),
         );
-    // Katalog imzosini tekshirish uchun ochiq kalit build vaqtida beriladi (docs/06).
-    if let Some(key) = option_env!("LAHZA_CATALOG_PUBKEY") {
-        cmd = cmd.env("LAHZA_CATALOG_PUBKEY", key);
-    }
+    cmd = cmd
+        .env("LAHZA_CATALOG_PUBKEY", env!("LAHZA_BUNDLED_CATALOG_PUBKEY"))
+        .env("LAHZA_DEV", "0");
     if cfg!(debug_assertions) {
-        cmd = cmd.env("LAHZA_DEV", "1");
+        cmd = cmd.env(
+            "LAHZA_CORS_ORIGINS",
+            "http://127.0.0.1:1420,http://localhost:1420",
+        );
     }
 
     let (mut rx, child) = cmd.spawn().map_err(|e| e.to_string())?;

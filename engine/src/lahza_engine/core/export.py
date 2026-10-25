@@ -29,6 +29,7 @@ from lahza_engine.render.capabilities import has_filter
 from lahza_engine.render.encoders import EncoderChoice
 from lahza_engine.render.graph import RenderJob, render, render_frame
 from lahza_engine.render.limits import check_limits, source_quality_warning
+from lahza_engine.render.profiles import evaluate_profile, profile_settings
 from lahza_engine.subtitle.ass import build_ass, build_srt, build_vtt
 from lahza_engine.subtitle.fonts import default_fonts_dir, has_fonts
 from lahza_engine.subtitle.style import StyleTemplate
@@ -257,19 +258,23 @@ def export_clip(
 ) -> ExportResult:
     """Klipni eksport qiladi. libass yo'q bo'lsa LibassMissing (allow_no_subs=True - subtitrsiz,
     ogohlantirish bilan). Qo'lda kalit kadrlar (reframe_keyframes, source='qolda') ustun."""
+    settings = profile_settings(settings, platform)
     media = conn.execute("SELECT * FROM media WHERE id = ?", (media_id,)).fetchone()
     if media is None:
         raise KeyError(media_id)
     src = Path(media["path"])
     W, H = settings.render.width, settings.render.height
     tl = Timeline(clip.start_ms, clip.end_ms, clip.cuts)
+    evaluation = evaluate_profile(platform, tl.duration_ms, W, H, settings=settings)
+    if evaluation.errors:
+        raise ValueError("; ".join(evaluation.errors))
     words = _clip_words(conn, media_id, clip)
     base = render_filename(filename_template, show_name, episode, index, clip.title)
     ass_text = build_ass(words, tl, style, settings.safe_zone, W, H)
     layouts, _source = resolve_layouts(conn, src, clip, tl, detector, settings, media["width"],
                                        media["height"], words=words, layouts=layouts)
 
-    # V1-6: eksportdan oldingi tekshiruv (bloklamaydi - ogohlantiradi).
+    # Shared profile restrictions were checked above; recommendations only warn here.
     warnings = check_limits(tl.duration_ms, W, H, platform=platform)
     uses_crop = any(seg.layout is not Layout.FIT_BLUR for seg in layouts)
     q = source_quality_warning(media["width"], media["height"], W, uses_crop)

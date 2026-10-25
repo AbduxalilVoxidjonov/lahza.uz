@@ -31,6 +31,7 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 | GET | `/v1/catalog/bundle` | — | `{"tier", "items": [{"task", "entry", "compat", "reason", "mandatory"}]}` |
 | GET | `/v1/models` | — | `{"models": [...], "defaults": {"asr": "<id>"}}` |
 | POST | `/v1/models:install` | `{"consent": true, "entry_ids": null}` | Job (`kind: install`) |
+| POST | `/v1/models:bootstrap` | `{"consent": true}` | Job (`kind: install`, `meta.op: bootstrap`) — lokal alfa Whisper base, katalog tasdig'isiz |
 | POST | `/v1/models:scan` | — | `{"added": [...]}` — `Models/llm/*.gguf` |
 | DELETE | `/v1/models/{id}` | — | `{"ok": true}` |
 | POST | `/v1/models/{id}:default` | — | `{"ok": true}` |
@@ -39,6 +40,7 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 | POST | `/v1/models:import-pack` | `{"path"}` | Job (`kind: pack`, `meta.op = "import"`) |
 
 * `consent` bo'lmasa — 400 (NFR-01). `entry_ids` berilmasa, avtomatik to'plam o'rnatiladi; ASR birinchi.
+* `models:bootstrap` katalogni o'zgartirmaydi: mahkamlangan upstream modelini `source=custom`, `verified=false` sifatida o'rnatadi va ASR standarti qiladi. Faqat foydalanuvchi roziligidan keyin model fayllari yuklanadi; video yuborilmaydi. `entry_ids` bilan chaqirilsa 400. Tafsilotlar: [`local-models.md`](local-models.md).
 * `DELETE`: fayllar (faqat `Models/` ichida) va registry yozuvi o'chiriladi; model standart bo'lsa — shu vazifadagi boshqa modelga o'tadi, boshqasi bo'lmasa standart o'chiriladi. Noma'lum ID — 404.
 * `:test`: fayllar mavjudligi → katalogda bo'lsa har fayl sha256 → backend yuklanishi (faqat shu model bilan `build_services`). Natija `installed.json` dagi `self_test_ok` ga yoziladi.
 * `.lzpack` (zip): `manifest.json` (`format`, `registry` — yo'llar `Models/` ga nisbiy, `files: [{"path","sha256","size"}]`), `Models/...` fayllari, ixtiyoriy `signature` (manifest baytlarining Ed25519 imzosi, base64; eksportda kalit `LAHZA_PACK_PRIVKEY`). Import: har fayl sha256/hajmi doim tekshiriladi; `LAHZA_PACK_PUBKEY` sozlangan bo'lsa imzo majburiy (`LAHZA_DEV=1` da imzosiz ham qabul); zip-slip (`..`, absolyut yo'l, `\\`, `Models/` dan tashqari), symlink, bajariladigan fayllar (sarlavha: MZ/ELF/Mach-O/`#!`; kengaytma: `.exe .dll .so .dylib .sh .py ...`), manifestda yo'q yoki yetishmayotgan fayl — rad. Fayllar avval vaqtinchalik papkada tekshiriladi, keyin joyiga ko'chiriladi. Job natijasi: eksport `{"path","models","files"}`, import `{"imported","files"}`.
@@ -261,5 +263,19 @@ Eslatma (plagin uchun): Premiere UXP hujjati macOS'da `http://` URL cheklanishin
 ```
 
 ## Turlar
+
+### Platforma profillari (lokal alfa)
+
+* `GET /v1/export-profiles` → `{profiles: ExportProfile[]}`. Har profilning `id`,
+  `recommended_format`, `safe_zone`, `restrictions`, `recommendations`, `sources`
+  va `verified_at` maydonlari bor. `custom` joriy foydalanuvchi safe zone'ini qaytaradi.
+* `POST /v1/export-profiles:check` → `{errors: string[], warnings: string[]}`.
+  Body: `{timeline: MontageTimeline}`; bu endpoint timeline'ni o'zgartirmaydi.
+* Timeline'da `target_platform`: `instagram_reels | youtube_shorts | youtube_video | custom`.
+  Eski fayl uchun standart `custom`. Shu maydon yangi montajning `overrides`ida ham beriladi.
+* Noma'lum profil — 422. Shorts cheklovini buzgan montaj render so'rovi — vazifa
+  navbatiga qo'yilmasdan 400. Tavsiyalar renderni bloklamaydi.
+
+Rasmiy manbalar va cheklovlar: [platformalar](local-platforms.md).
 
 TypeScript turlari: `app/src/api/types.ts`. Python modellari: `engine/src/lahza_engine/types.py`, `subtitle/style.py`, `models/catalog.py`, `montage/model.py`, `templates/model.py`, `fx/registry.py`. Ikkalasi bir xil bo'lishi CI'da qo'lda tekshiriladi (M2'da OpenAPI'dan avtomatik generatsiya rejalashtirilgan).

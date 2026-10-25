@@ -524,13 +524,30 @@ export interface Provenance {
 }
 
 /** Lahza Timeline (`lahza.timeline/1`) - JSON'da kalit `schema`. */
+export interface StickerItem {
+  id: string;
+  path: string;
+  start_ms: number;
+  end_ms: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  opacity: number;
+  layer: number;
+  animation: "none" | "fade" | "pop";
+}
+
 export interface MontageTimeline {
+  target_platform?: TargetPlatform;
   schema: "lahza.timeline/1";
   format: MontageFormat;
   media: Record<string, MediaRef>;
   video: VideoItem[];
   text: TextItem[];
   music: MusicItem[];
+  stickers?: StickerItem[];
   captions: Captions;
   brand: Brand;
   audio: AudioMix;
@@ -544,6 +561,7 @@ export type MontageSource =
   | { kind: "episode"; episode_id: string };
 
 export interface MontageOverrides {
+  target_platform?: TargetPlatform;
   target_duration_ms?: number | null;
   aspect?: Aspect | null;
   music_path?: string | null;
@@ -613,3 +631,18 @@ export interface MontageRenderResult {
   warnings: string[];
   encoder?: string;
 }
+
+export type TargetPlatform = "instagram_reels" | "youtube_shorts" | "youtube_video" | "custom";
+export interface ExportProfile {
+  id: TargetPlatform;
+  name: string;
+  recommended_format: { aspect: "9:16" | "16:9"; w: number; h: number; fps: number } | null;
+  safe_zone: { top_pct: number; bottom_pct: number; side_pct: number };
+  safe_zone_note: string;
+  restrictions: { max_duration_s: number | null; square_or_vertical: boolean };
+  recommendations: { max_duration_s: number | null; encoding: string | null; fps_note: string };
+  sources: { url: string; verification_status: "verified" | "unavailable"; note: string }[];
+  verified_at: string;
+}
+
+export interface ProfileEvaluation { errors: string[]; warnings: string[] }

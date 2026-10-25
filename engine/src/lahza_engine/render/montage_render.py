@@ -50,6 +50,8 @@ from lahza_engine.render.graph import (
     ffmpeg_major,
     logo_overlay_xy,
 )
+from lahza_engine.render.profiles import evaluate_timeline, profile_settings
+from lahza_engine.stickers import overlay_stickers, sticker_inputs
 from lahza_engine.subtitle.ass import build_montage_ass, build_srt
 from lahza_engine.subtitle.fonts import default_fonts_dir, has_fonts
 from lahza_engine.timeline import Timeline
@@ -411,7 +413,7 @@ def build_item_graph(
                 chains.append(f"[fz{k}a]trim=end_frame={fa},setpts=PTS-STARTPTS[fp{k}a]")
                 parts.append(f"[fp{k}a]")
             chains.append(f"[fz{k}b]trim=start_frame={fa}:end_frame={fa + 1},setpts=PTS-STARTPTS,"
-                          f"tpad=stop_mode=clone:stop={fd - 1}[fp{k}b]")
+                          f"zoompan=z=1:d={fd}:s={W}x{H}:fps={fps}[fp{k}b]")
             parts.append(f"[fp{k}b]")
             if has_c:
                 chains.append(f"[fz{k}c]trim=start_frame={fa + fd},setpts=PTS-STARTPTS[fp{k}c]")
@@ -512,6 +514,7 @@ def _text_needed(tl: MontageTimeline) -> bool:
 
 
 def _ass_doc(tl: MontageTimeline, settings: Settings, offset_ms: int = 0) -> str:
+    settings = profile_settings(settings, tl.target_platform)
     words = tl.captions.words if tl.captions.enabled else []
     return build_montage_ass(tl.text, words, tl.captions.style, settings.safe_zone, tl.format.w,
                              tl.format.h, offset_ms=offset_ms)
@@ -534,7 +537,9 @@ def _cards_drawbox(tl: MontageTimeline, at_ms: int | None = None) -> list[str]:
 
 
 def _overlay_chain(tl: MontageTimeline, settings: Settings, cur: str, *, ass: bool,
-                   fonts: bool, logo_idx: int | None, at_ms: int | None) -> tuple[list[str], str]:
+                   fonts: bool, logo_idx: int | None, at_ms: int | None,
+                   sticker_indices: list[int] | None = None) -> tuple[list[str], str]:
+    settings = profile_settings(settings, tl.target_platform)
     W, H = tl.format.w, tl.format.h
     chains: list[str] = []
     filters = _cards_drawbox(tl, at_ms)
@@ -550,6 +555,9 @@ def _overlay_chain(tl: MontageTimeline, settings: Settings, cur: str, *, ass: bo
         chains.append(f"[{logo_idx}:v]scale={lw}:-1,format=rgba,colorchannelmixer=aa={op:.3f}[logo]")
         chains.append(f"[{cur}][logo]overlay=x={lx}:y={ly}:eof_action=repeat:format=auto[vlg]")
         cur = "vlg"
+    if sticker_indices:
+        overlays, cur = overlay_stickers(tl, cur, sticker_indices, at_ms)
+        chains.extend(overlays)
     return chains, cur
 
 
@@ -563,6 +571,7 @@ def build_compose_graph(
     color: str | None,
     music_inputs: list[int],
     logo_idx: int | None,
+    sticker_indices: list[int] | None = None,
 ) -> str:
     """Oraliq fayllar (kirish 0..n-1) -> yakuniy [vout]/[aout]."""
     fmt = tl.format
@@ -618,7 +627,8 @@ def build_compose_graph(
         chains.append(f"anullsrc=r={hz}:cl=stereo,atrim=end_sample={total_samples}[src]")
         cur = "vp"
 
-    ov, cur = _overlay_chain(tl, settings, cur, ass=ass, fonts=fonts, logo_idx=logo_idx, at_ms=None)
+    ov, cur = _overlay_chain(tl, settings, cur, ass=ass, fonts=fonts, logo_idx=logo_idx, at_ms=None,
+                             sticker_indices=sticker_indices)
     chains += ov
     chains.append(f"[{cur}]format=yuv420p[vout]")
 
@@ -785,10 +795,14 @@ def render_montage(
     libass yo'q va matn/subtitr bor: allow_no_subs=False -> LibassMissing; True -> matnsiz,
     ogohlantirish bilan. Bekor qilish: `cancel` o'rnatilsa ffmpeg o'ldiriladi, `Cancelled`.
     """
+    evaluation = evaluate_timeline(tl, settings)
+    if evaluation.errors:
+        raise ValueError("; ".join(evaluation.errors))
+    settings = profile_settings(settings, tl.target_platform)
     ffmpeg = str(find_tool("ffmpeg"))
     out = Path(out)
     workdir = Path(workdir)
-    warnings: list[str] = []
+    warnings: list[str] = list(evaluation.warnings)
     use_ass = _text_needed(tl)
     if use_ass and not has_filter(ffmpeg, "ass"):
         if not allow_no_subs:
@@ -796,6 +810,9 @@ def render_montage(
         use_ass = False
         warnings.append("Matn va subtitr videoga chizilmadi: FFmpeg libass'siz."
                         + (" SRT fayli tayyor." if tl.captions.enabled and tl.captions.words else ""))
+    # Reject invalid stickers before any expensive segment rendering.
+    sticker_args: list[str] = []
+    relative_sticker_indices = sticker_inputs(tl, sticker_args)
     workdir.mkdir(parents=True, exist_ok=True)
     fmt = tl.format
     fr = float(_fps_frac(fmt.fps))
@@ -846,18 +863,23 @@ def render_montage(
     if logo is not None:
         logo_idx = sum(1 for x in inputs if x == "-i")
         inputs += ["-i", str(logo.resolve())]
+    input_count = sum(x == "-i" for x in inputs)
+    sticker_indices = [input_count + i for i in relative_sticker_indices]
+    inputs.extend(sticker_args)
     files: dict[str, str] = {}
     fonts = False
     if use_ass:
         files["text.ass"] = _ass_doc(tl, settings)
         fonts = _copy_fonts(workdir)
     graph = build_compose_graph(tl, segs, settings, ass=use_ass, fonts=fonts, color=color,
-                                music_inputs=music_idx, logo_idx=logo_idx)
+                                music_inputs=music_idx, logo_idx=logo_idx,
+                                sticker_indices=sticker_indices)
     _write_graph(workdir, graph, files)
     out.parent.mkdir(parents=True, exist_ok=True)
     total_s = tl.duration_ms / 1000
     cmd = [ffmpeg, "-y", "-hide_banner", "-v", "error", "-nostats", "-progress", "pipe:1",
            *inputs, *_graph_opt(ffmpeg), "-map", "[vout]", "-map", "[aout]", *encoder.args,
+           "-r", _fps_str(fmt.fps),
            "-c:a", "aac", "-b:a", f"{settings.render.audio_bitrate_kbps}k", "-ac", "2",
            "-ar", str(fmt.audio_hz), "-movflags", "+faststart", str(out.resolve())]
     _run_ffmpeg(cmd, workdir, total_s, tick(STAGE1_WEIGHT, 1 - STAGE1_WEIGHT), cancel)
@@ -944,8 +966,9 @@ def render_montage_frame(
         if logo is not None:
             logo_idx = sum(1 for x in inputs if x == "-i")
             inputs += ["-i", str(logo.resolve())]
+        sticker_indices = sticker_inputs(tl, inputs)
         ov, cur = _overlay_chain(tl, settings, cur, ass=use_ass, fonts=fonts, logo_idx=logo_idx,
-                                 at_ms=t)
+                                 at_ms=t, sticker_indices=sticker_indices)
         chains += ov
         chains.append(f"[{cur}]format=yuv420p[vout]")
         _write_graph(cwd, ";\n".join(chains), files)

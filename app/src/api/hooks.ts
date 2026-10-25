@@ -63,6 +63,15 @@ export function useInstallBundle() {
   });
 }
 
+/** Lokal alfa uchun baholanmagan bazaviy ASR; katalog tasdig'idan alohida. */
+export function useBootstrapModel() {
+  const upsert = useJobs((s) => s.upsert);
+  return useMutation({
+    mutationFn: () => post<Job>("/v1/models:bootstrap", { consent: true }),
+    onSuccess: (job) => upsert(job),
+  });
+}
+
 function useModelAction<V>(fn: (v: V) => Promise<unknown>) {
   const qc = useQueryClient();
   return useMutation({
@@ -714,3 +723,24 @@ export function useEngineEvents() {
     };
   }, [upsert, qc]);
 }
+
+/** Refresh on focus/mount: custom guides depend on current engine settings. */
+export const useExportProfiles = () => useQuery({
+  queryKey: ["export-profiles"],
+  queryFn: () => get<{ profiles: import("./types").ExportProfile[] }>("/v1/export-profiles"),
+  staleTime: 0,
+});
+
+export const useCheckExportProfile = () => useMutation({
+  mutationFn: (timeline: MontageTimeline) => post<import("./types").ProfileEvaluation>("/v1/export-profiles:check", { timeline }),
+});
+
+/** Read-only evaluation of the full draft, including server-owned classification rules. */
+export const useExportProfileEvaluation = (timeline: MontageTimeline, enabled = true) => useQuery({
+  queryKey: ["export-profile-check", timeline],
+  queryFn: () => post<import("./types").ProfileEvaluation>("/v1/export-profiles:check", { timeline }),
+  enabled,
+  staleTime: 0,
+  gcTime: 30_000,
+  retry: false,
+});

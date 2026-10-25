@@ -63,12 +63,23 @@ def download(
 ) -> Path:
     if not urls:
         raise DownloadError("URL yo'q")
+    # A verified completed asset is usable offline, including on interrupted-install retry.
+    if (dest.is_file() and sha256 is not None
+            and (size_bytes is None or dest.stat().st_size == size_bytes)
+            and sha256_file(dest).lower() == sha256.lower()):
+        if progress:
+            progress(dest.stat().st_size, size_bytes)
+        return dest
     dest.parent.mkdir(parents=True, exist_ok=True)
     if size_bytes is not None:
         free = shutil.disk_usage(dest.parent).free
-        if free < size_bytes * 1.05:
+        partial = dest.with_suffix(dest.suffix + ".part")
+        remaining = max(0, size_bytes - (partial.stat().st_size if partial.exists() else 0))
+        if free < remaining * 1.05:
             raise DownloadError("diskda joy yetarli emas")
     part = dest.with_suffix(dest.suffix + ".part")
+    if size_bytes is not None and part.exists() and part.stat().st_size > size_bytes:
+        part.unlink()  # impossible resume offset; retry from a clean partial, preserving dest
     own = client is None
     client = client or httpx.Client(timeout=httpx.Timeout(30.0, read=120.0))
     errors: list[str] = []
@@ -91,5 +102,7 @@ def download(
         if got.lower() != sha256.lower():
             part.unlink(missing_ok=True)
             raise DownloadError("sha256 mos emas - fayl buzilgan yoki almashtirilgan")
+    if progress:
+        progress(part.stat().st_size, size_bytes)
     os.replace(part, dest)
     return dest

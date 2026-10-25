@@ -48,7 +48,7 @@ class HighlightConfig(BaseModel):
 
 
 class SubtitleSafeZone(BaseModel):
-    """Meta 9:16 xavfsiz zonasi (TZ 9-bo'lim, manba: hopperhq.com)."""
+    """Conservative Lahza safe guides based on ads guidance, not universal organic rules."""
 
     top_pct: float = 0.14
     bottom_pct: float = 0.35

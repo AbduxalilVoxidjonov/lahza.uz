@@ -3,13 +3,14 @@ import { memo, useRef, useState, type MouseEvent } from "react";
 
 import { useFx, useObjectUrl, useSourceThumb } from "../../api/hooks";
 import type { MontageTimeline, VideoItem } from "../../api/types";
+import { useEditorT } from "../../i18n/editor-extra";
 import { useT } from "../../i18n";
 import { useInView } from "../../lib/useInView";
 import { fxName, itemStarts, outDur, timelineDuration } from "../../lib/montage";
 import { useSettings } from "../../store/settings";
 import { fmtTime, fmtTimePrecise } from "../ui";
 
-export type Sel = { type: "video" | "text"; id: string } | null;
+export type Sel = { type: "video" | "text" | "sticker"; id: string } | null;
 
 const pct = (ms: number, total: number) => `${(Math.max(0, ms) / Math.max(1, total)) * 100}%`;
 
@@ -73,6 +74,7 @@ export function MontageTrack({ tl, montageId, now, onSeek, selected, onSelect }:
   onSelect: (s: Sel) => void;
 }) {
   const t = useT();
+  const et = useEditorT();
   const fx = useFx();
   const locale = useSettings((s) => s.locale);
   const [zoom, setZoom] = useState(1);
@@ -133,6 +135,17 @@ export function MontageTrack({ tl, montageId, now, onSeek, selected, onSelect }:
             {tl.captions.enabled && tl.captions.words.length > 0 && (
               <span className="mt-captions" aria-label={t("tpl.captions")} title={t("tpl.captions")} />
             )}
+          </div>
+          <div className="mt-lane mt-lane-sm" role="group" aria-label={et("stickers")}>
+            <span className="mt-lane-name">{et("stickers")}</span>
+            {[...(tl.stickers ?? [])].sort((a, b) => a.layer - b.layer).map(x => <button key={x.id} type="button"
+              className={`mt-text${selected?.type === "sticker" && selected.id === x.id ? " active" : ""}`}
+              style={{ left: pct(x.start_ms, total), width: pct(x.end_ms - x.start_ms, total) }}
+              aria-pressed={selected?.type === "sticker" && selected.id === x.id}
+              title={`${x.path} · ${x.start_ms}–${x.end_ms} ms · ${x.layer}`}
+              onClick={e => { e.stopPropagation(); onSelect({ type: "sticker", id: x.id }); onSeek(x.start_ms); }}>
+              ◇ {x.path.split(/[\\/]/).pop()}
+            </button>)}
           </div>
           <div className="mt-lane mt-lane-sm" role="group" aria-label={t("mon.trackMusic")}>
             <span className="mt-lane-name">{t("mon.trackMusic")}</span>

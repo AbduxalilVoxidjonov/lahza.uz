@@ -33,7 +33,7 @@ switch ($Cmd) {
   }
   "test" {
     Test-Engine
-    Push-Location "$Root\app"; try { Invoke-Checked { npm run typecheck } } finally { Pop-Location }
+    Push-Location "$Root\app"; try { Invoke-Checked { node --test tests/*.test.mjs }; Invoke-Checked { npm run typecheck } } finally { Pop-Location }
   }
   "test-offline" {
     $env:LAHZA_NO_NETWORK = "1"
@@ -47,7 +47,7 @@ switch ($Cmd) {
     Invoke-Lint
     $env:LAHZA_NO_NETWORK = "1"
     try { Test-Engine } finally { Remove-Item Env:LAHZA_NO_NETWORK }
-    Push-Location "$Root\app"; try { Invoke-Checked { npm run build } } finally { Pop-Location }
+    Push-Location "$Root\app"; try { Invoke-Checked { node --test tests/*.test.mjs }; Invoke-Checked { npm run build } } finally { Pop-Location }
   }
   "engine" {
     $env:LAHZA_DEV = "1"; $env:LAHZA_TOKEN = "dev-token"

@@ -38,7 +38,7 @@
     ],
     "externalBin": ["binaries/lahza-engine"],
     "resources": {
-      "../../catalog/catalog.json": "catalog/catalog.json",
+      "../../build/sidecar/catalog/": "catalog/",
       "resources/bin/": "bin/",
       "../../LICENSES-THIRD-PARTY.md": "LICENSES-THIRD-PARTY.md"
     },

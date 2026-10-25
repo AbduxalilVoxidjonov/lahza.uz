@@ -2,7 +2,29 @@
 
 Uzun o'zbekcha podkast va videolardan eng qiziq lahzalarni AI yordamida topib, 9:16 formatdagi, o'zbekcha subtitrli Instagram Reels kliplarini yasaydigan **to'liq oflayn** desktop dastur — macOS (Apple Silicon) va Windows uchun. Video kompyuterdan chiqmaydi; modellar bir marta katalogdan, kompyuterga mos ravishda yuklanadi.
 
-> **Holat: M2 desktop alfa (kod darajasida), R0 kutilmoqda.** Engine testlari: **327 passed, 2 skipped** (libass'siz FFmpeg) — `make test`; `ruff` toza; UI typecheck + build o'tadi. Ishlaydi: import, VAD, imlo, tinish tiklash, gaplar, Lite highlight, reframe (avtomatik split, kalit kadrlar, sahna kesimlari), ASS/SRT/VTT subtitr, FFmpeg render, eksport navbati, `.lzpack`, diagnostika, to'liq Engine API; **video shablonlar va montaj** (6 o'rnatilgan shablon, 22 FX plagin, Lahza Timeline, deterministik reja, render, `_edl.json`); UI'da transkript muharriri, matn orqali montaj, timeline, preview, shablonlar galereyasi va montaj muharriri, model menejeri, 4 til. **R0 ga bog'liq:** haqiqiy ASR/LLM/VAD/aligner/pyannote/BlazeFace modellari bilan o'lchov (kod tayyor), katalogda `approved` modellar, runtime'lar, imzolash, real shriftlar, libass'li render sinovi. CI workflow'lari ([`.github/workflows/`](.github/workflows/)) yozilgan, hali ishga tushirilmagan. Batafsil: [`docs/02-yol-xaritasi.md`](docs/02-yol-xaritasi.md).
+**Lokal alfa ustida amaliy tekshiruv (2026-10-24):** CPU ASR bootstrap va boshlash oynasidan model yuklash, libass'li LGPL FFmpeg, Inter shrifti va Mac `.app` yig'ish yo'li qo'shildi. Haqiqiy o'zbekcha videoda texnik eksport ishladi, lekin oddiy Whisper base transkripti sifatsiz chiqdi — bu model sifat tasdig'i emas. Joriy ko'rsatmalar: [lokal modellar](docs/local-models.md), [render](docs/local-render.md), [desktop build](docs/local-desktop.md). [Tashqi montaj fayllari](docs/13-external-assets.md): `.cube` LUT qo'llanadi, SRT/preset/MOGRT ma'lumotlari tekshiriladi; Adobe native plaginlarini Adobe'siz bajarish qo'llanmaydi.
+
+**Yangi lokal imkoniyatlar:** stikerlar (PNG/WebP/GIF), caption/SRT, stop-kadr va o'rnatiladigan `.lahzaskill` montaj retseptlari. NavAI Uzbek small bilan haqiqiy videoda 318 so'z, 3 klip va subtitrli eksport tekshirildi; transkript hali tahrir talab qiladi. Amaliy holat va cheklovlar: [lokal alfa qaydi](docs/local-alpha.md).
+
+**AI montajning birinchi bosqichi:** haqiqiy lokal Qwen3 modelidan qat'iy reja,
+tekshiriladigan executor va undo bilan draftga qo'llash qo'shildi. Model taklifi
+ma'no jihatdan xato bo'lishi mumkin; qo'llashdan oldin ko'rib chiqiladi.
+O'rnatish: `make setup-local-llm` (~2.5 GB, ixtiyoriy tarmoq amali).
+[AI yordamchi](docs/local-ai-editing.md) · [yo'l xaritasi](docs/14-agentic-roadmap.md).
+Erkin o'zbekcha promptdan to'g'ri reja va 12 soniyali MP4/SRT olindi; ayrim
+iboralarda ("yoq"/"yo'q") model adashadi, shuning uchun reja avtomatik qo'llanmaydi.
+Shu model LLM highlight uchun bo'sh javob berdi — highlight Lite rejimda qoladi.
+
+Tejamkor montaj namunasi (matndan kesish, VAD tozalash, bir o'tishli render,
+alohida test bilan): [`examples/efficient_pipeline/`](examples/efficient_pipeline/README.md).
+
+```sh
+make setup-local   # Mac: bog'liqliklar, FFmpeg, boshlang'ich model (internetdan yuklaydi)
+make build-local   # lokal .app
+make smoke-local VIDEO=/absolute/podcast.mp4
+```
+
+> **Holat: lokal alfa.** Manba testlari: engine **640 passed, 8 skipped** (paket tekshiruvlari alohida opt-in bajariladi), UI **68 passed**, Adobe plaginlari **26 + 35 passed**; Ruff va UI build o'tadi. Apple Silicon macOS 27+ uchun lokal `.app` yig'ildi. Haqiqiy NavAI small bilan transkripsiya va subtitrli render tekshirildi; o'zbekcha aniqlik hali etalon bilan baholanmagan. Windows o'rnatuvchisi, eski macOS versiyalari, uzoq video chidamliligi va production imzolash hali tugallanmagan. Batafsil: [`docs/local-alpha.md`](docs/local-alpha.md), [`docs/02-yol-xaritasi.md`](docs/02-yol-xaritasi.md).
 >
 > Foydalanuvchi qo'llanmasi: [`docs/qollanma.md`](docs/qollanma.md).
 >

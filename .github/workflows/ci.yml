@@ -124,6 +124,7 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - run: node --test tests/*.test.mjs
       - run: npm run typecheck
       - run: npm run build
       - uses: actions/upload-artifact@v4
@@ -151,6 +152,12 @@ jobs:
         with:
           name: ui-dist
           path: app/dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - run: pip install -e engine
+      - name: Local signed catalog (no PyInstaller)
+        run: python scripts/build_sidecar.py --catalog-only
       - name: Sidecar o'rinbosari (faqat check uchun; haqiqiy fayl `sidecar` jobida)
         shell: bash
         run: |
@@ -181,7 +188,7 @@ jobs:
           cache: pip
           cache-dependency-path: engine/pyproject.toml
       - uses: dtolnay/rust-toolchain@stable # target triple uchun (rustc -vV)
-      - run: pip install -e "engine[dev,onnx,fonts]"
+      - run: pip install -e "engine[dev,desktop]"
       - run: python scripts/build_sidecar.py --clean
       - run: python scripts/build_sidecar.py --verify
       - name: Tutun testi (sidecar ishga tushadimi)
@@ -196,4 +203,5 @@ jobs:
           path: |
             app/src-tauri/binaries/lahza-engine-*
             build/sidecar/sidecar.json
+            build/sidecar/catalog/
           retention-days: 14

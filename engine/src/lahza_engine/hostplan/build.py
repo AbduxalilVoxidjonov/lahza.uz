@@ -512,6 +512,9 @@ def plan_from_montage(tl, montage_id: str, name: str, out_dir: Path, settings: S
         if msg not in notes:
             notes.append(msg)
 
+    if tl.stickers:
+        note("Stiker qatlamlari Adobe host-rejasiga o'tkazilmagan; lokal MP4 renderda saqlanadi.")
+
     def plugin(pid: str, params: dict | None, where: str):
         try:
             m = get_plugin(pid)

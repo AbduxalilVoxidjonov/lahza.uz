@@ -15,7 +15,7 @@ import time
 import traceback
 import uuid
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, field, fields
 from typing import Any
 
@@ -45,12 +45,13 @@ class Job:
     result: dict[str, Any] | None = None
     meta: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
+    on_change: Callable[[Job], None] | None = field(default=None, repr=False)
     cancel: threading.Event = field(default_factory=threading.Event, repr=False)
 
     def public(self) -> dict[str, Any]:
         # asdict() threading.Event'ni nusxalay olmaydi - maydonlar qo'lda olinadi.
         return {f.name: copy.deepcopy(getattr(self, f.name)) for f in fields(self)
-                if f.name != "cancel"}
+                if f.name not in ("cancel", "on_change")}
 
 
 class JobManager:
@@ -63,22 +64,35 @@ class JobManager:
         self._io = ThreadPoolExecutor(max_workers=1, thread_name_prefix="io")
         self._lock = threading.Lock()
 
-    def submit(self, kind: str, fn: Callable[[Job], dict[str, Any] | None], **meta: Any) -> Job:
-        job = Job(id=uuid.uuid4().hex[:12], kind=kind, meta=meta)
+    def submit(self, kind: str, fn: Callable[[Job], dict[str, Any] | None],
+               *, on_change: Callable[[Job], None] | None = None, **meta: Any) -> Job:
+        job = Job(id=uuid.uuid4().hex[:12], kind=kind, meta=meta, on_change=on_change)
         with self._lock:
             self.jobs[job.id] = job
         pool = {"export": self._export, "install": self._io, "pack": self._io}.get(kind, self._heavy)
-        pool.submit(self._run, job, fn)
-        self.bus.publish("job", job=job.public())
+        self._notify(job)
+        future = pool.submit(self._run, job, fn)
+
+        def cancelled_before_run(future: Future) -> None:
+            if future.cancelled():
+                job.status = "cancelled"
+                self._notify(job)
+
+        future.add_done_callback(cancelled_before_run)
         return job
+
+    def _notify(self, job: Job) -> None:
+        if job.on_change is not None:
+            job.on_change(job)
+        self.bus.publish("job", job=job.public())
 
     def _run(self, job: Job, fn: Callable[[Job], dict[str, Any] | None]) -> None:
         if job.cancel.is_set():
             job.status = "cancelled"
-            self.bus.publish("job", job=job.public())
+            self._notify(job)
             return
         job.status = "running"
-        self.bus.publish("job", job=job.public())
+        self._notify(job)
         try:
             job.result = fn(job) or {}
             job.status, job.progress = "done", 1.0
@@ -90,11 +104,11 @@ class JobManager:
             job.meta["trace"] = traceback.format_exc(limit=8)
             # NFR-02: logga faqat turi va joyi; xabar matnida transkript bo'lishi mumkin.
             log.error("vazifa %s (%s) xato bilan tugadi: %s", job.id, job.kind, type(e).__name__)
-        self.bus.publish("job", job=job.public())
+        self._notify(job)
 
     def progress(self, job: Job, stage: str, frac: float) -> None:
         job.stage, job.progress = stage, round(frac, 4)
-        self.bus.publish("job", job=job.public())
+        self._notify(job)
 
     def list_jobs(self, kind: str | None = None) -> list[Job]:
         """Yangisi oldin."""

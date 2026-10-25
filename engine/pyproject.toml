@@ -23,6 +23,8 @@ dependencies = [
 [project.optional-dependencies]
 # Og'ir ML backendlar ixtiyoriy: ular faqat kerakli platformada o'rnatiladi.
 asr-ctranslate2 = ["faster-whisper>=1.0"]
+# Tested local alpha set: PyAV 19 rejects faster-whisper 1.2.1's metadata_errors argument.
+desktop = ["faster-whisper==1.2.1", "av==16.1.0", "onnxruntime>=1.18", "fonttools>=4.50"]
 vad = ["silero-vad>=5.1"]
 onnx = ["onnxruntime>=1.18"]
 fonts = ["fonttools>=4.50"]
@@ -39,7 +41,7 @@ lahza = "lahza_engine.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*", "fx/builtin/*.json", "templates/builtin/*.json"]
+lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*", "fx/builtin/*.json", "templates/builtin/*.json", "stickers/assets/*", "editing_skills/builtin/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

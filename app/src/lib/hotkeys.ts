@@ -13,9 +13,9 @@ export function isTypingTarget(target: EventTarget | null): boolean {
  */
 export type HotkeyMap = Record<string, (e: KeyboardEvent) => void>;
 
-function keyName(e: KeyboardEvent): string {
+export function keyName(e: KeyboardEvent): string {
   const base = e.code === "Space" ? "space" : e.key.toLowerCase();
-  return (e.metaKey || e.ctrlKey ? "mod+" : "") + (e.shiftKey && base.length > 1 ? "shift+" : "") + base;
+  return (e.metaKey || e.ctrlKey ? "mod+" : "") + (e.shiftKey && (base.length > 1 || e.metaKey || e.ctrlKey) ? "shift+" : "") + base;
 }
 
 export function useHotkeys(map: HotkeyMap, enabled = true) {

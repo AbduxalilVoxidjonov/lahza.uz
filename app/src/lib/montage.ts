@@ -7,6 +7,8 @@ import type {
   Template,
   TemplateCategory,
   VideoItem,
+  TextItem,
+  StickerItem,
 } from "../api/types";
 import { DEFAULT_STYLE } from "../api/types";
 import type { Locale } from "../i18n";
@@ -138,8 +140,52 @@ export function templateProblems(t: Template): ("tpl.err.name" | "tpl.err.shots"
 /** Saqlangan timeline'ning qisqa izi (preview keshi kaliti uchun). */
 export function timelineRev(tl: MontageTimeline | null | undefined): string {
   if (!tl) return "";
-  const s = JSON.stringify([tl.format, tl.video, tl.text, tl.music, tl.color, tl.brand, tl.captions.enabled, tl.captions.style, tl.audio]);
+  const s = JSON.stringify([tl.target_platform ?? "custom", tl.format, tl.video, tl.text, tl.stickers ?? [], tl.music, tl.color, tl.brand, tl.captions.enabled, tl.captions.style, tl.captions.words, tl.audio]);
   let h = 0;
   for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
   return `${s.length}:${h}`;
+}
+
+/** Output-local freeze time: speed is already reflected by outDur/itemStarts. */
+export function freezeAt(item: VideoItem, start: number, playhead: number, duration: number): VideoItem {
+  const local = Math.round(playhead - start);
+  if (local < 0 || local >= outDur(item)) return item;
+  const dur = Math.round(clamp(duration, 100, 5000));
+  return { ...item, user_edited: true, fx: [...item.fx, {
+    plugin: "uz.lahza.speed.freeze", at_ms: local, dur_ms: dur, params: { dur_ms: dur }, source: "qolda",
+  }] };
+}
+
+/** SRT cues remain phrases; never manufacture per-word/karaoke timing. */
+export function captionCues(value: unknown): TextItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((cue: unknown) => {
+    if (!cue || typeof cue !== "object") return [];
+    const c = cue as Record<string, unknown>;
+    if (typeof c.start_ms !== "number" || !Number.isInteger(c.start_ms) || c.start_ms < 0 ||
+        typeof c.end_ms !== "number" || !Number.isInteger(c.end_ms) || c.end_ms <= c.start_ms || typeof c.text !== "string" || !c.text.trim()) return [];
+    return [{ id: newId("caption"), start_ms: c.start_ms, end_ms: c.end_ms, text: c.text,
+      kind: "title" as const, position: "lower" as const, animation: "none" as const, background: null, font_size: null }];
+  });
+}
+
+/** Match the engine bounds for every numeric sticker edit, including non-finite input. */
+export function normalizeSticker(item: StickerItem): StickerItem {
+  const bounded = (v: number, min: number, max: number, fallback: number) => clamp(Number.isFinite(v) ? v : fallback, min, max);
+  const start_ms = Math.round(bounded(item.start_ms, 0, Number.MAX_SAFE_INTEGER - 1, 0));
+  return { ...item, start_ms,
+    end_ms: Math.round(bounded(item.end_ms, start_ms + 1, Number.MAX_SAFE_INTEGER, start_ms + 1)),
+    x: bounded(item.x, 0, 1, 0.5), y: bounded(item.y, 0, 1, 0.5),
+    width: bounded(item.width, 0.02, 2, 0.3), height: bounded(item.height, 0.02, 2, 0.3),
+    rotation: bounded(item.rotation, -180, 180, 0), opacity: bounded(item.opacity, 0, 1, 1),
+    layer: Math.round(bounded(item.layer, 0, 1000, 0)),
+  };
+}
+
+/** Uniform scaling stays within the engine box bounds; the renderer fits the image inside. */
+export function scaleStickerSize(width: number, height: number, scale: number): { width: number; height: number } {
+  const w = clamp(Number.isFinite(width) ? width : 0.3, 0.02, 2);
+  const h = clamp(Number.isFinite(height) ? height : 0.3, 0.02, 2);
+  const factor = clamp(Number.isFinite(scale) ? scale : 1, Math.max(0.02 / w, 0.02 / h), Math.min(2 / w, 2 / h));
+  return { width: clamp(w * factor, 0.02, 2), height: clamp(h * factor, 0.02, 2) };
 }

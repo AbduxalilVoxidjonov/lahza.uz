@@ -1,0 +1,18 @@
+Inter upright variable font, unmodified (renamed file only).
+Family: Inter; axes: optical size and weight.
+Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter).
+License: SIL Open Font License 1.1; full text in OFL.txt alongside this file.
+
+Source repository: https://github.com/google/fonts
+Commit: e7db6ca603fd4862010383ff17ffd6cc4ffac1c0
+Font: https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter/Inter%5Bopsz,wght%5D.ttf
+License: https://raw.githubusercontent.com/google/fonts/e7db6ca603fd4862010383ff17ffd6cc4ffac1c0/ofl/inter/OFL.txt
+
+SHA-256 Inter.ttf:
+29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031
+SHA-256 OFL.txt:
+5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57
+
+The font covers lahza_engine.text.orthography.REQUIRED_GLYPHS, including
+U+02BB/U+02BC, Uzbek Cyrillic letters, and the proposed Latin alphabet letters.
+The repository's existing subtitle/fonts/* package-data rule includes these files.

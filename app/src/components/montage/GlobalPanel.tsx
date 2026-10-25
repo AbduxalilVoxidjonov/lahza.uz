@@ -9,6 +9,7 @@ import { ErrorText } from "../ui";
 import { StyleTab } from "../editor/StyleTab";
 import { PathPicker } from "../PathPicker";
 import { FxParamsForm, FxSelect, useManifest } from "./FxControls";
+import { ExportProfilePanel } from "./ExportProfilePanel";
 import { Check, NumField, Section, SelectField, Slider } from "./fields";
 
 const LOGO_POS: LogoPosition[] = ["top_left", "top_right", "bottom_left", "bottom_right"];
@@ -108,6 +109,7 @@ export function GlobalPanel({ tl, edit, montageId }: { tl: MontageTimeline; edit
   const colorManifest = useManifest(tl.color?.plugin);
   return (
     <div className="stack">
+      <ExportProfilePanel tl={tl} edit={edit} />
       <Section title={t("tpl.color")}>
         <FxSelect label={t("tpl.plugin")} kinds={["color"]} value={tl.color?.plugin} allowNone
                   onChange={(plugin) => edit((x) => ({

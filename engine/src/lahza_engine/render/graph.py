@@ -7,7 +7,7 @@ loudnorm/fade -> enkoder.
 * Barcha yordamchi fayllar (graph.txt, *.cmd, subs.ass) ish papkasida; ffmpeg shu papkada
   (cwd) ishga tushiriladi va fayllarga qisqa nom bilan murojaat qiladi - Windows yo'llaridagi
   ':' va '\\' ni filtergraph ichida ekranlash muammosi yo'q.
-* Kirishda -ss bilan tez qidiruv; trim vaqtlari shu nuqtaga nisbatan.
+* Input seeking retains absolute container timestamps (copyts/seek_timestamp).
 * Logotip grafga fayl yo'li sifatida emas (`movie` filtri emas), qo'shimcha `-i` kirish (1:v)
   sifatida beriladi.
 * libass yo'q yig'mada (`ass` filtri yo'q) render LibassMissing beradi yoki allow_no_subs=True
@@ -16,6 +16,7 @@ loudnorm/fade -> enkoder.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field, replace
 from pathlib import Path
@@ -156,10 +157,29 @@ def build_graph(job: RenderJob) -> tuple[str, dict[str, str], float]:
     concat_in = []
 
     for i, p in enumerate(pieces):
-        s = (p.src_start_ms - seek_ms) / 1000
-        e = (p.src_end_ms - seek_ms) / 1000
-        v = f"[0:v]trim=start={s:.3f}:end={e:.3f},setpts=PTS-STARTPTS"
-        a = f"[0:a]atrim=start={s:.3f}:end={e:.3f},asetpts=PTS-STARTPTS[a{i}]"
+        s = p.src_start_ms / 1000
+        e = p.src_end_ms / 1000
+        duration = e - s
+        # Never rebase each stream to STARTPTS: the first decoded image/sample
+        # may occur after the requested boundary. A finite black clock also
+        # handles pieces containing no video frames at all.
+        chains.append(
+            f"color=c=black:s={job.src_w}x{job.src_h}:r={job.fps:g}:d={duration:.6f},"
+            f"setsar=1[clock{i}]"
+        )
+        chains.append(
+            f"[0:v]trim=start={s:.6f}:end={e:.6f},"
+            f"setpts=PTS-{s:.6f}/TB,setsar=1[image{i}]"
+        )
+        v = (
+            f"[clock{i}][image{i}]overlay=eof_action=pass:repeatlast=0,"
+            f"trim=duration={duration:.6f},setpts=PTS-STARTPTS"
+        )
+        a = (
+            f"[0:a]atrim=start={s:.6f}:end={e:.6f},asetpts=PTS-{s:.6f}/TB,"
+            f"aresample={job.cfg.audio_rate}:async=1:first_pts=0,"
+            f"apad,atrim=duration={duration:.6f},asetpts=N/SR/TB[a{i}]"
+        )
         lay = p.layout.layout
         if lay in (Layout.FOCUS, Layout.MANUAL):
             keys = densify(_keys_for_piece(p.layout.keys, p), step_ms)
@@ -235,8 +255,10 @@ def build_graph(job: RenderJob) -> tuple[str, dict[str, str], float]:
         if job.cfg.loudnorm_target_lufs is not None:
             # Bir o'tishli EBU R128 (TZ 10-bo'lim). TP/LRA - keng tarqalgan ijtimoiy tarmoq qiymatlari.
             afx += f"loudnorm=I={job.cfg.loudnorm_target_lufs:g}:TP=-1.5:LRA=11,"
-        afx += f"afade=t=in:d={fade:.3f},afade=t=out:st={max(0.0, dur - fade):.3f}:d={fade:.3f}"
-        afx += f",aresample={job.cfg.audio_rate}"
+        if fade > 0:
+            afx += (f"afade=t=in:d={fade:.3f},"
+                    f"afade=t=out:st={max(0.0, dur - fade):.3f}:d={fade:.3f},")
+        afx += f"aresample={job.cfg.audio_rate}"
         chains.append(f"[ac]{afx}[aout]")
     return ";\n".join(chains), files, seek_ms / 1000
 
@@ -261,9 +283,23 @@ def _prepare_workdir(job: RenderJob, graph: str, files: dict[str, str]) -> None:
 
 
 def _inputs(job: RenderJob, ffmpeg: str, seek_s: float, span_s: float | None) -> list[str]:
-    args = ["-ss", f"{seek_s:.3f}"]
+    # MOV/MP4 seeking before the first video packet can skip earlier audio,
+    # even with -ss 0. Query headers only; never scan/decode the entire input.
+    can_seek = False
+    if seek_s > 0 and job.src.exists():
+        metadata = run([find_tool("ffprobe"), "-v", "error", "-select_streams", "v:0",
+                        "-show_entries", "stream=start_time", "-of", "json", job.src])
+        if metadata.returncode:
+            raise RuntimeError(f"cannot query video time origin: {metadata.stderr.strip()}")
+        streams = json.loads(metadata.stdout).get("streams", [])
+        start = streams[0].get("start_time") if streams else None
+        # Unknown origins conservatively use bounded decoding from the beginning.
+        can_seek = start not in (None, "N/A") and seek_s > max(0.0, float(start))
+    args = ["-copyts"]
+    if can_seek:
+        args += ["-seek_timestamp", "1", "-ss", f"{seek_s:.3f}"]
     if span_s is not None:
-        args += ["-t", f"{span_s:.3f}"]
+        args += ["-t", f"{span_s + (0 if can_seek else seek_s):.3f}"]
     args += ["-i", str(job.src.resolve())]
     if job.logo is not None:
         args += ["-i", str(Path(job.logo).resolve())]
@@ -280,8 +316,12 @@ def build_command(job: RenderJob, ffmpeg: str) -> list[str]:
         ffmpeg, "-y", "-hide_banner", "-v", "error", "-stats",
         *_inputs(job, ffmpeg, seek_s, span_s),
         "-map", "[vout]", "-map", "[aout]",
+        # concat uses a microsecond time base; MPEG-4 cannot encode that denominator.
+        # Keep the output at the requested frame rate for every encoder.
+        "-r", f"{job.fps:g}",
         *job.encoder.args,
         "-c:a", "aac", "-b:a", f"{job.cfg.audio_bitrate_kbps}k", "-ac", "2",
+        "-t", f"{job.timeline.duration_ms / 1000:.6f}",
         "-movflags", "+faststart",
         str(job.out.resolve()),
     ]

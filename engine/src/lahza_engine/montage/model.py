@@ -15,6 +15,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from lahza_engine.render.profiles import Platform, get_profile
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.types import Word
 
@@ -157,13 +158,38 @@ class Provenance(BaseModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class StickerItem(BaseModel):
+    """Rasm/GIF qatlam; koordinatalar chiqish kadriga nisbatan, x/y — markaz."""
+
+    id: str = Field(min_length=1, max_length=128)
+    path: str = Field(min_length=1, max_length=4096)
+    start_ms: int = Field(ge=0)
+    end_ms: int = Field(gt=0)
+    x: float = Field(0.5, ge=0, le=1, allow_inf_nan=False)
+    y: float = Field(0.5, ge=0, le=1, allow_inf_nan=False)
+    width: float = Field(0.25, ge=0.02, le=2, allow_inf_nan=False)
+    height: float = Field(0.25, ge=0.02, le=2, allow_inf_nan=False)
+    rotation: float = Field(0, ge=-180, le=180, allow_inf_nan=False)
+    opacity: float = Field(1, ge=0, le=1, allow_inf_nan=False)
+    layer: int = Field(0, ge=0, le=1000)
+    animation: Literal["none", "fade", "pop"] = "none"
+
+    @model_validator(mode="after")
+    def _range(self) -> StickerItem:
+        if self.end_ms <= self.start_ms:
+            raise ValueError("stiker tugashi boshlanishidan keyin bo'lishi kerak")
+        return self
+
+
 class MontageTimeline(BaseModel):
     schema_: Literal["lahza.timeline/1"] = Field(TIMELINE_SCHEMA, alias="schema")
+    target_platform: Platform = "custom"
     format: Format = Field(default_factory=Format)
     media: dict[str, MediaRef] = Field(default_factory=dict)
     video: list[VideoItem] = Field(default_factory=list)
     text: list[TextItem] = Field(default_factory=list)
     music: list[MusicItem] = Field(default_factory=list)
+    stickers: list[StickerItem] = Field(default_factory=list, max_length=32)
     captions: Captions = Field(default_factory=Captions)
     brand: Brand = Field(default_factory=Brand)
     audio: AudioMix = Field(default_factory=AudioMix)
@@ -171,6 +197,17 @@ class MontageTimeline(BaseModel):
     provenance: Provenance = Field(default_factory=Provenance)
 
     model_config = {"populate_by_name": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _profile_format(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "format" not in data:
+            platform = data.get("target_platform", "custom")
+            if platform in ("instagram_reels", "youtube_shorts", "youtube_video"):
+                fmt = get_profile(platform).recommended_format
+                if fmt:
+                    return {**data, "format": fmt.model_dump()}
+        return data
 
     @model_validator(mode="after")
     def _refs(self) -> MontageTimeline:
@@ -189,6 +226,9 @@ class MontageTimeline(BaseModel):
                 raise ValueError(f"musiqa: noma'lum media '{mu.media}'")
         if self.video and self.video[0].transition_in is not None:
             raise ValueError("birinchi elementda o'tish bo'lmaydi")
+        sticker_ids = [s.id for s in self.stickers]
+        if len(set(sticker_ids)) != len(sticker_ids):
+            raise ValueError("takroriy stiker id")
         return self
 
     def item_starts(self) -> list[int]:

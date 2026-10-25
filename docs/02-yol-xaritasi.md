@@ -1,5 +1,12 @@
 # Yo'l xaritasi: 0 dan Pro gacha
 
+> **2026-10-24 lokal alfa yangilanishi:** NavAI Uzbek base bootstrap, qo'lda tanlangan
+> small + Silero oflayn modeli, libass/Inter, Apple Silicon `.app`, stikerlar,
+> caption/SRT, stop-kadr va o'rnatiladigan montaj skill'lari qo'shildi.
+> Haqiqiy 150 soniyalik videoda 318 so'z, 3 klip va sinxron subtitrli eksport sinovi
+> o'tdi. Bu G0/G1 sifat darvozalarini yopmaydi: etalon WER, apparat matritsasi va
+> foydalanuvchi sinovlari hali kerak. Tafsilot: [lokal alfa](local-alpha.md).
+
 Ish oltita bosqichda boradi. Har bosqich o'lchanadigan **darvoza** (gate) bilan yopiladi: darvozadan o'tmasa, bosqich uzayadi va keyingisi boshlanmaydi. Muddatlar — jamoa tarkibiga bog'liq taxmin (TZ 19-bo'lim).
 
 ```mermaid

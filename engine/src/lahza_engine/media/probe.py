@@ -101,7 +101,8 @@ def probe(path: str | os.PathLike[str]) -> MediaInfo:
 def extract_wav(src: str | os.PathLike[str], dst: str | os.PathLike[str], rate: int = 16_000) -> Path:
     """ASR uchun 16 kHz mono PCM WAV."""
     ffmpeg = find_tool("ffmpeg")
-    r = run([ffmpeg, "-y", "-v", "error", "-i", src, "-vn", "-ac", "1", "-ar", str(rate),
+    r = run([ffmpeg, "-y", "-v", "error", "-copyts", "-i", src, "-vn",
+             "-af", f"aresample={rate}:async=1:first_pts=0", "-ac", "1", "-ar", str(rate),
              "-c:a", "pcm_s16le", dst])
     if r.returncode != 0:
         raise MediaError(f"audio ajratib bo'lmadi: {r.stderr.strip()[:500]}")

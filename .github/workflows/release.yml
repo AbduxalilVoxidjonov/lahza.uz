@@ -81,7 +81,7 @@ jobs:
           fi
 
       - name: Engine bog'liqliklari
-        run: pip install -e "engine[dev,onnx,fonts]"
+        run: pip install -e "engine[dev,desktop]"
 
       - name: Engine testlari (reliz darvozasi)
         working-directory: engine
@@ -91,6 +91,8 @@ jobs:
         # libass testlari CI'da (engine jobida) to'liq ishlaydi; bu yerda runtime'lar PATH'da emas.
 
       - name: Engine sidecar (toza build + sha256)
+        env:
+          LAHZA_CATALOG_PUBKEY: ${{ secrets.LAHZA_CATALOG_PUBKEY }}
         run: |
           python scripts/build_sidecar.py --clean
           python scripts/build_sidecar.py --verify
@@ -119,6 +121,7 @@ jobs:
           # Windows kod imzolash: sertifikat tanlangach (docs/10) shu yerga qo'shiladi - ANIQLANSIN.
         run: |
           npm ci
+          node --test tests/*.test.mjs
           npm run tauri build
 
       - name: Staple tekshiruvi (macOS)

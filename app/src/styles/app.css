@@ -216,3 +216,36 @@ kbd { font-family: var(--mono); font-size: 11px; padding: 1px 5px; border: 1px s
 .mt-playhead { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1.5px solid #fff; pointer-events: none; z-index: 4; }
 .edl td { font-size: 12px; }
 @media (max-width: 960px) { .montage-editor { grid-template-columns: 1fr; } }
+
+/* Beginner workflow: one starting point, optional tools revealed on demand. */
+.quick-start { margin: 0 auto; padding-bottom: 36px; }
+.quick-start h1 { font-size: clamp(26px, 3vw, 38px); line-height: 1.2; }
+.quick-start h2, .quick-editor-head h2, .quick-export-head h2 { color: var(--text); text-transform: none; letter-spacing: 0; font-size: 18px; }
+.quick-steps { list-style: none; display: flex; flex-wrap: wrap; gap: 12px; padding: 0; margin: 0; color: var(--muted); font-size: 12px; }
+.quick-steps li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 24px; }
+.quick-steps [aria-current] { color: var(--accent); border-color: var(--accent); }
+.upload-start { align-items: center; padding: 32px 20px; border: 1px dashed var(--muted); border-radius: 12px; background: var(--bg); text-align: center; }
+.upload-start .btn.primary { padding: 13px 28px; font-size: 16px; }
+.upload-start form { width: 100%; }
+.upload-start form .input { flex: 1; min-width: 160px; }
+.upload-symbol { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: var(--panel-2); color: var(--accent); font-size: 28px; }
+.quick-details > summary, .nav-more > summary { cursor: pointer; color: var(--muted); padding: 10px 0; }
+.quick-details > summary:hover, .nav-more > summary:hover { color: var(--text); }
+.quick-details[open] > summary { margin-bottom: 12px; }
+.nav-more { padding: 0 10px; }
+.quick-editor-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.quick-export-head { margin-bottom: 18px; }
+[hidden] { display: none !important; }
+button:focus-visible, summary:focus-visible, a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; height: auto; min-height: 100%; }
+  .sidebar { border-right: 0; border-bottom: 1px solid var(--line); padding: 12px; }
+  .sidebar nav { flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .sidebar .brand { padding-bottom: 8px; }
+  .sidebar-foot { display: none; }
+  .main { padding: 20px 16px; overflow: visible; min-width: 0; }
+  .page-head { flex-wrap: wrap; }
+  .montage-editor { grid-template-columns: minmax(0, 1fr); }
+  .quick-start .row > .field { min-width: 0; width: 100%; }
+  .quick-start .tpl-grid-compact { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+}

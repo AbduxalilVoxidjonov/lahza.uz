@@ -197,10 +197,12 @@ def stage_highlight(ctx: StageContext) -> dict[str, Any]:
 def analysis_stages(settings: Settings) -> list[StageDef]:
     h = settings.highlight
     return [
-        StageDef("ingest", 1, stage_ingest, weight=1),
+        # v2: WAV preserves container-time leading silence instead of resetting audio alone.
+        StageDef("ingest", 2, stage_ingest, weight=1),
         StageDef("vad", 2, stage_vad, weight=1,
                  params=lambda c: {"vad": getattr(c.services["svc"].vad, "method", None)}),
-        StageDef("asr", 1, stage_asr, weight=10,
+        # v2: explicit decoder thresholds and punctuation-only hallucination filtering.
+        StageDef("asr", 2, stage_asr, weight=10,
                  model_id=lambda c: c.services["svc"].asr_model_id,
                  params=lambda c: {"hotwords": c.services.get("hotwords", [])}),
         StageDef("normalize", 2, stage_normalize, params=lambda c: c.services.get("lexicon_map", {})),

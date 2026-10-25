@@ -33,6 +33,7 @@ export function SourcePicker({ picked, onAdd, onRemoveKey }: {
   const modes: Mode[] = ["files", "clips", "episode"];
   return (
     <div className="stack">
+      <details className="quick-details"><summary>{t("quick.library")}</summary>
       <div className="tabs" role="tablist" aria-label={t("mon.srcKinds")}>
         {modes.map((m) => (
           <button key={m} type="button" role="tab" aria-selected={mode === m} className={`tab${mode === m ? " active" : ""}`}
@@ -41,6 +42,7 @@ export function SourcePicker({ picked, onAdd, onRemoveKey }: {
           </button>
         ))}
       </div>
+      </details>
       {mode === "files" && <FilesPicker onAdd={onAdd} />}
       {mode !== "files" && <ProjectPicker mode={mode} picked={picked} onAdd={onAdd} onRemoveKey={onRemoveKey} />}
     </div>
@@ -50,6 +52,8 @@ export function SourcePicker({ picked, onAdd, onRemoveKey }: {
 function FilesPicker({ onAdd }: { onAdd: (items: PickedSource[]) => void }) {
   const t = useT();
   const [path, setPath] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [picking, setPicking] = useState(false);
   const add = (paths: string[]) =>
     onAdd(paths.filter(Boolean).map((p) => {
       const source: MontageSource = { kind: "file", path: p };
@@ -57,17 +61,26 @@ function FilesPicker({ onAdd }: { onAdd: (items: PickedSource[]) => void }) {
     }));
   if (hasNativeDialog()) {
     return (
-      <div className="row">
-        <button type="button" className="btn"
-                onClick={() => void pickPaths({ title: t("mon.pickFiles"), extensions: VIDEO_EXTS, filterName: "Video" }).then(add)}>
+      <div className="upload-start stack">
+        <span className="upload-symbol" aria-hidden="true">↑</span>
+        <button type="button" className="btn primary" disabled={picking}
+                onClick={async () => {
+                  setPicking(true); setError(null);
+                  try { add(await pickPaths({ title: t("mon.pickFiles"), extensions: VIDEO_EXTS, filterName: "Video" })); }
+                  catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+                  finally { setPicking(false); }
+                }}>
           {t("mon.pickFiles")}
         </button>
         <span className="muted">{t("mon.pickFilesHint")}</span>
+        {error && <span className="error" role="alert">{error}</span>}
       </div>
     );
   }
   return (
-    <form className="row" style={{ flexWrap: "nowrap" }}
+    <div className="upload-start stack">
+    <p className="muted">{t("quick.browser")}</p>
+    <form className="row"
           onSubmit={(e) => {
             e.preventDefault();
             if (path.trim()) {
@@ -79,6 +92,7 @@ function FilesPicker({ onAdd }: { onAdd: (items: PickedSource[]) => void }) {
       <input id="mon-path" className="input mono" value={path} placeholder={t("mon.filePathPh")} onChange={(e) => setPath(e.target.value)} />
       <button className="btn" disabled={!path.trim()}>{t("mon.add")}</button>
     </form>
+    </div>
   );
 }
 

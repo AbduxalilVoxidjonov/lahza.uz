@@ -367,7 +367,7 @@ def test_captions_override_off_and_style() -> None:
     from lahza_engine.subtitle.style import StyleTemplate
 
     tl = plan(get_builtin("uz.lahza.tpl.podcast-hook"), [speech_source("p1")], captions=False)
-    assert not tl.captions.enabled and not tl.captions.words
+    assert not tl.captions.enabled and tl.captions.words  # retained for a later captions-on toggle
     st = StyleTemplate(name="Mening", font_size=50)
     tl2 = plan(get_builtin("uz.lahza.tpl.daily-story"), scene_sources(), captions=True, caption_style=st)
     assert tl2.captions.enabled and tl2.captions.style.name == "Mening"

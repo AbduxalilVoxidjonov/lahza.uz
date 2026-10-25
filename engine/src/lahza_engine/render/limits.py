@@ -1,7 +1,7 @@
-"""Platforma limitlari bo'yicha eksportdan oldingi tekshiruv (V1-6, TZ 10-bo'lim).
+"""Compatibility warning API for shared export profiles.
 
-Qiymatlar kodga yozilmaydi - `platform_limits.json` dan o'qiladi. null = aniqlanmagan
-(tekshirilmaydi). Natija - foydalanuvchiga ko'rsatiladigan o'zbekcha ogohlantirishlar.
+Production policy lives in profiles.py. Explicit legacy limits dictionaries remain
+supported for callers that supply their own rules; file size is advisory only there.
 """
 
 from __future__ import annotations
@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from functools import lru_cache
 from pathlib import Path
+
+from lahza_engine.render.profiles import evaluate_profile
 
 LIMITS_FILE = Path(__file__).resolve().parent / "platform_limits.json"
 DEFAULT_PLATFORM = "instagram_reels"
@@ -37,8 +39,12 @@ def check_limits(
     file_bytes: int | None = None,
     platform: str = DEFAULT_PLATFORM,
     limits: dict[str, dict] | None = None,
+    fps: float | None = None,
 ) -> list[str]:
-    lim = (limits or load_limits()).get(platform)
+    if limits is None:
+        result = evaluate_profile(platform, duration_ms, width, height, fps=fps)
+        return result.errors + result.warnings
+    lim = limits.get(platform)
     if lim is None:
         return []
     name = _NAMES.get(platform, platform)

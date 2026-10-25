@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter, Navigate, RouterProvider } from "react-router-dom";
 
-import { useEngineEvents, useModels } from "./api/hooks";
+import { useEngineEvents } from "./api/hooks";
 import { Shell } from "./components/Shell";
 import { ClipEditor } from "./pages/ClipEditor";
 import { Episode } from "./pages/Episode";
@@ -17,20 +17,16 @@ import { Settings } from "./pages/Settings";
 import { TemplateEditor } from "./pages/TemplateEditor";
 import { Templates } from "./pages/Templates";
 import { Transcript } from "./pages/Transcript";
-import { useDocumentLang, useT } from "./i18n";
+import { useDocumentLang } from "./i18n";
 import "./styles/app.css";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
 });
 
-/** ASR o'rnatilgan bo'lsa - loyihalar, aks holda onboarding (TZ 13-bo'lim). */
+/** Montajni boshlash uchun ASR modeli talab qilinmaydi. */
 function Home() {
-  const t = useT();
-  const models = useModels();
-  if (models.isLoading) return <div className="center" role="status">{t("engine.starting")}</div>;
-  const hasAsr = !!models.data?.defaults["asr"];
-  return <Navigate to={hasAsr ? "/projects" : "/onboarding"} replace />;
+  return <Navigate to="/montages/new" replace />;
 }
 
 /** WebSocket hodisalari ilova bo'ylab bir marta ulanadi (onboarding ham shu jumladan). */

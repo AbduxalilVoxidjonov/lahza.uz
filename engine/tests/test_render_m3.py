@@ -126,11 +126,13 @@ def test_filename_template() -> None:
 def test_platform_limits() -> None:
     assert check_limits(60_000, 1080, 1920) == []
     w = check_limits(60_000, 540, 960, file_bytes=5 * 2**30)
-    assert any("o'lcham" in x for x in w) and any("hajmi" in x for x in w)
+    assert any("1080x1920" in x for x in w)
+    assert not any("GB" in x for x in w)  # no unverified Instagram file size limit
     lim = {"x": {"max_duration_s": 90, "width": 1080, "height": 1920, "aspect": "9:16"}}
     assert "uzun" in check_limits(95_000, 1080, 1920, platform="x", limits=lim)[0]
     assert "nisbati" in check_limits(10_000, 1080, 1080, platform="x", limits=lim)[0]
-    assert check_limits(10_000, 1, 1, platform="yoq") == []
+    with pytest.raises(ValueError, match="Unknown target platform"):
+        check_limits(10_000, 1, 1, platform="yoq")
     assert "1.78" in source_quality_warning(1920, 1080)
     assert source_quality_warning(3840, 2160) is None
     assert source_quality_warning(1920, 1080, uses_crop=False) is None

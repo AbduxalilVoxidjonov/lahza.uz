@@ -59,7 +59,7 @@ CORE_FILTERS: frozenset[str] = frozenset({
     "overlay", "format", "setsar", "tpad", "concat", "drawbox", "color", "anullsrc", "aresample",
     "aformat", "ass", "null", "anull", "apad", "adelay", "volume", "afade", "loudnorm", "amix",
     "colorchannelmixer", "sendcmd", "vstack", "zoompan", "xfade", "acrossfade",
-    "sidechaincompress",
+    "sidechaincompress", "rotate", "fade",  # local sticker alpha and rotation
 })
 ALLOWED_GRAPH_FILTERS: frozenset[str] = CORE_FILTERS.union(*BACKEND_FILTERS.values())
 

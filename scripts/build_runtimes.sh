@@ -9,6 +9,16 @@ OUT="$ROOT/app/src-tauri/resources/bin"
 SRC="$ROOT/build/runtimes"
 mkdir -p "$OUT" "$SRC"
 
+# Desktop inference uses bundled CTranslate2, not whisper-cli. The macOS
+# installers pin artifact hashes and relocate the complete native dylib closure.
+if [[ "$(uname)" == "Darwin" ]]; then
+  LAHZA_BUILD_PYTHON="${LAHZA_BUILD_PYTHON:-$ROOT/engine/.venv/bin/python}"
+  if [[ ! -x "$LAHZA_BUILD_PYTHON" ]]; then LAHZA_BUILD_PYTHON=python3; fi
+  "$LAHZA_BUILD_PYTHON" "$ROOT/scripts/setup_local_render.py" --stage "$OUT"
+  "$LAHZA_BUILD_PYTHON" "$ROOT/scripts/setup_local_llm.py" --stage "$OUT" --consent
+  exit 0
+fi
+
 toml() { python3 -c "import tomllib,sys;d=tomllib.load(open('$ROOT/third_party/runtimes.toml','rb'));v=d['$1']['$2'];print(' '.join(v) if isinstance(v,list) else v)"; }
 
 need_ref() {

@@ -27,6 +27,7 @@ function SrcTime({ label, value, frame, onChange }: { label: string; value: numb
 function FxRow({ fx, onChange, onRemove, itemDur }: { fx: FxRef; onChange: (f: FxRef) => void; onRemove: () => void; itemDur: number }) {
   const t = useT();
   const manifest = useManifest(fx.plugin);
+  const freeze = fx.plugin === "uz.lahza.speed.freeze";
   return (
     <li className="card stack" style={{ gap: 8, padding: 10 }}>
       <div className="row" style={{ alignItems: "flex-end" }}>
@@ -36,13 +37,13 @@ function FxRow({ fx, onChange, onRemove, itemDur }: { fx: FxRef; onChange: (f: F
         <button type="button" className="btn small ghost bad" onClick={onRemove}>{t("common.remove")}</button>
       </div>
       <div className="row" style={{ alignItems: "flex-end" }}>
-        <NumField label={t("mon.fxAt")} suffix="ms" value={fx.at_ms} min={0} max={itemDur} step={50}
+        <NumField label={t("mon.fxAt")} suffix="ms" value={fx.at_ms} min={0} max={Math.max(0, itemDur - 1)} step={50}
                   onChange={(at_ms) => onChange({ ...fx, at_ms: Math.round(at_ms), source: "qolda" })} />
-        <NumField label={t("mon.fxDur")} suffix="ms" value={fx.dur_ms ?? 0} min={0} max={itemDur} step={50}
-                  onChange={(d) => onChange({ ...fx, dur_ms: d > 0 ? Math.round(d) : null, source: "qolda" })} />
+        <NumField label={t("mon.fxDur")} suffix="ms" value={fx.dur_ms ?? 0} min={freeze ? 100 : 0} max={freeze ? 5000 : itemDur} step={50}
+                  onChange={(d) => onChange({ ...fx, dur_ms: d > 0 ? Math.round(d) : null, params: freeze ? { ...fx.params, dur_ms: Math.round(d) } : fx.params, source: "qolda" })} />
       </div>
       <span className="muted" style={{ fontSize: 12 }}>{t("mon.fxDurHint")}</span>
-      <FxParamsForm manifest={manifest} params={fx.params} onChange={(params) => onChange({ ...fx, params, source: "qolda" })} />
+      {!freeze && <FxParamsForm manifest={manifest} params={fx.params} onChange={(params) => onChange({ ...fx, params, source: "qolda" })} />}
     </li>
   );
 }

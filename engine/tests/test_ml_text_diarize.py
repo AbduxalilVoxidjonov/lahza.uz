@@ -141,13 +141,16 @@ def test_faster_whisper_passes_hotwords() -> None:
 
     class Model:
         def transcribe(self, wav, language, word_timestamps, condition_on_previous_text, vad_filter,
-                       hotwords=None):
+                       hotwords=None, compression_ratio_threshold=2.4, log_prob_threshold=-1.0,
+                       no_speech_threshold=0.6):
+            assert (compression_ratio_threshold, log_prob_threshold, no_speech_threshold) == (2.4, -1.0, 0.6)
             calls.append({"hotwords": hotwords, "cond": condition_on_previous_text})
             return iter([]), None
 
     class OldModel:
         def transcribe(self, wav, language, word_timestamps, condition_on_previous_text, vad_filter,
-                       initial_prompt=None):
+                       initial_prompt=None, compression_ratio_threshold=2.4, log_prob_threshold=-1.0,
+                       no_speech_threshold=0.6):
             calls.append({"initial_prompt": initial_prompt})
             return iter([]), None
 

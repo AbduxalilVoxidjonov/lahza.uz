@@ -47,6 +47,7 @@ from lahza_engine.montage.model import (
     TransitionRef,
     VideoItem,
 )
+from lahza_engine.render.profiles import Platform, get_profile
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.templates.model import FxRule, MusicSpec, Template, TextCard
 from lahza_engine.types import Sentence, Word
@@ -78,6 +79,7 @@ class MontageOverrides:
     logo_path: str | None = None
     transition: str | None = None
     color: str | None = None
+    target_platform: Platform = "custom"
 
 
 @dataclass
@@ -616,7 +618,8 @@ def plan_montage(
     target = ov.target_duration_ms if ov.target_duration_ms is not None else tpl.target_duration_ms
     if not 5_000 <= target <= 600_000:
         raise PlanError("davomiylik 5 soniyadan 10 daqiqagacha bo'lishi kerak")
-    aspect = ov.aspect or tpl.aspect
+    profile_format = get_profile(ov.target_platform).recommended_format
+    aspect = ov.aspect or (profile_format.aspect if profile_format else tpl.aspect)
     if aspect not in ASPECT_SIZE:
         raise PlanError(f"noma'lum format '{aspect}' (9:16, 1:1 yoki 16:9)")
 
@@ -730,27 +733,26 @@ def plan_montage(
     cap_on = tpl.captions if ov.captions is None else ov.captions
     style = ov.caption_style or tpl.caption_style or StyleTemplate()
     words: list[Word] = []
-    if cap_on:
-        for i, it in enumerate(video):
-            sa = by_media[it.media]
-            lo, hi = starts[i], starts[i] + it.out_duration_ms
-            for s in sa.sentences:
-                if s.end_ms <= it.src_in_ms or s.start_ms >= it.src_out_ms:
+    for i, it in enumerate(video):
+        sa = by_media[it.media]
+        lo, hi = starts[i], starts[i] + it.out_duration_ms
+        for s in sa.sentences:
+            if s.end_ms <= it.src_in_ms or s.start_ms >= it.src_out_ms:
+                continue
+            for w in s.words:
+                if w.start_ms < it.src_in_ms or w.end_ms > it.src_out_ms:
                     continue
-                for w in s.words:
-                    if w.start_ms < it.src_in_ms or w.end_ms > it.src_out_ms:
+                ws = max(lo, starts[i] + round((w.start_ms - it.src_in_ms) / it.speed))
+                we = min(hi, starts[i] + round((w.end_ms - it.src_in_ms) / it.speed))
+                if we <= ws or any(a <= ws < b for a, b in blocked):
+                    continue
+                if words and ws < words[-1].end_ms:
+                    if ws <= words[-1].start_ms:
                         continue
-                    ws = max(lo, starts[i] + round((w.start_ms - it.src_in_ms) / it.speed))
-                    we = min(hi, starts[i] + round((w.end_ms - it.src_in_ms) / it.speed))
-                    if we <= ws or any(a <= ws < b for a, b in blocked):
-                        continue
-                    if words and ws < words[-1].end_ms:
-                        if ws <= words[-1].start_ms:
-                            continue
-                        words[-1] = words[-1].model_copy(update={"end_ms": ws})
-                    words.append(Word(text=w.text, start_ms=ws, end_ms=we, conf=w.conf, speaker=w.speaker))
-        if not words:
-            ctx.notes.append("subtitr yoqilgan, lekin manbalarda transkript yo'q")
+                    words[-1] = words[-1].model_copy(update={"end_ms": ws})
+                words.append(Word(text=w.text, start_ms=ws, end_ms=we, conf=w.conf, speaker=w.speaker))
+    if cap_on and not words:
+        ctx.notes.append("subtitr yoqilgan, lekin manbalarda transkript yo'q")
     captions = Captions(enabled=bool(cap_on), style=style, words=words)
 
     # 7. Media, musiqa.
@@ -788,7 +790,8 @@ def plan_montage(
                       created_at=created, planner="qoida", notes=ctx.notes)
     try:
         return MontageTimeline(
-            format=Format.for_aspect(aspect, fps=tpl.fps),  # type: ignore[arg-type]
+            target_platform=ov.target_platform,
+            format=Format.for_aspect(aspect, fps=profile_format.fps if profile_format else tpl.fps),  # type: ignore[arg-type]
             media=media, video=video, text=texts, music=music, captions=captions, brand=brand,
             audio=audio, color=color, provenance=prov,
         )

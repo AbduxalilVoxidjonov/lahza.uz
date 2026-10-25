@@ -19,9 +19,9 @@ export function TextInspector({ item, total, onChange, onDelete }: {
       </div>
       <TextField label={t("tpl.cardText")} value={item.text} multiline onChange={(text) => set({ text })} />
       <div className="row" style={{ alignItems: "flex-end" }}>
-        <NumField label={t("mon.start")} suffix="ms" value={item.start_ms} min={0} max={Math.max(0, item.end_ms - 100)} step={100}
+        <NumField label={t("mon.start")} suffix="ms" value={item.start_ms} min={0} max={Math.max(0, item.end_ms - 1)} step={1}
                   onChange={(v) => set({ start_ms: Math.round(v) })} />
-        <NumField label={t("mon.end")} suffix="ms" value={item.end_ms} min={item.start_ms + 100} max={Math.max(total, item.end_ms)} step={100}
+        <NumField label={t("mon.end")} suffix="ms" value={item.end_ms} min={item.start_ms + 1} max={Math.max(total, item.end_ms)} step={1}
                   onChange={(v) => set({ end_ms: Math.round(v) })} />
       </div>
       <div className="row" style={{ alignItems: "flex-end" }}>

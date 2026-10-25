@@ -1,11 +1,26 @@
 """M3-SUB-3: yetkaziladigan shriftlar papkasi va o'zbek glif testi (fontTools)."""
 
+import hashlib
 from pathlib import Path
 
 from fontTools.fontBuilder import FontBuilder
 from fontTools.pens.ttGlyphPen import TTGlyphPen
 
 from lahza_engine.subtitle.fonts import REQUIRED_GLYPHS, default_fonts_dir, has_fonts, list_fonts
+
+
+def test_bundled_inter_is_licensed_and_covers_uzbek(monkeypatch) -> None:
+    monkeypatch.delenv("LAHZA_FONTS_DIR", raising=False)
+    root = default_fonts_dir()
+    font = root / "Inter.ttf"
+    assert hashlib.sha256(font.read_bytes()).hexdigest() == (
+        "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    )
+    fonts = list_fonts()
+    inter = next(f for f in fonts if f.family == "Inter")
+    assert inter.ok and inter.missing == []
+    assert "SIL OPEN FONT LICENSE Version 1.1" in (root / "OFL.txt").read_text()
+    assert "e7db6ca603fd4862010383ff17ffd6cc4ffac1c0" in (root / "SOURCE.txt").read_text()
 
 
 def _make_font(path: Path, family: str, chars: str) -> Path:

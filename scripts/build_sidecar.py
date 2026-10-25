@@ -59,10 +59,78 @@ HIDDEN_IMPORTS = [
 
 # Ixtiyoriy backendlar: venv'da o'rnatilgan bo'lsa kiritiladi (pyproject optional-dependencies).
 OPTIONAL_IMPORTS = {
+    "faster_whisper": "faster_whisper",
+    "ctranslate2": "ctranslate2",
+    "tokenizers": "tokenizers",
+    "av": "av",
     "onnxruntime": "onnxruntime",  # Silero VAD (ONNX)
     "fontTools": "fontTools",  # shrift tekshiruvi / subset
     "xxhash": "xxhash",  # tez xesh
 }
+
+# Native libraries and runtime data are loaded dynamically by these backends.
+COLLECT_ALL = {"faster_whisper", "ctranslate2", "tokenizers", "av", "onnxruntime"}
+REQUIRED_BACKENDS = COLLECT_ALL | {"fontTools"}
+
+
+def check_desktop_backends(available: list[str]) -> None:
+    missing = REQUIRED_BACKENDS - set(available)
+    if missing:
+        raise SystemExit("Desktop inference dependencies missing: " + ", ".join(sorted(missing))
+                         + "; install engine desktop dependencies before building")
+
+
+def prepare_local_catalog(destination: Path) -> str:
+    """Sign a generated local-alpha catalog; never modify the source catalog.
+
+    The ephemeral private key is discarded. This is local build trust, not a
+    production release signing identity.
+    """
+    import base64
+
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from lahza_engine.models.catalog import Catalog, sign
+
+    key = Ed25519PrivateKey.generate()
+    private = base64.b64encode(key.private_bytes(
+        serialization.Encoding.Raw, serialization.PrivateFormat.Raw,
+        serialization.NoEncryption(),
+    )).decode()
+    public = base64.b64encode(key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw,
+    )).decode()
+    catalog = Catalog.model_validate_json((ROOT / "catalog/catalog.json").read_text())
+    destination.mkdir(parents=True, exist_ok=True)
+    (destination / "catalog.json").write_text(
+        sign(catalog, private).model_dump_json(indent=2) + "\n", encoding="utf-8",
+    )
+    (destination / "catalog.pub").write_text(public + "\n", encoding="utf-8")
+    return public
+
+def prepare_catalog(destination: Path) -> str:
+    """Use an explicit release identity, or generate trust for a local build."""
+    import base64
+
+    from lahza_engine.models.catalog import Catalog, verify
+
+    if "LAHZA_CATALOG_PUBKEY" not in os.environ:
+        return prepare_local_catalog(destination)
+    public = os.environ["LAHZA_CATALOG_PUBKEY"].strip()
+    try:
+        raw = base64.b64decode(public, validate=True)
+        if len(raw) != 32:
+            raise ValueError("expected 32-byte Ed25519 public key")
+        source = ROOT / "catalog/catalog.json"
+        contents = source.read_bytes()
+        verify(Catalog.model_validate_json(contents), public)
+    except (ValueError, RuntimeError) as exc:
+        raise SystemExit("LAHZA_CATALOG_PUBKEY must verify the signed source catalog") from exc
+    destination.mkdir(parents=True, exist_ok=True)
+    (destination / "catalog.json").write_bytes(contents)
+    (destination / "catalog.pub").write_text(public + "\n", encoding="utf-8")
+    return public
+
 
 # Sidecar'ga hech qachon kerak bo'lmaydigan dasturchi paketlari.
 EXCLUDES = ["tkinter", "pytest", "_pytest", "IPython", "matplotlib", "PyInstaller", "mypy", "ruff"]
@@ -154,6 +222,8 @@ def pyinstaller_cmd(entry: Path, clean: bool, extra_hidden: list[str]) -> list[s
         cmd.append("--clean")
     for mod in [*HIDDEN_IMPORTS, *extra_hidden]:
         cmd += ["--hidden-import", mod]
+    for mod in sorted(COLLECT_ALL.intersection(extra_hidden)):
+        cmd += ["--collect-all", mod]
     for mod in EXCLUDES:
         cmd += ["--exclude-module", mod]
     cmd.append(str(entry))
@@ -195,7 +265,14 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="hech narsa yig'may/o'chirmay: triple, ma'lumot fayllari va buyruqni ko'rsatish")
     ap.add_argument("--verify", action="store_true", help="binaries/ dagi sidecar sha256 xeshini tekshirish")
+    ap.add_argument("--catalog-only", action="store_true",
+                    help="prepare signed catalog only; no PyInstaller or sidecar changes")
     a = ap.parse_args(argv)
+    if a.catalog_only and (a.dry_run or a.verify):
+        ap.error("--catalog-only cannot be combined with --dry-run or --verify")
+    if a.catalog_only:
+        prepare_catalog(WORK / "catalog")
+        return 0
 
     triple, source = target_triple(a.target)
     if a.verify:
@@ -217,11 +294,44 @@ def main(argv: list[str] | None = None) -> int:
     if a.dry_run:
         return 0
 
+    check_desktop_backends(extra)
+
     if (sys.platform == "win32") != (ext == ".exe"):
         raise SystemExit(f"cross-build qo'llanmaydi: {sys.platform} da {triple} uchun yig'ib bo'lmaydi")
 
     WORK.mkdir(parents=True, exist_ok=True)
-    entry.write_text("import sys\n\nfrom lahza_engine.cli import main\n\nsys.exit(main())\n", encoding="utf-8")
+    prepare_catalog(WORK / "catalog")
+    entry.write_text(
+        # PyInstaller must dispatch resource_tracker/spawn helpers before argparse.
+        "import multiprocessing\nmultiprocessing.freeze_support()\n\n"
+        "import importlib\nimport json\nimport sys\nfrom pathlib import Path\n\n"
+        "from lahza_engine.cli import main\n\n"
+        "if sys.argv[1:] == ['--packaging-check']:\n"
+        f"    modules = {extra!r}\n"
+        "    for name in modules:\n"
+        "        importlib.import_module(name)\n"
+        "    importlib.import_module('lahza_engine.models.local_bootstrap')\n"
+        "    importlib.import_module('lahza_engine.api.app')\n"
+        "    package = importlib.import_module('lahza_engine')\n"
+        "    fonts = Path(package.__file__).parent / 'subtitle' / 'fonts'\n"
+        "    print(json.dumps({'imported_backends': modules, 'fonts': sorted(p.name for p in fonts.glob('*'))}))\n"
+        "elif sys.argv[1:] == ['--packaging-mp-check']:\n"
+        "    from multiprocessing import shared_memory\n"
+        "    block = shared_memory.SharedMemory(create=True, size=16)\n"
+        "    block.close()\n    block.unlink()\n"
+        "    print(json.dumps({'shared_memory': True}))\n"
+        "elif len(sys.argv) == 4 and sys.argv[1] == '--packaging-asr-check':\n"
+        "    from pathlib import Path\n"
+        "    from lahza_engine.asr.base import AsrOptions\n"
+        "    from lahza_engine.asr.faster_whisper_backend import FasterWhisperBackend\n"
+        "    backend = FasterWhisperBackend(Path(sys.argv[2]), 'packaging-smoke', device='cpu')\n"
+        "    words = backend.transcribe_chunk(Path(sys.argv[3]), 0, AsrOptions())\n"
+        "    print(json.dumps({'words': len(words), 'device': 'cpu', 'compute_type': 'int8'}))\n"
+        "    sys.exit(0 if words else 1)\n"
+        "else:\n"
+        "    sys.exit(main())\n",
+        encoding="utf-8",
+    )
     subprocess.run(cmd, check=True, cwd=ENGINE)
 
     built = WORK / "dist" / f"{NAME}{ext}"
@@ -238,6 +348,10 @@ def main(argv: list[str] | None = None) -> int:
         "size_bytes": target.stat().st_size,
         "engine_version": engine_version(),
         "python": platform.python_version(),
+        "optional_backends": extra,
+        "package_data": [str(p) for p in data],
+        "catalog_trust": ("explicit-source" if "LAHZA_CATALOG_PUBKEY" in os.environ
+                          else "ephemeral-local-alpha"),
     }
     (WORK / "sidecar.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"sidecar: {target}\nsha256: {digest}")

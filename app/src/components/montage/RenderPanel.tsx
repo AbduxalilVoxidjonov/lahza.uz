@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { useCapabilities, useCancelJob, useRenderMontage, useReveal } from "../../api/hooks";
-import type { Job, MontageDetail } from "../../api/types";
+import { useCheckExportProfile, useExportProfiles, useCapabilities, useCancelJob, useRenderMontage, useReveal } from "../../api/hooks";
+import type { Job, MontageDetail, MontageTimeline } from "../../api/types";
+import { useEditorT } from "../../i18n/editor-extra";
+import { ProfileChecks } from "./ExportProfilePanel";
 import { useT } from "../../i18n";
 import { safeName } from "../../lib/dialog";
 import { useJobs } from "../../store/jobs";
@@ -37,8 +39,9 @@ export function PathResult({ label, path }: { label: string; path: string }) {
   );
 }
 
-export function RenderPanel({ montage, hasText, onBeforeRender, renderRef }: {
+export function RenderPanel({ montage, tl, hasText, onBeforeRender, renderRef }: {
   montage: MontageDetail;
+  tl: MontageTimeline;
   /** Timeline'da matn yoki subtitr bor-yo'qligi (libass ogohlantirishi uchun). */
   hasText: boolean;
   /** Saqlanmagan o'zgarishlarni saqlash; false - render qilinmaydi. */
@@ -47,6 +50,14 @@ export function RenderPanel({ montage, hasText, onBeforeRender, renderRef }: {
   renderRef: { current: (() => void) | null };
 }) {
   const t = useT();
+  const et = useEditorT();
+  const profiles = useExportProfiles();
+  const check = useCheckExportProfile();
+  const [preparing, setPreparing] = useState(false);
+  const profile = profiles.data?.profiles.find(p => p.id === (tl.target_platform ?? "custom"));
+  const latest = useRef(tl);
+  latest.current = tl;
+  const starting = useRef(false);
   const caps = useCapabilities();
   const { exportDir, setExportDir, allowNoSubs } = useSettings();
   const render = useRenderMontage(montage.id);
@@ -60,14 +71,34 @@ export function RenderPanel({ montage, hasText, onBeforeRender, renderRef }: {
   const running = job && (job.status === "queued" || job.status === "running");
 
   const run = async () => {
+    if (starting.current || render.isPending || running) return;
+    starting.current = true;
+    setPreparing(true);
+    check.reset();
     setError(null);
-    if (blocked) return setError(t("exp.needNoSubs"));
-    if (!exportDir) return setError(t("mon.noOutDir"));
-    if (!(await onBeforeRender())) return;
-    render.mutate(
-      { out_dir: exportDir, filename: filename.trim() || undefined, allow_no_subs: noLibass && allowNoSubs },
-      { onSuccess: (j) => setJobId(j.id) },
-    );
+    const checked = tl;
+    try {
+      if (blocked) return setError(t("exp.needNoSubs"));
+      if (!exportDir) return setError(t("mon.noOutDir"));
+      // Refresh dynamic custom safe zones and restrictions immediately before export.
+      const fresh = await profiles.refetch();
+      const selected = fresh.data?.profiles.find(p => p.id === (checked.target_platform ?? "custom"));
+      if (fresh.isError || !selected) return setError(et("profileUnavailable"));
+      const evaluation = await check.mutateAsync(checked);
+      if (evaluation.errors.length) return setError(et("profileBlocked"));
+      if (latest.current !== checked) return setError(et("reviewChanges"));
+      if (!(await onBeforeRender())) return;
+      if (JSON.stringify(latest.current) !== JSON.stringify(checked)) return setError(et("reviewChanges"));
+      render.mutate(
+        { out_dir: exportDir, filename: filename.trim() || undefined, allow_no_subs: noLibass && allowNoSubs },
+        { onSuccess: (j) => setJobId(j.id) },
+      );
+    } catch {
+      setError(et("profileUnavailable"));
+    } finally {
+      setPreparing(false);
+      starting.current = false;
+    }
   };
   renderRef.current = () => void run();
 
@@ -76,6 +107,14 @@ export function RenderPanel({ montage, hasText, onBeforeRender, renderRef }: {
 
   return (
     <div className="stack">
+      {profile && <ProfileChecks tl={tl} profile={profile} />}
+      {!profile && <span className="notice warn">{et("profileUnavailable")}</span>}
+      <ErrorText error={profiles.error} />
+      <ErrorText error={check.error} />
+      {check.data && JSON.stringify(check.variables) === JSON.stringify(tl) && <div className="stack" aria-live="polite">
+        {check.data.errors.map((message, i) => <div key={`e${i}`} className="notice bad" role="alert">{message}</div>)}
+        {check.data.warnings.map((message, i) => <div key={`w${i}`} className="notice warn" role="note">{message}</div>)}
+      </div>}
       {hasText && <NoSubsWarning />}
       <PathPicker label={t("exp.dir")} value={exportDir ?? ""} onChange={(v) => setExportDir(v.trim() || null)}
                   options={{ directory: true }} />
@@ -84,7 +123,7 @@ export function RenderPanel({ montage, hasText, onBeforeRender, renderRef }: {
         <input className="input mono" value={filename} onChange={(e) => setFilename(e.target.value)} />
       </label>
       <div className="row">
-        <button type="button" className="btn primary" disabled={render.isPending || !!running} onClick={() => void run()}>
+        <button type="button" className="btn primary" disabled={preparing || render.isPending || !!running} onClick={() => void run()}>
           {t("mon.render")} <kbd>⌘E</kbd>
         </button>
         <Link to="/exports" className="muted">{t("nav.exports")}</Link>

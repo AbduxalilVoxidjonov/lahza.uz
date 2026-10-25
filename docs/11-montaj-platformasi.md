@@ -355,7 +355,7 @@ Bu shablon: 18 soniyalik 9:16 promo; sahnalardan eng yaxshi kadrlar (har manbada
 | --- | --- | --- |
 | Video to'plami | Ha | 1…N fayl yoki YouTube havolalari |
 | Retsept | Ha (standart tanlanadi) | Montaj uslubi |
-| Davomiylik va format | Ha | 9:16 / 1:1 / 16:9; Instagram limitlari `render/platform_limits.json` dan |
+| Davomiylik va format | Ha | 9:16 / 1:1 / 16:9; sanalangan platforma profillari va tasdiqlangan cheklovlar `render/profiles.py` orqali; eski limits JSON compatibility uchun |
 | Musiqa | Yo'q | Faqat foydalanuvchining o'z yoki litsenziyali fayli |
 | Brief | Yo'q | Qisqa tavsif: "yangi kurs e'loni, energiyali, oxirida ro'yxatdan o'tish" |
 | Brend kit | Yo'q | Logo, ranglar, shrift, end-card |

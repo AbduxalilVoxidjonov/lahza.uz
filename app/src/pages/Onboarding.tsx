@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useBundle, useHardware, useInstallBundle, useModels } from "../api/hooks";
+import { useBootstrapModel, useBundle, useHardware, useInstallBundle, useModels } from "../api/hooks";
 import type { BundleItem } from "../api/types";
 import { PackPanel } from "../components/settings/PackPanel";
 import { CompatBadge, ErrorText, JobLine, QueryState, TierBadge } from "../components/ui";
@@ -20,7 +20,9 @@ export function Onboarding() {
   const bundle = useBundle();
   const models = useModels();
   const install = useInstallBundle();
-  const job = useJobs((s) => (install.data ? s.jobs[install.data.id] : undefined));
+  const bootstrap = useBootstrapModel();
+  const activeJob = bootstrap.data ?? install.data;
+  const job = useJobs((s) => (activeJob ? s.jobs[activeJob.id] : undefined));
   const { locale, setLocale } = useSettings();
   const [consent, setConsent] = useState(false);
 
@@ -28,7 +30,7 @@ export function Onboarding() {
   const asrReady = items.some((i) => i.task === "asr" && i.entry?.status === "approved");
   const total = items.reduce((acc, i) => acc + (itemSize(i) ?? 0), 0);
   const hasAsr = !!models.data?.defaults["asr"];
-  const running = install.isPending || job?.status === "running" || job?.status === "queued";
+  const running = install.isPending || bootstrap.isPending || job?.status === "running" || job?.status === "queued";
   const failed = job?.status === "failed" || job?.status === "cancelled";
 
   return (
@@ -105,6 +107,23 @@ export function Onboarding() {
               <p className="muted">{t("onb.offline")}</p>
               <PackPanel importOnly />
             </div>
+          )}
+
+          {!asrReady && !hasAsr && (
+            <section className="stack" aria-label={t("onb.baseline")}>
+              <h3>{t("onb.baseline")}</h3>
+              <p className="muted">{t("onb.baselineNote")}</p>
+              <label className="row check">
+                <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+                {t("onb.consent")}
+              </label>
+              <button type="button" className="btn primary" disabled={!consent || running}
+                      onClick={() => bootstrap.mutate()}>
+                {t(failed ? "onb.resume" : "onb.baselineInstall")}
+              </button>
+              {job && <JobLine job={job} />}
+              <ErrorText error={bootstrap.error} />
+            </section>
           )}
 
           {asrReady && (

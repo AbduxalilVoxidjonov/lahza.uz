@@ -30,6 +30,13 @@ from lahza_engine.core.jobs import Job
 from lahza_engine.core.runner import Cancelled
 from lahza_engine.db import store as db
 from lahza_engine.montage.model import MediaRef, MontageTimeline
+from lahza_engine.render.profiles import (
+    ExportProfilesResponse,
+    Platform,
+    ProfileEvaluation,
+    evaluate_timeline,
+    export_profiles,
+)
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.templates.model import LocalText, Template
 from lahza_engine.timeline import Timeline
@@ -64,9 +71,14 @@ Source = Annotated[FileSource | ClipSourceIn | EpisodeSource, Field(discriminato
 JsonBody = Annotated[dict[str, Any], Body()]  # xom JSON: validatsiya xatosi 400 (o'zbekcha), 422 emas
 
 
+class ProfileCheckIn(BaseModel):
+    timeline: MontageTimeline
+
+
 class OverridesIn(BaseModel):
     """`montage.planner.MontageOverrides` ning JSON ko'rinishi (hammasi ixtiyoriy)."""
 
+    target_platform: Platform | None = None
     target_duration_ms: int | None = Field(None, ge=5_000, le=600_000)
     aspect: Literal["9:16", "1:1", "16:9"] | None = None
     music_path: str | None = None
@@ -418,10 +430,13 @@ def _analyze_source(s: State, an, src: dict[str, Any], cache_dir: Path, job: Job
                     on_progress: Callable[[float], None] | None = None) -> Any:
     kwargs: dict[str, Any] = {"cancel": job.cancel}
     if on_progress is not None and "on_progress" in inspect.signature(an.analyze_file).parameters:
-        kwargs["on_progress"] = on_progress
+        kwargs["on_progress"] = (lambda f: on_progress(.6 * f)) if src["kind"] == "file" else on_progress
     sa = an.analyze_file(Path(src["path"]), src["media_id"], cache_dir, s.settings, **kwargs)
     if src["kind"] == "file":
-        return sa
+        from lahza_engine.montage.raw_asr import transcribe_source
+
+        return transcribe_source(sa, s.store, s.services, s.settings.data_dir / "Cache" / "raw-asr",
+                                 job.cancel, (lambda f: on_progress(.6 + .4 * f)) if on_progress else None)
     eid = src["episode_id"]
     sentences, clips, signals = _episode_context(s, eid)
     if src["kind"] == "clip":
@@ -513,7 +528,8 @@ def _draft_timeline(r: sqlite3.Row, saved: MontageTimeline | None, data: dict[st
     try:
         tl = MontageTimeline.model_validate(data)
     except ValidationError as e:
-        raise HTTPException(400, _validation_msg("timeline yaroqsiz", e)) from e
+        raise HTTPException(422 if any("target_platform" in x["loc"] for x in e.errors()) else 400,
+                            _validation_msg("timeline yaroqsiz", e)) from e
     known = _known_paths(r, saved)
     old = saved.media if saved else {}
     for m in tl.media.values():
@@ -580,6 +596,9 @@ def submit_render(s: State, mid: str, body: RenderIn, retry_of: str | None = Non
         raise HTTPException(409, "montaj hali tayyor emas")
     if not tl.video:
         raise HTTPException(409, "montajda video elementlar yo'q")
+    evaluation = evaluate_timeline(tl, s.settings)
+    if evaluation.errors:
+        raise HTTPException(400, "; ".join(evaluation.errors))
     try:
         from lahza_engine.render import montage_render
     except ImportError as e:
@@ -654,6 +673,16 @@ def retry_render(s: State, job: Job) -> Job:
 # ---- Endpointlar -----------------------------------------------------------------------
 
 def register(app: FastAPI, auth: Callable[..., State]) -> None:
+    @app.get("/v1/export-profiles", response_model=ExportProfilesResponse)
+    def profiles(s: State = Depends(auth)) -> ExportProfilesResponse:
+        """Lahza presets, safe guides, verified restrictions and source provenance."""
+        return export_profiles(s.settings)
+
+    @app.post("/v1/export-profiles:check", response_model=ProfileEvaluation)
+    def check_profile(body: ProfileCheckIn, s: State = Depends(auth)) -> ProfileEvaluation:
+        """Evaluate the full timeline without rendering, moving overlays, or trimming."""
+        return evaluate_timeline(body.timeline, s.settings)
+
     # ---- Plaginlar ------------------------------------------------------------------
     @app.get("/v1/fx")
     def fx(kind: str | None = Query(None), s: State = Depends(auth)) -> list[dict[str, Any]]:
@@ -790,7 +819,8 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
         try:
             tl = MontageTimeline.model_validate(body)
         except ValidationError as e:
-            raise HTTPException(400, _validation_msg("timeline yaroqsiz", e)) from e
+            raise HTTPException(422 if any("target_platform" in x["loc"] for x in e.errors()) else 400,
+                            _validation_msg("timeline yaroqsiz", e)) from e
         known = _known_paths(r, _timeline(r))
         for m in tl.media.values():
             if m.path not in known and not Path(m.path).is_file():

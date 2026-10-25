@@ -104,6 +104,27 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
     def scan(s: State = Depends(auth)) -> dict[str, Any]:
         return {"added": [m.model_dump(mode="json") for m in s.store.scan_custom()]}
 
+    @app.post("/v1/models:bootstrap")
+    def bootstrap_model(body: InstallIn, s: State = Depends(auth)) -> dict[str, Any]:
+        if not body.consent:
+            raise HTTPException(400, "model yuklash uchun foydalanuvchi roziligi kerak (consent=true)")
+        if body.entry_ids is not None:
+            raise HTTPException(400, "boshlang'ich model uchun entry_ids berilmaydi")
+        from lahza_engine.models.local_bootstrap import bootstrap
+
+        def work(job: Job) -> dict[str, Any]:
+            def progress(have: int, total: int | None) -> None:
+                if job.cancel.is_set():
+                    raise Cancelled()
+                s.jobs.progress(job, "asr", have / total if total else 0.0)
+
+            progress(0, None)
+            installed = bootstrap(s.store, consent=True, progress=progress)
+            s.invalidate_services()
+            return {"installed": [installed.id], "catalog_approved": False}
+
+        return s.jobs.submit("install", work, op="bootstrap").public()
+
     @app.post("/v1/models:install")
     def install(body: InstallIn, s: State = Depends(auth)) -> dict[str, Any]:
         if not body.consent:

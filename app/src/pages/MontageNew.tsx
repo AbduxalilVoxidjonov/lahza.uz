@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
-import { useCreateMontage, useTemplates } from "../api/hooks";
-import { ASPECTS, type Aspect, type MontageOverrides, type Template } from "../api/types";
+import { useCreateMontage, useExportProfiles, useTemplates } from "../api/hooks";
+import { ASPECTS, type Aspect, type MontageOverrides, type Template, type TargetPlatform } from "../api/types";
 import { PathPicker } from "../components/PathPicker";
 import { NumField, Section, SelectField, TextField } from "../components/montage/fields";
 import { FxSelect } from "../components/montage/FxControls";
@@ -11,6 +11,8 @@ import { SourcePicker, type PickedSource } from "../components/montage/SourcePic
 import { CategoryTabs, filterTemplates, type CategoryFilter } from "../components/templates/CategoryTabs";
 import { TemplateCard } from "../components/templates/TemplateCard";
 import { Empty, ErrorText, QueryState } from "../components/ui";
+import { useEditorT } from "../i18n/editor-extra";
+import { platformCreationOverrides } from "../lib/export-profiles";
 import { useT } from "../i18n";
 import { AUDIO_EXTS, IMAGE_EXTS } from "../lib/dialog";
 import { localText } from "../lib/montage";
@@ -19,6 +21,7 @@ import { useSettings } from "../store/settings";
 type Tri = "default" | "on" | "off";
 
 interface Form {
+  platform: TargetPlatform;
   name: string;
   durationS: number | null;
   aspect: Aspect | "";
@@ -32,13 +35,12 @@ interface Form {
   logo: string;
 }
 
-const EMPTY: Form = { name: "", durationS: null, aspect: "", music: "", title: "", cta: "", shou: "", captions: "default",
+const EMPTY: Form = { platform: "instagram_reels", name: "", durationS: null, aspect: "", music: "", title: "", cta: "", shou: "", captions: "default",
   transition: null, color: null, logo: "" };
 
 function toOverrides(f: Form): MontageOverrides {
-  const o: MontageOverrides = {};
+  const o: MontageOverrides = platformCreationOverrides(f.platform, f.aspect);
   if (f.durationS) o.target_duration_ms = Math.round(f.durationS * 1000);
-  if (f.aspect) o.aspect = f.aspect;
   if (f.music.trim()) o.music_path = f.music.trim();
   if (f.title.trim()) o.title = f.title.trim();
   if (f.cta.trim()) o.cta = f.cta.trim();
@@ -53,6 +55,8 @@ function toOverrides(f: Form): MontageOverrides {
 /** Yangi montaj: shablon -> videolar -> sozlamalar -> "Montaj qilish". */
 export function MontageNew() {
   const t = useT();
+  const et = useEditorT();
+  const profiles = useExportProfiles();
   const navigate = useNavigate();
   const locale = useSettings((s) => s.locale);
   const [params] = useSearchParams();
@@ -63,19 +67,34 @@ export function MontageNew() {
   const [sources, setSources] = useState<PickedSource[]>([]);
   const [form, setForm] = useState<Form>(EMPTY);
   const [tried, setTried] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1);
+  const formatRef = useRef<HTMLDivElement>(null);
+  const choosingFormat = step === 2 && sources.length > 0;
+  useEffect(() => {
+    if (choosingFormat) formatRef.current?.focus();
+  }, [choosingFormat]);
   const set = (p: Partial<Form>) => setForm((f) => ({ ...f, ...p }));
 
-  const tpl: Template | undefined = templates.data?.find((x) => x.id === templateId);
+  const tpl: Template | undefined = templateId
+    ? templates.data?.find((x) => x.id === templateId)
+    : templates.data?.find((x) => x.id === "uz.lahza.tpl.daily-story" && !x.music?.required)
+      ?? templates.data?.find((x) => !x.music?.required);
+  const profile = profiles.data?.profiles.find(p => p.id === form.platform);
+  const profileFormat = profile?.recommended_format;
   const musicRequired = !!tpl?.music?.required;
   const problems: string[] = [];
   if (!tpl) problems.push(t("mon.err.template"));
   if (!sources.length) problems.push(t("mon.err.sources"));
   if (musicRequired && !form.music.trim()) problems.push(t("mon.err.music"));
 
-  const addSources = (items: PickedSource[]) =>
+  const addSources = (items: PickedSource[]) => {
+    if (!items.length) return;
     setSources((old) => [...old, ...items.filter((x) => !old.some((o) => o.key === x.key))]);
+    setStep(2);
+  };
 
   const submit = () => {
+    if (create.isPending) return;
     setTried(true);
     if (problems.length || !tpl) return;
     const projectId = sources.find((s) => s.projectId)?.projectId;
@@ -94,14 +113,48 @@ export function MontageNew() {
   const shown = filterTemplates(templates.data ?? [], cat);
 
   return (
-    <div className="stack" style={{ gap: 18, maxWidth: 1100 }}>
+    <div className="stack quick-start" style={{ gap: 18, maxWidth: 900 }}>
       <div className="page-head">
         <div>
           <Link to="/montages" className="muted">← {t("nav.montages")}</Link>
-          <h1>{t("mon.new")}</h1>
+          <h1>{t("quick.title")}</h1>
+          <p className="lead">{t("quick.lead")}</p>
         </div>
       </div>
 
+      <ol className="quick-steps" aria-label={t("quick.steps")}>
+        <li aria-current={!choosingFormat ? "step" : undefined}>{t("quick.upload")}</li>
+        <li aria-current={choosingFormat ? "step" : undefined}>{t("quick.format")}</li>
+        <li>{t("quick.review")}</li>
+        <li>{t("quick.export")}</li>
+      </ol>
+      <Section title={t("quick.upload")}>
+        {!choosingFormat ? <SourcePicker picked={sources} onAdd={addSources}
+                      onRemoveKey={(k) => setSources((old) => old.filter((x) => x.key !== k))} />
+          : <div className="row"><span className="badge good" role="status">✓ {t("quick.selected")}</span>
+            <button type="button" className="btn" onClick={() => setStep(1)}>{t("quick.changeVideo")}</button></div>}
+        <SelectedSources items={sources} onChange={setSources} />
+        {!choosingFormat && sources.length > 0 && <button type="button" className="btn primary" onClick={() => setStep(2)}>{t("quick.next")}</button>}
+      </Section>
+
+      <div ref={formatRef} tabIndex={-1} hidden={!choosingFormat} className="stack" aria-label={t("quick.format")}>
+      <Section title={t("quick.format")}>
+        <SelectField label={et("platform")} value={form.platform}
+          options={profiles.data?.profiles.map(p => ({ value: p.id, label: p.name })) ?? [{ value: "instagram_reels", label: "Instagram Reels" }, { value: "youtube_shorts", label: "YouTube Shorts" }, { value: "youtube_video", label: "YouTube" }, { value: "custom", label: "Custom" }]}
+          onChange={platform => set({ platform })} />
+        <ErrorText error={profiles.error} />
+        {profiles.isError && <button type="button" className="btn" onClick={() => void profiles.refetch()}>{et("retry")}</button>}
+        {tpl && <p className="muted">{t("quick.auto")}</p>}
+        <QueryState query={templates} />
+        {templates.isError && <div className="notice bad" role="alert">
+          <p>{t("quick.engineError")}</p>
+          <button type="button" className="btn" onClick={() => void templates.refetch()}>{et("retry")}</button>
+        </div>}
+        {templates.data?.length === 0 && <div className="notice warn" role="status">
+          <p>{t("quick.noTemplate")}</p><Link to="/templates">{t("nav.templates")}</Link>
+        </div>}
+        <details className="quick-details" open={!tpl || undefined}>
+          <summary>{t("quick.style")}{tpl ? ` · ${localText(tpl.name, locale)}` : ""}</summary>
       <Section title={t("mon.step1")}>
         <QueryState query={templates} />
         {templates.data && (
@@ -110,9 +163,9 @@ export function MontageNew() {
             {shown.length === 0 && <Empty>{t("tpl.empty")}</Empty>}
             <div className="grid tpl-grid-compact" role="radiogroup" aria-label={t("mon.step1")}>
               {shown.map((x) => (
-                <button key={x.id} type="button" role="radio" aria-checked={x.id === templateId} className="tpl-pick"
+                <button key={x.id} type="button" role="radio" aria-checked={x.id === tpl?.id} className="tpl-pick"
                         onClick={() => setTemplateId(x.id)}>
-                  <TemplateCard tpl={x} compact selected={x.id === templateId} />
+                  <TemplateCard tpl={x} compact selected={x.id === tpl?.id} />
                 </button>
               ))}
             </div>
@@ -126,20 +179,18 @@ export function MontageNew() {
         )}
       </Section>
 
-      <Section title={t("mon.step2")}>
-        <SourcePicker picked={sources} onAdd={addSources}
-                      onRemoveKey={(k) => setSources((old) => old.filter((x) => x.key !== k))} />
-        <SelectedSources items={sources} onChange={setSources} />
-      </Section>
-
-      <Section title={t("mon.step3")}>
+        </details>
+        <details className="quick-details" open={musicRequired || undefined}>
+          <summary>{t("quick.advanced")}</summary>
+          <div className="stack">
+        <span className="muted">{et("platformDisclaimer")}</span>
         <div className="row" style={{ alignItems: "flex-end" }}>
           <TextField label={t("mon.name")} value={form.name} placeholder={tpl ? localText(tpl.name, locale) : ""}
                      onChange={(name) => set({ name })} />
           <NumField label={t("tpl.duration")} suffix="s" value={form.durationS ?? (tpl ? tpl.target_duration_ms / 1000 : 30)}
                     min={5} max={600} onChange={(v) => set({ durationS: v })} />
           <SelectField label={t("mon.aspect")} value={form.aspect}
-                       options={[{ value: "" as const, label: t("mon.fromTemplate", { v: tpl?.aspect ?? "" }) },
+                       options={[{ value: "" as const, label: profileFormat ? `${et("profileDefault")} ${profile?.name} · ${profileFormat.aspect} · ${profileFormat.w}×${profileFormat.h} · ${profileFormat.fps} fps` : t("mon.fromTemplate", { v: tpl?.aspect ?? "" }) },
                          ...ASPECTS.map((a) => ({ value: a, label: a }))]}
                        onChange={(aspect) => set({ aspect })} />
         </div>
@@ -170,6 +221,8 @@ export function MontageNew() {
         <PathPicker label={t("style.logoPath")} value={form.logo} onChange={(logo) => set({ logo })}
                     options={{ extensions: IMAGE_EXTS, filterName: "Logo" }} />
         {tpl?.logo && !form.logo && <span className="muted" style={{ fontSize: 12 }}>{t("mon.logoHint")}</span>}
+          </div>
+        </details>
       </Section>
 
       {tried && problems.length > 0 && (
@@ -179,10 +232,11 @@ export function MontageNew() {
       )}
       <ErrorText error={create.error} />
       <div className="row">
-        <button type="button" className="btn primary" disabled={create.isPending} onClick={submit}>
-          {create.isPending ? t("common.loading") : t("mon.create")}
+        <button type="button" className="btn primary" disabled={create.isPending || !sources.length || templates.isPending} onClick={submit}>
+          {create.isPending ? t("common.loading") : t("quick.continue")}
         </button>
         <span className="muted">{t("mon.createHint", { n: sources.length })}</span>
+      </div>
       </div>
     </div>
   );

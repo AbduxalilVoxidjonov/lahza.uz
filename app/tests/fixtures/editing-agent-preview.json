@@ -1,0 +1,157 @@
+{
+  "timeline": {
+    "schema": "lahza.timeline/1",
+    "target_platform": "custom",
+    "format": {
+      "aspect": "9:16",
+      "w": 1080,
+      "h": 1920,
+      "fps": 30.0,
+      "audio_hz": 48000
+    },
+    "media": {
+      "media_1": {
+        "id": "media_1",
+        "path": "fixtures/sample.mp4",
+        "hash": null,
+        "duration_ms": 12000,
+        "width": 640,
+        "height": 360,
+        "fps": 24.0,
+        "has_audio": true,
+        "origin": "Sample"
+      }
+    },
+    "video": [
+      {
+        "id": "video_1",
+        "media": "media_1",
+        "src_in_ms": 0,
+        "src_out_ms": 12000,
+        "reframe": "fit_blur",
+        "crop": null,
+        "speed": 1.0,
+        "volume_db": 0.0,
+        "mute": false,
+        "transition_in": null,
+        "fx": [
+          {
+            "plugin": "uz.lahza.speed.freeze",
+            "at_ms": 3000,
+            "dur_ms": 1000,
+            "params": {
+              "dur_ms": 1000
+            },
+            "source": "qolda"
+          }
+        ],
+        "role": null,
+        "reason": "Sample",
+        "user_edited": false
+      }
+    ],
+    "text": [
+      {
+        "id": "text_1",
+        "start_ms": 2000,
+        "end_ms": 6500,
+        "text": "Sample",
+        "kind": "title",
+        "background": null,
+        "position": "upper",
+        "animation": "none",
+        "font_size": null
+      }
+    ],
+    "music": [],
+    "stickers": [
+      {
+        "id": "stickers_1",
+        "path": "fixtures/sticker.png",
+        "start_ms": 2500,
+        "end_ms": 6500,
+        "x": 0.78,
+        "y": 0.4,
+        "width": 0.23,
+        "height": 0.18,
+        "rotation": -12.0,
+        "opacity": 0.95,
+        "layer": 0,
+        "animation": "fade"
+      }
+    ],
+    "captions": {
+      "enabled": true,
+      "style": {
+        "name": "Sample",
+        "font_family": "Inter",
+        "font_size": 72,
+        "bold": true,
+        "primary_color": "#FFFFFF",
+        "highlight_color": "#FFD400",
+        "outline_color": "#000000",
+        "outline_width": 5.0,
+        "shadow": 0.0,
+        "box": false,
+        "box_color": "#000000",
+        "box_opacity": 0.6,
+        "position": "lower",
+        "uppercase": false,
+        "animation": "karaoke",
+        "max_words": 3,
+        "max_lines": 2,
+        "orthography": "official",
+        "pop_scale": 115,
+        "keywords": [],
+        "remove_fillers": false,
+        "filler_words": [
+          "ee",
+          "eee",
+          "mmm",
+          "hmm",
+          "aa",
+          "ı"
+        ],
+        "mask_profanity": false,
+        "profanity_words": [],
+        "logo_path": null,
+        "logo_position": "top_right",
+        "logo_opacity": 0.8
+      },
+      "words": [
+        {
+          "text": "Sample",
+          "start_ms": 0,
+          "end_ms": 1000,
+          "conf": 0.9,
+          "speaker": null,
+          "edited": false,
+          "original_text": null
+        }
+      ]
+    },
+    "brand": {
+      "logo_path": null,
+      "logo_position": "top_right",
+      "logo_opacity": 0.8
+    },
+    "audio": {
+      "source_gain_db": 0.0,
+      "loudnorm_lufs": null,
+      "fade_ms": 150
+    },
+    "color": null,
+    "provenance": {
+      "template_id": null,
+      "template_version": null,
+      "engine": null,
+      "created_at": null,
+      "planner": null,
+      "notes": []
+    }
+  },
+  "changes": [
+    "Synthetic preview change"
+  ],
+  "warnings": []
+}

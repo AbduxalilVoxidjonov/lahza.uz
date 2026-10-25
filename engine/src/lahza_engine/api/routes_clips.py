@@ -19,6 +19,7 @@ from lahza_engine.api.state import State
 from lahza_engine.core.jobs import Job
 from lahza_engine.core.runner import Cancelled
 from lahza_engine.db import store as db
+from lahza_engine.render.profiles import Platform, evaluate_profile
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.text.orthography import Orthography
 from lahza_engine.timeline import Timeline
@@ -73,7 +74,7 @@ class ExportIn(BaseModel):
     orthography: Orthography | None = None
     filename_template: str | None = None
     allow_no_subs: bool = False  # libass yo'q bo'lsa subtitrsiz eksport (SRT/VTT baribir yoziladi)
-    platform: str = "instagram_reels"
+    platform: Platform = "instagram_reels"
 
 
 LIBASS_MSG = ("FFmpeg libass'siz yig'ilgan: subtitrni videoga chizib bo'lmaydi. Dastur bilan kelgan "
@@ -213,6 +214,10 @@ def submit_export(s: State, eid: str, cid: str, body: ExportIn, retry_of: str | 
     show_name = show[0]["name"] if show else "lahza"
     with s.project(eid) as conn:
         clip = _clip_or_404(conn, eid, cid)
+        evaluation = evaluate_profile(body.platform, Timeline(clip.start_ms, clip.end_ms, clip.cuts).duration_ms,
+                                      s.settings.render.width, s.settings.render.height, settings=s.settings)
+        if evaluation.errors:
+            raise HTTPException(400, "; ".join(evaluation.errors))
         export_id = uuid.uuid4().hex[:12]
         db.record_export(conn, export_id, cid, "", body.model_dump(mode="json"))
     style = body.style

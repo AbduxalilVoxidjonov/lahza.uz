@@ -1,3 +1,5 @@
+import { EditingSkillsPanel } from "../components/settings/EditingSkillsPanel";
+import { ExternalAssetsPanel } from "../components/settings/ExternalAssetsPanel";
 import { CapabilitiesPanel } from "../components/settings/CapabilitiesPanel";
 import { DiagnosticsPanel } from "../components/settings/DiagnosticsPanel";
 import { LexiconManager } from "../components/settings/LexiconManager";
@@ -33,6 +35,8 @@ export function Settings() {
       </section>
       <ModelManager />
       <CapabilitiesPanel />
+      <ExternalAssetsPanel />
+      <EditingSkillsPanel />
       <LexiconManager />
       <DiagnosticsPanel />
       <ShortcutsTable />
