@@ -11,6 +11,7 @@ export const ru = {
   "nav.projects": "Проекты",
   "nav.exports": "Экспорт",
   "nav.settings": "Настройки",
+  "nav.claude": "Монтаж с Claude",
   "engine.starting": "Запуск движка…",
   "engine.error": "Нет связи с движком: {msg}",
   "onb.title": "Начало работы",

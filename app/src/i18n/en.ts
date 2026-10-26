@@ -11,6 +11,7 @@ export const en = {
   "nav.projects": "Projects",
   "nav.exports": "Exports",
   "nav.settings": "Settings",
+  "nav.claude": "Claude editing",
   "engine.starting": "Starting engine…",
   "engine.error": "Cannot reach the engine: {msg}",
   "onb.title": "Get started",

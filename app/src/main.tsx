@@ -5,6 +5,7 @@ import { createHashRouter, Navigate, RouterProvider } from "react-router-dom";
 
 import { useEngineEvents } from "./api/hooks";
 import { Shell } from "./components/Shell";
+import { Claude } from "./pages/Claude";
 import { ClipEditor } from "./pages/ClipEditor";
 import { Episode } from "./pages/Episode";
 import { Exports } from "./pages/Exports";
@@ -55,6 +56,7 @@ const router = createHashRouter([
       { path: "/montages/:id", element: <Montage /> },
       { path: "/exports", element: <Exports /> },
       { path: "/settings", element: <Settings /> },
+      { path: "/claude", element: <Claude /> },
     ],
   },
 ]);

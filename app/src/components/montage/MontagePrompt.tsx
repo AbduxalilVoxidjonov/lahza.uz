@@ -1,4 +1,6 @@
 import { useEditingAgentStatus } from "../../api/editing-agent";
+import { useClaudeStatus } from "../../api/claude";
+import { claudeView } from "../../lib/claude";
 import { resolvePromptMode, type PromptMode } from "../../lib/prompt-mode";
 import { useState } from "react";
 import { useT } from "../../i18n";
@@ -19,7 +21,8 @@ export function MontagePrompt({ tl, selection, profiles, edit }: {
   const at = useEditingAgentT();
   const status = useEditingAgentStatus();
   const [modeChoice, setMode] = useState<PromptMode | null>(null);
-  const mode = resolvePromptMode(modeChoice, status.isSuccess && status.data.available);
+  const claudeReady = claudeView(useClaudeStatus().data).plannerReady;
+  const mode = resolvePromptMode(modeChoice, (status.isSuccess && status.data.available) || claudeReady);
   const [input, setInput] = useState("");
   const changeInput = (value: string) => { setMode(mode); setInput(value); };
   const [plan, setPlan] = useState<PromptPlan | null>(null);

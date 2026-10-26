@@ -5,6 +5,7 @@ export const uz = {
   "nav.projects": "Loyihalar",
   "nav.exports": "Eksport",
   "nav.settings": "Sozlamalar",
+  "nav.claude": "Claude montaj",
   "engine.starting": "Engine ishga tushmoqda…",
   "engine.error": "Engine bilan aloqa yo'q: {msg}",
 

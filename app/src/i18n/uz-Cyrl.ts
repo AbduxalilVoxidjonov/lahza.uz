@@ -11,6 +11,7 @@ export const uzCyrl = {
   "nav.projects": "Лойиҳалар",
   "nav.exports": "Экспорт",
   "nav.settings": "Созламалар",
+  "nav.claude": "Claude монтаж",
   "engine.starting": "Engine ишга тушмоқда…",
   "engine.error": "Engine билан алоқа йўқ: {msg}",
   "onb.title": "Бошлаш",
