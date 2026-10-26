@@ -9,6 +9,7 @@ import { outDuration } from "../../lib/words";
 import { useSettings } from "../../store/settings";
 import { KindBadge, StatusBadge } from "../ClipBadges";
 import { fmtTime } from "../ui";
+import { ClipMetrics } from "./ClipMetrics";
 
 /** Muqova o'rniga engine preview kadri - karta ko'rinishga kirgandagina so'raladi. */
 function Cover({ clip, episodeId }: { clip: Clip; episodeId: string }) {
@@ -76,6 +77,7 @@ export const ClipCard = memo(function ClipCard(p: {
         <StatusBadge status={clip.status} />
         {clip.source === "qolda" && <span className="badge">{t("source.qolda")}</span>}
       </div>
+      <ClipMetrics episodeId={p.episodeId} clipId={clip.id} title={clip.title || t("clips.untitled")} />
       <div className="row">
         <button type="button" className="btn small good" aria-pressed={clip.status === "qabul"} onClick={() => p.onStatus("qabul")}>
           {t("clips.accept")}

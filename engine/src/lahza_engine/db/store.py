@@ -19,9 +19,10 @@ from lahza_engine.types import (
 )
 
 # Kutubxona (library.db) va epizod (project.db) sxemalari alohida versiyalanadi: bir bazadagi
-# o'zgarish ikkinchisini migratsiyaga majburlamasligi uchun. Kutubxona v4 (v3 montaj, v4 tahlil
-# navbati), loyiha v3 (v3 - klip hook'i, PRO-3).
-LIBRARY_SCHEMA_VERSION = 4
+# o'zgarish ikkinchisini migratsiyaga majburlamasligi uchun. Kutubxona v5 (v3 montaj, v4 tahlil
+# navbati, v5 shaxsiy lug'at va ball vaznlarini o'rganish - PRO-1/PRO-6), loyiha v3 (v3 - klip
+# hook'i, PRO-3).
+LIBRARY_SCHEMA_VERSION = 5
 PROJECT_SCHEMA_VERSION = 3
 SCHEMA_VERSION = PROJECT_SCHEMA_VERSION  # orqaga moslik
 
@@ -86,6 +87,40 @@ CREATE TABLE IF NOT EXISTS analysis_queue (
   finished_at TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_analysis_queue_status ON analysis_queue(status, position);
+""",
+    5: """
+CREATE TABLE IF NOT EXISTS personal_dictionary (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  wrong TEXT NOT NULL,
+  right TEXT NOT NULL,
+  kind TEXT NOT NULL DEFAULT 'soz' CHECK (kind IN ('ism','atama','soz')),
+  count INTEGER NOT NULL DEFAULT 1 CHECK (count >= 1),
+  last_episode_id TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (wrong, right)
+);
+CREATE TABLE IF NOT EXISTS clip_metrics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  episode_id TEXT NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+  show_id TEXT REFERENCES shows(id) ON DELETE CASCADE,
+  clip_id TEXT NOT NULL,
+  views INTEGER NOT NULL CHECK (views >= 0),
+  likes INTEGER CHECK (likes IS NULL OR likes >= 0),
+  features_json TEXT NOT NULL DEFAULT '{}',
+  score REAL,
+  source TEXT,
+  recorded_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (episode_id, clip_id)
+);
+CREATE INDEX IF NOT EXISTS idx_clip_metrics_show ON clip_metrics(show_id);
+CREATE TABLE IF NOT EXISTS highlight_weights (
+  scope TEXT PRIMARY KEY,
+  weights_json TEXT,
+  n_samples INTEGER NOT NULL DEFAULT 0,
+  since_id INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """,
 }
 PROJECT_MIGRATIONS: dict[int, str] = {

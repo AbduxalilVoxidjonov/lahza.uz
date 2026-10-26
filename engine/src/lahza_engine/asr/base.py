@@ -13,6 +13,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Literal, Protocol
 
+from lahza_engine.text.personal_dict import apply_active
 from lahza_engine.types import Word
 
 MAX_CHUNK_MS = 30_000
@@ -262,4 +263,5 @@ def dedupe_overlaps(words: list[Word]) -> list[Word]:
         if out and w.start_ms < out[-1].end_ms - 50 and w.text == out[-1].text:
             continue
         out.append(w)
-    return out
+    # PRO-1: tahlil vazifasida faol shaxsiy lug'at bo'lsa - post-tuzatish (aks holda o'zgarishsiz).
+    return apply_active(out)

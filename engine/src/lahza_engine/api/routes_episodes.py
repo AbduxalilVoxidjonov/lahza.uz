@@ -100,11 +100,17 @@ def create_episode(s: State, project_id: str, src: Path, title: str | None) -> t
 def submit_analysis(s: State, eid: str, show_id: str, pdir: Path, src: Path,
                     focus: str | None, num_speakers: int | None, force_lite: bool,
                     *, on_change: Callable[[Job], None] | None = None, **meta: Any) -> Job:
+    from lahza_engine.api import routes_learning as pro
     from lahza_engine.core.analyze import analyze
     from lahza_engine.core.runner import StageContext
     from lahza_engine.media.probe import fast_hash
+    from lahza_engine.text.personal_dict import use_dictionary
 
     hotwords, lexicon_map = lexicon_for(s, show_id)
+    # PRO-1/PRO-6: shaxsiy lug'at (hotwords + ASR post-tuzatish) va o'rganilgan ball vaznlari.
+    personal = pro.active_dictionary(s)
+    hotwords = pro.merge_hotwords(hotwords, personal)
+    settings = pro.settings_for(s, show_id)
     s.lib_write("UPDATE episodes SET status = 'analyzing' WHERE id = ?", (eid,))
 
     def work(job: Job) -> dict[str, Any]:
@@ -121,7 +127,8 @@ def submit_analysis(s: State, eid: str, show_id: str, pdir: Path, src: Path,
                 cancel=job.cancel,
                 on_progress=lambda stage, frac: s.jobs.progress(job, stage, frac),
             )
-            res = analyze(ctx, s.settings)
+            with use_dictionary(personal):
+                res = analyze(ctx, settings)
             status, mode = "ready", res["highlight"]["mode"]
             return {"episode_id": eid, "mode": mode, "clips": len(res["highlight"]["clips"])}
         finally:
@@ -254,6 +261,10 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             if out.text != before:
                 db.add_correction(conn, eid, out.id, f"cache/{WAV_NAME}#{out.start_ms}-{out.end_ms}",
                                   before, out.text)
+        if out.text != before:
+            from lahza_engine.api.routes_learning import harvest_correction
+
+            harvest_correction(s, eid, before, out.text)
         return {"ok": True, "sentence": sentence_json(out)}
 
     @app.get("/v1/episodes/{eid}/waveform")

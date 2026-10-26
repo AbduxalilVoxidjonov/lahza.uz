@@ -2,6 +2,7 @@ import { EditingSkillsPanel } from "../components/settings/EditingSkillsPanel";
 import { ExternalAssetsPanel } from "../components/settings/ExternalAssetsPanel";
 import { CapabilitiesPanel } from "../components/settings/CapabilitiesPanel";
 import { DiagnosticsPanel } from "../components/settings/DiagnosticsPanel";
+import { LearningPanel } from "../components/settings/LearningPanel";
 import { LexiconManager } from "../components/settings/LexiconManager";
 import { LicensePanel } from "../components/settings/LicensePanel";
 import { LicensesPanel } from "../components/settings/LicensesPanel";
@@ -49,6 +50,7 @@ export function Settings() {
       <YoutubeImportPanel />
       <EditingSkillsPanel />
       <LexiconManager />
+      <LearningPanel />
       <DiagnosticsPanel />
       <ShortcutsTable />
       <LicensePanel />

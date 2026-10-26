@@ -147,7 +147,7 @@ Funksiya **standart holatda o'chiq** (`Settings.licensing_enabled`, sinov uchun 
 | GET | `/v1/episodes/{id}/speakers` | — | `[{"label", "display_name": string\|null}]` |
 | PATCH | `/v1/episodes/{id}/speakers/{label}` | `{"display_name"}` | `{"ok": true}` |
 
-* `PATCH words`: matn NFC/imloga normallashtiriladi. Bo'sh matn — so'z o'chiriladi va `ord` 0..n-1 qayta raqamlanadi; bo'shliqli matn — bir nechta so'zga bo'linadi (eski so'z vaqt oralig'i harf soniga proporsional taqsimlanadi). So'ng faqat shu gap qayta tekislanadi: `Services.aligner` bo'lsa `align.realign.realign_sentence` (wav: `<loyiha>/cache/audio16k.wav`), bo'lmasa so'z vaqtlari saqlanadi. `sentences.text` yangilanadi; matn o'zgargan bo'lsa `corrections` ga `before/after` yoziladi (`audio_chunk_path = "cache/audio16k.wav#<start_ms>-<end_ms>"`). Gap/so'z topilmasa — 404.
+* `PATCH words`: matn NFC/imloga normallashtiriladi. Bo'sh matn — so'z o'chiriladi va `ord` 0..n-1 qayta raqamlanadi; bo'shliqli matn — bir nechta so'zga bo'linadi (eski so'z vaqt oralig'i harf soniga proporsional taqsimlanadi). So'ng faqat shu gap qayta tekislanadi: `Services.aligner` bo'lsa `align.realign.realign_sentence` (wav: `<loyiha>/cache/audio16k.wav`), bo'lmasa so'z vaqtlari saqlanadi. `sentences.text` yangilanadi; matn o'zgargan bo'lsa `corrections` ga `before/after` yoziladi (`audio_chunk_path = "cache/audio16k.wav#<start_ms>-<end_ms>"`). Shu tuzatishdan so'z darajasidagi "xato → to'g'ri" juftliklari shaxsiy lug'atga yig'iladi (PRO-1, pastda). Gap/so'z topilmasa — 404.
 * `waveform`: `buckets` 10..20000; har bo'lakdagi |maks| amplituda, butun fayl maksimumiga normallangan (0..1). `cache/waveform-<buckets>-<mtime>.json` da keshlanadi. Audio hali yo'q — 404.
 * `speakers`: yorliqlar gaplardagi `speaker_id` dan; ism `project.db → speakers` da saqlanadi. Bo'sh ism — `null`. Noma'lum yorliq — 404.
 
@@ -193,6 +193,32 @@ Funksiya **standart holatda o'chiq** (`Settings.licensing_enabled`, sinov uchun 
 * `lexicon?project_id=X` — shu shou va umumiy (`show_id = null`) yozuvlar; parametrsiz — hammasi. `term`/`variants` normallashtiriladi, takror va `term` ga teng variantlar olib tashlanadi.
 * Uslublar `library.db → style_templates` da; `template.name` yozuv nomiga tenglanadi. Import fayli: `{"name","template"}` yoki yalang'och `StyleTemplate` JSON (≤ 1 MB); yaroqsiz — 400. Eksport `{"name","template"}` yozadi (`.json` kengaytmasi qo'shiladi).
 * `fonts`: `subtitle.fonts.list_fonts()` (shrift o'zbek glifflarini qamraydimi).
+
+## Pro: shaxsiy lug'at va ball vaznlari (PRO-1, PRO-6)
+
+To'liq oflayn. Kod: `text/personal_dict.py`, `highlight/learning.py`, `api/routes_learning.py`.
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/dictionary` | — | `{"entries": [DictEntry], "min_count": 2, "conf_threshold": 0.85}`; `DictEntry = {"id","wrong","right","kind": "ism"\|"atama"\|"soz","count","active","last_episode_id","updated_at"}` |
+| DELETE | `/v1/dictionary/{id}` | — | `{"ok": true}` (yo'q — 404) |
+| GET | `/v1/dictionary:export` | — | `{"format": "lahza.dictionary/1", "entries": [DictEntry]}` |
+| POST | `/v1/dictionary:export` | `{"out_path"}` | `{"path","entries"}` |
+| GET | `/v1/dictionary/finetune-manifest?project_id=` | — | `application/x-ndjson` (pastda) |
+| POST | `/v1/dictionary/finetune-manifest:export` | `{"out_path","project_id?"}` | `{"path","segments"}` |
+| GET | `/v1/episodes/{id}/clip-metrics` | — | `{clip_id: {"clip_id","views","likes","recorded_at"}}` |
+| PUT | `/v1/episodes/{id}/clips/{cid}/metrics` | `{"views": int>=0, "likes?": int>=0\|null}` | `{"metrics", "weights": WeightsInfo}` (loyiha darajasi) |
+| DELETE | `/v1/episodes/{id}/clips/{cid}/metrics` | — | `{"ok": true}` (yo'q — 404) |
+| GET | `/v1/highlight/weights?project_id=` | — | `WeightsInfo = {"scope","weights": {"weight_llm","weight_signals"},"defaults","source": "project"\|"global"\|"default","learned","n_samples","min_samples"}` |
+| POST | `/v1/highlight/weights:reset` | `{"project_id?"}` | `WeightsInfo` |
+
+* **Lug'at yig'ish**: `PATCH words` dagi har tuzatishda gapning oldingi/keyingi matni so'z yadrolari (tinish belgilarisiz) bo'yicha solishtiriladi (`difflib`); faqat almashtirishlar (1..3 so'z → 1..3 so'z) juftlik bo'ladi, qo'shilgan/o'chirilgan so'z — yo'q. Faqat tinish belgisi o'zgarishi juftlik emas; bosh harf tuzatilishi (`toshkent → Toshkent`) — juftlik. `wrong` kichik harfda; `kind`: bosh harf — `ism`, ko'p so'zli/uzun — `atama`, aks holda `soz`.
+* **Faol lug'at**: `count >= 2` va shu `wrong` uchun ulush >= 80% (ziddiyatli tuzatishlar qo'llanmaydi); zanjirlar (A→B, B→C) qo'llanmaydi.
+* **Qo'llash (tahlil)**: `submit_analysis` (import, qayta tahlil, navbat) (a) faol `ism`/`atama` yozuvlarning `right` qiymatlarini lexicon hotwords'idan keyin qo'shadi (≤ 40; Whisper `hotwords`/`initial_prompt`), (b) ASR bosqichining oxirida (`asr.base.dedupe_overlaps` → `personal_dict.apply_active`) post-tuzatish qiladi: faqat butun so'z mos kelganda (so'z ichidagi qism almashtirilmaydi; ko'p so'zli juftlik ichida tinish belgisi bo'lsa — yo'q), ASR `conf` ma'lum va `>= 0.85` bo'lsa tegilmaydi, `edited` so'zlar tegilmaydi; birinchi so'zning old va oxirgi so'zning ort tinish belgilari saqlanadi, gap boshidagi bosh harf saqlanadi; so'z soni o'zgarsa oraliq teng bo'linadi. ASR keshi `hotwords` parametri bo'yicha yangilanadi (yangi `right` qiymati qo'shilsa ASR qayta ishlaydi).
+* **Fine-tune manifesti**: har `(epizod, gap)` uchun (`corrections.sentence_id`) bitta JSON qator — `{"audio": "<loyiha>/cache/audio16k.wav" (mutlaq yo'l), "audio_exists", "start_ms", "end_ms", "duration_ms", "text" (joriy, yakuniy matn), "asr_text" (birinchi tuzatishdagi `before_text`), "language": "uz", "episode_id", "project_id", "sentence_id"}`. Audio ko'chirilmaydi. Matni ASR matniga qaytarilgan gaplar o'tkaziladi. `out_path` papka bo'lsa — `lahza-finetune.jsonl` / `lahza-dictionary.json`; kengaytma majburan qo'yiladi; ota papka yo'q — 400.
+* **Vaznlarni o'rganish**: namuna — klip `scores_json` dagi `llm` va `signal` (kiritish paytida saqlanadi) + `y = log1p(views) + 0.5·log1p(likes)`. Ikkala komponent bo'lgan namunalar ishlatiladi (Lite kliplari — yo'q). Rang (Spearman uslubi) bo'yicha ridge regressiya → musbat xom koeffitsiyent ulushlari → Bayes qisqartirish `a = n/(n+20)` standart vaznlarga → har vazn `[0.1, 0.9]` × yig'indi, yig'indi standartdagidek (1.0). `n < 8`, xususiyat o'zgarmas yoki musbat bog'liqlik yo'q — o'rganilmaydi (`weights_json = NULL`). Har `PUT/DELETE metrics` loyiha va `global` vaznlarini barcha namunalardan qayta hisoblaydi (yig'ilib boruvchi siljish yo'q).
+* **Qo'llash**: tahlilda vaznlar `project` → `global` → standart tartibida tanlanadi va `HighlightConfig.weight_llm/weight_signals` ga qo'yiladi (global `Settings` o'zgarmaydi); `highlight` bosqichi keshi parametrlar bo'yicha yangilanadi.
+* **Tiklash**: `weights:reset` shu darajaning vaznini `NULL` qiladi va `since_id = MAX(clip_metrics.id)` — eski namunalar keyingi o'rganishga kirmaydi. Loyiha tiklansa va global o'rganilgan bo'lsa — `source = "global"`. Noma'lum loyiha — 404.
 
 ## Montaj: plaginlar, video shablonlar, avtomontaj
 

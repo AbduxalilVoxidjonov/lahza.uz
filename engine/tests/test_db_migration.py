@@ -52,7 +52,7 @@ def _make(path: Path, sql: str) -> None:
 def test_library_v1_to_latest(tmp_path: Path) -> None:
     _make(tmp_path / "library.db", V1_LIBRARY)
     conn = db.open_library(tmp_path)
-    assert db.schema_version(conn) == db.LIBRARY_SCHEMA_VERSION == 4
+    assert db.schema_version(conn) == db.LIBRARY_SCHEMA_VERSION == 5
     assert "highlight_mode" in _cols(conn, "episodes") and "updated_at" in _cols(conn, "style_templates")
     assert conn.execute("SELECT title FROM episodes WHERE id='e1'").fetchone()[0] == "Ep"
     bak = tmp_path / "library.v1.bak"
@@ -63,7 +63,7 @@ def test_library_v1_to_latest(tmp_path: Path) -> None:
     assert old.execute("SELECT count(*) FROM episodes").fetchone()[0] == 1  # WAL'dagi yozuvlar ham
     conn.close()
     db.open_library(tmp_path).close()  # qayta ochish - migratsiyasiz
-    assert not any((tmp_path / f"library.v{v}.bak").exists() for v in (2, 3, 4))
+    assert not any((tmp_path / f"library.v{v}.bak").exists() for v in (2, 3, 4, 5))
 
 
 def test_project_v1_to_v2(tmp_path: Path) -> None:
@@ -93,9 +93,9 @@ def test_fresh_dbs_are_v2_and_match_migrated_columns(tmp_path: Path) -> None:
     _make(tmp_path / "lm" / "library.db", V1_LIBRARY)
     lib_m = db.open_library(tmp_path / "lm")
     for t in ("episodes", "style_templates", "lexicon", "montages", "user_templates", "montage_exports",
-              "analysis_queue"):
+              "analysis_queue", "personal_dictionary", "clip_metrics", "highlight_weights"):
         assert _cols(lib, t) == _cols(lib_m, t)
-    assert db.schema_version(fresh) == db.PROJECT_SCHEMA_VERSION and db.schema_version(lib) == 4
+    assert db.schema_version(fresh) == db.PROJECT_SCHEMA_VERSION and db.schema_version(lib) == 5
 
 
 def test_v2_helpers(tmp_path: Path) -> None:
