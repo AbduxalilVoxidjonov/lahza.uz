@@ -133,7 +133,9 @@ class JobManager:
 
     def shutdown(self) -> None:
         self.closing = True
-        for j in self.jobs.values():
+        with self._lock:
+            items = list(self.jobs.values())
+        for j in items:
             j.cancel.set()
         self._heavy.shutdown(wait=False, cancel_futures=True)
         self._export.shutdown(wait=False, cancel_futures=True)
