@@ -1,68 +1,58 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { OS_SLICES, SLICES, osLabelFor, sliceEnv, sliceNames, slicesFor } from '../e2e/slices.mjs'
+import {
+  CARRIERS,
+  LEGS,
+  OS_SLICES,
+  DEFAULT_SECONDS,
+  osLabelFor,
+  pack,
+  readSnapshot,
+  sliceEnv,
+  sliceNames,
+  slicesFor,
+  snapshotDrift,
+  specFiles,
+} from '../e2e/slices.mjs'
+import { EXTRA_STEPS } from './e2e-timings-snapshot.mjs'
 
-/// electron-ci splits one e2e run across runners by NAMING spec files and giving
-/// one leg everything that was not named. The split is therefore only correct if
-/// the named set and the ignored set are the same set — and the way it breaks is
-/// silent: a name in the ignore list with no leg owning it runs NOWHERE, on no
-/// runner, reported as green by all of them. Nothing else can catch that. A
-/// rename, by contrast, is loud (the owning leg collects zero tests and
-/// Playwright fails it), but is cheaper to catch here.
+/// electron-ci splits one e2e run across runners by giving each leg an explicit
+/// set of spec files, packed by e2e/slices.mjs from the measured cost in
+/// e2e/timings.json. The split is only correct if every spec lands on exactly
+/// one leg of every OS — and the way it breaks is silent: a spec on no leg runs
+/// NOWHERE, on no runner, reported as green by all of them; a spec on two legs
+/// runs twice and pays for it. Nothing else can catch the first.
 ///
-/// Everything below is asserted PER OS, because the two sets are per OS: an OS
-/// that runs fewer slices has fewer owners, so one union over the whole table
-/// would land exactly that failure on that OS alone — every leg of every OS
-/// green, one OS quietly short of coverage.
+/// Everything below is asserted PER OS, because the pack is per OS: macOS runs
+/// fewer legs, each owning more files, and costs differ per OS, so the
+/// assignment differs too.
 ///
-/// e2e/slices.mjs is the source of truth and derives each ignore set from the
-/// owned ones, so the two-lists-disagree shape is gone by construction; what is
-/// asserted here is that derivation plus the table's own invariants. The workflow
-/// still owns facts no module can hold — the parts and the (os, part) exclusions
-/// it declares, which invocation the restriction reaches, and which slice each
-/// once-per-OS extra is gated to — and those tests read its text.
+/// The pack is a pure function of the directory listing and the snapshot, so
+/// the one-leg property holds by construction; what is asserted here is that
+/// construction, the pack's balance (the reason the split exists), and the
+/// facts the workflow still owns and no module can hold — the parts and the
+/// (os, part) exclusions it declares, which invocation the restriction reaches,
+/// and which leg each once-per-OS extra is gated to.
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const DESKTOP = path.resolve(HERE, '..')
 const WORKFLOW = path.resolve(DESKTOP, '..', '..', '.github', 'workflows', 'electron-ci.yml')
+const PLAYWRIGHT_CONFIG = path.resolve(DESKTOP, 'playwright.config.ts')
 
 const yml = readFileSync(WORKFLOW, 'utf8')
 
-const OSES = Object.keys(OS_SLICES)
+const OSES = Object.keys(LEGS)
+const FLAGS = Object.keys(CARRIERS)
 
 const names = (list) =>
   list
     .split(',')
     .map((n) => n.trim())
     .filter(Boolean)
-
-/** The catch-all slice one OS runs — the leg that takes what its siblings did not. */
-const catchAllOn = (os) => {
-  const found = slicesFor(os).filter((slice) => slice.own.length === 0)
-  assert.equal(
-    found.length,
-    1,
-    `${os} must run exactly one catch-all slice: two would each run the whole unclaimed set, and none would leave every unnamed spec on no runner at all — it runs ${found.length}`,
-  )
-  return found[0]
-}
-
-/** What that OS's catch-all leg is told to ignore. */
-const ignoredOn = (os) => names(sliceEnv(catchAllOn(os).name, os).WEFTCUT_E2E_IGNORE)
-
-/** Every spec file the slices of one OS claim, flattened. */
-const ownedOn = (os) => slicesFor(os).flatMap((slice) => slice.own)
-
-/** The one slice a single-occupancy flag rides. */
-const carrier = (flag) => {
-  const found = SLICES.filter((slice) => slice[flag])
-  assert.equal(found.length, 1, `exactly one slice may carry \`${flag}\`, not ${found.length}`)
-  return found[0].name
-}
 
 /** The `if:` condition of a named workflow step, as its raw line. */
 const stepIf = (step) => {
@@ -77,69 +67,129 @@ const stepIf = (step) => {
   return condition
 }
 
-test('every ignored spec file is owned by exactly one leg of the same OS', () => {
+// ── the pack ───────────────────────────────────────────────────────────────
+
+test('every spec file is owned by exactly one leg of every OS', () => {
+  const specs = specFiles()
+  assert.ok(specs.length > 0, 'no spec files found — the split would run nothing')
   for (const os of OSES) {
-    const own = ownedOn(os)
-    assert.ok(own.length > 0, `no leg of ${os} owns any spec file — the split would run nothing`)
+    const legs = slicesFor(os)
+    assert.equal(legs.length, LEGS[os], `${os} packs ${legs.length} legs, LEGS says ${LEGS[os]}`)
+    const own = legs.flatMap((leg) => leg.own)
     const counts = new Map()
     for (const n of own) counts.set(n, (counts.get(n) ?? 0) + 1)
     const twice = [...counts].filter(([, c]) => c > 1).map(([n]) => n)
     assert.deepEqual(twice, [], `these spec files are owned by two legs of ${os}, so they run twice`)
-    assert.deepEqual(
-      [...own].sort(),
-      [...ignoredOn(os)].sort(),
-      `on ${os} the named legs and the catch-all’s ignore list disagree: a file in one but not the other either runs twice or never runs at all`,
-    )
+    assert.deepEqual([...own].sort(), specs, `on ${os} the legs together do not cover the suite exactly`)
+    for (const leg of legs)
+      assert.ok(leg.own.length > 0, `${os} ${leg.name} owns no spec: an empty restriction runs the whole suite`)
   }
 })
 
-test('every spec file the split names still exists', () => {
-  for (const name of SLICES.flatMap((slice) => slice.own)) {
-    const spec = path.join(DESKTOP, 'e2e', 'electron', name)
-    assert.ok(existsSync(spec), `${name} is named by the e2e split but no such spec exists`)
-  }
-})
-
-test('every OS runs exactly one carrier of each once-per-OS extra', () => {
+test('every OS runs exactly one carrier of each once-per-OS extra, the fixed one', () => {
   // Single-occupancy per OS, each for its own reason: the determinism artifact
   // name is unsliced, so a second uploader is a hard conflict; packaging twice
-  // per OS is waste on whichever slice is already the worst case; and the
-  // decode-bench media is 1.8 GB that only the serial project's reader needs.
-  // ZERO carriers is the quiet half of the same failure — an OS that runs none
-  // of them never packages, never captures determinism PNGs, and self-skips the
-  // software-lane family gates, all while reporting green. That is why the
-  // flag-carrying slices have to be slices EVERY OS runs.
+  // per OS is waste; and the decode-bench media is 1.8 GB that only the serial
+  // project's reader needs, so it rides the serial carrier. ZERO carriers is the
+  // quiet half of the same failure — an OS that runs none of them never
+  // packages, never captures determinism PNGs, and self-skips the software-lane
+  // family gates, all while reporting green. That is why the carriers are legs
+  // EVERY OS runs: within the smallest LEGS count.
+  const fewest = Math.min(...Object.values(LEGS))
+  for (const flag of FLAGS)
+    assert.ok(
+      sliceNames().slice(0, fewest).includes(CARRIERS[flag]),
+      `the \`${flag}\` carrier ${CARRIERS[flag]} must be a leg every OS runs (the first ${fewest})`,
+    )
+  assert.equal(CARRIERS.decodeBench, CARRIERS.serial, 'the decode-bench media is read only by a @serial spec')
   for (const os of OSES) {
-    for (const flag of ['serial', 'package', 'decodeBench']) {
-      const found = slicesFor(os).filter((slice) => slice[flag])
+    for (const flag of FLAGS) {
+      const found = slicesFor(os).filter((leg) => leg[flag])
       assert.deepEqual(
-        found.map((slice) => slice.name),
-        [carrier(flag)],
-        `${os} must run exactly the one slice carrying \`${flag}\``,
+        found.map((leg) => leg.name),
+        [CARRIERS[flag]],
+        `${os} must run exactly the one leg carrying \`${flag}\``,
       )
     }
   }
 })
 
-test('a named slice restricts to its own files and ignores nothing', () => {
-  // The two variables are exclusive by design (playwright.config.ts turns ONLY
-  // into `testMatch`): a slice that set both would ignore files it also owns,
-  // and an empty ONLY makes `testMatch` undefined — the whole suite, on that leg
-  // and on the catch-all both.
+test('a leg restricts to its own files', () => {
+  // An empty ONLY makes `testMatch` undefined — the whole suite, on that leg.
   for (const os of OSES) {
-    for (const slice of slicesFor(os).filter((s) => s.own.length)) {
-      const env = sliceEnv(slice.name, os)
-      assert.deepEqual(names(env.WEFTCUT_E2E_ONLY), slice.own)
-      assert.equal(env.WEFTCUT_E2E_IGNORE, '')
+    for (const leg of slicesFor(os)) {
+      const env = sliceEnv(leg.name, os)
+      assert.deepEqual(names(env.WEFTCUT_E2E_ONLY), leg.own)
+      assert.deepEqual(Object.keys(env), ['WEFTCUT_E2E_ONLY'], 'the pack speaks through one variable')
     }
   }
 })
 
+test('the pack is deterministic', () => {
+  // Every leg of a commit packs on its own runner; they agree only because the
+  // pack is a pure function of the listing and the snapshot.
+  for (const os of OSES) assert.deepEqual(pack(os), pack(os))
+})
+
+// ── balance: the reason the split exists ──────────────────────────────────
+
+/// How far the heaviest leg may exceed the lightest, by the snapshot's own
+/// numbers. The packing lands within a few percent of even; what this catches
+/// is DRIFT — specs that grew or arrived since the snapshot — so the fix when it
+/// fires is `npm run e2e:timings -- <green run id>`, not a hand-edit.
+const BALANCE = 1.5
+
+test('every OS packs within balance by the snapshot', () => {
+  for (const os of OSES) {
+    const seconds = slicesFor(os).map((leg) => leg.seconds)
+    const [min, max] = [Math.min(...seconds), Math.max(...seconds)]
+    assert.ok(
+      max <= min * BALANCE,
+      `${os}: the heaviest leg (${(max / 60).toFixed(1)} min) exceeds ${BALANCE}× the lightest (${(min / 60).toFixed(1)} min) — refresh e2e/timings.json from a green run`,
+    )
+  }
+})
+
+test('the snapshot has not drifted far from the directory', () => {
+  // An unmeasured spec packs at the default cost, a stale entry is ignored —
+  // neither breaks the split, but past a handful the pack is no longer the
+  // measured one. The refresh is one command.
+  const { unmeasured, stale } = snapshotDrift()
+  const LIMIT = 10
+  assert.ok(
+    unmeasured.length + stale.length <= LIMIT,
+    `${unmeasured.length} unmeasured spec(s) and ${stale.length} stale entr(ies) — run \`npm run e2e:timings -- <green run id>\`: ${[...unmeasured, ...stale].join(', ')}`,
+  )
+})
+
+test('the snapshot costs every spec and every extra on every OS', () => {
+  const snapshot = readSnapshot()
+  for (const [file, byOs] of Object.entries(snapshot.seconds.parallel))
+    for (const os of OSES) {
+      const v = byOs[os]
+      assert.ok(Number.isInteger(v) && v >= 0, `${file} on ${os}: ${v}`)
+    }
+  for (const extra of FLAGS)
+    for (const os of OSES) {
+      const v = snapshot.seconds[extra]?.[os]
+      assert.ok(Number.isInteger(v) && v > 0, `extra \`${extra}\` on ${os}: ${v}`)
+    }
+  assert.ok(DEFAULT_SECONDS > 0)
+})
+
+test('an unmeasured spec still lands on exactly one leg', () => {
+  const files = [...specFiles(), 'zz-brand-new.spec.ts']
+  for (const os of OSES) {
+    const own = pack(os, { files }).flatMap((leg) => leg.own)
+    assert.equal(own.filter((f) => f === 'zz-brand-new.spec.ts').length, 1, os)
+  }
+})
+
+// ── the workflow's half ────────────────────────────────────────────────────
+
 test('every runner platform resolves to an OS the table knows', () => {
   // scripts/run-e2e.mjs's `--slice=<name>` derives the OS from process.platform,
-  // so a local replay restricts exactly as the leg it reproduces. Left to default
-  // to the whole table, a replay on an OS running fewer slices would ignore the
-  // files that OS's catch-all absorbs and run LESS than the leg it stands in for.
+  // so a local replay restricts exactly as the leg it reproduces.
   for (const platform of ['win32', 'linux', 'darwin'])
     assert.ok(OS_SLICES[osLabelFor(platform)], `${platform} maps outside the table`)
   assert.throws(() => osLabelFor('freebsd'), /no e2e slice set for platform/)
@@ -149,14 +199,15 @@ test('every runner platform resolves to an OS the table knows', () => {
 test('an unknown slice name is loud rather than an empty restriction', () => {
   // The failure mode this guards: a typo in the `part:` matrix resolving to no
   // restriction, under which that runner silently repeats the entire suite.
-  assert.throws(() => sliceEnv('overlaps', OSES[0]), /unknown e2e slice/)
+  assert.throws(() => sliceEnv('e2e-0', OSES[0]), /unknown e2e slice/)
+  assert.throws(() => sliceEnv('rest', OSES[0]), /unknown e2e slice/)
 })
 
 test('a slice its OS does not run is loud rather than a silent skip', () => {
   // Both halves of the (os, part) space that the matrix must not produce. An
-  // unknown OS label would compute the ignore set from the wrong slice set; a
-  // part the named OS does not run is one the matrix should have excluded, and
-  // letting the leg quietly do nothing is how a whole OS loses coverage.
+  // unknown OS label would pack for the wrong OS; a part the named OS does not
+  // run is one the matrix should have excluded, and letting the leg quietly do
+  // nothing is how a whole OS loses coverage.
   assert.throws(() => sliceEnv(sliceNames()[0], 'freebsd-latest'), /unknown OS/)
   const skipped = OSES.flatMap((os) =>
     sliceNames()
@@ -171,10 +222,10 @@ test('a slice its OS does not run is loud rather than a silent skip', () => {
 test('the slice restriction reaches the parallel project and nothing else', () => {
   // The serial project is NOT sliced — it greps @serial across the whole suite
   // and captures the determinism PNGs. Set anywhere the serial run inherits it,
-  // the restriction narrows that project to the sliced files too; no @serial
-  // test lives in any of them, so Playwright kills the whole leg with "No tests
+  // the restriction narrows that project to the leg's files too; most @serial
+  // tests live elsewhere, so Playwright kills the whole leg with "No tests
   // found" before a single spec runs.
-  const applied = yml.split('\n').filter((l) => /WEFTCUT_E2E_(ONLY|IGNORE)=/.test(l))
+  const applied = yml.split('\n').filter((l) => /WEFTCUT_E2E_ONLY=/.test(l))
   assert.ok(applied.length > 0, 'nothing applies a slice restriction — the split is not in effect')
   for (const line of applied)
     assert.match(
@@ -182,34 +233,29 @@ test('the slice restriction reaches the parallel project and nothing else', () =
       /--project=parallel/,
       `a slice restriction must be set on the parallel invocation itself, never where the serial run inherits it: ${line.trim()}`,
     )
+  assert.ok(!/WEFTCUT_E2E_IGNORE/.test(yml), 'the catch-all variable is gone; every leg is an explicit set')
 })
 
-test('the E2E step passes both matrix dimensions to the table', () => {
-  // Which slices exist is per OS, so the ignore set is too. Pass the part alone
-  // and the module falls back to the whole table — under which the OSes running
-  // fewer slices ignore files no leg of theirs owns. That is the silent-skip
-  // failure this file exists for, one dropped argument away.
+test('the E2E step passes both matrix dimensions to the pack', () => {
+  // The pack is per OS. Pass the part alone and there is nothing to pack for.
   const invocation = yml.split('\n').find((line) => line.includes('slices.mjs --shell'))
-  assert.ok(invocation, 'no leg reads the slice table — the split is not in effect')
+  assert.ok(invocation, 'no leg reads the pack — the split is not in effect')
   const passed = [...invocation.matchAll(/"\$(\w+)"/g)].map(([, name]) => name)
   assert.equal(passed.length, 2, `--shell needs the part AND the OS: ${invocation.trim()}`)
   for (const variable of passed)
     assert.match(
       yml,
       new RegExp(`^\\s+${variable}: \\$\\{\\{ matrix\\.\\w+ \\}\\}$`, 'm'),
-      `$${variable} reaches the table but comes from somewhere other than the matrix`,
+      `$${variable} reaches the pack but comes from somewhere other than the matrix`,
     )
 })
 
-test('the matrix declares the table’s parts, and excludes exactly what no OS runs', () => {
+test('the matrix declares the pack’s parts, and excludes exactly what no OS runs', () => {
   const m = yml.match(/part:\s*\$\{\{[^}]*?'(\["[^\]]+\])'\s*\)\s*\}\}/)
   assert.ok(m, 'no part: matrix dimension found')
-  // `all` is the scoped-dispatch slice: handled by its own branch, not the table.
+  // `all` is the scoped-dispatch slice: handled by its own branch, not the pack.
   const declared = JSON.parse(m[1]).filter((part) => part !== 'all')
-  // In order, not as a set: the table calls itself `part:`-matrix order, and a
-  // slice in one and not the other is a leg running the wrong share (a part the
-  // table does not know reddens its leg; a slice no part declares runs nowhere).
-  assert.deepEqual(declared, sliceNames(), 'the matrix and the slice table disagree')
+  assert.deepEqual(declared, sliceNames(), 'the matrix and LEGS disagree')
   const excluded = [...yml.matchAll(/-\s*os:\s*(\S+)\s*\n\s*part:\s*(\S+)/g)].map(
     ([, os, part]) => `${os} ${part}`,
   )
@@ -219,36 +265,52 @@ test('the matrix declares the table’s parts, and excludes exactly what no OS r
   assert.deepEqual(
     [...excluded].sort(),
     [...unrun].sort(),
-    'the matrix `exclude:` and OS_SLICES disagree: an unexcluded leg reddens on a slice its OS does not run, and an excluded slice still listed for that OS makes its files run nowhere on it',
+    'the matrix `exclude:` and LEGS disagree: an unexcluded leg reddens on a slice its OS does not run, and an excluded slice still counted for that OS packs files onto a leg that never runs',
   )
 })
 
-test('the steps that ride one slice name the slice its flag marks', () => {
+test('the steps that ride one leg name the carrier their flag fixes', () => {
   // The coupling no module can hold: a workflow `if:` cannot call into the
-  // table, so each condition repeats a slice name that the table owns.
+  // pack, which is why CARRIERS is fixed rather than packed.
   const gated = [
     ['Upload determinism artifacts', 'serial'],
-    ['Package (unsigned)', 'package'],
+    [EXTRA_STEPS.package, 'package'],
     ['Upload installer', 'package'],
-    ['Generate software-lane family fixtures (e2e)', 'decodeBench'],
+    [EXTRA_STEPS.decodeBench, 'decodeBench'],
   ]
   for (const [step, flag] of gated) {
     const condition = stepIf(step)
     for (const name of sliceNames())
       assert.equal(
         condition.includes(`'${name}'`),
-        name === carrier(flag),
-        `the "${step}" step must name slice '${carrier(flag)}' — the \`${flag}\` carrier — and no other: ${condition.trim()}`,
+        name === CARRIERS[flag],
+        `the "${step}" step must name '${CARRIERS[flag]}' — the \`${flag}\` carrier — and no other: ${condition.trim()}`,
       )
   }
   // The serial PROJECT's own branch, inside the E2E step's script: the same
-  // slice as the determinism upload above, or the PNGs are captured on a leg
+  // leg as the determinism upload above, or the PNGs are captured on a leg
   // that never uploads them.
   const serial = yml.split('\n').find((line) => line.includes('--project=serial'))
   assert.ok(serial, 'no leg runs the serial project')
   assert.match(
     serial,
-    new RegExp(`"\\$PART" = "${carrier('serial')}"`),
+    new RegExp(`"\\$PART" = "${CARRIERS.serial}"`),
     `the serial project must run on the \`serial\` carrier: ${serial.trim()}`,
   )
+})
+
+test('the snapshot script measures the extras by the steps the workflow actually has', () => {
+  // e2e-timings-snapshot.mjs reads each extra's cost from a step's wall clock
+  // by name; a renamed step would silently drop that extra from the pack.
+  for (const step of Object.values(EXTRA_STEPS))
+    assert.ok(yml.includes(`- name: ${step}`), `no workflow step is named "${step}"`)
+})
+
+test('the parallel project runs one test at a time where the pack assumes it', () => {
+  // The pack treats summed test time as leg wall clock (slices.mjs
+  // §specSeconds). That held on every measured leg, but it is only guaranteed
+  // where the config says one worker; macOS declares two and measured no
+  // overlap anyway. If that line changes, re-measure before trusting the pack.
+  const config = readFileSync(PLAYWRIGHT_CONFIG, 'utf8')
+  assert.match(config, /workers: process\.env\.CI \? \(process\.platform === 'darwin' \? 2 : 1\) : '50%'/)
 })

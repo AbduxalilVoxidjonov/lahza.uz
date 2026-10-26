@@ -11,16 +11,16 @@ import { defineConfig } from '@playwright/test'
 /// with the serial/parallel split below instead of overwriting it.
 const MATRIX_EXCLUDED = process.env.WEFTCUT_E2E_FULL ? [] : [/@matrix/]
 
-/// The two halves of how electron-ci splits one e2e run across runners: a leg
-/// either OWNS a named set of spec files (`WEFTCUT_E2E_ONLY`) or takes
-/// everything the owning legs did not (`WEFTCUT_E2E_IGNORE`). Only the heavy
-/// names are maintained, in `e2e/slices.mjs`; a new spec joins the catch-all leg
-/// on its own.
+/// How electron-ci splits one e2e run across runners: each leg OWNS the spec
+/// files `WEFTCUT_E2E_ONLY` names, and `e2e/slices.mjs` packs every file onto
+/// exactly one leg per OS from the measured cost in `e2e/timings.json`. Unset,
+/// the whole suite runs — a local `npm run e2e`, or CI's single `all` slice.
 ///
-/// Deliberately not Playwright's `--shard`: it balances by TEST COUNT, and this
-/// suite's cost distribution defeats that. One file is a quarter of the run and
-/// dozens are under a minute, so the measured 3-way split left a runner idle at
-/// 4 minutes while another ran 32 — 1.7x for three machines.
+/// Deliberately not Playwright's `--shard`: it splits whole files by COUNT, in
+/// path order, blind to cost. This suite's files range from seconds to four
+/// minutes, and the once-per-OS extras (the serial project, packaging) ride
+/// particular legs; the pack has to see both, so it is computed here from the
+/// measurements, not left to a count.
 ///
 /// LANDMINE — globs, never Playwright's positional file filter. That filter is a
 /// REGEX over the path, so `audio.spec.ts` also selects
@@ -32,12 +32,10 @@ const globs = (names: string | undefined) =>
     .filter(Boolean)
     .map((name) => `**/${name}`)
 const OWNED = globs(process.env.WEFTCUT_E2E_ONLY)
-const IGNORED = globs(process.env.WEFTCUT_E2E_IGNORE)
 
 export default defineConfig({
   testDir: 'e2e/electron',
   testMatch: OWNED.length ? OWNED : undefined,
-  testIgnore: IGNORED,
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
   /// Stop a broadly broken leg early. Counted in failed ATTEMPTS, retries

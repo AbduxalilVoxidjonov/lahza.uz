@@ -4,7 +4,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { SLICES, osLabelFor, sliceEnv } from '../e2e/slices.mjs'
+import { osLabelFor, sliceEnv, slicesFor } from '../e2e/slices.mjs'
 
 const require = createRequire(import.meta.url)
 const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url))) // apps/desktop
@@ -41,7 +41,7 @@ export function splitFullFlag(args) {
 }
 
 /** `--slice=<name>` reproduces one electron-ci runner's share of the suite (the
- * table is e2e/slices.mjs), so a red CI slice is debuggable locally. It selects
+ * pack is e2e/slices.mjs), so a red CI slice is debuggable locally. It selects
  * a set of spec files rather than naming a Playwright option, so like the flags
  * above it has to leave the argv; last one wins. */
 export function splitSliceFlag(args) {
@@ -98,10 +98,11 @@ function projectForRun(args) {
  * the same separation with a subshell. */
 export function planSlicedRuns(runs, slice, platform = process.platform) {
   if (!slice) return runs.map((args) => ({ args, env: {} }))
-  // This machine's own OS: a slice set is per OS, so replaying `rest` here has to
-  // mean what `rest` means on the leg this machine could have been.
-  const env = sliceEnv(slice, osLabelFor(platform))
-  const ownsSerial = Boolean(SLICES.find((s) => s.name === slice).serial)
+  // This machine's own OS: the pack is per OS, so replaying `e2e-3` here has to
+  // mean what `e2e-3` means on the leg this machine could have been.
+  const os = osLabelFor(platform)
+  const env = sliceEnv(slice, os)
+  const ownsSerial = Boolean(slicesFor(os).find((s) => s.name === slice).serial)
   return runs
     .filter((args) => ownsSerial || projectForRun(args) !== 'serial')
     .map((args) => ({ args, env: projectForRun(args) === 'serial' ? {} : env }))
@@ -236,14 +237,12 @@ function noteMatrixTier(env, notes) {
  * gone missing. */
 function noteSlice(slice, platform = process.platform) {
   const os = osLabelFor(platform)
-  const { WEFTCUT_E2E_ONLY, WEFTCUT_E2E_IGNORE } = sliceEnv(slice, os)
-  const scope = WEFTCUT_E2E_ONLY
-    ? `only ${WEFTCUT_E2E_ONLY}`
-    : `everything except ${WEFTCUT_E2E_IGNORE}`
-  const serial = SLICES.find((s) => s.name === slice).serial
-    ? 'plus the serial project, which this slice owns'
-    : 'without the serial project, which another slice owns'
-  return `--slice=${slice} (as on ${os}) — the parallel project runs ${scope}, ${serial}`
+  const { WEFTCUT_E2E_ONLY } = sliceEnv(slice, os)
+  const files = WEFTCUT_E2E_ONLY.split(',')
+  const serial = slicesFor(os).find((s) => s.name === slice).serial
+    ? 'plus the serial project, which this leg owns'
+    : 'without the serial project, which another leg owns'
+  return `--slice=${slice} (as on ${os}) — the parallel project runs ${files.length} spec files (${files.join(', ')}), ${serial}`
 }
 
 /** Wire the per-platform real-run config into a copy of the environment and

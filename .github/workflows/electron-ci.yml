@@ -108,35 +108,36 @@ jobs:
     # allows 20 concurrent, of which
     # 5 may be macOS, counted per billing entity across ALL repositories. macOS
     # is the binding constraint and this matrix sits ON it: 4 legs here + 1
-    # `rust-test`. That is deliberate — measured, macOS needs its fourth leg to
-    # stay off the critical path (e2e/slices.mjs §OS_SLICES) — so another macOS
-    # job anywhere in the account now queues behind this run rather than beside
-    # it. Widening further means buying legs back from somewhere.
+    # `rust-test` — so another macOS job anywhere in the account queues behind
+    # this run rather than beside it. The pack (e2e/slices.mjs §LEGS) balances
+    # each OS across exactly these counts, so a leg's wall clock is that OS's
+    # suite over its leg count: widening means buying legs back from somewhere.
     strategy:
       fail-fast: false
       matrix:
         os: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.os != 'all' && format('["{0}"]', inputs.os) || '["windows-latest", "ubuntu-latest", "macos-latest"]') }}
-        # Which slice of the e2e suite this runner takes (what each one owns:
-        # apps/desktop/e2e/slices.mjs). Every slice repeats the build above
-        # it, which is free here — public repo, and the rebuilds run concurrently,
-        # so a build-once-then-fan-out job would only lengthen the critical path
-        # by making that build serial.
+        # Which leg of the e2e suite this runner takes. Legs are positional:
+        # apps/desktop/e2e/slices.mjs packs every spec file onto one of them per
+        # OS from the measured cost in e2e/timings.json, so which files `e2e-3`
+        # runs is computed on the runner, not written here. Every leg repeats
+        # the build above it, which is free here — public repo, and the rebuilds
+        # run concurrently, so a build-once-then-fan-out job would only lengthen
+        # the critical path by making that build serial.
         #
         # A scoped dispatch collapses to the single `all` slice: `e2e_args` names
-        # its own specs, and running those args once per slice is not a split.
-        part: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.e2e_args != '' && '["all"]' || '["audio", "codecs", "overlap", "range", "rest"]') }}
-        # Slice counts are per OS (which slices, and why that many:
-        # e2e/slices.mjs §OS_SLICES), so this is the matrix half of that map and
-        # a no-op on a scoped dispatch's single `all` part.
+        # its own specs, and running those args once per leg is not a split.
+        part: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.e2e_args != '' && '["all"]' || '["e2e-1", "e2e-2", "e2e-3", "e2e-4", "e2e-5"]') }}
+        # Leg counts are per OS (e2e/slices.mjs §LEGS), so this is the matrix
+        # half of that map and a no-op on a scoped dispatch's single `all` part.
         #
-        # LANDMINE — a part excluded here must also be absent from OS_SLICES for
-        # that OS. The map is what the catch-all's ignore set is computed from:
-        # left in, it makes that leg ignore files no leg of this OS owns, and
-        # they run nowhere while every leg reports green. Both halves are
-        # asserted against each other in apps/desktop/scripts/e2e-split.test.mjs.
+        # LANDMINE — a part excluded here must also be outside LEGS for that OS.
+        # The pack spreads the suite over exactly LEGS[os] legs: count one more
+        # than the matrix runs and the files packed onto it run nowhere while
+        # every leg reports green. Both halves are asserted against each other
+        # in apps/desktop/scripts/e2e-split.test.mjs.
         exclude:
           - os: macos-latest
-            part: overlap
+            part: e2e-5
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -405,18 +406,18 @@ jobs:
       # ring before its backward-seek assertion — a shortened cut cannot
       # satisfy it. ~1.8 GB and ~1-2 min on a 4-vCPU runner.
       #
-      # One slice per OS, the one that runs the serial project:
+      # One leg per OS, the one that runs the serial project:
       # preview-sw-families.spec.ts is the only reader of these two rows and is
       # itself @serial, so on every other leg the minute and the 1.8 GB buy
-      # nothing. That slice is the `decodeBench: true` entry in e2e/slices.mjs,
-      # and this condition has to name it.
+      # nothing. That leg is CARRIERS.decodeBench in e2e/slices.mjs, and this
+      # condition has to name it.
       #
       # Deliberately NOT cached. At 1.8 GB × 3 legs it would take over half of
       # the repo's 10 GB cache budget for media that regenerates from a
       # committed script in a minute — and evict the two caches that cannot
       # (ffmpeg-lgpl on macOS is a ~10 min from-source build).
       - name: Generate software-lane family fixtures (e2e)
-        if: matrix.part == 'audio' || matrix.part == 'all'
+        if: matrix.part == 'e2e-1' || matrix.part == 'all'
         working-directory: apps/desktop/e2e
         run: node scripts/gen-decode-bench-fixtures.mjs --only dnxhr-1080,mpeg2-1080
 
@@ -448,8 +449,8 @@ jobs:
           WEFTCUT_E2E_COLOR_FAITHFUL_MAX: ${{ matrix.os != 'macos-latest' && '16' || '' }}
           # Native-decode gates run on Linux nightly: #15 measured 3/3 green
           # (16 passed, one hardware-only skip; 17–21 min at one worker).
-          # The regular slices still own the files, so only their owning leg
-          # runs each gate. Windows/macOS retain explicit dispatch opt-in;
+          # The pack still places the files, so only their owning leg runs
+          # each gate. Windows/macOS retain explicit dispatch opt-in;
           # their extra runtime is not part of the nightly budget. #37 records
           # the Windows backward-cell analysis budget and its verification.
           # A push stays at the existing cost. Explicit dispatch opt-in works
@@ -459,22 +460,20 @@ jobs:
           E2E_ARGS: ${{ inputs.e2e_args }}
           PART: ${{ matrix.part }}
           # Not `OS`: that name is already Windows's own (`Windows_NT`), and this
-          # is the matrix label the slice table is keyed on.
+          # is the matrix label the pack is keyed on.
           MATRIX_OS: ${{ matrix.os }}
         run: |
           # THE SPLIT lives in e2e/slices.mjs — one home, read here per runner,
           # by scripts/e2e-split.test.mjs (the gate against a spec that lands on
           # no runner at all), and by `npm run e2e -- --slice=<name>` for
-          # replaying a red slice locally. Slices are named by the files whose
-          # cost is structural (the export matrices) and the catch-all takes
-          # everything they do not, so a new spec needs no entry anywhere.
+          # replaying a red leg locally. Every spec file is packed onto one leg
+          # per OS from the measured cost in e2e/timings.json, so a new spec
+          # needs no entry anywhere and a drifted pack is one snapshot refresh.
           # playwright.config.ts (§WEFTCUT_E2E_ONLY) carries why this is not
           # Playwright's own --shard.
           #
-          # BOTH matrix dimensions go in. Which slices exist is per OS, so the
-          # catch-all's ignore set is the union over THIS OS's slices only — pass
-          # the part alone and the OSes running fewer slices ignore files that no
-          # leg of theirs owns.
+          # BOTH matrix dimensions go in: the pack is per OS — macOS runs fewer
+          # legs, each owning more files — so the part alone names no set.
           e2e() {
             if [ "$RUNNER_OS" = "Linux" ]; then xvfb-run -a npm run e2e -- "$@"; else npm run e2e -- "$@"; fi
           }
@@ -491,30 +490,30 @@ jobs:
             SLICE_ENV="$(node e2e/slices.mjs --shell "$PART" "$MATRIX_OS")"
             eval "$SLICE_ENV"
             # The serial project owns the machine and captures the determinism
-            # PNGs, so it runs on exactly ONE slice — the one slices.mjs marks
-            # `serial: true`, kept off whichever slice is already the worst case.
-            # The determinism upload below must name that same slice.
-            if [ "$PART" = "audio" ]; then e2e --project=serial; fi
+            # PNGs, so it runs on exactly ONE leg — CARRIERS.serial in
+            # slices.mjs, which the pack gives fewer files to make room. The
+            # determinism upload below must name that same leg.
+            if [ "$PART" = "e2e-1" ]; then e2e --project=serial; fi
             # LANDMINE — the slice restriction rides the parallel invocation and
             # nothing else, which is what the subshell enforces. Exported above
             # the serial run instead, or written to $GITHUB_ENV, it narrows the
-            # serial project to the sliced files as well; no @serial test lives
-            # in any of them, and Playwright kills the leg with "No tests found".
+            # serial project to this leg's files as well; most @serial tests
+            # live elsewhere, and Playwright kills the leg with "No tests found".
             # The serial project is not sliced at all — it greps @serial across
             # the whole suite.
-            ( export WEFTCUT_E2E_ONLY="$OWN" WEFTCUT_E2E_IGNORE="$IGN"; e2e --project=parallel )
+            ( export WEFTCUT_E2E_ONLY="$OWN"; e2e --project=parallel )
           fi
 
       # Upload determinism PNGs so the compare job can fetch all three OSes.
       # if: always() so a partial capture or test failure still uploads whatever
       # PNGs were written — essential for diagnosing the first run.
       #
-      # Gated to the slice that runs the serial project, and the NAME stays
+      # Gated to the leg that runs the serial project, and the NAME stays
       # unsliced: the compare job reads `determinism-<os>` by literal path. Two
-      # slices uploading under one name is a hard artifact conflict, so this
-      # condition and the serial project's slice above must name the same one.
+      # legs uploading under one name is a hard artifact conflict, so this
+      # condition and the serial project's leg above must name the same one.
       - name: Upload determinism artifacts
-        if: always() && (matrix.part == 'audio' || matrix.part == 'all')
+        if: always() && (matrix.part == 'e2e-1' || matrix.part == 'all')
         uses: actions/upload-artifact@v7
         with:
           name: determinism-${{ matrix.os }}
@@ -537,8 +536,8 @@ jobs:
       # test-results. The live JSONL survives interrupted runs. if: always() so a red or timed-out leg —
       # the case that motivates looking at cost at all — still publishes them.
       #
-      # One per slice, and the whole set is what rebalances the split: the E2E
-      # step's slice boundaries were measured from exactly these files.
+      # One per leg, and the whole set is what the split is packed from:
+      # `npm run e2e:timings -- <run id>` folds them into e2e/timings.json.
       - name: Upload e2e timings
         if: always()
         uses: actions/upload-artifact@v7
@@ -556,19 +555,13 @@ jobs:
       # halves directly — `build` for a clean non-E2E renderer bundle (no
       # VITE_WEFTCUT_E2E), then electron-builder.
       #
-      # Once per OS, not once per e2e slice — riding the slice e2e/slices.mjs
-      # marks `package: true`, which is the one with the most headroom after its
-      # own specs, for the same reason the serial project and the decode-bench
-      # media each ride one: no extra on whichever slice is already the worst
-      # case. It must be a slice every OS runs, or that OS never packages.
-      #
-      # Which slice that is, is MEASURED, and stays checkable: every leg uploads
-      # `e2e-timings-<os>-<slice>` (green or red), so summing a slice's test
-      # durations and adding this step's own ~2 min to its host says whether the
-      # gate still names the cheapest one. A named number here would not survive
-      # the next rebalance; the measurement does.
+      # Once per OS, not once per e2e leg — riding CARRIERS.package in
+      # e2e/slices.mjs. The pack counts this step's measured wall clock
+      # (e2e/timings.json §package) as part of that leg's load and gives it
+      # fewer specs, so no leg is the worst case for carrying an extra. It must
+      # be a leg every OS runs, or that OS never packages.
       - name: Package (unsigned)
-        if: (github.event_name != 'workflow_dispatch' || inputs.package) && (matrix.part == 'codecs' || matrix.part == 'all')
+        if: (github.event_name != 'workflow_dispatch' || inputs.package) && (matrix.part == 'e2e-2' || matrix.part == 'all')
         run: npm run build && npx electron-builder --publish never
 
       # Packaging is VERIFIED on every push by "Package (unsigned)" above; this
@@ -580,7 +573,7 @@ jobs:
       # only keep an installer when needed for a release or a manual dispatch —
       # with short retention on top.
       - name: Upload installer
-        if: success() && (matrix.part == 'codecs' || matrix.part == 'all') && ((github.event_name == 'workflow_dispatch' && inputs.package) || needs.release-plan.outputs.publish == 'true')
+        if: success() && (matrix.part == 'e2e-2' || matrix.part == 'all') && ((github.event_name == 'workflow_dispatch' && inputs.package) || needs.release-plan.outputs.publish == 'true')
         uses: actions/upload-artifact@v7
         with:
           name: installer-${{ matrix.os }}
@@ -925,7 +918,7 @@ jobs:
           cargo clippy --manifest-path native/Cargo.toml --workspace --all-targets -- -D warnings
 
   # Cross-OS SSIM comparison.  Runs after every e2e leg finishes — one per
-  # (os, e2e slice) pair — but only the slice carrying the serial project
+  # (os, e2e leg) pair — but only the leg carrying the serial project
   # publishes a determinism-* artifact for it to read (fail-fast: false means
   # they all attempt even if one fails).
   compare:
