@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 
 import { useCancelJob } from "../../api/hooks";
 import { useImportUrl, useYoutubeImportStatus } from "../../api/youtube";
+import { translate } from "../../i18n";
 import { fmt, youtubeDictionaries, youtubeErrors } from "../../i18n/youtube";
+import { jobCodedError } from "../../lib/error-codes";
 import { canStart, consentGiven, downloadView, parseYoutubeVideoId, type ConsentState } from "../../lib/youtube-import";
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
@@ -33,6 +35,7 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
   };
 
   const view = job ? downloadView(job) : null;
+  const coded = job ? jobCodedError(job) : null; // masalan, yuklangan video AV1 (unsupported_codec)
   return (
     <div className="stack">
       <div className="notice">{y.recommend}</div>
@@ -76,7 +79,8 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
           {job.status === "failed" && (
             <div className="row">
               <span className="error" role="alert">
-                {view.errorCode ? youtubeErrors[locale][view.errorCode] : job.error}
+                {view.errorCode ? youtubeErrors[locale][view.errorCode]
+                  : coded ? translate(locale, coded.key, coded.vars) : job.error}
               </span>
               <button className="btn small" type="button" onClick={() => setAsking(true)} disabled={!validUrl}>{y.retry}</button>
             </div>

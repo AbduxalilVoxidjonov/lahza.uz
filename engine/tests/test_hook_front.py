@@ -235,6 +235,66 @@ def test_subtitles_repeat_hook_words_then_shift_body() -> None:
     assert [w.start_ms for w in plain] == [0, 1_000, 2_000, 3_000, 4_000, 5_000]
 
 
+def _ass_events(ass: str) -> list[tuple[int, int, str]]:
+    def ms(t: str) -> int:
+        h, m, s = t.split(":")
+        return round((int(h) * 3600 + int(m) * 60 + float(s)) * 1000)
+    out = []
+    for line in ass.splitlines():
+        if line.startswith("Dialogue:"):
+            parts = line.split(",", 9)
+            out.append((ms(parts[1]), ms(parts[2]), parts[9]))
+    return out
+
+
+def test_caption_cards_split_at_hook_prefix_end() -> None:
+    """Regression: hook tinish belgisisiz va qisqa pauza bilan tugasa ham, hech bir kartochka
+    hook -> klip chegarasini (prefix_ms) kesib o'tmaydi (SRT, VTT, ASS, host captions)."""
+    from lahza_engine.config import Settings
+    from lahza_engine.hostplan.build import caption_lines
+    from lahza_engine.subtitle.ass import _cues, build_ass, build_vtt, caption_breaks, clean_words
+    from lahza_engine.subtitle.style import StyleTemplate
+
+    words = make_words("bir ikki uch to'rt besh olti", 0, word_ms=900, gap_ms=100)
+    tl = Timeline(0, 6_000, hook=(3_000, 5_000))  # "to'rt besh" -> 0..1900, klip 2000 dan
+    b = tl.prefix_ms
+    assert b == 2_000
+
+    cues = _cues(words, tl, 7, None)
+    assert [(a, e, t) for a, e, t in cues[:2]] == [(0, 1_900, "to'rt besh"),
+                                                   (2_000, 7_900, "bir ikki uch to'rt besh olti")]
+    srt = build_srt(words, tl, max_words=7)
+    assert srt.startswith("1\n00:00:00,000 --> 00:00:01,900\nto'rt besh\n")
+    assert "2\n00:00:02,000 --> " in srt
+    assert "00:00:00.000 --> 00:00:01.900\nto'rt besh\n" in build_vtt(words, tl, max_words=7)
+
+    for anim in ("none", "karaoke"):
+        style = StyleTemplate(max_words=7, max_lines=2, animation=anim)
+        events = _ass_events(build_ass(words, tl, style))
+        assert events and all(e <= b or a >= b for a, e, _ in events), events
+        assert any(e == b for _, e, _ in events)  # hook kartochkasi aynan hook oxirigacha ushlanadi
+        assert any(a == b for a, _, _ in events)
+
+    style = StyleTemplate(max_words=7, max_lines=2)
+    lines = caption_lines(map_words(clean_words(words, style), tl), style, Settings(), 1080,
+                          breaks_ms=caption_breaks(tl))
+    assert all(ln.t1 * 1000 <= b or ln.t0 * 1000 >= b for ln in lines)
+    assert len(lines[0].words) == 2 and lines[0].t1 == b / 1000
+
+
+def test_caption_cards_unchanged_without_hook() -> None:
+    from lahza_engine.subtitle.ass import _cues, build_ass
+    from lahza_engine.subtitle.style import StyleTemplate
+
+    words = make_words("bir ikki uch to'rt besh olti", 0, word_ms=900, gap_ms=100)
+    tl = Timeline(0, 6_000)
+    assert _cues(words, tl, 7, None) == [(0, 5_900, "bir ikki uch to'rt besh olti")]
+    assert build_srt(words, tl, max_words=7) == \
+        "1\n00:00:00,000 --> 00:00:05,900\nbir ikki uch to'rt besh olti\n"
+    events = _ass_events(build_ass(words, tl, StyleTemplate(max_words=7, max_lines=2, animation="none")))
+    assert [(a, e) for a, e, _ in events] == [(0, 5_900)]
+
+
 # ---- Baza ---------------------------------------------------------------------------
 
 def test_project_migration_adds_hook_columns(tmp_path: Path) -> None:

@@ -10,23 +10,33 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from lahza_engine.asr.base import AsrOptions, dedupe_overlaps, plan_chunks
+from lahza_engine.asr.base import (
+    AsrOptions,
+    align_in_windows,
+    dedupe_overlaps,
+    plan_chunks,
+    resolve_timestamps,
+    spread_words,
+)
+from lahza_engine.asr.preprocess import normalize_wav_file
 from lahza_engine.core.runner import Cancelled
-from lahza_engine.core.services import Services
+from lahza_engine.core.services import Services, _align_model
 from lahza_engine.media.probe import extract_wav, fast_hash, read_wav_mono
 from lahza_engine.media.tools import find_tool, run
 from lahza_engine.models.catalog import Task
 from lahza_engine.models.store import InstalledModel, ModelStore
 from lahza_engine.text.orthography import normalize
 from lahza_engine.text.sentences import build_sentences
-from lahza_engine.types import Sentence
+from lahza_engine.types import Sentence, Word
 from lahza_engine.vad.energy import energy_vad
 
 if TYPE_CHECKING:
     from lahza_engine.montage.analyze import SourceAnalysis
 
 log = logging.getLogger(__name__)
-CACHE_VERSION = 1
+CACHE_VERSION = 4  # v2: ~10 s ASR chunks (30 s windows produced sparse transcripts)
+# v3: wider Silero padding, chunk loudness normalization, temperature=0 decoding
+# v4: aligner present -> text decoded without timestamp tokens, word times from CTC aligner
 
 
 def _identity(model: InstalledModel | None) -> dict | None:
@@ -68,7 +78,8 @@ def transcribe_source(
     try:
         identity = {"version": CACHE_VERSION,
                     "source": source.media.hash or fast_hash(source.media.path),
-                    "asr": _identity(model), "vad": _identity(store.default_for(Task.VAD))}
+                    "asr": _identity(model), "vad": _identity(store.default_for(Task.VAD)),
+                    "align": _identity(_align_model(store))}
         key = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
         cached = cache_dir / f"raw-asr-{key}.json"
         check()
@@ -100,25 +111,46 @@ def transcribe_source(
                 check()
                 speech = energy_vad(pcm, rate)
             check()
-            chunks = plan_chunks(speech)
+            chunks = plan_chunks(speech, pcm=pcm, sample_rate=rate)
             duration = min(source.media.duration_ms, round(len(pcm) * 1000 / rate))
-            words = []
             ffmpeg = find_tool("ffmpeg")
-            for index, (start, end) in enumerate(chunks):
-                check()
-                end = min(end, duration)
-                if end <= start:
-                    continue
-                piece = work / "chunk.wav"
-                result = run([ffmpeg, "-y", "-v", "error", "-ss", f"{start / 1000:.3f}",
-                              "-t", f"{(end - start) / 1000:.3f}", "-i", wav, "-c", "copy", piece])
-                check()
-                if result.returncode:
-                    raise RuntimeError("ASR audio chunk extraction failed")
-                words.extend(svc.asr.transcribe_chunk(piece, start, AsrOptions()))
-                progress(.1 + .85 * (index + 1) / max(1, len(chunks)))
-            words = [w.model_copy(update={"text": normalize(w.text)}) for w in dedupe_overlaps(words)
-                     if 0 <= w.start_ms < w.end_ms <= duration]
+
+            def transcribe(opts: AsrOptions, lo: float, hi: float) -> list[Word]:
+                words: list[Word] = []
+                for index, (start, end) in enumerate(chunks):
+                    check()
+                    end = min(end, duration)
+                    if end <= start:
+                        continue
+                    piece = work / "chunk.wav"
+                    result = run([ffmpeg, "-y", "-v", "error", "-ss", f"{start / 1000:.3f}",
+                                  "-t", f"{(end - start) / 1000:.3f}", "-i", wav, "-c", "copy", piece])
+                    check()
+                    if result.returncode:
+                        raise RuntimeError("ASR audio chunk extraction failed")
+                    normalize_wav_file(piece)
+                    got = svc.asr.transcribe_chunk(piece, start, opts)
+                    if opts.timestamps == "ctc" and got:
+                        got = spread_words(got, start, min(end, max(w.end_ms for w in got)), speech)
+                    words.extend(got)
+                    progress(lo + (hi - lo) * (index + 1) / max(1, len(chunks)))
+                return dedupe_overlaps(words)
+
+            # Aligner bo'lsa: timestamp'siz matn + CTC vaqtlari (ASR oynalari bo'yicha). Aligner yo'q
+            # yoki xato bersa - whisper so'z vaqtlari: proporsional vaqt montaj uchun yaroqsiz.
+            opts = resolve_timestamps(AsrOptions(), svc.aligner)
+            words = transcribe(opts, .1, .8 if opts.timestamps == "ctc" else .95)
+            if opts.timestamps == "ctc":
+                try:
+                    words = align_in_windows(svc.aligner, words, wav, chunks)
+                    progress(.95)
+                except Exception as exc:  # noqa: BLE001 - whisper vaqtlari zaxirasi
+                    check()
+                    log.warning("Raw ASR alignment failed (%s) - whisper word timestamps",
+                                type(exc).__name__)
+                    words = transcribe(AsrOptions(timestamps="whisper"), .1, .95)
+            words = [w.model_copy(update={"text": normalize(w.text), "end_ms": min(w.end_ms, duration)})
+                     for w in words if 0 <= w.start_ms < min(w.end_ms, duration)]
             sentences = build_sentences(words)
         check()
         enriched = enrich_with_transcript(source, sentences)

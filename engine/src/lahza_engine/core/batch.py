@@ -22,6 +22,7 @@ import uuid
 from collections.abc import Callable
 from typing import Any, Protocol
 
+from lahza_engine.core.errors import classify, classify_message
 from lahza_engine.core.jobs import Job, JobManager
 
 log = logging.getLogger(__name__)
@@ -51,6 +52,9 @@ class AnalysisQueue:
         self._starter = starter
         self._lock = threading.RLock()
         self._active: str | None = None  # ishlayotgan element id
+        # Element id -> (error_code, error_params). Bazada faqat `error` matni saqlanadi (sxema
+        # o'zgarmaydi); engine qayta ishga tushgach kod matndan tiklanadi (`classify_message`).
+        self._codes: dict[str, tuple[str, dict[str, str]]] = {}
         self.recover()
 
     # ---- tiklanish ------------------------------------------------------------------------
@@ -89,9 +93,18 @@ class AnalysisQueue:
             "path": r["path"], "title": r["title"], "options": json.loads(r["options_json"] or "{}"),
             "position": r["position"], "status": status, "progress": progress,
             "stage": job.stage if job is not None and status == "running" else None,
-            "error": r["error"], "job_id": r["job_id"], "created_at": r["created_at"],
+            "error": r["error"], **self._error_code(r["id"], status, r["error"]),
+            "job_id": r["job_id"], "created_at": r["created_at"],
             "started_at": r["started_at"], "finished_at": r["finished_at"],
         }
+
+    def _error_code(self, item_id: str, status: str, error: str | None) -> dict[str, Any]:
+        if status != "failed":
+            return {"error_code": None, "error_params": None}
+        found = self._codes.get(item_id) or classify_message(error)
+        if found is None:
+            return {"error_code": None, "error_params": None}
+        return {"error_code": found[0], "error_params": dict(found[1])}
 
     def get(self, item_id: str) -> dict[str, Any]:
         return self.public(self._row(item_id))
@@ -149,6 +162,7 @@ class AnalysisQueue:
             r = self._row(item_id)
             if r["status"] not in ("failed", "cancelled"):
                 raise QueueConflict("faqat xato bilan tugagan yoki bekor qilingan elementni qayta urinish mumkin")
+            self._codes.pop(item_id, None)
             self.db.lib_write("UPDATE analysis_queue SET status = 'queued', error = NULL, job_id = NULL,"
                               " started_at = NULL, finished_at = NULL, position = ? WHERE id = ?",
                               (self._next_position(), item_id))
@@ -162,6 +176,7 @@ class AnalysisQueue:
             if r["status"] == "running":
                 raise QueueConflict("element tahlil qilinmoqda - avval bekor qiling")
             self.db.lib_write("DELETE FROM analysis_queue WHERE id = ?", (item_id,))
+            self._codes.pop(item_id, None)
         self._publish()
 
     def clear_finished(self, project_id: str | None = None) -> int:
@@ -172,6 +187,9 @@ class AnalysisQueue:
             params = (project_id,)
         with self._lock:
             n = self.db.lib_write(sql, params).rowcount or 0
+            if n and self._codes:
+                alive = {r["id"] for r in self.db.lib("SELECT id FROM analysis_queue")}
+                self._codes = {k: v for k, v in self._codes.items() if k in alive}
         if n:
             self._publish()
         return n
@@ -210,7 +228,7 @@ class AnalysisQueue:
                     job = self._starter(item, lambda j, _iid=iid: self._on_job(_iid, j))
                 except Exception as e:  # noqa: BLE001 - xato elementga yoziladi, navbat davom etadi
                     log.error("navbat elementi %s ishga tushmadi: %s", iid, type(e).__name__)
-                    self._finish(iid, None, "failed", str(e) or type(e).__name__)
+                    self._finish(iid, None, "failed", str(e) or type(e).__name__, classify(e))
                     continue
                 self._active = iid
                 self.db.lib_write("UPDATE analysis_queue SET job_id = ?,"
@@ -224,12 +242,20 @@ class AnalysisQueue:
         if self.jobs.closing:
             return  # engine to'xtamoqda: element `running` qoladi va keyingi ishga tushishda tiklanadi
         with self._lock:
-            self._finish(item_id, job.id, job.status, job.error)
+            code = job.meta.get("error_code")
+            params = job.meta.get("error_params")
+            coded = (code, dict(params) if isinstance(params, dict) else {}) if isinstance(code, str) else None
+            self._finish(item_id, job.id, job.status, job.error, coded)
             if self._active == item_id:
                 self._active = None
         self._pump()
 
-    def _finish(self, item_id: str, job_id: str | None, status: str, error: str | None) -> None:
+    def _finish(self, item_id: str, job_id: str | None, status: str, error: str | None,
+                coded: tuple[str, dict[str, str]] | None = None) -> None:
+        if status == "failed" and coded is not None:
+            self._codes[item_id] = coded
+        else:
+            self._codes.pop(item_id, None)
         sql = ("UPDATE analysis_queue SET status = ?, error = ?, finished_at = datetime('now')"
                " WHERE id = ? AND status = 'running'")
         params: tuple = (status, error, item_id)

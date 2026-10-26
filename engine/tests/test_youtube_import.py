@@ -275,6 +275,52 @@ def test_interrupted_download_resumes(tmp_path: Path, fake_ytdlp: Path) -> None:
     assert (out / "resumed.txt").read_text() == "500"
 
 
+def _yt_fmt(fid: str, vcodec: str, acodec: str, ext: str, height: int | None = None) -> dict[str, Any]:
+    return {"format_id": fid, "vcodec": vcodec, "acodec": acodec, "ext": ext, "height": height,
+            "url": f"https://example.invalid/{fid}", "protocol": "https", "tbr": 1}
+
+
+# YouTube'ning odatiy 1080p ro'yxati: AV1 (399) "eng yaxshi", lekin LGPL FFmpeg'da dav1d yo'q.
+YT_FORMATS = [
+    _yt_fmt("18", "avc1.42001E", "mp4a.40.2", "mp4", 360), _yt_fmt("140", "none", "mp4a.40.2", "m4a"),
+    _yt_fmt("251", "none", "opus", "webm"), _yt_fmt("137", "avc1.640028", "none", "mp4", 1080),
+    _yt_fmt("248", "vp9", "none", "webm", 1080), _yt_fmt("399", "av01.0.08M.08", "none", "mp4", 1080),
+    _yt_fmt("401", "av01.0.12M.08", "none", "mp4", 2160),
+]
+
+
+@pytest.mark.parametrize(("drop", "want_merge", "want_single"), [
+    ((), "137+140", "18"),        # H.264 bor - AV1 o'rniga shu (jonli sinov: AV1 render'da yiqildi)
+    (("137",), "248+140", "18"),  # H.264 1080p yo'q - VP9 (360p progressiv emas)
+])
+def test_format_prefers_decodable_codecs(drop: tuple[str, ...], want_merge: str, want_single: str) -> None:
+    """Haqiqiy yt-dlp format tanlovchisi (tarmoqsiz, soxta format ro'yxati bilan)."""
+    yt_dlp = pytest.importorskip("yt_dlp")
+    formats = [f for f in YT_FORMATS if f["format_id"] not in drop]
+    for spec, want in ((youtube.FORMAT_MERGE, want_merge), (youtube.FORMAT_SINGLE, want_single)):
+        with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
+            sel = ydl.build_format_selector(spec)
+            got = list(sel({"formats": formats, "has_merged_format": True, "incomplete_formats": False}))
+        assert got and got[0]["format_id"] == want
+        assert "av01" not in str(got[0].get("vcodec"))
+
+
+def test_stale_marker_from_old_version_is_redownloaded(tmp_path: Path, fake_ytdlp: Path) -> None:
+    """0.2.1 belgisi (versiyasiz, AV1 fayl) qayta ishlatilmaydi: papka tozalanib qayta yuklanadi."""
+    out = tmp_path / "okokokokok2"
+    out.mkdir()
+    old = out / "okokokokok2.mp4"
+    old.write_bytes(b"av1")
+    (out / youtube.DONE_MARKER).write_text(json.dumps(
+        {"id": "okokokokok2", "path": str(old), "title": "eski", "duration": 12}), encoding="utf-8")
+    res = youtube.download("https://youtu.be/okokokokok2", out, cancel=threading.Event())
+    assert not res.reused and res.path.read_bytes() == b"\x00" * 1000
+    marker = json.loads((out / youtube.DONE_MARKER).read_text("utf-8"))
+    assert marker["v"] == youtube.MARKER_VERSION
+    again = youtube.download("https://youtu.be/okokokokok2", out, cancel=threading.Event())
+    assert again.reused
+
+
 def test_download_without_ytdlp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(youtube, "find_ytdlp", lambda _p: None)
     with pytest.raises(youtube.YoutubeError) as ei:

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "lahza-engine"
-version = "0.2.1"
+version = "0.2.3"
 description = "Lahza Studio engine: oflayn o'zbekcha podkast -> Reels pipeline"
 requires-python = ">=3.11"
 license = { text = "Proprietary" }

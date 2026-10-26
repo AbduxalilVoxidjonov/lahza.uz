@@ -40,8 +40,8 @@ from lahza_engine.hostplan.model import (
 )
 from lahza_engine.reframe.planner import CropKey, LayoutSegment, crop_rect, layouts_from_keyframes
 from lahza_engine.render.graph import Piece, _keys_for_piece, split_pieces
-from lahza_engine.subtitle.ass import _Lexicon, build_srt, clean_words, map_words
-from lahza_engine.subtitle.layout import chunk_words, max_chars_per_line
+from lahza_engine.subtitle.ass import _Lexicon, build_srt, caption_breaks, clean_words, map_words
+from lahza_engine.subtitle.layout import chunk_words, hold_end, max_chars_per_line
 from lahza_engine.subtitle.style import StyleTemplate
 from lahza_engine.text.orthography import Orthography, convert
 from lahza_engine.text.translit import display_text
@@ -166,19 +166,19 @@ def layers_for_piece(piece: Piece, src_w: int, src_h: int, W: int, H: int) -> li
 # --- Subtitr ---------------------------------------------------------------------------------
 
 
-def caption_lines(words_out: list[Word], style: StyleTemplate, settings: Settings, W: int
-                  ) -> list[CaptionLine]:
+def caption_lines(words_out: list[Word], style: StyleTemplate, settings: Settings, W: int,
+                  breaks_ms: list[int] | None = None) -> list[CaptionLine]:
     """Chiqish vaqtidagi so'zlar (to'ldiruvchilar olib tashlangan) -> ekrandagi bo'laklar
-    (subtitle/layout qoidalari, style.max_words/max_lines). Matn - imlo + so'kinish maskasi."""
+    (subtitle/layout qoidalari, style.max_words/max_lines). Matn - imlo + so'kinish maskasi.
+    breaks_ms: bo'laklar kesib o'tmaydigan chegaralar (hook prefiksi oxiri, `caption_breaks`)."""
+    breaks = breaks_ms or []
     lex = _Lexicon(style)
     usable = W - 2 * int(W * settings.safe_zone.side_pct)
     chunks = chunk_words(words_out, max_words=style.max_words, max_lines=style.max_lines,
-                         max_chars=max_chars_per_line(style.font_size, usable))
+                         max_chars=max_chars_per_line(style.font_size, usable), breaks_ms=breaks)
     out: list[CaptionLine] = []
     for ci, ch in enumerate(chunks):
-        end = ch.end_ms
-        if ci + 1 < len(chunks):
-            end = min(chunks[ci + 1].start_ms, ch.end_ms + CAPTION_HOLD_MS)
+        end = hold_end(chunks, ci, CAPTION_HOLD_MS, breaks)
         text = "\n".join(" ".join(lex.plain(w, style) for w in line) for line in ch.lines)
         speakers = {w.speaker for w in ch.words}
         out.append(CaptionLine(
@@ -327,7 +327,7 @@ def plan_from_clip(
         ))
 
     words_out = map_words(clean_words(words, style), tl)
-    lines = caption_lines(words_out, style, settings, W)
+    lines = caption_lines(words_out, style, settings, W, breaks_ms=caption_breaks(tl))
     base = slug(clip.title or "klip")
     srt, words_json = write_caption_files(out_dir, base, build_srt(words, tl, style=style), lines,
                                           style)

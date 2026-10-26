@@ -143,6 +143,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--download", action="store_true", help="Download pinned NavAI Uzbek base")
     parser.add_argument("--consent", action="store_true", help="Allow model network download")
     parser.add_argument("--with-vad", action="store_true", help="Also install official Silero ONNX")
+    parser.add_argument("--with-aligner", action="store_true",
+                        help="Also install the pinned CTC word aligner (Omnilingual CTC 300M int8)")
     parser.add_argument("--models-dir", type=Path, default=None)
     args = parser.parse_args(argv)
     if not (args.download and args.consent):
@@ -153,6 +155,12 @@ def main(argv: list[str] | None = None) -> int:
         print(model.model_dump_json(indent=2))
         if args.with_vad:
             print(bootstrap_vad(store, consent=True).model_dump_json(indent=2))
+        if args.with_aligner:
+            from lahza_engine.models import local_aligner
+
+            aligner = local_aligner.install_model(store, consent=True)
+            store.set_default(Task.ALIGN, aligner.id)
+            print(aligner.model_dump_json(indent=2))
     except (ValueError, RuntimeError, OSError, ImportError, httpx.HTTPError) as exc:
         parser.exit(1, f"Bootstrap failed: {exc}\n")
     return 0

@@ -11,8 +11,18 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from lahza_engine.asr.base import AsrOptions, dedupe_overlaps, plan_chunks
+from lahza_engine.asr.base import (
+    AsrOptions,
+    align_in_windows,
+    dedupe_overlaps,
+    plan_chunks,
+    resolve_timestamps,
+    spread_words,
+    transcript_density,
+)
+from lahza_engine.asr.preprocess import normalize_wav_file
 from lahza_engine.config import Settings
+from lahza_engine.core.errors import FFMPEG_FAILED, CodedError
 from lahza_engine.core.runner import StageContext, StageDef, run_stages
 from lahza_engine.core.services import MissingModel, Services
 from lahza_engine.db import store as db
@@ -81,8 +91,16 @@ def stage_asr(ctx: StageContext) -> dict[str, Any]:
     if svc.asr is None:
         raise MissingModel("ASR modeli o'rnatilmagan - Sozlamalar > Modellar")
     wav = Path(ctx.results["ingest"]["wav"])
-    chunks = plan_chunks([tuple(r) for r in ctx.results["vad"]["speech"]])
-    opts = AsrOptions(hotwords=ctx.services.get("hotwords", []))
+    speech = [tuple(r) for r in ctx.results["vad"]["speech"]]
+    try:  # uzun nutqni jim joyda kesish uchun; audio o'qilmasa teng bo'laklar
+        pcm, sr = read_wav_mono(wav)
+    except Exception:  # noqa: BLE001
+        pcm, sr = None, 16_000
+    chunks = plan_chunks(speech, pcm=pcm, sample_rate=sr)
+    del pcm
+    # Aligner bo'lsa matn timestamp'siz dekodlanadi (aniqroq), vaqtlarni stage_align beradi.
+    opts = resolve_timestamps(AsrOptions(hotwords=ctx.services.get("hotwords", [])),
+                              getattr(svc, "aligner", None))
     ffmpeg = str(find_tool("ffmpeg"))
     words: list[Word] = []
     with tempfile.TemporaryDirectory() as td:
@@ -92,10 +110,29 @@ def stage_asr(ctx: StageContext) -> dict[str, Any]:
             r = run([ffmpeg, "-y", "-v", "error", "-ss", f"{a / 1000:.3f}", "-t", f"{(b - a) / 1000:.3f}",
                      "-i", wav, "-c", "copy", piece])
             if r.returncode != 0:
-                raise RuntimeError(r.stderr[-300:])
-            words.extend(svc.asr.transcribe_chunk(piece, a, opts))
+                raise CodedError(FFMPEG_FAILED, r.stderr[-300:], rc=r.returncode)
+            normalize_wav_file(piece)
+            got = svc.asr.transcribe_chunk(piece, a, opts)
+            if opts.timestamps == "ctc" and got:
+                # Taxminiy vaqt: bo'lakning VAD nutq qismlari bo'ylab (haqiqiy audio oxiridan oshmaydi).
+                got = spread_words(got, a, min(b, max(w.end_ms for w in got)), speech)
+            words.extend(got)
             ctx.services["progress"]((i + 1) / max(1, len(chunks)))
-    return {"words": _dump(dedupe_overlaps(words)), "chunks": len(chunks)}
+    words = dedupe_overlaps(words)
+    density = transcript_density(words, speech)
+    if density["sparse"]:
+        log.warning("ASR transkripti siyrak: %s", density)
+    out: dict[str, Any] = {"words": _dump(words), "chunks": len(chunks), "density": density,
+                           "timestamps": opts.timestamps}
+    if opts.timestamps == "ctc":
+        out["windows"] = [[a, b] for a, b in chunks]
+    return out
+
+
+def asr_timestamps(svc: Services) -> str:
+    """stage_asr ishlatadigan vaqt rejimi (kesh kaliti uchun): aligner yo'q bo'lsa "whisper"."""
+    return resolve_timestamps(AsrOptions(), getattr(svc, "aligner", None)).timestamps
+
 
 
 def stage_normalize(ctx: StageContext) -> dict[str, Any]:
@@ -115,14 +152,21 @@ def stage_align(ctx: StageContext) -> dict[str, Any]:
     # CTC aligner (TZ 6-bo'lim): bo'lmasa yoki xato bersa ASR vaqtlari saqlanadi, usul qayd etiladi.
     svc: Services = ctx.services["svc"]
     aligner = svc.aligner
+    # ASR "ctc" rejimida vaqtlar taxminiy: ASR bo'laklari aligner'ga oyna sifatida beriladi.
     words = _words(ctx.results["normalize"]["words"])
+    asr = ctx.results.get("asr", {})
+    approx = asr.get("timestamps") == "ctc"
+    fallback = "asr-approx" if approx else "asr-timestamps"
     if aligner is None:
-        return {"words": _dump(words), "method": "asr-timestamps"}
+        if approx:
+            log.warning("aligner yo'q, ASR vaqtlari taxminiy (proporsional)")
+        return {"words": _dump(words), "method": fallback}
+    wav = Path(ctx.results["ingest"]["wav"])
     try:
-        aligned = aligner(words, Path(ctx.results["ingest"]["wav"]))
+        aligned = align_in_windows(aligner, words, wav, asr.get("windows") if approx else None)
     except Exception as e:  # noqa: BLE001
-        log.warning("CTC tekislash xatosi - ASR vaqtlari qoldi: %s", e)
-        return {"words": _dump(words), "method": "asr-timestamps"}
+        log.warning("CTC tekislash xatosi - ASR vaqtlari qoldi (%s): %s", fallback, e)
+        return {"words": _dump(words), "method": fallback}
     return {"words": _dump(aligned), "method": getattr(aligner, "method", "ctc")}
 
 
@@ -199,14 +243,20 @@ def analysis_stages(settings: Settings) -> list[StageDef]:
     return [
         # v2: WAV preserves container-time leading silence instead of resetting audio alone.
         StageDef("ingest", 2, stage_ingest, weight=1),
-        StageDef("vad", 2, stage_vad, weight=1,
+        # v3: Silero pad 30 -> 200 ms, min sukut 100 -> 400 ms (so'z boshi/oxiri qirqilmaydi).
+        StageDef("vad", 3, stage_vad, weight=1,
                  params=lambda c: {"vad": getattr(c.services["svc"].vad, "method", None)}),
         # v2: explicit decoder thresholds and punctuation-only hallucination filtering.
-        StageDef("asr", 2, stage_asr, weight=10,
+        # v3: ~10 s chunks (30 s windows dropped speech -> sparse transcript) + density metric.
+        # v4: bo'lak ovozi normalizatsiyasi (asr/preprocess.py) + temperature=0, beam_size=5.
+        # v5: aligner bo'lsa timestamp'siz dekodlash (AsrOptions.timestamps="ctc"), taxminiy vaqt.
+        StageDef("asr", 5, stage_asr, weight=10,
                  model_id=lambda c: c.services["svc"].asr_model_id,
-                 params=lambda c: {"hotwords": c.services.get("hotwords", [])}),
+                 params=lambda c: {"hotwords": c.services.get("hotwords", []),
+                                   "timestamps": asr_timestamps(c.services["svc"])}),
         StageDef("normalize", 2, stage_normalize, params=lambda c: c.services.get("lexicon_map", {})),
-        StageDef("align", 2, stage_align, weight=2,
+        # v3: ASR bo'laklari CTC oynalari sifatida (taxminiy vaqtlar uchun).
+        StageDef("align", 3, stage_align, weight=2,
                  model_id=lambda c: c.services["svc"].aligner_model_id),
         StageDef("diarize", 2, stage_diarize, weight=3,
                  params=lambda c: {"n": c.services.get("num_speakers")}),

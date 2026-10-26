@@ -41,6 +41,49 @@ def test_setup_requires_lgpl_and_both_filters(monkeypatch, license_text, filters
         setup.validate(Path("ffmpeg"))
 
 
+DECODERS_NO_DAV1D = " V....D av1                  Alliance for Open Media AV1\n"
+DECODERS_DAV1D = DECODERS_NO_DAV1D + " V..... libdav1d             dav1d AV1 decoder by VideoLAN (codec av1)\n"
+
+
+@pytest.mark.parametrize("buildconf, decoders", [
+    ("configuration: --enable-libass", DECODERS_DAV1D),          # bayroq yo'q
+    ("configuration: --enable-libass --enable-libdav1d", DECODERS_NO_DAV1D),  # dekoder yo'q
+])
+def test_setup_requires_dav1d(monkeypatch, buildconf, decoders) -> None:
+    def run(args, **kwargs):
+        output = {"-buildconf": buildconf, "-L": "GNU Lesser General Public License",
+                  "-filters": " ... ass V->V Render ASS\n ... subtitles V->V Render text",
+                  "-decoders": decoders}[args[-1]]
+        return subprocess.CompletedProcess(args, 0, stdout=output)
+
+    monkeypatch.setattr(setup, "run", run)
+    with pytest.raises(RuntimeError, match="libdav1d"):
+        setup.validate(Path("ffmpeg"))
+
+
+def test_setup_accepts_lgpl_build_with_dav1d(monkeypatch) -> None:
+    def run(args, **kwargs):
+        output = {"-buildconf": "configuration: --disable-gpl --enable-libass --enable-libdav1d",
+                  "-L": "GNU Lesser General Public License",
+                  "-filters": " ... ass V->V Render ASS\n ... subtitles V->V Render text",
+                  "-decoders": DECODERS_DAV1D}[args[-1]]
+        return subprocess.CompletedProcess(args, 0, stdout=output)
+
+    monkeypatch.setattr(setup, "run", run)
+    assert "--enable-libdav1d" in setup.validate(Path("ffmpeg"))["buildconf"]
+
+
+def test_dav1d_pin_matches_runtimes_toml() -> None:
+    import tomllib
+    rt = tomllib.loads((Path(__file__).resolve().parents[2] / "third_party/runtimes.toml").read_text())
+    assert rt["dav1d"]["version"] == setup.DAV1D_VERSION
+    assert rt["dav1d"]["sha256"] == setup.DAV1D_SHA256
+    assert rt["dav1d"]["url"] == setup.DAV1D_URL
+    assert rt["dav1d"]["license"] == "BSD-2-Clause"
+    assert "--enable-libdav1d" in rt["ffmpeg"]["configure_common"]
+    assert "--enable-gpl" not in rt["ffmpeg"]["configure_common"]
+
+
 @requires_ffmpeg
 @requires_libass
 @pytest.mark.ffmpeg

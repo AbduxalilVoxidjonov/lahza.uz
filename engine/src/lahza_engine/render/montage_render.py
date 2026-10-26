@@ -37,6 +37,7 @@ from pathlib import Path
 
 from lahza_engine.config import RenderConfig, Settings
 from lahza_engine.fx.registry import FxError, FxManifest, check_graph, get_plugin, validate_params
+from lahza_engine.media.codec_check import raise_if_decoder_failure
 from lahza_engine.media.tools import find_tool
 from lahza_engine.montage.model import FxRef, MediaRef, MontageTimeline, VideoItem
 from lahza_engine.montage.report import edl_path_for, write_edl
@@ -742,7 +743,9 @@ def _run_ffmpeg(cmd: list[str], cwd: Path, total_s: float, on_tick: Callable[[fl
     if killed.is_set() or (cancel is not None and cancel.is_set()):
         raise Cancelled()
     if rc != 0:
-        tail = logf.read_text(encoding="utf-8", errors="replace").strip()[-800:]
+        log_text = logf.read_text(encoding="utf-8", errors="replace")
+        raise_if_decoder_failure(log_text)
+        tail = log_text.strip()[-800:]
         raise RuntimeError(f"montaj render xatosi (ffmpeg {rc}): {tail}")
 
 

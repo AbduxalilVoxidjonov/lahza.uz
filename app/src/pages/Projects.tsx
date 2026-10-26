@@ -7,7 +7,7 @@ import { useCreateProject, useEpisodes, useImportMedia, useProjects } from "../a
 import { useYoutubeImportStatus } from "../api/youtube";
 import { BatchQueue } from "../components/batch/BatchQueue";
 import { YoutubeImport } from "../components/import/YoutubeImport";
-import { Empty } from "../components/ui";
+import { Empty, ErrorText } from "../components/ui";
 import { useT, type MessageKey } from "../i18n";
 import { youtubeDictionaries } from "../i18n/youtube";
 import { useSettings } from "../store/settings";
@@ -111,7 +111,7 @@ function Episodes({ projectId }: { projectId: string }) {
         ) : (
           <>
             <span className="muted">{t("proj.importHint")}</span>
-            {importMedia.error && <span className="error">{String(importMedia.error)}</span>}
+            <ErrorText error={importMedia.error} />
           </>
         )}
       </div>

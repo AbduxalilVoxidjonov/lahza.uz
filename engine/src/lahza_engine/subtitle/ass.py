@@ -8,7 +8,7 @@ so'z vaqtlari bilan bir xil ishlaydi.
 from __future__ import annotations
 
 from lahza_engine.config import SubtitleSafeZone
-from lahza_engine.subtitle.layout import CaptionChunk, chunk_words, max_chars_per_line
+from lahza_engine.subtitle.layout import CaptionChunk, chunk_words, hold_end, max_chars_per_line
 from lahza_engine.subtitle.style import StyleTemplate, ass_color
 from lahza_engine.text.orthography import fold_for_match
 from lahza_engine.text.translit import display_text
@@ -172,6 +172,11 @@ def map_words(words: list[Word], timeline: Timeline, offset_ms: int = 0) -> list
     return mapped
 
 
+def caption_breaks(timeline: Timeline) -> list[int]:
+    """Subtitr bo'laklari kesib o'tmasligi kerak bo'lgan chiqish vaqtlari: hook prefiksi oxiri."""
+    return [timeline.prefix_ms] if timeline.prefix_ms else []
+
+
 def build_ass(
     words: list[Word],
     timeline: Timeline,
@@ -190,11 +195,13 @@ def build_ass(
     mapped = map_words(clean_words(words, style), timeline)
 
     usable = width - 2 * int(width * zone.side_pct)
+    breaks = caption_breaks(timeline)
     chunks = chunk_words(
         mapped,
         max_words=style.max_words,
         max_lines=style.max_lines,
         max_chars=max_chars_per_line(style.font_size, usable),
+        breaks_ms=breaks,
     )
     events: list[str] = []
 
@@ -204,10 +211,8 @@ def build_ass(
             events.append(_dialogue(start, end, text))
 
     for ci, chunk in enumerate(chunks):
-        chunk_end = chunk.end_ms
-        if ci + 1 < len(chunks):
-            # Qisqa pauzalarda subtitr miltillamasin: keyingi bo'lakkacha ushlab turish (<= 400 ms).
-            chunk_end = min(chunks[ci + 1].start_ms, chunk.end_ms + 400)
+        # Qisqa pauzalarda subtitr miltillamasin: keyingi bo'lakkacha ushlab turish (<= 400 ms).
+        chunk_end = hold_end(chunks, ci, 400, breaks)
         if style.animation == "none":
             emit(chunk.start_ms, chunk_end, _render_chunk(chunk, None, style, lex))
             continue
@@ -227,7 +232,8 @@ def _cues(words: list[Word], timeline: Timeline, max_words: int,
     if style is not None:
         words = clean_words(words, style)
         lex = _Lexicon(style)
-    chunks = chunk_words(map_words(words, timeline), max_words=max_words, max_lines=2, max_chars=42)
+    chunks = chunk_words(map_words(words, timeline), max_words=max_words, max_lines=2, max_chars=42,
+                         breaks_ms=caption_breaks(timeline))
     out = []
     for c in chunks:
         if style is None:

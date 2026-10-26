@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { errorText } from "../api/client";
 import type { Compat, Job, Tier } from "../api/types";
 import { useT, type MessageKey } from "../i18n";
+import { apiCodedError, describeJobError, type ErrorView } from "../lib/error-codes";
 import { uz } from "../i18n/uz";
 
 /** Dinamik kalit lug'atda bormi (masalan, engine'dan kelgan bosqich nomi). */
@@ -39,7 +40,7 @@ export function JobLine({ job, onCancel }: { job: Job; onCancel?: () => void }) 
       <div className="row" style={{ justifyContent: "space-between" }}>
         <span>
           {job.status === "failed" ? (
-            <span className="error" role="alert">{t("common.error", { msg: job.error ?? "" })}</span>
+            <CodedErrorText view={describeJobError(job)} />
           ) : job.status === "cancelled" ? (
             <span className="muted">{t("job.cancelled")}</span>
           ) : job.status === "queued" ? (
@@ -62,6 +63,23 @@ export function JobLine({ job, onCancel }: { job: Job; onCancel?: () => void }) 
   );
 }
 
+/** Tarjima qilingan xato matni; engine'ning xom xabari yig'ma "Batafsil" ichida. */
+export function CodedErrorText({ view }: { view: ErrorView }) {
+  const t = useT();
+  const text = t(view.key, view.vars);
+  return (
+    <span className="error stack" role="alert" style={{ gap: 2 }}>
+      <span>{text}</span>
+      {view.detail && view.detail !== text && (
+        <details className="muted">
+          <summary>{t("err.details")}</summary>
+          <code className="mono" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{view.detail}</code>
+        </details>
+      )}
+    </span>
+  );
+}
+
 export function Empty({ children }: { children: ReactNode }) {
   return <div className="card muted">{children}</div>;
 }
@@ -69,9 +87,10 @@ export function Empty({ children }: { children: ReactNode }) {
 export function ErrorText({ error }: { error: unknown }) {
   const t = useT();
   if (!error) return null;
+  const coded = apiCodedError(error);
   return (
     <span className="error" role="alert">
-      {t("common.error", { msg: errorText(error) })}
+      {coded ? t(coded.key, coded.vars) : t("common.error", { msg: errorText(error) })}
     </span>
   );
 }

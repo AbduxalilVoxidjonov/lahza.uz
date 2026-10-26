@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Build a local LGPL FFmpeg with libass; never replace a system executable."""
+"""Build a local LGPL FFmpeg with libass and dav1d (AV1); never replace a system executable.
+
+dav1d (BSD-2-Clause) is built from a pinned, checksummed release tarball as a static library and
+linked into libavcodec, so no extra dylib is shipped and no GPL code is involved. Meson/Ninja are
+build-only tools: if they are not on PATH they are installed (pinned) into a private venv under
+build/local-runtime/build-tools.
+"""
 
 from __future__ import annotations
 
@@ -21,6 +27,13 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = "7.1.1"
 SHA256 = "733984395e0dbbe5c046abda2dc49a5544e7e0e1e2366bba849222ae9e3a03b1"
 URL = f"https://ffmpeg.org/releases/ffmpeg-{VERSION}.tar.xz"
+# dav1d: AV1 software decoder (BSD-2-Clause). SHA-256 matches the upstream .sha256 file.
+DAV1D_VERSION = "1.5.4"
+DAV1D_SHA256 = "686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5"
+DAV1D_URL = f"https://downloads.videolan.org/pub/videolan/dav1d/{DAV1D_VERSION}/dav1d-{DAV1D_VERSION}.tar.xz"
+# Build-only tools (not shipped), used when meson/ninja are missing from PATH.
+MESON_PIN = "meson==1.9.2"
+NINJA_PIN = "ninja==1.13.0"
 
 
 def run(args: list[str], **kwargs) -> subprocess.CompletedProcess:
@@ -44,7 +57,112 @@ def validate(binary: Path) -> dict[str, str]:
              if len(p := line.split()) >= 3 and "->" in p[2]}
     if not {"ass", "subtitles"} <= names:
         raise RuntimeError("FFmpeg requires both ass and subtitles filters")
+    if "--enable-libdav1d" not in flags or not has_decoder(binary, "libdav1d"):
+        raise RuntimeError("FFmpeg requires the libdav1d AV1 decoder (--enable-libdav1d)")
     return {"buildconf": config, "license": license_text}
+
+
+def has_decoder(binary: Path, name: str) -> bool:
+    out = run([str(binary), "-hide_banner", "-decoders"], capture_output=True, text=True).stdout
+    return any(len(p := line.split()) >= 2 and p[1] == name for line in out.splitlines())
+
+
+def download(url: str, archive: Path, sha256: str) -> Path:
+    """Fetch once into downloads/, always verify the pinned checksum (also on reuse)."""
+    if not archive.exists():
+        partial = archive.with_suffix(".part")
+        with urllib.request.urlopen(url, timeout=60) as response, partial.open("wb") as out:
+            shutil.copyfileobj(response, out)
+        partial.replace(archive)
+    if hashlib.sha256(archive.read_bytes()).hexdigest() != sha256:
+        raise RuntimeError(f"Checksum mismatch; remove {archive} and retry")
+    return archive
+
+
+def build_tools(prefix: Path, env: dict[str, str]) -> tuple[str, str]:
+    """meson and ninja from PATH, otherwise a pinned private venv (build-only, never shipped)."""
+    meson, ninja = shutil.which("meson", path=env["PATH"]), shutil.which("ninja", path=env["PATH"])
+    if meson and ninja:
+        return meson, ninja
+    venv = prefix / "build-tools"
+    bindir = venv / "bin"
+    if not (bindir / "meson").exists() or not (bindir / "ninja").exists():
+        run([sys.executable, "-m", "venv", str(venv)])
+        run([str(bindir / "python"), "-m", "pip", "install", "--quiet", MESON_PIN, NINJA_PIN])
+    return str(bindir / "meson"), str(bindir / "ninja")
+
+
+def build_dav1d(prefix: Path, env: dict[str, str], jobs: int, output) -> Path:
+    """Static dav1d into prefix/dav1d; returns its pkg-config directory.
+
+    The installed dav1d.pc links the archive by absolute path, so the linker can never pick a
+    shared libdav1d (for example Homebrew's) from another -L directory.
+    """
+    install = prefix / "dav1d"
+    pc_dir = install / "lib/pkgconfig"
+    archive = download(DAV1D_URL, prefix / "downloads" / f"dav1d-{DAV1D_VERSION}.tar.xz", DAV1D_SHA256)
+    source = prefix / f"dav1d-{DAV1D_VERSION}"
+    if not source.exists():
+        with tarfile.open(archive) as tar:
+            tar.extractall(prefix, filter="data")
+    meson, ninja = build_tools(prefix, env)
+    build = source / "build"
+    if build.exists():
+        shutil.rmtree(build)
+    tool_env = {**env, "PATH": f"{Path(ninja).parent}:" + env["PATH"]}
+    run([meson, "setup", str(build), str(source), f"--prefix={install}", "--libdir=lib",
+         "--buildtype=release", "--default-library=static", "-Denable_tools=false",
+         "-Denable_tests=false", "-Denable_examples=false"],
+        env=tool_env, stdout=output, stderr=subprocess.STDOUT)
+    run([ninja, "-C", str(build), f"-j{jobs}", "install"], env=tool_env, stdout=output,
+        stderr=subprocess.STDOUT)
+    static = install / "lib/libdav1d.a"
+    pc = pc_dir / "dav1d.pc"
+    if not static.is_file() or not pc.is_file():
+        raise RuntimeError("dav1d build did not produce a static library")
+    text = pc.read_text()
+    text, count = re.subn(r"-L\$\{libdir\}\s+-ldav1d", lambda _m: str(static), text)
+    if count != 1:
+        raise RuntimeError(f"Unexpected dav1d.pc Libs line: {pc}")
+    pc.write_text(text)
+    shutil.copy2(source / "COPYING", prefix / "dav1d-COPYING")
+    return pc_dir
+
+
+def assert_no_shared_dav1d(prefix: Path) -> None:
+    """dav1d must be inside libavcodec, not an external (e.g. Homebrew) dylib."""
+    if sys.platform != "darwin":
+        return
+    for binary in [prefix / "bin/ffmpeg", *sorted((prefix / "lib").glob("libavcodec*.dylib"))]:
+        if (binary.is_file() and not binary.is_symlink()
+                and any("dav1d" in d for d in dylib_dependencies(binary))):
+            raise RuntimeError(f"{binary.name} links a shared libdav1d; expected static")
+
+
+def av1_smoke_test(prefix: Path) -> bool:
+    """Decode an AV1 clip with the built FFmpeg. Needs an AV1 *encoder* to make the sample, which
+    the LGPL build lacks, so a system ffmpeg with one is used only as a sample generator."""
+    encoder_ffmpeg = shutil.which("ffmpeg")
+    ours = prefix / "bin/ffmpeg"
+    if encoder_ffmpeg is None or Path(encoder_ffmpeg).resolve() == ours.resolve():
+        print("AV1 smoke test skipped: no system ffmpeg to create a sample", flush=True)
+        return False
+    encoders = run([encoder_ffmpeg, "-hide_banner", "-encoders"], capture_output=True,
+                   text=True).stdout
+    encoder = next((e for e in ("libsvtav1", "libaom-av1", "librav1e") if e in encoders), None)
+    if encoder is None:
+        print("AV1 smoke test skipped: system ffmpeg has no AV1 encoder", flush=True)
+        return False
+    work = prefix / "smoke"
+    work.mkdir(exist_ok=True)
+    run([encoder_ffmpeg, "-hide_banner", "-v", "error", "-y", "-f", "lavfi", "-i",
+         "testsrc=d=1:s=320x240:r=10", "-pix_fmt", "yuv420p", "-c:v", encoder, "av1.mp4"],
+        cwd=work, capture_output=True)
+    result = run([str(ours), "-hide_banner", "-v", "error", "-i", "av1.mp4", "-frames:v", "1",
+                  "-f", "rawvideo", "-pix_fmt", "gray", "-"], cwd=work, capture_output=True)
+    if len(result.stdout) != 320 * 240:
+        raise RuntimeError("AV1 smoke test: libdav1d did not decode a frame")
+    return True
 
 
 def smoke_test(prefix: Path) -> None:
@@ -173,6 +291,9 @@ def stage_macos(prefix: Path, destination: Path) -> None:
                         shutil.copy2(item, out)
         for name in ("COPYING.LGPLv2.1", "LICENSE.md", "manifest.json"):
             shutil.copy2(prefix / name, notices / name)
+        # dav1d is static inside libavcodec; BSD-2 requires its notice in binary distributions.
+        # A plain file (not a directory) so gen_licenses does not treat it as a Homebrew bottle.
+        shutil.copy2(prefix / "dav1d-COPYING", notices / "dav1d.COPYING")
         # install_name_tool invalidates ARM signatures. Final release signing is separate.
         for target in sorted(copied.values(), key=lambda p: p.suffix != ".dylib"):
             run(["codesign", "--force", "--sign", "-", str(target)], capture_output=True)
@@ -227,18 +348,16 @@ def main() -> None:
         brew_prefix = run(["brew", "--prefix"], capture_output=True, text=True).stdout.strip()
         env["PATH"] = f"{brew_prefix}/bin:" + env.get("PATH", "")
         env["PKG_CONFIG_PATH"] = f"{brew_prefix}/lib/pkgconfig:" + env.get("PKG_CONFIG_PATH", "")
-    if args.rebuild or not (prefix / "bin/ffmpeg").exists():
+    binary = prefix / "bin/ffmpeg"
+    stale = binary.exists() and "--enable-libdav1d" not in run(
+        [str(binary), "-hide_banner", "-buildconf"], capture_output=True, text=True).stdout
+    if stale:
+        print("Existing FFmpeg lacks libdav1d; rebuilding", flush=True)
+    if args.rebuild or stale or not binary.exists():
         run(["pkg-config", "--exists", "libass"], env=env)
         downloads = prefix / "downloads"
         downloads.mkdir(exist_ok=True)
-        archive = downloads / f"ffmpeg-{VERSION}.tar.xz"
-        if not archive.exists():
-            partial = archive.with_suffix(".part")
-            with urllib.request.urlopen(URL, timeout=60) as response, partial.open("wb") as out:
-                shutil.copyfileobj(response, out)
-            partial.replace(archive)
-        if hashlib.sha256(archive.read_bytes()).hexdigest() != SHA256:
-            raise RuntimeError(f"Checksum mismatch; remove {archive} and retry")
+        archive = download(URL, downloads / f"ffmpeg-{VERSION}.tar.xz", SHA256)
         source = prefix / f"ffmpeg-{VERSION}"
         if not source.exists():
             with tarfile.open(archive) as tar:
@@ -246,12 +365,18 @@ def main() -> None:
         flags = [f"--prefix={prefix}", "--disable-autodetect", "--disable-gpl",
                  "--disable-nonfree", "--disable-version3", "--disable-doc",
                  "--disable-debug", "--disable-ffplay", "--enable-libass",
-                 "--enable-zlib"]
+                 "--enable-zlib", "--enable-libdav1d"]
         if sys.platform == "darwin":
             flags += ["--enable-videotoolbox", "--enable-audiotoolbox"]
         log = prefix / "build.log"
         print(f"Building FFmpeg {VERSION}; log: {log}", flush=True)
         with log.open("w") as output:
+            print(f"Building dav1d {DAV1D_VERSION} (static); log: {log}", flush=True)
+            pc_dir = build_dav1d(prefix, env, args.jobs, output)
+            env["PKG_CONFIG_PATH"] = f"{pc_dir}:" + env.get("PKG_CONFIG_PATH", "")
+            if (source / "ffbuild/config.mak").exists():
+                run(["make", "distclean"], cwd=source, env=env, stdout=output,
+                    stderr=subprocess.STDOUT)
             run(["./configure", *flags], cwd=source, env=env, stdout=output,
                 stderr=subprocess.STDOUT)
             run(["make", f"-j{args.jobs}"], cwd=source, env=env, stdout=output,
@@ -261,8 +386,13 @@ def main() -> None:
         for name in ("COPYING.LGPLv2.1", "LICENSE.md"):
             shutil.copy2(source / name, prefix / name)
     metadata = validate(prefix / "bin/ffmpeg")
+    assert_no_shared_dav1d(prefix)
     smoke_test(prefix)
-    metadata.update(source=URL, sha256=SHA256)
+    av1_checked = av1_smoke_test(prefix)
+    metadata.update(source=URL, sha256=SHA256,
+                    dav1d={"version": DAV1D_VERSION, "source": DAV1D_URL, "sha256": DAV1D_SHA256,
+                           "license": "BSD-2-Clause", "linkage": "static (libavcodec)",
+                           "av1_smoke_test": av1_checked})
     metadata["binary_sha256"] = hashlib.sha256((prefix / "bin/ffmpeg").read_bytes()).hexdigest()
     (prefix / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n")
     activation = (f"export LAHZA_BIN_DIR={shlex.quote(str(prefix / 'bin'))}\n"

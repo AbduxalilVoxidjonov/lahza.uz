@@ -193,6 +193,20 @@ export interface Job {
   created_at?: number;
 }
 
+/** `/v1/asr-quality`: Tez (NavAI base, standart) yoki Aniq (NavAI small, ixtiyoriy). */
+export type AsrQualityMode = "fast" | "accurate";
+export interface AsrQualityStatus {
+  /** "custom" - Model menejerida boshqa ASR tanlangan; "none" - ASR yo'q. */
+  mode: AsrQualityMode | "custom" | "none";
+  current_model_id: string | null;
+  fast: { model_id: string; installed: boolean };
+  accurate: { model_id: string; installed: boolean; download_bytes: number; download_available: boolean };
+}
+export interface AsrQualityResult extends AsrQualityStatus {
+  /** Aniq rejim o'rnatilmagan bo'lsa - install vazifasi (meta.op = "asr-quality"). */
+  job: Job | null;
+}
+
 export interface Word {
   text: string;
   start_ms: number;
@@ -339,6 +353,9 @@ export interface QueueItem {
   progress: number;
   stage: string | null;
   error: string | null;
+  /** Barqaror xato kodi (engine core/errors.py) - UI shu orqali tarjima qiladi; `error` - xom matn. */
+  error_code?: string | null;
+  error_params?: Record<string, string> | null;
   job_id: string | null;
   created_at: string;
   started_at: string | null;

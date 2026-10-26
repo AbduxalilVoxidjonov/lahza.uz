@@ -480,6 +480,19 @@ def runtime_components(texts: Texts, cache: Cache, staged: Path = STAGED) -> lis
         notes=(f"GPL/nonfree/version3 o'chiq, dinamik bog'lanadi (ADR-0004). {ref_note('ffmpeg')}. "
                f"Reliz bayroqlari: {flags}"))))
 
+    # dav1d (AV1 dekoderi, BSD-2) - FFmpeg ichiga statik bog'langan.
+    dav1d = rt.get("dav1d") or {}
+    dav1d_version = dav1d.get("version") or _pin(SETUP_RENDER, "DAV1D_VERSION") or UNKNOWN
+    out.append(from_cache_or(component(
+        "runtime", "dav1d", dav1d_version, dav1d.get("license") or "BSD-2-Clause",
+        basis="setup_local_render.py + runtimes.toml",
+        texts=[t for t in [texts.add_file(ff_dir / "dav1d.COPYING", "dav1d COPYING")] if t],
+        url=dav1d.get("url") or f"https://downloads.videolan.org/pub/videolan/dav1d/{dav1d_version}/",
+        via="FFmpeg (--enable-libdav1d)",
+        notes=(f"AV1 dasturiy dekoderi. Statik yig'iladi va FFmpeg ichiga bog'lanadi (alohida dylib yo'q); "
+               f"BSD-2 shartiga ko'ra COPYING matni `bin/licenses/local-render/dav1d.COPYING` da. "
+               f"SHA-256 {dav1d.get('sha256') or _pin(SETUP_RENDER, 'DAV1D_SHA256') or UNKNOWN}."))))
+
     # llama.cpp (ggml)
     llama_src = staged / "llama.cpp" / "SOURCE.json"
     llama_meta = json.loads(llama_src.read_text(encoding="utf-8")) if llama_src.is_file() else {}

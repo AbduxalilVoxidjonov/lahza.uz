@@ -36,8 +36,13 @@ cmake -S $l -B "$l\build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DL
 cmake --build "$l\build" --config Release --target llama-server
 Copy-Item "$l\build\bin\Release\llama-server.exe" $Out
 
-# FFmpeg (LGPL): MSYS2 MinGW64 muhitida quyidagi bayroqlar bilan yig'iladi:
+# FFmpeg (LGPL): MSYS2 MinGW64 muhitida yig'iladi. Avval dav1d (BSD-2, AV1 dekoderi) statik:
+#   [dav1d] url'dan yuklab, sha256 ni tekshirib (sha256sum -c), so'ng
+#   meson setup build $(meson_options) --prefix=$DAV1D_PREFIX && ninja -C build install
+#   (pacman -S mingw-w64-x86_64-meson mingw-w64-x86_64-ninja mingw-w64-x86_64-nasm)
+#   dav1d.pc dagi "-L${libdir} -ldav1d" ni libdav1d.a mutlaq yo'liga almashtiring, PKG_CONFIG_PATH ga qo'shing.
+# So'ng:
 #   ./configure $(configure_common) $(configure_windows) --target-os=mingw32 --arch=x86_64
-# so'ng ffmpeg.exe, ffprobe.exe va *.dll fayllari $Out ga nusxalanadi.
-# Tekshiruv: ffmpeg -buildconf natijasida --enable-gpl bo'lmasligi shart (ADR-0004).
+# va ffmpeg.exe, ffprobe.exe, *.dll fayllari hamda dav1d COPYING ($Out\dav1d.COPYING) nusxalanadi.
+# Tekshiruv: ffmpeg -buildconf da --enable-gpl bo'lmasligi, ffmpeg -decoders da libdav1d bo'lishi shart (ADR-0004).
 Write-Host "whisper-cli va llama-server tayyor: $Out. FFmpeg uchun yuqoridagi izohga qarang."

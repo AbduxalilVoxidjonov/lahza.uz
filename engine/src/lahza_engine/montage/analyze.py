@@ -256,6 +256,7 @@ def analyze_file(
     scene_threshold: float | None = None,
 ) -> SourceAnalysis:
     """Manba faylni tahlil qiladi (kesh bo'lsa - keshdan). `cancel` o'rnatilsa `AnalysisCancelled`."""
+    from lahza_engine.media.codec_check import check_decodable
     from lahza_engine.media.frames import iter_frames
     from lahza_engine.media.probe import extract_wav, read_wav_mono
     from lahza_engine.media.scenes import DEFAULT_THRESHOLD, detect_scene_cuts
@@ -290,6 +291,7 @@ def analyze_file(
     info = probe_media(path)
     if not info.has_video:
         raise MediaError("faylda video yo'lagi yo'q")
+    check_decodable(path)  # AV1 kabi dekodlanmaydigan video - aniq `unsupported_codec` xatosi
     dur = info.duration_ms
     if dur <= 0:
         raise MediaError("video davomiyligi aniqlanmadi")

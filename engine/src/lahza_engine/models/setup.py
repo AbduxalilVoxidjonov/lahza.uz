@@ -18,13 +18,16 @@ from typing import Any
 from lahza_engine.core.jobs import Job, JobManager
 from lahza_engine.core.runner import Cancelled
 from lahza_engine.media.tools import run
+from lahza_engine.models import local_aligner, local_llm
 from lahza_engine.models import local_bootstrap as bootstrap
-from lahza_engine.models import local_llm
 from lahza_engine.models.catalog import Task
 from lahza_engine.models.downloader import sha256_file
 from lahza_engine.models.store import InstalledModel, ModelStore
 
-SIZES = {"asr": 149_000_000, "vad": 2328599, "llm": local_llm.MODEL_SIZE}
+SIZES = {"asr": 149_000_000, "vad": 2328599, "align": local_aligner.MODEL_SIZE,
+         "llm": local_llm.MODEL_SIZE}
+# Birinchi ishga tushirishda o'rnatiladigan modellar (tartib - yuklash tartibi).
+TASKS = (Task.ASR, Task.VAD, Task.ALIGN, Task.LLM)
 _TERMINAL = {"done", "failed", "cancelled"}
 _COORDINATORS: dict[Path, Setup] = {}
 _COORDINATOR_LOCK = threading.Lock()
@@ -214,6 +217,14 @@ class Setup:
             if model.id == "custom:silero-v5.1.2" and sha256_file(path) != bootstrap.SILERO_SHA256:
                 raise ValueError("VAD sha256 mos emas")
             SileroOnnxVad(path)
+        elif model.task == Task.ALIGN:
+            from lahza_engine.align.ctc_onnx import CtcAligner
+
+            if model.id == local_aligner.MODEL_ID:
+                local_aligner.verify_installation(root)
+            aligner = CtcAligner.from_dir(root)
+            if aligner.tok.sep is None or not aligner.tok.word_tokens("oʻzbek"):
+                raise ValueError("aligner lug'ati o'zbek lotin harflarini qo'llamaydi")
         elif model.task == Task.LLM:
             from lahza_engine.editing_agent.planner import local_model
 
@@ -235,7 +246,7 @@ class Setup:
             if self.external:
                 self._recover()
             components = []
-            for task in (Task.ASR, Task.VAD, Task.LLM):
+            for task in TASKS:
                 try:
                     ready, detail = self._model(self._default(task))
                 except (ValueError, OSError) as exc:
@@ -277,7 +288,8 @@ class Setup:
                         if component["id"] in ("render", "llm_runtime") and not component["ready"]:
                             raise RuntimeError(component["detail"])
                     # Python inference dependencies belong in the desktop sidecar too.
-                    for task, module in ((Task.ASR, "faster_whisper"), (Task.VAD, "onnxruntime")):
+                    for task, module in ((Task.ASR, "faster_whisper"), (Task.VAD, "onnxruntime"),
+                                         (Task.ALIGN, "onnxruntime")):
                         if self._model(self._default(task))[0]:
                             continue
                         try:
@@ -286,17 +298,19 @@ class Setup:
                             raise RuntimeError(f"{module} ilova paketida yo‘q. To‘liq desktop paketini qayta o‘rnating.") from exc
                     installed = []
                     installers = ((Task.ASR, bootstrap.bootstrap), (Task.VAD, bootstrap.bootstrap_vad),
+                                  (Task.ALIGN, local_aligner.install_model),
                                   (Task.LLM, local_llm.install_model))
+                    steps = len(installers)
                     for index, (task, installer) in enumerate(installers):
-                        self._checkpoint(job, task.value, index / 3)
+                        self._checkpoint(job, task.value, index / steps)
                         if self._model(self._default(task))[0]:
                             continue
 
-                        def progress(have, total, index=index, task=task):
+                        def progress(have, total, index=index, task=task, steps=steps):
                             job.meta["download_bytes"] = have
                             job.meta["download_total"] = total
                             fraction = min(1, have / total) if total else 0
-                            self._checkpoint(job, task.value, (index + fraction) / 3)
+                            self._checkpoint(job, task.value, (index + fraction) / steps)
 
                         model = installer(self.store, consent=True, progress=progress)
                         if job.cancel.is_set():

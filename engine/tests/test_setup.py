@@ -12,7 +12,7 @@ from _api_helpers import make_client, wait_job
 
 from lahza_engine.core.events import EventBus
 from lahza_engine.core.jobs import Job, JobManager
-from lahza_engine.models import local_llm
+from lahza_engine.models import local_aligner, local_llm
 from lahza_engine.models import setup as setup_backend
 from lahza_engine.models.catalog import Task
 from lahza_engine.models.downloader import DownloadError, download
@@ -44,6 +44,7 @@ def prepared(tmp_path, monkeypatch):
 
     monkeypatch.setattr(setup_backend.bootstrap, "bootstrap", install(Task.ASR))
     monkeypatch.setattr(setup_backend.bootstrap, "bootstrap_vad", install(Task.VAD))
+    monkeypatch.setattr(local_aligner, "install_model", install(Task.ALIGN))
     monkeypatch.setattr(local_llm, "install_model", install(Task.LLM))
     return client, state, manager, calls
 
@@ -58,7 +59,7 @@ def test_status_offline_no_download_or_submit(tmp_path, monkeypatch):
         data = response.json()
         assert set(data) == {"ready", "components", "job"}
         assert not data["ready"] and data["job"] is None
-        assert {c["id"] for c in data["components"]} == {"asr", "vad", "llm", "render", "llm_runtime"}
+        assert {c["id"] for c in data["components"]} == {"asr", "vad", "align", "llm", "render", "llm_runtime"}
         assert all(set(c) == {"id", "ready", "required", "download_bytes", "detail"} for c in data["components"])
         assert all(c["required"] for c in data["components"])
         client.headers.pop("Authorization")
@@ -85,7 +86,7 @@ def test_install_idempotent_progress_and_preserve_healthy_defaults(prepared):
         result = client.post("/v1/setup:start", json={"consent": True}).json()
         job = wait_job(state, result["id"])
         assert job.kind == "install" and job.status == "done", job.error
-        assert calls == ["vad", "llm"]
+        assert calls == ["vad", "align", "llm"]
         assert state.store.default_for(Task.ASR).id == existing.id
         assert client.get("/v1/setup").json()["ready"]
         assert client.post("/v1/setup:start", json={"consent": True}).json()["id"] == job.id
@@ -118,7 +119,7 @@ def test_concurrent_starts_same_store_return_one_job(prepared, monkeypatch):
             release.set()
             # The coordinator belongs to original State; all starts share it.
             assert wait_job(state, jobs[0].id).status == "done"
-            assert calls == ["asr", "vad", "llm"]
+            assert calls == ["asr", "vad", "align", "llm"]
     finally:
         release.set()
         another_jobs.shutdown()
@@ -136,7 +137,7 @@ def test_failed_retry_skips_completed_assets(prepared, monkeypatch):
         monkeypatch.setattr(setup_backend.bootstrap, "bootstrap_vad", install_vad)
         retried = wait_job(state, client.post("/v1/setup:start", json={"consent": True}).json()["id"])
         assert retried.status == "done" and retried.id != failed.id
-        assert calls == ["asr", "vad", "llm"]
+        assert calls == ["asr", "vad", "align", "llm"]
 
 
 def test_cancel_and_explicit_retry(prepared, monkeypatch):
@@ -481,7 +482,7 @@ def test_llm_completed_install_is_reusable_offline(tmp_path, monkeypatch):
 def test_healthy_store_setup_is_offline_and_preserves_all_defaults(prepared, monkeypatch):
     client, state, manager, calls = prepared
     defaults = {}
-    for task in (Task.ASR, Task.VAD, Task.LLM):
+    for task in (Task.ASR, Task.VAD, Task.ALIGN, Task.LLM):
         path = state.store.root / f"mine-{task.value}"
         path.write_bytes(b"healthy")
         model = InstalledModel(id=path.name, task=task, version="1", path=str(path))

@@ -10,12 +10,15 @@ eval/
     align/                     <id>.wav + <id>.words.json  [{"text", "start_ms", "end_ms"}]
     highlight/                 <epizod>.gold.json  [{"annotator", "start_ms", "end_ms"}]
   results/                     <model_id>.json - o'lchov natijalari
-  run_asr_eval.py              WER, CER, RTF
+  run_asr_eval.py              WER, CER, RTF, so'z/daq, cho'zilgan so'zlar (engine pipeline orqali)
+  fleurs_uz.py                 FLEURS uz test to'plamini yuklash/qurish (build/asr-eval/)
   run_align_eval.py            so'z chegarasi xatosi (median, p95)
   run_highlight_eval.py        precision@k, topish ulushi
 ```
 
 ## ASR
+
+Takrorlanuvchi benchmark (FLEURS uz, base vs small): `make asr-eval` — batafsil `YORIQNOMA.md` oxirida.
 
 ```bash
 python eval/run_asr_eval.py --data eval/data/uzpodcast --hyp-dir /tmp/hyp --model-id asr-piyola-v2

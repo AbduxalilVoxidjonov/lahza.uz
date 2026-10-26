@@ -38,6 +38,8 @@ Bu ro'yxat TZ 3-bo'limdagi endpointlarni aniqlashtiradi: transkript va kliplar e
 | POST | `/v1/models/{id}:test` | — | `{"ok": bool, "detail"}` |
 | POST | `/v1/models:export-pack` | `{"path": "....lzpack", "model_ids?": string[]}` | Job (`kind: pack`, `meta.op = "export"`) |
 | POST | `/v1/models:import-pack` | `{"path"}` | Job (`kind: pack`, `meta.op = "import"`) |
+| GET | `/v1/asr-quality` | — | `{"mode": "fast\|accurate\|custom\|none", "current_model_id", "fast": {"model_id","installed"}, "accurate": {"model_id","installed","download_bytes","download_available"}}` |
+| POST | `/v1/asr-quality` | `{"mode": "fast\|accurate", "consent"?, "pack_path"?}` | holat + `"job"`: o'rnatilgan bo'lsa darhol standart ASR almashadi (`job: null`); "Aniq" (NavAI small) o'rnatilmagan bo'lsa — Job (`kind: install`, `meta.op: asr-quality`, bosqichlar `download`/`import-pack`/`verify`). Tez modeli yo'q — 409 `model_missing`. Tarmoqdan yuklash faqat `LAHZA_ASR_ACCURATE_PACK_URL` (https) sozlanganda; aks holda `pack_path` (.lzpack). |
 
 * `consent` bo'lmasa — 400 (NFR-01). `entry_ids` berilmasa, avtomatik to'plam o'rnatiladi; ASR birinchi.
 * `models:bootstrap` katalogni o'zgartirmaydi: mahkamlangan upstream modelini `source=custom`, `verified=false` sifatida o'rnatadi va ASR standarti qiladi. Faqat foydalanuvchi roziligidan keyin model fayllari yuklanadi; video yuborilmaydi. `entry_ids` bilan chaqirilsa 400. Tafsilotlar: [`local-models.md`](local-models.md).

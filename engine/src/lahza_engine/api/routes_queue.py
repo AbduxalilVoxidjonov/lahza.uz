@@ -17,6 +17,7 @@ from pydantic import BaseModel, Field
 from lahza_engine.api.routes_episodes import _analysis_running, create_episode, submit_analysis
 from lahza_engine.api.state import State
 from lahza_engine.core.batch import QueueConflict
+from lahza_engine.core.errors import ALREADY_RUNNING, FILE_NOT_FOUND, CodedError
 from lahza_engine.core.jobs import Job
 
 MAX_BATCH = 500
@@ -43,20 +44,24 @@ def start_item(s: State, item: dict[str, Any], on_change: Callable[[Job], None])
     qayta tahlil qiladi (bosqich keshi tufayli tugagan bosqichlar o'tkazib yuboriladi)."""
     src = Path(item["path"])
     if not src.is_file():
-        raise ValueError(f"fayl topilmadi: {src}")
+        raise CodedError(FILE_NOT_FOUND, f"fayl topilmadi: {src}", path=src.name)
     opts = json.loads(item["options_json"] or "{}")
     show_id = item["show_id"]
     eid = item["episode_id"]
     rows = s.lib("SELECT * FROM episodes WHERE id = ?", (eid,)) if eid else []
     if rows:
         if _analysis_running(s, eid):
-            raise ValueError("bu epizod allaqachon tahlil qilinmoqda")
+            raise CodedError(ALREADY_RUNNING, "bu epizod allaqachon tahlil qilinmoqda")
         pdir = Path(rows[0]["project_dir"])
     else:
         try:
             eid, pdir = create_episode(s, show_id, src, item["title"])
         except HTTPException as e:
-            raise ValueError(str(e.detail)) from e
+            d = e.detail
+            if isinstance(d, dict) and isinstance(d.get("code"), str):
+                params = {k: v for k, v in d.items() if k not in ("code", "message")}
+                raise CodedError(d["code"], str(d.get("message") or d["code"]), **params) from e
+            raise ValueError(str(d)) from e
     return submit_analysis(s, eid, show_id, pdir, src, opts.get("focus"), opts.get("num_speakers"),
                            bool(opts.get("force_lite")), on_change=on_change, queue_item_id=item["id"])
 

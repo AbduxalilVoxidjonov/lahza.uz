@@ -6,7 +6,7 @@ import hashlib
 import os
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel
@@ -22,6 +22,12 @@ from lahza_engine.models.store import InstalledModel
 class InstallIn(BaseModel):
     entry_ids: list[str] | None = None
     consent: bool = False  # NFR-01: tarmoqdan foydalanishga foydalanuvchi roziligi
+
+
+class AsrQualityIn(BaseModel):
+    mode: Literal["fast", "accurate"]
+    consent: bool = False  # NFR-01: tarmoqdan yuklash faqat roziligi bilan
+    pack_path: str | None = None  # internetsiz: foydalanuvchi tanlagan .lzpack
 
 
 class PackIn(BaseModel):
@@ -180,6 +186,44 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
         ok, detail = self_test(s, m)
         s.store.set_self_test(model_id, ok)
         return {"ok": ok, "detail": detail}
+
+    @app.get("/v1/asr-quality")
+    def asr_quality(s: State = Depends(auth)) -> dict[str, Any]:
+        from lahza_engine.models import asr_quality as quality
+
+        return quality.status(s.store)
+
+    @app.post("/v1/asr-quality")
+    def set_asr_quality(body: AsrQualityIn, s: State = Depends(auth)) -> dict[str, Any]:
+        """O'rnatilgan bo'lsa - darhol almashtiradi; "Aniq" o'rnatilmagan bo'lsa - install vazifasi."""
+        from lahza_engine.core.errors import MODEL_MISSING
+        from lahza_engine.models import asr_quality as quality
+
+        if quality.installed(s.store, body.mode) is not None:
+            quality.select(s.store, body.mode)
+            s.invalidate_services()
+            return {**quality.status(s.store), "job": None}
+        if body.mode == "fast":
+            raise HTTPException(409, {"code": MODEL_MISSING, "message":
+                                      "Tez rejim modeli (NavAI base) o'rnatilmagan. Birinchi sozlashni qayta ishga tushiring."})
+        pack = Path(body.pack_path) if body.pack_path else None
+        if pack is not None and (pack.suffix != ".lzpack" or not pack.is_file()):
+            raise HTTPException(400, "fayl topilmadi yoki .lzpack emas")
+        if pack is None and not body.consent:
+            raise HTTPException(400, "model yuklash uchun foydalanuvchi roziligi kerak (consent=true)")
+        if pack is None and not quality.pack_urls():
+            raise HTTPException(409, "Aniq rejim paketi uchun yuklash manzili sozlanmagan. .lzpack faylini tanlang.")
+
+        def work(job: Job) -> dict[str, Any]:
+            model = quality.install_accurate(
+                s.store, consent=body.consent, pack_path=pack,
+                progress=lambda stage, f: s.jobs.progress(job, stage, f),
+                is_cancelled=job.cancel.is_set)
+            s.invalidate_services()
+            return {"installed": [model.id], "mode": "accurate"}
+
+        job = s.jobs.submit("install", work, op="asr-quality", mode=body.mode)
+        return {**quality.status(s.store), "job": job.public()}
 
     @app.post("/v1/models:export-pack")
     def export_pack(body: PackIn, s: State = Depends(auth)) -> dict[str, Any]:

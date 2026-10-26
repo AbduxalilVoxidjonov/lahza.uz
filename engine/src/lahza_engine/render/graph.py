@@ -22,6 +22,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 from lahza_engine.config import RenderConfig, SubtitleSafeZone
+from lahza_engine.media.codec_check import raise_if_decoder_failure
 from lahza_engine.media.tools import find_tool, run
 from lahza_engine.reframe.planner import CropKey, LayoutSegment, crop_rect
 from lahza_engine.render.capabilities import LibassMissing, has_filter
@@ -355,6 +356,10 @@ def _run(cmd: list[str], job: RenderJob, timeout_s: float | None) -> None:
                        check=False)
     if r.returncode != 0:
         (job.workdir / "ffmpeg.log").write_text(r.stderr, encoding="utf-8")
+        # Yiqilgan ffmpeg chiqish papkasida buzuq (bir necha kadrli) MP4 qoldiradi - o'chiriladi.
+        job.out.unlink(missing_ok=True)
+        # Dekoder xatosi (masalan, AV1 - bundled ffmpeg'da dav1d yo'q) - xom log o'rniga aniq kod.
+        raise_if_decoder_failure(r.stderr)
         raise RuntimeError(f"render xatosi (ffmpeg {r.returncode}): {r.stderr.strip()[-800:]}")
 
 

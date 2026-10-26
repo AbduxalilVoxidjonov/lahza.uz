@@ -12,6 +12,7 @@ import type { InstalledModel } from "../../api/types";
 import { useT } from "../../i18n";
 import { useJobs } from "../../store/jobs";
 import { Empty, ErrorText, JobLine, QueryState } from "../ui";
+import { AsrQualityPanel } from "./AsrQualityPanel";
 import { PackPanel } from "./PackPanel";
 
 /** Model menejeri (M2-APP-9): o'rnatilganlar, vazifa bo'yicha standart, o'chirish, sinov, katalogdan o'rnatish. */
@@ -43,6 +44,7 @@ export function ModelManager() {
       {installJob && installJob.status !== "done" && <JobLine job={installJob} />}
       {installJob?.status === "done" && <span className="muted" role="status">{t("set.installDone")}</span>}
       <ErrorText error={err} />
+      <AsrQualityPanel />
       <QueryState query={models} />
       {models.data?.models.length === 0 && <Empty>{t("set.noModels")}</Empty>}
       {!!models.data?.models.length && (

@@ -98,6 +98,8 @@ def test_runtime_staged_sbom_and_cache(tmp_path, monkeypatch):
     (lib / "sbom.spdx.json").write_text(json.dumps({"packages": [
         {"name": "libass", "versionInfo": "0.17.5", "licenseConcluded": "ISC"}]}), encoding="utf-8")
     (staged / "local-render" / "COPYING.LGPLv2.1").write_text("GNU LESSER GENERAL PUBLIC LICENSE\n", encoding="utf-8")
+    (staged / "local-render" / "dav1d.COPYING").write_text("Copyright © 2018-2019, VideoLAN and dav1d authors\n",
+                                                          encoding="utf-8")
     texts = gen.Texts()
     comps = gen.runtime_components(texts, gen.Cache(None), staged)
     by = {c["name"]: c for c in comps}
@@ -107,6 +109,11 @@ def test_runtime_staged_sbom_and_cache(tmp_path, monkeypatch):
     assert "--enable-shared" in by["FFmpeg"]["notes"]
     assert by["libass"]["license"] == "ISC" and by["libass"]["category"] == "native"
     assert by["whisper.cpp (ggml)"]["version"] == "ANIQLANSIN"
+    # dav1d: statik (FFmpeg ichida), native/Homebrew emas; versiya setup_local_render.py pinidan.
+    assert by["dav1d"]["license"] == "BSD-2-Clause" and by["dav1d"]["category"] == "runtime"
+    assert by["dav1d"]["version"] == gen._pin(gen.SETUP_RENDER, "DAV1D_VERSION") != ""
+    assert "VideoLAN" in texts.items[by["dav1d"]["texts"][0]]["body"]
+    assert "dav1d.COPYING" not in by  # fayl - Homebrew bottle katalogi sifatida sanalmaydi
 
     previous = {"components": comps, "texts": texts.items}
     again = gen.runtime_components(gen.Texts(), gen.Cache(previous), tmp_path / "yoq")

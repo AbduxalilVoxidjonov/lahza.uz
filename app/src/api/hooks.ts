@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { useJobs } from "../store/jobs";
 import { del, eventsUrl, get, getBlob, patch, post, postBlob, put } from "./client";
 import type {
+  AsrQualityMode,
+  AsrQualityResult,
+  AsrQualityStatus,
   Bundle,
   Capabilities,
   Clip,
@@ -89,6 +92,25 @@ export const useScanModels = () => useModelAction(() => post<{ added: InstalledM
 
 export const useTestModel = () =>
   useMutation({ mutationFn: (id: string) => post<{ ok: boolean; detail: string }>(`/v1/models/${id}:test`) });
+
+export const useAsrQuality = () =>
+  useQuery({ queryKey: ["asr-quality"], queryFn: () => get<AsrQualityStatus>("/v1/asr-quality") });
+
+/** Transkripsiya sifati: o'rnatilgan bo'lsa darhol almashadi, aks holda install vazifasi qaytadi. */
+export function useSetAsrQuality() {
+  const upsert = useJobs((s) => s.upsert);
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { mode: AsrQualityMode; consent?: boolean; pack_path?: string }) =>
+      post<AsrQualityResult>("/v1/asr-quality", v),
+    onSuccess: (res) => {
+      if (res.job) upsert(res.job);
+      void qc.invalidateQueries({ queryKey: ["asr-quality"] });
+      void qc.invalidateQueries({ queryKey: ["models"] });
+      void qc.invalidateQueries({ queryKey: ["capabilities"] });
+    },
+  });
+}
 
 /** .lzpack eksport/import - uzoq vazifa (Job kind `pack`). */
 export function usePack() {
@@ -675,6 +697,7 @@ function onJobDone(qc: QueryClient, job: Job) {
     case "install":
     case "pack":
       void qc.invalidateQueries({ queryKey: ["models"] });
+      void qc.invalidateQueries({ queryKey: ["asr-quality"] });
       void qc.invalidateQueries({ queryKey: ["capabilities"] });
       break;
   }

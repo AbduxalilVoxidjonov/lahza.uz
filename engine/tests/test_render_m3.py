@@ -291,3 +291,23 @@ def test_observations_mark_scene_and_text_cuts(media, tmp_path) -> None:
     assert len(cut_ts) == 2
     assert abs(cut_ts[0] - 1_000) <= 200 and abs(cut_ts[1] - 2_400) <= 200
     assert any(o.overlap_speech for o in obs) and {o.speaker for o in obs} >= {"A", "B"}
+
+
+def test_failed_render_removes_partial_output(tmp_path, monkeypatch) -> None:
+    """Jonli sinov (0.2.1, AV1 manba): yiqilgan ffmpeg eksport papkasida 140 KB buzuq MP4 qoldirgan."""
+    from types import SimpleNamespace
+
+    from lahza_engine.render import graph
+
+    out = tmp_path / "export" / "clip.mp4"
+
+    def fake_run(cmd, **_kw):  # type: ignore[no-untyped-def]
+        out.write_bytes(b"partial")
+        return SimpleNamespace(returncode=69, stderr="Function not implemented")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    job = SimpleNamespace(out=out, workdir=tmp_path)
+    with pytest.raises(RuntimeError, match="render xatosi"):
+        graph._run(["ffmpeg"], job, None)  # type: ignore[arg-type]
+    assert not out.exists()
+    assert (tmp_path / "ffmpeg.log").read_text(encoding="utf-8") == "Function not implemented"

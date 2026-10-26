@@ -48,6 +48,23 @@ cmake -S "$SRC/llama.cpp" -B "$SRC/llama.cpp/build" -DCMAKE_BUILD_TYPE=Release -
 cmake --build "$SRC/llama.cpp/build" --config Release -j --target llama-server
 cp "$SRC/llama.cpp/build/bin/llama-server" "$OUT/"
 
+# --- dav1d (BSD-2, statik; FFmpeg AV1 dekoderi) ------------------------------
+# Talab: meson, ninja (pip install meson ninja), nasm (x86_64 uchun).
+DAV1D_VERSION="$(toml dav1d version)"
+DAV1D_TAR="$SRC/downloads/dav1d-$DAV1D_VERSION.tar.xz"
+DAV1D_PREFIX="$SRC/dav1d-install"
+mkdir -p "$SRC/downloads"
+if [[ ! -f "$DAV1D_TAR" ]]; then curl -fL --retry 3 -o "$DAV1D_TAR.part" "$(toml dav1d url)" && mv "$DAV1D_TAR.part" "$DAV1D_TAR"; fi
+echo "$(toml dav1d sha256)  $DAV1D_TAR" | sha256sum -c - || { echo "XATO: dav1d SHA-256 mos emas: $DAV1D_TAR" >&2; exit 1; }
+rm -rf "$SRC/dav1d-$DAV1D_VERSION" && tar -xJf "$DAV1D_TAR" -C "$SRC"
+# shellcheck disable=SC2046
+meson setup "$SRC/dav1d-$DAV1D_VERSION/build" "$SRC/dav1d-$DAV1D_VERSION" --prefix="$DAV1D_PREFIX" $(toml dav1d meson_options)
+ninja -C "$SRC/dav1d-$DAV1D_VERSION/build" install
+# Arxivni mutlaq yo'l bilan bog'lash: tizimdagi shared libdav1d tanlanib qolmasin.
+sed -i.bak "s|-L\${libdir} -ldav1d|$DAV1D_PREFIX/lib/libdav1d.a|" "$DAV1D_PREFIX/lib/pkgconfig/dav1d.pc"
+cp "$SRC/dav1d-$DAV1D_VERSION/COPYING" "$OUT/dav1d.COPYING"
+export PKG_CONFIG_PATH="$DAV1D_PREFIX/lib/pkgconfig:${PKG_CONFIG_PATH:-}"
+
 # --- FFmpeg (LGPL) -----------------------------------------------------------
 # Talab: libass, freetype, harfbuzz, fribidi (macOS: brew install libass pkg-config nasm)
 checkout ffmpeg ffmpeg
@@ -60,5 +77,8 @@ cp -P "$SRC/ffmpeg-install/lib/"*.dylib "$OUT/" 2>/dev/null || cp -P "$SRC/ffmpe
 # GPL tekshiruvi: yig'mada --enable-gpl bo'lmasligi shart (ADR-0004)
 if "$OUT/ffmpeg" -hide_banner -buildconf | grep -q -- "--enable-gpl"; then
   echo "XATO: FFmpeg GPL bilan yig'ilgan" >&2; exit 1
+fi
+if ! "$OUT/ffmpeg" -hide_banner -decoders | grep -qw libdav1d; then
+  echo "XATO: FFmpeg'da libdav1d (AV1) dekoderi yo'q" >&2; exit 1
 fi
 echo "Tayyor: $OUT"

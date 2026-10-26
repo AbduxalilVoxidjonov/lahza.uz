@@ -42,11 +42,20 @@ DONE_MARKER = "lahza-download.json"
 # Ikki qismli yuklashda (video + audio) umumiy progressdagi ulushlar: video odatda ancha katta.
 PART_WEIGHTS = (0.85, 0.15)
 
-# yt-dlp format ifodasi: avval mp4 video + m4a audio (FFmpeg bilan birlashtiriladi), keyin bitta
-# fayldagi mp4. FFmpeg yo'q bo'lsa - faqat bitta fayldagi variant.
-FORMAT_MERGE = (f"bv*[height<={MAX_HEIGHT}][ext=mp4]+ba[ext=m4a]/"
-                f"b[height<={MAX_HEIGHT}][ext=mp4]/bv*[height<={MAX_HEIGHT}]+ba/b[height<={MAX_HEIGHT}]")
-FORMAT_SINGLE = f"b[height<={MAX_HEIGHT}][ext=mp4]/b[height<={MAX_HEIGHT}]"
+# yt-dlp format ifodasi: avval H.264 (avc1) video + m4a audio (FFmpeg bilan birlashtiriladi), keyin
+# VP9, oxirgi chora - istalgan kodek. YouTube 1080p'da ko'pincha AV1 ni "eng yaxshi" deb beradi,
+# lekin LGPL FFmpeg'imizda dav1d yo'q: AV1 faqat apparat (VideoToolbox) bilan dekodlanadi va
+# render "Function not implemented" bilan yiqiladi (jonli sinov, 0.2.1). FFmpeg yo'q bo'lsa -
+# faqat bitta fayldagi variant.
+_H = f"[height<={MAX_HEIGHT}]"
+FORMAT_MERGE = (f"bv{_H}[vcodec^=avc1]+ba[ext=m4a]/"
+                f"bv{_H}[vcodec^=vp09]+ba[ext=m4a]/bv{_H}[vcodec^=vp9]+ba[ext=m4a]/"
+                f"b{_H}[ext=mp4][vcodec^=avc1]/bv*{_H}[ext=mp4]+ba[ext=m4a]/b{_H}[ext=mp4]/"
+                f"bv*{_H}+ba/b{_H}")
+FORMAT_SINGLE = f"b{_H}[ext=mp4][vcodec^=avc1]/b{_H}[ext=mp4]/b{_H}"
+# Tayyor-fayl belgisi versiyasi: format tanlovi o'zgarsa eski (masalan, AV1) yuklamalar qayta
+# ishlatilmaydi - bir marta qayta yuklanadi.
+MARKER_VERSION = 2
 
 
 class InvalidUrl(ValueError):
@@ -371,7 +380,7 @@ def _reuse(out_dir: Path, video_id: str) -> DownloadResult | None:
     except (OSError, ValueError):
         return None
     path = Path(data.get("path") or "")
-    if data.get("id") != video_id or not path.is_file():
+    if data.get("id") != video_id or data.get("v") != MARKER_VERSION or not path.is_file():
         return None
     return DownloadResult(path, data.get("title"), video_id, data.get("duration"), reused=True)
 
@@ -393,6 +402,10 @@ def download(url: str, out_dir: Path, *, cancel: threading.Event,
         if on_progress:
             on_progress(1.0, {"fraction": 1.0, "reused": True})
         return reused
+    if (out_dir / DONE_MARKER).exists():
+        # Eski versiyadagi tayyor yuklama: yt-dlp mavjud `<id>.mp4` ni "allaqachon yuklangan" deb
+        # qaytarmasligi uchun papka tozalanadi (qisman fayl yo'q - yuklama to'liq tugagan edi).
+        cleanup_partial(out_dir)
     paths = component_paths(data_dir)
     if find_ytdlp(paths) is None:
         raise YoutubeError("not_installed", MESSAGES["not_installed"])
@@ -437,7 +450,7 @@ def download(url: str, out_dir: Path, *, cancel: threading.Event,
                 path = Path(data["path"])
                 res = DownloadResult(path, data.get("title"), video_id, data.get("duration"))
                 (out_dir / DONE_MARKER).write_text(json.dumps(
-                    {"id": video_id, "path": str(path), "title": res.title,
+                    {"v": MARKER_VERSION, "id": video_id, "path": str(path), "title": res.title,
                      "duration": res.duration_s}, ensure_ascii=False), encoding="utf-8")
                 if on_progress:
                     on_progress(1.0, {"fraction": 1.0})

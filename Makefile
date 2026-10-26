@@ -76,6 +76,15 @@ build-ui:
 lint:
 	$(BIN)/ruff check engine/src engine/tests eval scripts
 
+# ASR benchmark (FLEURS uz test, CC-BY-4.0; birinchi marta ~260 wav oqimda yuklanadi -> build/asr-eval/).
+# Natija: build/asr-eval/results-<sana>-<model>.json. Tez tekshiruv: make asr-eval ASR_EVAL_ARGS="--limit 5"
+ASR_MODELS ?= base small
+ASR_EVAL_ARGS ?= --direct
+.PHONY: asr-eval
+asr-eval:
+	@for m in $(ASR_MODELS); do $(BIN)/python -I eval/run_asr_eval.py --set fleurs-uz --model $$m $(ASR_EVAL_ARGS) || exit 1; done
+	$(BIN)/python -I eval/run_asr_eval.py --table $$(ls -t build/asr-eval/results-*.json | head -n $(words $(ASR_MODELS)))
+
 check-versions:
 	$(PY) scripts/check_versions.py
 

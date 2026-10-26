@@ -8467,7 +8467,7 @@
    "id": "runtime:FFmpeg@7.1.1",
    "license": "LGPL-2.1-or-later",
    "name": "FFmpeg",
-   "notes": "GPL/nonfree/version3 o'chiq, dinamik bog'lanadi (ADR-0004). runtimes.toml ref bo'sh (ANIQLANSIN, R0-RT-1). Reliz bayroqlari: --enable-shared --disable-static --disable-doc --disable-debug --enable-libass --enable-libfreetype --enable-libharfbuzz --enable-libfribidi",
+   "notes": "GPL/nonfree/version3 o'chiq, dinamik bog'lanadi (ADR-0004). runtimes.toml ref bo'sh (ANIQLANSIN, R0-RT-1). Reliz bayroqlari: --enable-shared --disable-static --disable-doc --disable-debug --enable-libass --enable-libfreetype --enable-libharfbuzz --enable-libfribidi --enable-libdav1d",
    "risk": "",
    "texts": [
     "cb48bf09a11f",
@@ -8476,6 +8476,23 @@
    "url": "https://ffmpeg.org/releases/ffmpeg-7.1.1.tar.xz",
    "version": "7.1.1",
    "via": ""
+  },
+  {
+   "attribution": "",
+   "basis": "setup_local_render.py + runtimes.toml",
+   "category": "runtime",
+   "group": "runtime",
+   "id": "runtime:dav1d@1.5.4",
+   "license": "BSD-2-Clause",
+   "name": "dav1d",
+   "notes": "AV1 dasturiy dekoderi. Statik yig'iladi va FFmpeg ichiga bog'lanadi (alohida dylib yo'q); BSD-2 shartiga ko'ra COPYING matni `bin/licenses/local-render/dav1d.COPYING` da. SHA-256 686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5.",
+   "risk": "",
+   "texts": [
+    "dd92c3c2247c"
+   ],
+   "url": "https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz",
+   "version": "1.5.4",
+   "via": "FFmpeg (--enable-libdav1d)"
   },
   {
    "attribution": "",
@@ -8760,14 +8777,14 @@
    "basis": "catalog.json",
    "category": "model",
    "group": "model",
-   "id": "model:Meta Omnilingual ASR - CTC@r0",
+   "id": "model:Meta Omnilingual ASR - CTC 300M v2 (int8 ONNX)@bc55e1de19af8a907b0a010d06fc4637a2d5bf0c",
    "license": "Apache-2.0",
-   "name": "Meta Omnilingual ASR - CTC",
+   "name": "Meta Omnilingual ASR - CTC 300M v2 (int8 ONNX)",
    "notes": "Katalogdan foydalanuvchi roziligi bilan yuklanadi; ilova paketiga kirmaydi.",
    "risk": "",
    "texts": [],
-   "url": "https://ai.meta.com/blog/omnilingual-asr-advancing-automatic-speech-recognition/",
-   "version": "r0",
+   "url": "https://huggingface.co/OpenVoiceOS/omnilingual-asr-ctc-300m-onnx",
+   "version": "bc55e1de19af8a907b0a010d06fc4637a2d5bf0c",
    "via": "align-omnilingual-ctc (align, holat: candidate)"
   },
   {
@@ -9669,6 +9686,10 @@
   "dd57ede7eb6b": {
    "body": "Copyright (c) 2017 Pyfisch\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in\nall copies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN\nTHE SOFTWARE.\n",
    "title": "LICENSE-MIT"
+  },
+  "dd92c3c2247c": {
+   "body": "Copyright © 2018-2025, VideoLAN and dav1d authors\nAll rights reserved.\n\nRedistribution and use in source and binary forms, with or without\nmodification, are permitted provided that the following conditions are met:\n\n1. Redistributions of source code must retain the above copyright notice, this\n   list of conditions and the following disclaimer.\n\n2. Redistributions in binary form must reproduce the above copyright notice,\n   this list of conditions and the following disclaimer in the documentation\n   and/or other materials provided with the distribution.\n\nTHIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS \"AS IS\" AND\nANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED\nWARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE\nDISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR\nANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES\n(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;\nLOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND\nON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT\n(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS\nSOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.\n",
+   "title": "dav1d COPYING"
   },
   "e2e245f2b566": {
    "body": "Copyright (c) Jacob Pratt\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",

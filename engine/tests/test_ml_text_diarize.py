@@ -134,6 +134,37 @@ def test_whisper_cpp_passes_prompt(monkeypatch, tmp_path: Path) -> None:
     assert "--prompt" not in seen["args"]
 
 
+def test_whisper_cpp_decoder_flags_match_faster_whisper(monkeypatch, tmp_path: Path) -> None:
+    import json
+
+    from lahza_engine.asr import whisper_cpp
+
+    seen: dict = {}
+
+    class R:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(args, timeout=None):
+        seen["args"] = [str(a) for a in args]
+        out = Path(seen["args"][seen["args"].index("-of") + 1]).with_suffix(".json")
+        out.write_text(json.dumps({"transcription": []}), encoding="utf-8")
+        return R()
+
+    monkeypatch.setattr(whisper_cpp, "find_tool", lambda name: Path("/bin/whisper-cli"))
+    monkeypatch.setattr(whisper_cpp, "run", fake_run)
+    be = whisper_cpp.WhisperCppBackend(tmp_path / "m.bin", "m")
+    be.transcribe_chunk(tmp_path / "a.wav", 0, AsrOptions())
+    args = seen["args"]
+    opt = lambda f: args[args.index(f) + 1]  # noqa: E731
+    assert opt("-bs") == "5" and opt("-tp") == "0" and "-nf" in args
+    assert opt("-et") == "2.4" and opt("-lpt") == "-1.0"
+    assert opt("-l") == "uz" and "-mc" not in args
+    be.transcribe_chunk(tmp_path / "a.wav", 0, AsrOptions(temperature=0.4, beam_size=2))
+    args = seen["args"]
+    assert opt("-tp") == "0.4" and opt("-bs") == "2" and "-nf" not in args
+
+
 def test_faster_whisper_passes_hotwords() -> None:
     from lahza_engine.asr.faster_whisper_backend import FasterWhisperBackend
 
@@ -141,16 +172,16 @@ def test_faster_whisper_passes_hotwords() -> None:
 
     class Model:
         def transcribe(self, wav, language, word_timestamps, condition_on_previous_text, vad_filter,
-                       hotwords=None, compression_ratio_threshold=2.4, log_prob_threshold=-1.0,
-                       no_speech_threshold=0.6):
+                       without_timestamps=False, hotwords=None, compression_ratio_threshold=2.4, log_prob_threshold=-1.0,
+                       no_speech_threshold=0.6, beam_size=5, temperature=0.0):
             assert (compression_ratio_threshold, log_prob_threshold, no_speech_threshold) == (2.4, -1.0, 0.6)
             calls.append({"hotwords": hotwords, "cond": condition_on_previous_text})
             return iter([]), None
 
     class OldModel:
         def transcribe(self, wav, language, word_timestamps, condition_on_previous_text, vad_filter,
-                       initial_prompt=None, compression_ratio_threshold=2.4, log_prob_threshold=-1.0,
-                       no_speech_threshold=0.6):
+                       without_timestamps=False, initial_prompt=None, compression_ratio_threshold=2.4, log_prob_threshold=-1.0,
+                       no_speech_threshold=0.6, beam_size=5, temperature=0.0):
             calls.append({"initial_prompt": initial_prompt})
             return iter([]), None
 

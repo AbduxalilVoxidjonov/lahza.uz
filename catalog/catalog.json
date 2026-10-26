@@ -62,16 +62,22 @@
     {
       "id": "align-omnilingual-ctc",
       "task": "align",
-      "name": "Meta Omnilingual ASR - CTC",
-      "version": "r0",
+      "name": "Meta Omnilingual ASR - CTC 300M v2 (int8 ONNX)",
+      "version": "bc55e1de19af8a907b0a010d06fc4637a2d5bf0c",
       "backend": "ctc-aligner",
-      "files": [{"path": "model.onnx", "urls": [], "sha256": null, "size_bytes": null}],
+      "files": [
+        {"path": "model.int8.onnx", "urls": ["https://huggingface.co/OpenVoiceOS/omnilingual-asr-ctc-300m-onnx/resolve/bc55e1de19af8a907b0a010d06fc4637a2d5bf0c/model.int8.onnx"], "sha256": "38a6cc569d46eb382f27d85b3208b883e834ff281b2057a606ec79e4ae501545", "size_bytes": 328094283},
+        {"path": "tokens.txt", "urls": ["https://huggingface.co/OpenVoiceOS/omnilingual-asr-ctc-300m-onnx/resolve/bc55e1de19af8a907b0a010d06fc4637a2d5bf0c/tokens.txt"], "sha256": "7d99997ef207ff14c2cfe825f2aa037528ea250113cc3c6392bfe49326884ba6", "size_bytes": 90630}
+      ],
       "platforms": ["darwin-arm64", "win32-x86_64"],
       "tiers": ["lite", "standard", "pro"],
+      "min_ram_gb": 4,
       "license": "Apache-2.0",
-      "source_url": "https://ai.meta.com/blog/omnilingual-asr-advancing-automatic-speech-recognition/",
+      "license_url": "https://huggingface.co/OpenVoiceOS/omnilingual-asr-ctc-300m-onnx/blob/bc55e1de19af8a907b0a010d06fc4637a2d5bf0c/LICENSE",
+      "source_url": "https://huggingface.co/OpenVoiceOS/omnilingual-asr-ctc-300m-onnx",
       "status": "candidate",
-      "notes": "O'zbek tili qo'llanishi va alignment aniqligi R0'da tekshiriladi. MMS forced aligner CC-BY-NC-4.0 - ishlatilmaydi."
+      "eval": {"pause_recall": 0.91, "start_err_median_ms": 30, "end_err_median_ms": 50, "rtf_cpu": 0.09},
+      "notes": "Birinchi ishga tushirishda models/local_aligner.py orqali standart o'rnatiladi (aligner.json: blank 0, bo'shliq ajratgich, 20 ms, end_pad 60 ms). Asl model facebook/omniASR-CTC-300M (v2), ONNX/int8 - OpenVoiceOS. Eval: 150 s o'zbekcha nutq, energiya/sukunat chegaralari (Whisper so'z vaqtlari pauzalarning 1/65 ini ajratgan). MMS forced aligner CC-BY-NC-4.0 - ishlatilmaydi; mrmuminov/uzbek-fastconformer-ctc-uz (CC-BY-4.0, 174 MB) vaqt aniqligi past (pauzalar 65%)."
     },
     {
       "id": "vad-silero",

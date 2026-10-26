@@ -17,7 +17,8 @@ import { canCancel, canRemove, canRetry, mergePaths, moveQueued, parsePathList, 
 import { baseName, hasNativeDialog, pickPaths, VIDEO_EXTS } from "../../lib/dialog";
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
-import { ErrorText, isMessageKey, ProgressBar, QueryState } from "../ui";
+import { describeQueueError } from "../../lib/error-codes";
+import { CodedErrorText, ErrorText, isMessageKey, ProgressBar, QueryState } from "../ui";
 
 const BADGE: Record<JobStatus, string> = { queued: "", running: "accent", done: "good", failed: "bad", cancelled: "warn" };
 
@@ -210,8 +211,8 @@ function QueueRow({
           <ProgressBar value={item.progress} label={name} />
         </div>
       )}
-      {item.status === "failed" && item.error && (
-        <span className="error" role="alert">{t("common.error", { msg: item.error })}</span>
+      {item.status === "failed" && (item.error || item.error_code) && (
+        <CodedErrorText view={describeQueueError(item)} />
       )}
     </li>
   );

@@ -78,10 +78,16 @@ def _analysis_running(s: State, eid: str) -> bool:
 
 
 def create_episode(s: State, project_id: str, src: Path, title: str | None) -> tuple[str, Path]:
-    """Epizod qatori va `.lahza` papkasi (import va partiyaviy navbat uchun umumiy)."""
+    """Epizod qatori va `.lahza` papkasi (import, YouTube va partiyaviy navbat uchun umumiy).
+
+    Video kodekini bundled ffmpeg dekodlay olmasa (masalan, AV1) - epizod yaratilMAYDI,
+    `UnsupportedCodec` ko'tariladi (aks holda tahlil audio orqali o'tib, eksport yiqiladi)."""
+    from lahza_engine.media.codec_check import check_decodable
+
     shows = s.lib("SELECT * FROM shows WHERE id = ?", (project_id,))
     if not shows:
         raise HTTPException(404, "loyiha topilmadi")
+    check_decodable(src)
     eid = uuid.uuid4().hex[:12]
     title = title or src.stem
     pdir = s.settings.library_dir / shows[0]["name"] / f"{title}-{eid[:6]}.lahza"
@@ -175,7 +181,12 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
         src = Path(body.path)
         if not src.is_file():
             raise HTTPException(400, "fayl topilmadi")
-        eid, pdir = create_episode(s, body.project_id, src, body.title)
+        from lahza_engine.media.codec_check import UnsupportedCodec
+
+        try:
+            eid, pdir = create_episode(s, body.project_id, src, body.title)
+        except UnsupportedCodec as e:
+            raise HTTPException(415, e.detail()) from None
         job = submit_analysis(s, eid, body.project_id, pdir, src, body.focus, body.num_speakers,
                               body.force_lite)
         return {"episode_id": eid, "job": job.public()}

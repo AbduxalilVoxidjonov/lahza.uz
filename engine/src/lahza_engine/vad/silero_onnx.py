@@ -21,17 +21,27 @@ log = logging.getLogger(__name__)
 _WINDOW = {16000: 512, 8000: 256}
 _CONTEXT = {16000: 64, 8000: 32}
 
+# Silero `get_speech_timestamps` standarti (100 ms sukut, 30 ms pad) so'z boshi/oxirini qirqardi va
+# nutqni juda mayda bo'lardi ("ida" kabi chala so'zlar). faster-whisper o'z VAD'ida 400 ms pad
+# ishlatadi; bu yerda 200 ms pad + 400 ms sukut (qo'shni oraliqlar orasi < 2*pad bo'lsa o'rtadan
+# bo'linadi, ya'ni oraliqlar hech qachon ustma-ust tushmaydi).
+DEFAULT_THRESHOLD = 0.5
+DEFAULT_NEG_THRESHOLD = 0.35
+DEFAULT_MIN_SPEECH_MS = 250
+DEFAULT_MIN_SILENCE_MS = 400
+DEFAULT_PAD_MS = 200
+
 
 def probs_to_segments(
     probs: np.ndarray | list[float],
     window: int,
     n_samples: int,
     sample_rate: int,
-    threshold: float = 0.5,
-    neg_threshold: float = 0.35,
-    min_speech_ms: int = 250,
-    min_silence_ms: int = 100,
-    pad_ms: int = 30,
+    threshold: float = DEFAULT_THRESHOLD,
+    neg_threshold: float = DEFAULT_NEG_THRESHOLD,
+    min_speech_ms: int = DEFAULT_MIN_SPEECH_MS,
+    min_silence_ms: int = DEFAULT_MIN_SILENCE_MS,
+    pad_ms: int = DEFAULT_PAD_MS,
 ) -> list[tuple[int, int]]:
     """Oyna ehtimolliklari -> nutq oraliqlari (ms). Kirish va chiqish namunalar bo'yicha hisoblanadi."""
     min_speech = sample_rate * min_speech_ms / 1000
@@ -97,11 +107,11 @@ class SileroOnnxVad:
         self,
         model_path: Path | None = None,
         session: Any | None = None,
-        threshold: float = 0.5,
-        neg_threshold: float = 0.35,
-        min_speech_ms: int = 250,
-        min_silence_ms: int = 100,
-        pad_ms: int = 30,
+        threshold: float = DEFAULT_THRESHOLD,
+        neg_threshold: float = DEFAULT_NEG_THRESHOLD,
+        min_speech_ms: int = DEFAULT_MIN_SPEECH_MS,
+        min_silence_ms: int = DEFAULT_MIN_SILENCE_MS,
+        pad_ms: int = DEFAULT_PAD_MS,
     ) -> None:
         if session is None:
             if model_path is None:

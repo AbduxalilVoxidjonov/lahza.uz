@@ -67,7 +67,7 @@ def build_services(store: ModelStore) -> Services:
     s.vad = _build_vad(store)
     s.aligner = _build_aligner(store)
     if s.aligner is not None:
-        m = store.default_for(Task.ALIGN)
+        m = _align_model(store)
         s.aligner_model_id = m.id if m else None
 
     diar = store.default_for(Task.DIARIZATION)
@@ -110,8 +110,20 @@ def _build_vad(store: ModelStore) -> Any | None:
     return None
 
 
-def _build_aligner(store: ModelStore) -> Any | None:
+def _align_model(store: ModelStore) -> Any | None:
+    """Standart ALIGN modeli; tanlanmagan bo'lsa - setup o'rnatgan qat'iy aligner (standart yoqiq)."""
     m = store.default_for(Task.ALIGN)
+    if m is not None:
+        return m
+    from lahza_engine.models.local_aligner import MODEL_ID
+
+    get = getattr(store, "get", None)
+    m = get(MODEL_ID) if get is not None else None
+    return m if m is not None and m.task == Task.ALIGN else None
+
+
+def _build_aligner(store: ModelStore) -> Any | None:
+    m = _align_model(store)
     if m is None:
         return None
     try:

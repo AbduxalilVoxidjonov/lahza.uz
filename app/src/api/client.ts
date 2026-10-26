@@ -3,6 +3,8 @@
 
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
+import { parseCodedDetail } from "../lib/error-codes";
+
 export interface EngineInfo {
   baseUrl: string;
   token: string;
@@ -36,6 +38,9 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    /** Engine tanigan xato kodi (`detail.code`, masalan "unsupported_codec") - UI tarjima qiladi. */
+    public code: string | null = null,
+    public params: Record<string, string> = {},
   ) {
     super(message);
   }
@@ -53,14 +58,18 @@ async function request(path: string, init: RequestInit): Promise<Response> {
   });
   if (!res.ok) {
     let detail = res.statusText;
+    let code: string | null = null;
+    let params: Record<string, string> = {};
     try {
       const body = (await res.json()) as { detail?: unknown };
+      const coded = parseCodedDetail(body.detail);
       if (typeof body.detail === "string") detail = body.detail;
       else if (Array.isArray(body.detail)) detail = validationText(body.detail);
+      else if (coded) ({ message: detail, code, params } = coded);
     } catch {
       /* matnsiz javob */
     }
-    throw new ApiError(res.status, detail);
+    throw new ApiError(res.status, detail, code, params);
   }
   return res;
 }

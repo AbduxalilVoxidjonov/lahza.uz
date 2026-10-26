@@ -590,7 +590,8 @@ Faqat production bog'liqliklar (Vite, TypeScript, `@tauri-apps/cli` kabi build v
 <!-- gen_licenses:runtimes:start -->
 | Komponent | Versiya | Litsenziya | Izoh |
 | --- | --- | --- | --- |
-| FFmpeg | 7.1.1 | LGPL-2.1-or-later | GPL/nonfree/version3 o'chiq, dinamik bog'lanadi (ADR-0004). runtimes.toml ref bo'sh (ANIQLANSIN, R0-RT-1). Reliz bayroqlari: --enable-shared --disable-static --disable-doc --disable-debug --enable-libass --enable-libfreetype --enable-libharfbuzz --enable-libfribidi |
+| FFmpeg | 7.1.1 | LGPL-2.1-or-later | GPL/nonfree/version3 o'chiq, dinamik bog'lanadi (ADR-0004). runtimes.toml ref bo'sh (ANIQLANSIN, R0-RT-1). Reliz bayroqlari: --enable-shared --disable-static --disable-doc --disable-debug --enable-libass --enable-libfreetype --enable-libharfbuzz --enable-libfribidi --enable-libdav1d |
+| dav1d | 1.5.4 | BSD-2-Clause | AV1 dasturiy dekoderi. Statik yig'iladi va FFmpeg ichiga bog'lanadi (alohida dylib yo'q); BSD-2 shartiga ko'ra COPYING matni `bin/licenses/local-render/dav1d.COPYING` da. SHA-256 686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5. |
 | llama.cpp (ggml) | b11669 | MIT | llama-server va libggml/libllama dylib'lari. runtimes.toml ref bo'sh (ANIQLANSIN, R0-RT-1). |
 | whisper.cpp (ggml) | ANIQLANSIN | MIT | runtimes.toml ref bo'sh (ANIQLANSIN, R0-RT-1). Lokal alfa paketiga kirmaydi (ASR: faster-whisper). LICENSE matni lokal yo'q. |
 | brotli | 1.2.1 | MIT | Dinamik bog'lanadi (bin/lib). |
@@ -651,7 +652,7 @@ tarqatiladi (LGPL-2.1 6-bo'lim; yuridik xulosa R0-LEG-1 da):
 | BuzzASR Uzbek (Whisper large-v3 fine-tune) | asr-buzzasr-uzbek (asr, holat: candidate) | MIT |  |
 | Gemma 4 26B A4B (GGUF Q4_K_M) | llm-gemma4-26b-a4b-q4 (llm, holat: candidate) | Apache-2.0 |  |
 | MediaPipe BlazeFace + LR-ASD | vision-blazeface-lrasd (vision, holat: candidate) | Apache-2.0 (BlazeFace), MIT (LR-ASD) |  |
-| Meta Omnilingual ASR - CTC | align-omnilingual-ctc (align, holat: candidate) | Apache-2.0 |  |
+| Meta Omnilingual ASR - CTC 300M v2 (int8 ONNX) | align-omnilingual-ctc (align, holat: candidate) | Apache-2.0 |  |
 | NeuronAI-2B (o'zbekcha, Qwen3.5-2B asosida) | llm-neuronai-2b (llm, holat: candidate) | ANIQLANSIN |  |
 | piyola-v2 (Parakeet TDT 0.6B, o'zbekcha) | asr-piyola-v2 (asr, holat: candidate) | CC-BY-4.0 | **Majburiy:** "idrock/piyola-v2 (CC-BY-4.0), asosi nvidia/parakeet-tdt-0.6b-v2" |
 | pyannote speaker-diarization-community-1 | diarization-pyannote-community-1 (diarization, holat: candidate) | CC-BY-4.0 | **Majburiy:** "pyannote speaker-diarization-community-1 (CC-BY-4.0)" |
@@ -670,7 +671,7 @@ tarqatiladi (LGPL-2.1 6-bo'lim; yuridik xulosa R0-LEG-1 da):
 | idrock/piyola-v2 | CC-BY-4.0 | **Majburiy:** "idrock/piyola-v2, asosi nvidia/parakeet-tdt-0.6b-v2 (CC-BY-4.0)" |
 | BuzzASR/uzbek | MIT | |
 | islomov/rubaistt_v2_medium | Apache-2.0 | |
-| Meta Omnilingual ASR | Apache-2.0 (model), CC-BY-4.0 (korpus) | |
+| Meta Omnilingual ASR (CTC 300M v2 — standart so'z tekislagich; ONNX int8: OpenVoiceOS/omnilingual-asr-ctc-300m-onnx) | Apache-2.0 (model), CC-BY-4.0 (korpus) | |
 | Silero VAD | MIT | |
 | MediaPipe BlazeFace | Apache-2.0 | |
 | LR-ASD | MIT | |

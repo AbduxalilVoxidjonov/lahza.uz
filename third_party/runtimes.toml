@@ -11,6 +11,19 @@ repo = "https://github.com/ggml-org/llama.cpp"
 ref = ""          # ANIQLANSIN
 targets = ["llama-server"]
 
+[dav1d]
+# AV1 dasturiy dekoderi (BSD-2-Clause, GPL emas). Statik yig'iladi va libavcodec ichiga bog'lanadi,
+# shuning uchun alohida dylib/dll yo'q. Yuklama SHA-256 bilan tekshiriladi (upstream .sha256 bilan bir xil).
+# macOS lokal yig'ma: scripts/setup_local_render.py (DAV1D_VERSION/DAV1D_SHA256 - shu qiymatlar bilan bir xil bo'lsin).
+version = "1.5.4"
+url = "https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz"
+sha256 = "686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5"
+license = "BSD-2-Clause"
+meson_options = [
+  "--buildtype=release", "--default-library=static", "--libdir=lib",
+  "-Denable_tools=false", "-Denable_tests=false", "-Denable_examples=false",
+]
+
 [ffmpeg]
 repo = "https://git.ffmpeg.org/ffmpeg.git"
 ref = ""          # ANIQLANSIN
@@ -20,6 +33,7 @@ configure_common = [
   "--enable-shared", "--disable-static",
   "--disable-doc", "--disable-debug",
   "--enable-libass", "--enable-libfreetype", "--enable-libharfbuzz", "--enable-libfribidi",
+  "--enable-libdav1d",  # [dav1d] dan statik; AV1 dekodlash (ichki `av1` faqat apparat bilan ishlaydi)
 ]
 configure_macos = ["--enable-videotoolbox", "--enable-audiotoolbox"]
 configure_windows = ["--enable-mediafoundation", "--enable-amf", "--enable-libvpl"]
