@@ -69,4 +69,10 @@ By the 2026-10-26 snapshot macOS packs 66 specs onto three legs of 11.2
 minutes each (24.6 minutes of parallel tests, 7.1 of serial project, 1.4
 of packaging, 0.5 of decode-bench media), against four legs of 13.7.
 
-First CI run after the change: to be recorded here.
+First CI runs after the change (40306227783 and 40308714737,
+2026-10-26): green, with the e2e matrix done 16 minutes after its first
+leg started; the three macOS legs ran 11 to 13 minutes, the Windows legs
+9 to 13, the Linux legs 12 to 16 (one of them 22 with a slow apt mirror,
+since bounded). The second run's one red was a Windows import flake,
+green on rerun. The snapshot was then refreshed from the second run,
+which is the first measured with the skip list in force.

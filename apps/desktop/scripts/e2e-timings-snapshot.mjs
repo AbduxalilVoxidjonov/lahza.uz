@@ -14,6 +14,10 @@
 // spec on disk that no parallel report mentions ran and selected nothing there
 // (its tests are all @serial), so it is recorded at 0 — distinct from a spec
 // ADDED after the snapshot, which is absent and gets slices.mjs's default cost.
+// A spec an OS skips (slices.mjs §SKIP_ON) was not run there at all: its cost
+// on that OS is carried over from the previous snapshot, or left absent if it
+// was never measured, so that lifting the skip later packs it at a real or
+// default cost rather than at zero.
 // The three once-per-OS extras — the serial project, the packaging step and
 // the decode-bench fixture generation — are recorded by their wall clock, since
 // each rides one leg whole. Reading cost per OS matters: a spec that is 2 min on
@@ -23,6 +27,8 @@ import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'n
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+import { SKIP_ON } from '../e2e/slices.mjs'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 export const SNAPSHOT = path.resolve(HERE, '..', 'e2e', 'timings.json')
@@ -69,8 +75,9 @@ export function parseArtifactName(name) {
 
 /** Fold the downloaded artifact directories into the snapshot's `seconds`
  * table. `dirs` maps artifact name → { parallel?, serial? } parsed JSON;
- * `specs` is every spec file the run covered (the checkout's, by default). */
-export function foldReports(dirs, specs = specFilesOnDisk()) {
+ * `specs` is every spec file the run covered (the checkout's, by default);
+ * `previous` is the snapshot being replaced, for the per-OS skips. */
+export function foldReports(dirs, specs = specFilesOnDisk(), { skipOn = SKIP_ON, previous = null } = {}) {
   const parallel = {}
   const serial = {}
   const seen = new Set()
@@ -95,9 +102,20 @@ export function foldReports(dirs, specs = specFilesOnDisk()) {
     if (!seen.has(want)) throw new Error(`no e2e-timings-${want}-* artifact — the snapshot needs all three OSes`)
     if (serial[want] === undefined) throw new Error(`no leg of ${want} reports the serial project`)
   }
-  for (const spec of specs) parallel[spec] ??= Object.fromEntries(OSES.map((o) => [o, 0]))
-  for (const [file, byOs] of Object.entries(parallel))
-    for (const want of OSES) byOs[want] ??= 0
+  for (const spec of specs) parallel[spec] ??= {}
+  for (const [file, byOs] of Object.entries(parallel)) {
+    for (const want of OSES) {
+      if (skipOn[want]?.includes(file)) {
+        // Not run there. Keep what the last snapshot knew, in milliseconds to
+        // match the rest of the table; absent stays absent.
+        const kept = previous?.seconds?.parallel?.[file]?.[want]
+        if (kept !== undefined) byOs[want] = kept * 1000
+        else delete byOs[want]
+      } else {
+        byOs[want] ??= 0
+      }
+    }
+  }
   const round = (table) => Object.fromEntries(Object.entries(table).map(([k, v]) => [k, Math.round(v / 1000)]))
   return {
     parallel: Object.fromEntries(
@@ -162,7 +180,13 @@ async function main(argv) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'e2e-timings-'))
   try {
     gh(['run', 'download', runId, '-R', repo, '--pattern', 'e2e-timings-*', '-D', dir])
-    const seconds = foldReports(readReports(dir))
+    let previous = null
+    try {
+      previous = JSON.parse(readFileSync(SNAPSHOT, 'utf8'))
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error
+    }
+    const seconds = foldReports(readReports(dir), specFilesOnDisk(), { previous })
     const jobs = JSON.parse(gh(['api', `repos/${repo}/actions/runs/${runId}/jobs?per_page=100`, '--jq', '.jobs'])).map((job) => ({ name: job.name, steps: job.steps }))
     Object.assign(seconds, extrasFromJobs(jobs))
     const snapshot = {

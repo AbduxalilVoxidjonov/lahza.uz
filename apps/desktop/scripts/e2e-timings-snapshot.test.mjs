@@ -43,18 +43,36 @@ test('folding records a serial-only spec at zero and refuses a stopped leg', () 
     dirs[`e2e-timings-${os}-e2e-1`] = { parallel: report('a.spec.ts', [['t', 'expected', [60_400]]]), serial: { stats: { duration: 300_000 } } }
     dirs[`e2e-timings-${os}-e2e-2`] = { parallel: report('a.spec.ts', [['u', 'expected', [1_000]]]) }
   }
-  const folded = foldReports(dirs, specs)
+  const folded = foldReports(dirs, specs, { skipOn: {} })
   assert.deepEqual(folded.parallel['a.spec.ts'], { 'windows-latest': 61, 'ubuntu-latest': 61, 'macos-latest': 61 })
   assert.deepEqual(folded.parallel['serial-only.spec.ts'], { 'windows-latest': 0, 'ubuntu-latest': 0, 'macos-latest': 0 })
   assert.deepEqual(folded.serial, { 'windows-latest': 300, 'ubuntu-latest': 300, 'macos-latest': 300 })
 
   const green = dirs['e2e-timings-ubuntu-latest-e2e-2']
   dirs['e2e-timings-ubuntu-latest-e2e-2'] = { parallel: report('a.spec.ts', [['u', 'unexpected', [1_000, 1_000]]]) }
-  assert.throws(() => foldReports(dirs, specs), /not a measurement/)
+  assert.throws(() => foldReports(dirs, specs, { skipOn: {} }), /not a measurement/)
   dirs['e2e-timings-ubuntu-latest-e2e-2'] = green
   delete dirs['e2e-timings-macos-latest-e2e-1']
   delete dirs['e2e-timings-macos-latest-e2e-2']
-  assert.throws(() => foldReports(dirs, specs), /needs all three OSes/)
+  assert.throws(() => foldReports(dirs, specs, { skipOn: {} }), /needs all three OSes/)
+})
+
+test('a spec an OS skips keeps its last measured cost there, or stays unmeasured', () => {
+  const specs = ['a.spec.ts', 'ui.spec.ts']
+  const dirs = {}
+  for (const os of ['windows-latest', 'ubuntu-latest', 'macos-latest']) {
+    const files = os === 'macos-latest' ? [['a.spec.ts', [['t', 'expected', [1_000]]]]] : [['a.spec.ts', [['t', 'expected', [1_000]]]], ['ui.spec.ts', [['u', 'expected', [30_000]]]]]
+    dirs[`e2e-timings-${os}-e2e-1`] = {
+      parallel: { suites: files.map(([file, tests]) => report(file, tests).suites[0]), stats: {} },
+      serial: { stats: { duration: 1_000 } },
+    }
+  }
+  const skipOn = { 'macos-latest': ['ui.spec.ts'] }
+  const previous = { seconds: { parallel: { 'ui.spec.ts': { 'macos-latest': 45 } } } }
+  assert.deepEqual(foldReports(dirs, specs, { skipOn, previous }).parallel['ui.spec.ts'], { 'windows-latest': 30, 'ubuntu-latest': 30, 'macos-latest': 45 })
+  assert.deepEqual(foldReports(dirs, specs, { skipOn, previous: null }).parallel['ui.spec.ts'], { 'windows-latest': 30, 'ubuntu-latest': 30 })
+  // Not skipped and not reported: ran with no parallel test, so zero.
+  assert.deepEqual(foldReports(dirs, specs, { skipOn, previous }).parallel['a.spec.ts'], { 'windows-latest': 1, 'ubuntu-latest': 1, 'macos-latest': 1 })
 })
 
 test('an extra is the wall clock of its step on the one leg that ran it', () => {

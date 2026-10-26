@@ -169,6 +169,9 @@ test('the snapshot costs every spec and every extra on every OS', () => {
   for (const [file, byOs] of Object.entries(snapshot.seconds.parallel))
     for (const os of OSES) {
       const v = byOs[os]
+      // A spec the OS skips may be unmeasured there (slices.mjs packs it at the
+      // default cost if the skip is ever lifted); everything else is a number.
+      if (v === undefined && SKIP_ON[os]?.includes(file)) continue
       assert.ok(Number.isInteger(v) && v >= 0, `${file} on ${os}: ${v}`)
     }
   for (const extra of FLAGS)
