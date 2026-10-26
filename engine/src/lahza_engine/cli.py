@@ -6,6 +6,7 @@
     lahza install-service [--dry-run] [--program EXE]   # macOS LaunchAgent / Windows vazifasi (ADB-7)
     lahza uninstall-service [--dry-run] [--purge-logs]
     lahza service-status
+    lahza mcp [--data-dir D]            # Claude uchun stdio MCP server (tirik engine'ga ulanadi)
     lahza hw                            # apparat va daraja
     lahza bundle                        # katalogdan mos model to'plami
     lahza analyze VIDEO --project-dir D [--lite]
@@ -361,6 +362,13 @@ def cmd_export(a: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_mcp(a: argparse.Namespace) -> int:
+    """stdio MCP server (Claude Code/Desktop). stdout - faqat protokol; loglar stderr'ga."""
+    from lahza_engine.mcp_server import serve_stdio
+
+    return serve_stdio(a.data_dir)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="lahza")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -396,6 +404,11 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("service-status", help="servis va engine holati").set_defaults(fn=cmd_service_status)
 
     sub.add_parser("hw").set_defaults(fn=cmd_hw)
+
+    mc = sub.add_parser("mcp", help="Claude uchun stdio MCP server (ishlayotgan engine'ga ulanadi)")
+    mc.add_argument("--data-dir", help="engine.json qidiriladigan papka (standart - LAHZA_DATA_DIR yoki "
+                                       "tizim papkasi)")
+    mc.set_defaults(fn=cmd_mcp)
 
     b = sub.add_parser("bundle")
     b.add_argument("--catalog", default=os.environ.get("LAHZA_CATALOG", "catalog/catalog.json"))
