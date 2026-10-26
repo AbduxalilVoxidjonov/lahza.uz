@@ -318,6 +318,13 @@ in the default tier already covers this code path on this axis", or "this path
 is shipped and does not move". A unique regression guard belongs in the default
 tier however long it takes.
 
+A **measurement under machine load** is neither tier: its outcome depends on
+the host it runs on, so it is skipped unless asked for. `WEFTCUT_E2E_LOAD=1`
+enables the CPU-load half of `motif-capture-load.spec.ts`, which burns every
+core, reports capture times idle vs loaded, and pushes a calibrated frame over
+the capture deadline to show the lane recovers (ADR 0139). The deterministic
+half of that spec (a Motif that hangs on demand) runs in the default tier.
+
 ## Layout
 
 ```

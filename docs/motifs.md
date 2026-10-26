@@ -300,7 +300,11 @@ cache captures each frame index once and reuses it.
   background work cannot starve when resource policy allows it. Every CDP step
   is timeout-fenced — a wedged offscreen
   renderer fails the capture and tears the host down for rebuild rather than hanging
-  the chain for the process's life.
+  the chain for the process's life. A Motif whose script **throws** fails its
+  lane (`motifId` + `contentHash`) until an edit or an explicit retry; a Motif
+  whose frame **times out** is on probation — one retry on the rebuilt host,
+  and only a second consecutive timeout latches the lane
+  ([ADR 0139](adr/0139-a-capture-timeout-is-probation-not-a-verdict.md)).
 
 ## Raster cache and escalation
 
@@ -376,9 +380,15 @@ no migration is needed.
 
 Live Windows capture retains the CDP clock commands but obtains pixels from
 OSR shared textures. Resize commits before rendering; two native rAFs settle
-painting without advancing Motif time. A GPU copy moves the frame into our pool
-before releasing the OSR surface. A capture failure disables this output for
-the session; `WEFTCUT_MOTIF_CAPTURE=png` forces the previous path for diagnosis.
+painting without advancing Motif time. A texture is leased only from a
+**proven surface**: the lease fences a new document, a new size or a restarted
+GPU process with one full readback before its first paint is used, and never
+fences a frame on a proven surface
+([ADR 0138](adr/0138-a-motif-texture-is-leased-only-from-a-proven-surface.md)).
+A GPU copy moves the frame into our pool before releasing the OSR surface. A
+failure of the texture output itself disables it for the session; a hung
+host, a disk error or the Motif's own failure never does.
+`WEFTCUT_MOTIF_CAPTURE=png` forces the previous path for diagnosis.
 See [ADR 0078](adr/0078-motifs-cache-pixels-and-transfer-persistent-textures.md)
 and [the measured conformance cases](../poc/motif-frame-cache/FINDINGS.md).
 

@@ -35,6 +35,9 @@ let committedSurface = -1
 let setupDelayMs = 0
 let hangSetup = false
 let hangFrame = false
+/// The capture host's current content size — the fake paints at it, and a
+/// change models a new compositor surface (see setContentSize).
+let contentSize = { width: 32, height: 16 }
 
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
@@ -51,7 +54,7 @@ vi.mock('electron', () => {
       stopPainting: () => {},
       startPainting: () => {
         queueMicrotask(() => this.webContents.emit('paint', { texture: {
-          textureInfo: { codedSize: { width: 32, height: 16 } },
+          textureInfo: { codedSize: { ...contentSize } },
           surface: committedSurface, release: () => {},
         } }))
       },
@@ -104,14 +107,19 @@ vi.mock('electron', () => {
     constructor() {
       opened++
     }
-    loadURL = async (url: string): Promise<void> => { currentUrl = url; committedSurface = -1 }
-    setContentSize = (): void => {}
+    loadURL = async (url: string): Promise<void> => {
+      currentUrl = url; committedSurface = -1
+      // A new document is a new compositor surface; the OSR lease observes it.
+      this.webContents.emit('did-start-navigation', { url, isMainFrame: true, isSameDocument: false })
+    }
+    // A new size is a new compositor surface too: its first paint is unproven.
+    setContentSize = (width: number, height: number): void => { contentSize = { width, height }; committedSurface = -1 }
     destroy = (): void => {}
   }
   return { BrowserWindow: FakeBrowserWindow, shell: { openExternal: async () => {} } }
 })
 
-const { captureMotifFrameB64, captureMotifTexture, setTextureCaptureEnabled, setRuntimeSource, setMotifStore, shutdownCaptureHost, controlMotifCapture, captureDiagnostics, resetCaptureFailure } = await import('./capture')
+const { captureMotifFrameB64, captureMotifTexture, setTextureCaptureEnabled, setRuntimeSource, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } = await import('./capture')
 type UserMotifStoreT = import('./store').UserMotifStore
 
 /// The third (`meta`) argument of the recorded `__motifRender(...)` call. The
@@ -368,6 +376,73 @@ describe('capture host shutdown', () => {
       expect(screenshotCalls - before).toBe(3)
     } finally {
       setTextureCaptureEnabled(false)
+    }
+  })
+
+  it('fences the first texture lease of a resized surface, not only a navigated one', async () => {
+    setRuntimeSource('/* clock-takeover runtime */')
+    setTextureCaptureEnabled(true)
+    try {
+      const before = screenshotCalls
+      const read = (tSec: number, width: number, height: number) => captureMotifTexture(
+        { ...args, motifId: 'surface-resize', tSec, width, height },
+        async texture => (texture as unknown as { surface: number }).surface,
+      )
+      expect(await read(2, 32, 16)).toBe(2)
+      expect(screenshotCalls - before).toBe(1)
+      // Same page, new size: a new surface. Without the fence this leased -1.
+      expect(await read(3, 48, 24)).toBe(3)
+      expect(screenshotCalls - before).toBe(2)
+      // The proven size is not fenced again.
+      expect(await read(4, 48, 24)).toBe(4)
+      expect(screenshotCalls - before).toBe(2)
+      // A GPU process restart hands the host a new surface behind its back.
+      invalidateCaptureSurface()
+      expect(await read(5, 48, 24)).toBe(5)
+      expect(screenshotCalls - before).toBe(3)
+    } finally {
+      setTextureCaptureEnabled(false)
+      contentSize = { width: 32, height: 16 }
+    }
+  })
+
+  it('a render timeout is probation: one retry on the rebuilt host, a second timeout latches the lane', async () => {
+    vi.useFakeTimers()
+    try {
+      const timeoutOnce = async (motifId: string) => {
+        hangFrame = true
+        const hung = expect(captureMotifFrameB64({ ...args, motifId })).rejects.toThrow(/5000ms/)
+        await vi.advanceTimersByTimeAsync(5001)
+        await hung
+        hangFrame = false
+      }
+      // One timeout: the host is rebuilt and the same lane renders again.
+      await timeoutOnce('probation')
+      const rebuilt = opened
+      const retry = captureMotifFrameB64({ ...args, motifId: 'probation' })
+      await vi.advanceTimersByTimeAsync(1)
+      await expect(retry).resolves.toBe('UE5H')
+      expect(opened).toBe(rebuilt + 1)
+      // Success cleared the probation: the next timeout is a first strike again.
+      await timeoutOnce('probation')
+      const again = captureMotifFrameB64({ ...args, motifId: 'probation' })
+      await vi.advanceTimersByTimeAsync(1)
+      await expect(again).resolves.toBe('UE5H')
+      // Two consecutive timeouts: the lane is latched and never reaches the page.
+      await timeoutOnce('verdict')
+      await timeoutOnce('verdict')
+      const renders = renderCalls, hostsBefore = opened
+      await expect(captureMotifFrameB64({ ...args, motifId: 'verdict' })).rejects.toThrow(/5000ms/)
+      expect(renderCalls).toBe(renders)
+      expect(opened).toBe(hostsBefore)
+      // An explicit retry lifts the verdict like any other content latch.
+      resetCaptureFailure('verdict', args.contentHash)
+      const lifted = captureMotifFrameB64({ ...args, motifId: 'verdict' })
+      await vi.advanceTimersByTimeAsync(1)
+      await expect(lifted).resolves.toBe('UE5H')
+    } finally {
+      hangFrame = false
+      vi.useRealTimers()
     }
   })
 

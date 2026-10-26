@@ -2,7 +2,7 @@ import type { OffscreenSharedTexture, WebContents } from 'electron'
 import type { CaptureArgs } from './capture'
 import type { MotifFrameStore, FrameWriter } from './frameStore'
 import type { MotifCacheAddress, MotifTextureFrame, StoredMotifFrame } from '../../shared/motifs/frameTransport'
-import { CAPTURE_SUPERSEDED_MESSAGE } from '../../shared/motifs/captureErrors'
+import { CAPTURE_SUPERSEDED_MESSAGE, MotifCaptureTimeoutError } from '../../shared/motifs/captureErrors'
 import { reserveResources } from '../resources'
 import { isResourceCapacityError } from '../../shared/resource-policy'
 
@@ -57,6 +57,16 @@ export class MotifCaptureService {
   constructor(private readonly deps: CaptureServiceDeps, enabled: boolean) {
     this.useTexture = enabled && !!(deps.copy || deps.createEncoder)
     deps.setTextureEnabled(this.useTexture)
+  }
+
+  /** Only a failure of the shared-texture output itself may switch the session
+   * to PNG. A disk write, a resource refusal, a superseded request, the Motif's
+   * own script and a hung host all happened before or beside that output: a
+   * PNG retry would not fix them, and the downgrade would cost every later
+   * frame its GPU path. */
+  private keepsTexturePath(args: CaptureArgs, error: unknown, writeFailed: boolean): boolean {
+    return writeFailed || isResourceCapacityError(error) || String(error).includes(CAPTURE_SUPERSEDED_MESSAGE)
+      || error instanceof MotifCaptureTimeoutError || this.deps.isContentFailure(args, error)
   }
 
   private jobsFor(store: MotifFrameStore): WorkspaceJobs {
@@ -158,7 +168,7 @@ export class MotifCaptureService {
           }, coalesceKey, high, isCurrent)
           return
         } catch (error) {
-          if (writeFailed || isResourceCapacityError(error) || String(error).includes(CAPTURE_SUPERSEDED_MESSAGE) || this.deps.isContentFailure(args, error)) throw error
+          if (this.keepsTexturePath(args, error, writeFailed)) throw error
           // Readback failure is independent from OSR/display transport. A PNG
           // retry needs no renderer and subsequent persistence skips readback.
           if (!(error instanceof ReadbackUnavailable)) {
@@ -262,7 +272,7 @@ export class MotifCaptureService {
             return { ...await this.deps.copy!(owner, texture, finalizationId), persisted }
           }, key, high, isCurrent)
         } catch (error) {
-          if (writeFailed || isResourceCapacityError(error) || String(error).includes(CAPTURE_SUPERSEDED_MESSAGE) || this.deps.isContentFailure(args, error)) throw error
+          if (this.keepsTexturePath(args, error, writeFailed)) throw error
           console.warn('[weftcut/motif] Shared-texture capture failed; using PNG fallback:', error)
           this.useTexture = false
           this.deps.setTextureEnabled(false)

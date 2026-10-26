@@ -3,6 +3,7 @@ import type { OffscreenSharedTexture, WebContents } from 'electron';
 import { MotifCaptureService, type CaptureServiceDeps } from './captureService';
 import type { MotifFrameStore } from './frameStore';
 import type { StoredMotifFrame } from '../../shared/motifs/frameTransport';
+import { MotifCaptureTimeoutError } from '../../shared/motifs/captureErrors';
 
 const owner = { id: 12 } as WebContents;
 const args = { motifId: 'synthetic', tSec: 0, propsJson: '{}', width: 2, height: 2, settleRafs: 2, contentHash: 'v1', coalesceKey: 'job', high: false, bake: { hash: 'a'.repeat(32), frame: 0 } };
@@ -117,6 +118,18 @@ describe('Motif capture and persistence', () => {
     expect(h.deps.setTextureEnabled).toHaveBeenLastCalledWith(false);
     await h.service.capture(owner, args);
     expect(h.deps.texture).toHaveBeenCalledTimes(1);
+  });
+
+  it('a hung host keeps its error and the shared-texture path: no PNG downgrade for the session', async () => {
+    const h = fixture();
+    const hung = new MotifCaptureTimeoutError(5000, 'Runtime.evaluate');
+    h.deps.texture.mockRejectedValueOnce(hung);
+    await expect(h.service.capture(owner, args)).rejects.toBe(hung);
+    h.deps.texture.mockRejectedValueOnce(hung);
+    await expect(h.service.persist(args)).rejects.toBe(hung);
+    expect(h.deps.png).not.toHaveBeenCalled();
+    expect(h.deps.setTextureEnabled).toHaveBeenCalledExactlyOnceWith(true);
+    expect(await h.service.capture(owner, args)).toMatchObject({ kind: 'texture' });
   });
 
   it('content errors and superseded requests do not trigger recapture', async () => {

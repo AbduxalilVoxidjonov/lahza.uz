@@ -30,7 +30,7 @@ import { mediaMimeForExt } from './mediaMime.js'
 import { VLM_ENDPOINT_KEY_TAG } from '../shared/vlm-config.js'
 import { registerMotifProtocol } from './motif/protocol.js'
 import { installPerformanceCalibration } from './performanceCalibration.js'
-import { setRuntimeSource, captureMotifFrameB64, captureMotifTexture, setTextureCaptureEnabled, isMotifContentFailure, setMotifStore, shutdownCaptureHost, controlMotifCapture, captureDiagnostics, resetCaptureFailure } from './motif/capture.js'
+import { setRuntimeSource, captureMotifFrameB64, captureMotifTexture, setTextureCaptureEnabled, isMotifContentFailure, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } from './motif/capture.js'
 import { setMotifMediaSource } from './motif/mediaProps.js'
 import { rasterizeSvg } from './svgRaster.js'
 import { MotifCaptureService, type CaptureRequest, type TextureEncoder } from './motif/captureService.js'
@@ -1353,6 +1353,9 @@ app.whenReady().then(async () => {
   const offBakeResources = onBackgroundResourceChange(() => motifBakes?.wake())
   app.once('will-quit', () => { offBakeResources(); motifBakes?.dispose(); motifBakes = null })
   app.once('will-quit', () => motifCapture.dispose())
+  // A restarted GPU process gives the offscreen capture host a new, unproven
+  // compositor surface: its next shared-texture lease must fence again.
+  app.on('child-process-gone', (_event, details) => { if (details.type === 'GPU') invalidateCaptureSurface() })
   const currentMotifStore = () => wsCache ? motifBakes!.store() : motifFrames
   const motifConsumers = new WeakMap<Electron.WebContents, { document: object | null }>()
   const trackMotifConsumer = (owner: Electron.WebContents, frame: Electron.WebFrameMain | null): (() => boolean) => {

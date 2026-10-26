@@ -59,6 +59,11 @@ without changing virtual time. Static seeks restart the capturer because
 invalidate alone need not produce a shared texture. See the reproducible
 [conformance and performance evidence](../../poc/motif-frame-cache/FINDINGS.md).
 
+[ADR 0138](0138-a-motif-texture-is-leased-only-from-a-proven-surface.md)
+generalises the following paragraph: the lease fences every new surface
+(navigation, size change, GPU restart), not only the first capture after
+navigation.
+
 The first GPU capture after navigation additionally fences the entire surface
 with a CDP screenshot readback. Two native rAFs settle layout but can still leave
 OSR holding the initial, pre-setup document while compositor raster work is

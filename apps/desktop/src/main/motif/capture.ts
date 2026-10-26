@@ -3,7 +3,7 @@ import { OffscreenFrames } from './offscreenFrames.js'
 import { PNG_CANVAS_RUNTIME_SOURCE } from './pngCanvasRuntime.js'
 import { hardenWindow, markInternalWindow } from '../windows'
 import { BUILTIN_MANIFESTS, motifCtxDurationS, type Manifest } from '../../shared/motifs/catalog.js'
-import { CAPTURE_SUPERSEDED_MESSAGE } from '../../shared/motifs/captureErrors.js'
+import { CAPTURE_SUPERSEDED_MESSAGE, MotifCaptureTimeoutError } from '../../shared/motifs/captureErrors.js'
 import { resolveMotifMediaProps } from './mediaProps.js'
 import type { UserMotifStore } from './store.js'
 
@@ -184,6 +184,26 @@ function failLane(key: string, err: Error): void {
   failedLanes.set(key, err)
 }
 
+/// Lanes whose last attempt timed out and that hold one more try. A hung
+/// `__motifSetup`/`__motifRender` has two possible authors — the Motif's own
+/// script (an infinite loop: content) or a host wedged by load (transport) —
+/// and the deadline cannot tell them apart. A thrown exception latches the
+/// lane at once; a timeout is probation: the host is rebuilt either way, the
+/// lane gets exactly one retry on the fresh host, and a second consecutive
+/// timeout is the verdict. A success clears the probation. Without this, one
+/// slow frame under contention lost every frame of a user Motif for the
+/// session (built-ins have no contentHash and were never latched). Bounded
+/// like `failedLanes`; drafts churn lane keys on every edit.
+const probationLanes = new Set<string>()
+
+/** True when this timeout is the lane's first strike and the lane may retry. */
+function grantProbation(key: string): boolean {
+  if (probationLanes.has(key)) return false
+  if (probationLanes.size >= FAILED_LANE_CAP) probationLanes.delete(probationLanes.values().next().value!)
+  probationLanes.add(key)
+  return true
+}
+
 /// Resolved user-Motif manifests keyed by `${motifId}\0${contentHash}`:
 /// getMotif is readFileSync + parseManifestIsland — synchronous fs on the
 /// capture hot path, once per frame. The content hash IS the invalidation
@@ -213,7 +233,7 @@ async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise
     return await Promise.race([
       p,
       new Promise<T>((_, rej) => {
-        timer = setTimeout(() => rej(new Error(`motif capture timed out after ${ms}ms: ${label}`)), ms)
+        timer = setTimeout(() => rej(new MotifCaptureTimeoutError(ms, label)), ms)
       }),
     ])
   } finally {
@@ -293,6 +313,14 @@ export function shutdownCaptureHost(): void {
   teardownHost()
 }
 
+/// The GPU process restarted: the offscreen compositor's surface is new and
+/// its first paint is unproven again, exactly as after a navigation. The app
+/// wires this to Electron's `child-process-gone` for the GPU type; a PNG host
+/// has no leased surface and nothing to do.
+export function invalidateCaptureSurface(): void {
+  host?.frames?.surfaceChanged()
+}
+
 async function ensureHost(motifId: string, contentHash: string): Promise<Host> {
   if (!host) host = await buildHost()
   // Reuse only when BOTH id and content version match (the ?v= cache-buster).
@@ -333,7 +361,7 @@ async function waitReady(h: Host, motifId: string): Promise<void> {
   throw new Error(`motif '${motifId}' never became ready (window.__motifRender undefined, document not complete, or wrong host page loaded)`)
 }
 
-async function doCapture<T>(a: CaptureArgs, output: (h: Host) => Promise<T>, fenceFirstSurface = false): Promise<T> {
+async function doCapture<T>(a: CaptureArgs, output: (h: Host) => Promise<T>): Promise<T> {
   // Refuse rather than resurrect — see shutdownCaptureHost.
   if (shuttingDown) throw new Error('motif capture host is shut down (the app is quitting)')
   motifStore?.assertRenderable?.(a.motifId)
@@ -362,7 +390,6 @@ async function doCapture<T>(a: CaptureArgs, output: (h: Host) => Promise<T>, fen
       : 30
   const meta = { duration, width: a.width, height: a.height, fps, settleRafs: h.frames ? 2 : a.settleRafs }
   const expr = `window.__motifRender(${JSON.stringify(a.tSec)}, ${JSON.stringify(props)}, ${JSON.stringify(meta)})`
-  const firstPaint = h.lastSize === null
   try {
     if (h.lastSize?.w !== a.width || h.lastSize?.h !== a.height) {
       if (h.frames) h.win.setContentSize(a.width, a.height)
@@ -394,13 +421,16 @@ async function doCapture<T>(a: CaptureArgs, output: (h: Host) => Promise<T>, fen
       ev = await timedCapture('renderMs', () => h.send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: true }))
     }
   } catch (e) {
-    // A hung __motifRender is the Motif's own script (e.g. an infinite loop) —
-    // content — but it also wedges the renderer for every other lane: mark the
-    // lane failed so its sprites stop retrying AND rebuild the host.
-    if (a.contentHash !== '') failLane(lane, e as Error)
+    // A hung __motifSetup/__motifRender wedges the renderer for every other
+    // lane, so the host is rebuilt whatever the cause. Whether the LANE is
+    // latched depends on the author: a timeout is ambiguous (content or load)
+    // and earns one retry on the rebuilt host; anything else, and a second
+    // consecutive timeout, latches it so its sprites stop retrying.
+    if (a.contentHash !== '' && !(e instanceof MotifCaptureTimeoutError && grantProbation(lane))) failLane(lane, e as Error)
     teardownHost()
     throw e
   }
+  probationLanes.delete(lane)
   if (ev?.exceptionDetails) {
     // Content error: the Motif's script threw. The window and CDP transport
     // answered fine, so tearing the host down would punish every other Motif
@@ -411,13 +441,6 @@ async function doCapture<T>(a: CaptureArgs, output: (h: Host) => Promise<T>, fen
     throw err
   }
   try {
-    if (h.frames && firstPaint && fenceFirstSurface) {
-      // A newly navigated OSR surface may still contain the pre-setup document.
-      // Native rAFs settle layout, but don't fence the compositor's raster work.
-      // Read the whole surface: a clipped readback only fences its raster tiles.
-      // This is paid once per navigation, not for subsequent animation frames.
-      await h.send('Page.captureScreenshot', { format: 'png' })
-    }
     return await timedCapture('outputMs', () => output(h))
   } catch (e) {
     teardownHost() // wedged host: rebuild on next call
@@ -521,8 +544,12 @@ export function captureMotifTexture<T>(a: CaptureArgs, consume: (t: OffscreenSha
     captureCounters.textureCaptures++
     return doCapture(a, async h => {
     if (!h.frames) throw new Error('Motif host has no shared texture output')
-    const texture = await h.frames.capture(a.width, a.height)
+    // The lease fences an unproven surface (new document, new size, GPU
+    // restart) with one full readback before it hands out a texture: native
+    // rAFs settle layout but not the compositor's raster, and a clipped
+    // readback only fences its own tiles. Paid per surface, not per frame.
+    const texture = await h.frames.capture(a.width, a.height, () => h.send('Page.captureScreenshot', { format: 'png' }))
     try { return await consume(texture) } finally { texture.release() }
-    }, true)
+    })
   }, high, isCurrent)
 }
