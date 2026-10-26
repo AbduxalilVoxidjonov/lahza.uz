@@ -170,19 +170,27 @@ jobs:
       - name: Linux deps (xvfb, libclang)
         if: runner.os == 'Linux'
         run: |
-          # The image usually ships these already (run 40302096925 found xvfb
-          # installed and merely upgraded it), so apt is for the case it does
-          # not — and a slow mirror has cost a leg 12 minutes there (2.7 MB in
-          # 11 min 56 s). Install only what is missing, bound each attempt, and
-          # retry: a second attempt lands on a different mirror.
+          # Install only what the image lacks (xvfb is usually there already;
+          # libclang-dev is not), and do not let the runner's Azure apt mirror
+          # set the pace: it has served 2.7 MB in 12 minutes (run 40302096925)
+          # and failed to deliver 28.8 MB in three 5-minute attempts
+          # (40306227783). apt's mirror list only falls through on an ERROR,
+          # never on slowness, so a first attempt with a time budget is followed
+          # by attempts with the Azure mirror removed from the list, the last
+          # one unbounded — a slow install must end in a slow success, not a
+          # red leg.
           missing=""
           for pkg in xvfb libclang-dev; do dpkg -s "$pkg" >/dev/null 2>&1 || missing="$missing $pkg"; done
           [ -z "$missing" ] && { echo "already installed: xvfb libclang-dev"; exit 0; }
-          for attempt in 1 2 3; do
-            if timeout 180 sudo apt-get update && timeout 300 sudo apt-get install -y --no-install-recommends $missing; then exit 0; fi
-            echo "apt attempt $attempt failed or timed out; retrying"; sleep 10
-          done
-          exit 1
+          # `timeout 0` is no limit.
+          try_install() { timeout "$1" sudo apt-get update && timeout "$1" sudo apt-get install -y --no-install-recommends $missing; }
+          if try_install 240; then exit 0; fi
+          echo "apt attempt 1 timed out or failed; dropping the Azure mirror"
+          if [ -f /etc/apt/apt-mirrors.txt ]; then sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt; fi
+          sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          if try_install 600; then exit 0; fi
+          echo "apt attempt 2 timed out or failed; final attempt without a budget"
+          try_install 0
 
       # npm ci at the workspace root: root package-lock.json covers all
       # workspaces including apps/desktop. Running at apps/desktop would fail
@@ -775,19 +783,27 @@ jobs:
       - name: Linux deps (libclang)
         if: runner.os == 'Linux'
         run: |
-          # The image usually ships these already (run 40302096925 found xvfb
-          # installed and merely upgraded it), so apt is for the case it does
-          # not — and a slow mirror has cost a leg 12 minutes there (2.7 MB in
-          # 11 min 56 s). Install only what is missing, bound each attempt, and
-          # retry: a second attempt lands on a different mirror.
+          # Install only what the image lacks (xvfb is usually there already;
+          # libclang-dev is not), and do not let the runner's Azure apt mirror
+          # set the pace: it has served 2.7 MB in 12 minutes (run 40302096925)
+          # and failed to deliver 28.8 MB in three 5-minute attempts
+          # (40306227783). apt's mirror list only falls through on an ERROR,
+          # never on slowness, so a first attempt with a time budget is followed
+          # by attempts with the Azure mirror removed from the list, the last
+          # one unbounded — a slow install must end in a slow success, not a
+          # red leg.
           missing=""
           for pkg in libclang-dev; do dpkg -s "$pkg" >/dev/null 2>&1 || missing="$missing $pkg"; done
           [ -z "$missing" ] && { echo "already installed: libclang-dev"; exit 0; }
-          for attempt in 1 2 3; do
-            if timeout 180 sudo apt-get update && timeout 300 sudo apt-get install -y --no-install-recommends $missing; then exit 0; fi
-            echo "apt attempt $attempt failed or timed out; retrying"; sleep 10
-          done
-          exit 1
+          # `timeout 0` is no limit.
+          try_install() { timeout "$1" sudo apt-get update && timeout "$1" sudo apt-get install -y --no-install-recommends $missing; }
+          if try_install 240; then exit 0; fi
+          echo "apt attempt 1 timed out or failed; dropping the Azure mirror"
+          if [ -f /etc/apt/apt-mirrors.txt ]; then sudo sed -i '/azure\.archive\.ubuntu\.com/d' /etc/apt/apt-mirrors.txt; fi
+          sudo sed -i 's|azure\.archive\.ubuntu\.com|archive.ubuntu.com|g' /etc/apt/sources.list /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list 2>/dev/null || true
+          if try_install 600; then exit 0; fi
+          echo "apt attempt 2 timed out or failed; final attempt without a budget"
+          try_install 0
 
       # Same key as the e2e job's, which owns the keying rationale; split
       # restore/save for the reason its ffmpeg-lgpl pair gives.
