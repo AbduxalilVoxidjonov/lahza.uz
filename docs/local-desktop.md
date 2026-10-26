@@ -14,10 +14,14 @@ The opt-in frozen check also exercises shared-memory cleanup in a spawned helper
 ## Build
 
 Use the engine virtualenv, with the engine installed editable and PyInstaller
-installed (`pip install -e "engine[dev,desktop]"`). The desktop extra includes
-the pinned ASR dependencies used by local and release packaging; the sidecar
-collects `faster_whisper`, `ctranslate2`, `tokenizers`, `av` and `onnxruntime`
-including their native libraries and package data when present. Check the printed
+installed (`pip install -e "engine[dev,desktop]"` followed by
+`pip install --no-deps -r engine/requirements-desktop-nodeps.txt`). The desktop extra
+holds faster-whisper's runtime dependencies; faster-whisper itself is installed without
+dependencies so PyAV (`av`, whose PyPI wheels bundle a GPL libx264/libx265 FFmpeg) is
+never installed (ADR-0015). The sidecar collects `faster_whisper`, `ctranslate2`,
+`tokenizers` and `onnxruntime` including their native libraries and package data when
+present; `av` is always excluded, and the build fails if PyInstaller's TOC still lists
+PyAV or libx264/libx265. Check the printed
 backend list and `build/sidecar/sidecar.json`; a successful build without these
 packages does not establish ASR functionality.
 

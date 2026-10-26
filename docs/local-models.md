@@ -27,7 +27,8 @@ bootstrap jobs per store. Cancellation is cooperative at progress callbacks, not
 while waiting for HTTP or model loading. Partial downloads remain for retry.
 
 ```sh
-engine/.venv/bin/python -m pip install 'faster-whisper==1.2.1' 'av==16.1.0'
+engine/.venv/bin/python -m pip install -e 'engine[desktop]'
+engine/.venv/bin/python -m pip install --no-deps -r engine/requirements-desktop-nodeps.txt
 engine/.venv/bin/python scripts/bootstrap_local_models.py --download --consent --with-vad
 ```
 
@@ -38,7 +39,8 @@ Both `--download` and `--consent` are required before network or store creation.
 type); ASR and VAD report separate progress totals. VAD's model progress excludes its 1 KB license.
 Calling base bootstrap again intentionally selects base, replacing the current small default.
 
-PyAV 19.0.2 rejected faster-whisper 1.2.1's `metadata_errors` argument; 16.1.0 works here.
+PyAV is not used (ADR-0015): audio is decoded by the LGPL FFmpeg into a 16 kHz mono float32
+array (`lahza_engine.media.pcm`) and faster-whisper is imported through `asr/fw_compat.py`.
 This task installed dependencies into engine/.venv, and conversion dependencies only into
 build/asr-convert-venv. No runtime setup scripts, API files, or UI files were edited.
 

@@ -23,8 +23,15 @@ dependencies = [
 [project.optional-dependencies]
 # Og'ir ML backendlar ixtiyoriy: ular faqat kerakli platformada o'rnatiladi.
 asr-ctranslate2 = ["faster-whisper>=1.0"]
-# Tested local alpha set: PyAV 19 rejects faster-whisper 1.2.1's metadata_errors argument.
-desktop = ["faster-whisper==1.2.1", "av==16.1.0", "onnxruntime>=1.18", "fonttools>=4.50"]
+# Desktop sidecar to'plami PyAV'siz (ADR-0015): PyPI'dagi `av` g'ildiraklari GPL libx264/libx265 bilan
+# yig'ilgan FFmpeg'ni olib keladi. faster-whisper `av>=11` ni talab qiladi, shuning uchun u shu
+# ekstrada emas: `pip install --no-deps -r engine/requirements-desktop-nodeps.txt` bilan alohida
+# o'rnatiladi, uning qolgan bog'liqliklari (faster-whisper 1.2.1 metadata'si) shu yerda sanaladi.
+# Audio dekodi LGPL FFmpeg orqali (lahza_engine.media.pcm), `av` import qo'riqchisi - asr/fw_compat.py.
+desktop = [
+  "ctranslate2>=4.0,<5", "huggingface-hub>=0.21", "tokenizers>=0.13,<1", "tqdm",
+  "onnxruntime>=1.18", "fonttools>=4.50",
+]
 vad = ["silero-vad>=5.1"]
 onnx = ["onnxruntime>=1.18"]
 fonts = ["fonttools>=4.50"]

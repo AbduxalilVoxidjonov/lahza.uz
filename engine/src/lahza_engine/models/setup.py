@@ -209,7 +209,8 @@ class Setup:
                 return
             if model.id == bootstrap.MODEL_ID and sha256_file(root / "model.bin") != bootstrap.WEIGHTS_SHA256:
                 raise ValueError("ASR sha256 mos emas")
-            from faster_whisper import WhisperModel
+            from lahza_engine.asr.fw_compat import import_faster_whisper
+            WhisperModel = import_faster_whisper().WhisperModel  # PyAV'siz (ADR-0015)
             WhisperModel(str(root), device="cpu", compute_type="int8", local_files_only=True)
         elif model.task == Task.VAD:
             from lahza_engine.vad.silero_onnx import SileroOnnxVad
@@ -293,7 +294,11 @@ class Setup:
                         if self._model(self._default(task))[0]:
                             continue
                         try:
-                            importlib.import_module(module)
+                            if module == "faster_whisper":
+                                from lahza_engine.asr.fw_compat import import_faster_whisper
+                                import_faster_whisper()  # PyAV'siz (ADR-0015)
+                            else:
+                                importlib.import_module(module)
                         except ImportError as exc:
                             raise RuntimeError(f"{module} ilova paketida yo‘q. To‘liq desktop paketini qayta o‘rnating.") from exc
                     installed = []

@@ -62,15 +62,25 @@ OPTIONAL_IMPORTS = {
     "faster_whisper": "faster_whisper",
     "ctranslate2": "ctranslate2",
     "tokenizers": "tokenizers",
-    "av": "av",
     "onnxruntime": "onnxruntime",  # Silero VAD (ONNX)
     "fontTools": "fontTools",  # shrift tekshiruvi / subset
     "xxhash": "xxhash",  # tez xesh
 }
 
 # Native libraries and runtime data are loaded dynamically by these backends.
-COLLECT_ALL = {"faster_whisper", "ctranslate2", "tokenizers", "av", "onnxruntime"}
+COLLECT_ALL = {"faster_whisper", "ctranslate2", "tokenizers", "onnxruntime"}
 REQUIRED_BACKENDS = COLLECT_ALL | {"fontTools"}
+
+# GPL komponentlar sidecar'ga hech qachon kirmaydi (ADR-0004, ADR-0015). PyAV (`av`) g'ildiraklari
+# libx264/libx265 bilan statik yig'ilgan FFmpeg'ni olib keladi; faster-whisper uni
+# `lahza_engine.asr.fw_compat` qo'riqchisi orqali "import" qiladi, dekodni LGPL FFmpeg bajaradi.
+FORBIDDEN_MODULES = ["av"]
+# PyInstaller TOC'larida shu belgilar uchrasa build rad etiladi (PyAV va uning ichki FFmpeg'i).
+FORBIDDEN_TOC_PATTERNS = [
+    r"""['"]av(\.[\w.]+)?['"]""",  # PyAV moduli yoki submodullari
+    r"av[/\\]\.dylibs", r"av\.libs",  # delocate/auditwheel/delvewheel bilan qo'shilgan dylib/so/dll
+    r"libx264", r"libx265",
+]
 
 
 def check_desktop_backends(available: list[str]) -> None:
@@ -133,7 +143,8 @@ def prepare_catalog(destination: Path) -> str:
 
 
 # Sidecar'ga hech qachon kerak bo'lmaydigan dasturchi paketlari.
-EXCLUDES = ["tkinter", "pytest", "_pytest", "IPython", "matplotlib", "PyInstaller", "mypy", "ruff"]
+EXCLUDES = ["tkinter", "pytest", "_pytest", "IPython", "matplotlib", "PyInstaller", "mypy", "ruff",
+            *FORBIDDEN_MODULES]
 
 _MACHINE = {"arm64": "aarch64", "aarch64": "aarch64", "x86_64": "x86_64", "amd64": "x86_64"}
 
@@ -208,6 +219,30 @@ def optional_imports() -> list[str]:
     import importlib.util
 
     return [mod for mod, name in OPTIONAL_IMPORTS.items() if importlib.util.find_spec(name) is not None]
+
+
+def forbidden_in_toc(build_dir: Path) -> list[str]:
+    """PyInstaller TOC fayllarida GPL komponent (PyAV, libx264/libx265) izlari; bo'sh = toza."""
+    import re
+
+    pats = [re.compile(p) for p in FORBIDDEN_TOC_PATTERNS]
+    hits: list[str] = []
+    for toc in sorted(build_dir.rglob("*.toc")):
+        text = toc.read_text(encoding="utf-8", errors="replace")
+        for pat in pats:
+            m = pat.search(text)
+            if m:
+                hits.append(f"{toc.name}: {m.group(0)}")
+    return hits
+
+
+def check_no_gpl_bundle(build_dir: Path) -> None:
+    """Yig'ilgan sidecar tarkibida GPL komponent bo'lsa build to'xtatiladi (ADR-0015)."""
+    if not list(build_dir.rglob("*.toc")):
+        raise SystemExit(f"PyInstaller TOC topilmadi ({build_dir}): GPL tekshiruvi bajarilmadi")
+    hits = forbidden_in_toc(build_dir)
+    if hits:
+        raise SystemExit("GPL komponent sidecar'ga kirdi (ADR-0015): " + "; ".join(hits))
 
 
 def pyinstaller_cmd(entry: Path, clean: bool, extra_hidden: list[str]) -> list[str]:
@@ -307,14 +342,19 @@ def main(argv: list[str] | None = None) -> int:
         "import importlib\nimport json\nimport sys\nfrom pathlib import Path\n\n"
         "from lahza_engine.cli import main\n\n"
         "if sys.argv[1:] == ['--packaging-check']:\n"
+        "    from lahza_engine.asr.fw_compat import av_guard_active, install_av_guard\n"
+        "    install_av_guard()  # faster_whisper `import av` qiladi; PyAV to'plamda yo'q (ADR-0015)\n"
         f"    modules = {extra!r}\n"
         "    for name in modules:\n"
         "        importlib.import_module(name)\n"
+        "    if not av_guard_active():\n"
+        "        raise SystemExit('PyAV sidecar ichida yuklangan (ADR-0015)')\n"
         "    importlib.import_module('lahza_engine.models.local_bootstrap')\n"
         "    importlib.import_module('lahza_engine.api.app')\n"
         "    package = importlib.import_module('lahza_engine')\n"
         "    fonts = Path(package.__file__).parent / 'subtitle' / 'fonts'\n"
-        "    print(json.dumps({'imported_backends': modules, 'fonts': sorted(p.name for p in fonts.glob('*'))}))\n"
+        "    print(json.dumps({'imported_backends': modules, 'av_guard': True,\n"
+        "                      'fonts': sorted(p.name for p in fonts.glob('*'))}))\n"
         "elif sys.argv[1:] == ['--packaging-mp-check']:\n"
         "    from multiprocessing import shared_memory\n"
         "    block = shared_memory.SharedMemory(create=True, size=16)\n"
@@ -333,6 +373,7 @@ def main(argv: list[str] | None = None) -> int:
         encoding="utf-8",
     )
     subprocess.run(cmd, check=True, cwd=ENGINE)
+    check_no_gpl_bundle(WORK / "build" / NAME)
 
     built = WORK / "dist" / f"{NAME}{ext}"
     BIN_DIR.mkdir(parents=True, exist_ok=True)

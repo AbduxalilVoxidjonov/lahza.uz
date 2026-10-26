@@ -93,10 +93,37 @@ def test_dry_run_leaves_catalog_untouched(tmp_path, monkeypatch):
 
 
 def test_native_asr_collection():
-    backends = ["faster_whisper", "ctranslate2", "tokenizers", "av"]
+    backends = ["faster_whisper", "ctranslate2", "tokenizers"]
     cmd = packaging.pyinstaller_cmd(Path("entry.py"), False, backends)
     collected = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--collect-all"]
     assert set(backends) <= set(collected)
+
+
+def test_pyav_is_excluded_from_sidecar():
+    """ADR-0015: PyAV (GPL libx264/libx265 FFmpeg) hech qachon yig'ilmaydi, venv'da bo'lsa ham."""
+    assert "av" not in packaging.OPTIONAL_IMPORTS
+    assert "av" not in packaging.COLLECT_ALL and "av" not in packaging.REQUIRED_BACKENDS
+    cmd = packaging.pyinstaller_cmd(Path("entry.py"), False, ["faster_whisper", "av"])
+    excluded = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--exclude-module"]
+    collected = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--collect-all"]
+    assert "av" in excluded
+    assert "av" not in collected
+
+
+def test_gpl_toc_scan(tmp_path):
+    build = tmp_path / "build"
+    build.mkdir()
+    with pytest.raises(SystemExit, match="TOC topilmadi"):
+        packaging.check_no_gpl_bundle(build)
+    (build / "PYZ-00.toc").write_text(
+        "[('faster_whisper.audio', '/x/faster_whisper/audio.py', 'PYMODULE'),"
+        " ('avro', '/x/avro.py', 'PYMODULE'), ('lahza_engine.media.pcm', '/x/pcm.py', 'PYMODULE')]")
+    packaging.check_no_gpl_bundle(build)  # toza: `avro`/`pcm` PyAV emas
+    for bad in ["('av', '/x/av/__init__.py', 'PYMODULE')", "('av.audio.frame', '/x/f.py', 'PYMODULE')",
+                "('av/.dylibs/libx264.165.dylib', '/x', 'BINARY')", "('libx265.215.dylib', '/x', 'BINARY')"]:
+        (build / "Analysis-00.toc").write_text(f"[{bad}]")
+        with pytest.raises(SystemExit, match="GPL komponent"):
+            packaging.check_no_gpl_bundle(build)
 
 
 def test_desktop_build_rejects_missing_inference_dependencies():
@@ -142,7 +169,8 @@ def test_frozen_sidecar_health_and_catalog(tmp_path):
     backends = diagnostics["imported_backends"]
     assert {"Inter.ttf", "OFL.txt"} <= set(diagnostics["fonts"])
     if os.environ.get("LAHZA_TEST_REQUIRE_ASR") == "1":
-        assert {"faster_whisper", "ctranslate2", "tokenizers", "av"} <= set(backends)
+        assert {"faster_whisper", "ctranslate2", "tokenizers"} <= set(backends)
+    assert "av" not in backends and diagnostics["av_guard"] is True
     catalog_dir = Path(os.environ.get("LAHZA_TEST_CATALOG", ROOT / "build/sidecar/catalog"))
     env = {**isolated_env, "LAHZA_DEV": "0", "LAHZA_TOKEN": "packaging-smoke-token",
            "LAHZA_DATA_DIR": str(tmp_path / "data"),

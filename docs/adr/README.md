@@ -18,5 +18,6 @@ Har bir ADR: kontekst → qaror → oqibatlar → ko'rib chiqilgan muqobillar. Q
 | [0012](0012-lahza-timeline.md) | Lahza Timeline — yagona montaj modeli, OpenTimelineIO bilan muvofiq | Qabul qilindi (qisman: montaj Timeline orqali; Reels klip renderi keyin o'tadi) |
 | [0013](0013-haqiqiy-kadr-tamoyili.md) | "Haqiqiy kadr" tamoyili — yangi kadr generatsiya qilinmaydi | Qabul qilindi |
 | [0014](0014-adobe-plaginlar.md) | Adobe plaginlari: Premiere — UXP, After Effects — CEP + ExtendScript; umumiy engine va host-reja | Taklif |
+| [0015](0015-pyavsiz-asr-dekod.md) | ASR audio dekodi PyAV'siz — LGPL FFmpeg orqali numpy massiv; `av` sidecar'ga kirmaydi | Qabul qilindi |
 
 Yangi ADR shabloni: [`0000-shablon.md`](0000-shablon.md).

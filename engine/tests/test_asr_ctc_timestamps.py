@@ -24,6 +24,14 @@ from lahza_engine.montage import raw_asr
 from lahza_engine.types import Word
 
 
+@pytest.fixture(autouse=True)
+def _decode_stub(monkeypatch):
+    """Model soxta: audio dekodi (LGPL ffmpeg, ADR-0015) bu yerda tekshirilmaydi."""
+    from lahza_engine.asr import faster_whisper_backend as fwb
+
+    monkeypatch.setattr(fwb, "decode_pcm_f32", lambda wav, sr=16000: np.zeros(sr, dtype=np.float32))
+
+
 def _w(text: str, a: int = 0, b: int = 0, conf: float | None = None) -> Word:
     return Word(text=text, start_ms=a, end_ms=b, conf=conf)
 

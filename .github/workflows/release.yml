@@ -81,7 +81,9 @@ jobs:
           fi
 
       - name: Engine bog'liqliklari
-        run: pip install -e "engine[dev,desktop]"
+        run: |
+          pip install -e "engine[dev,desktop]"
+          pip install --no-deps -r engine/requirements-desktop-nodeps.txt # PyAV'siz (ADR-0015)
 
       - name: Engine testlari (reliz darvozasi)
         working-directory: engine

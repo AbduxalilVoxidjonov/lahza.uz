@@ -1,10 +1,19 @@
 from pathlib import Path
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
 from lahza_engine.asr.base import AsrOptions
 from lahza_engine.asr.faster_whisper_backend import FasterWhisperBackend
+
+
+@pytest.fixture(autouse=True)
+def _decode_stub(monkeypatch):
+    """Model soxta: audio dekodi (LGPL ffmpeg, ADR-0015) bu yerda tekshirilmaydi."""
+    from lahza_engine.asr import faster_whisper_backend as fwb
+
+    monkeypatch.setattr(fwb, "decode_pcm_f32", lambda wav, sr=16000: np.zeros(sr, dtype=np.float32))
 
 
 def test_punctuation_hallucinations_filtered_without_losing_uzbek():

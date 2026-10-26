@@ -13,3 +13,4 @@ FFmpeg `--enable-gpl` siz yig'iladi (libass, freetype, harfbuzz, fribidi bilan).
 ## Oqibatlar
 * NVENC'ning LGPL yig'mada `--enable-nonfree` talabi bo'yicha yurist xulosasi kerak (TZ 19-bo'lim).
 * GPU'siz Windows uchun dasturiy H.264 zaxirasi — ochiq savol.
+* Python bog'liqliklari o'z FFmpeg nusxasini olib kelmasligi kerak: PyAV (faster-whisper bog'liqligi) GPL libx264/libx265 bilan yig'ilgan — sidecar'dan chiqarilgan, ASR audio dekodi shu LGPL FFmpeg orqali ([ADR-0015](0015-pyavsiz-asr-dekod.md)).

@@ -165,8 +165,13 @@ def test_whisper_cpp_decoder_flags_match_faster_whisper(monkeypatch, tmp_path: P
     assert opt("-tp") == "0.4" and opt("-bs") == "2" and "-nf" not in args
 
 
-def test_faster_whisper_passes_hotwords() -> None:
+def test_faster_whisper_passes_hotwords(monkeypatch) -> None:
+    import numpy as np
+
+    from lahza_engine.asr import faster_whisper_backend as fwb
     from lahza_engine.asr.faster_whisper_backend import FasterWhisperBackend
+
+    monkeypatch.setattr(fwb, "decode_pcm_f32", lambda wav, sr=16000: np.zeros(sr, dtype=np.float32))
 
     calls: list[dict] = []
 

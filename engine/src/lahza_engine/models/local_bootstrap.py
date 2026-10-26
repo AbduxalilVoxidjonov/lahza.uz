@@ -44,7 +44,8 @@ def bootstrap(
     """
     if not consent:
         raise ValueError("Downloading requires explicit --download --consent")
-    from faster_whisper import WhisperModel
+    from lahza_engine.asr.fw_compat import import_faster_whisper
+    WhisperModel = import_faster_whisper().WhisperModel  # PyAV'siz (ADR-0015)
 
     target = store.model_dir(Task.ASR, MODEL_FOLDER).resolve()
     with httpx.Client(timeout=120, follow_redirects=True) as client:

@@ -58,9 +58,15 @@ UNKNOWN = "ANIQLANSIN"
 GROUPS = ("python", "npm", "rust", "runtime", "font", "model")
 
 ENGINE_DIST = "lahza-engine"
-# Mahsulotga kiradigan ekstralar: `desktop` - lokal alfa sidecar'i (faster-whisper, PyAV, ONNX, fontTools),
-# `onnx`/`fonts` - CI sidecar'i. Og'ir/platformaga xos qolgan ekstralar alohida.
+# Mahsulotga kiradigan ekstralar: `desktop` - lokal alfa sidecar'i (faster-whisper bog'liqliklari, ONNX,
+# fontTools), `onnx`/`fonts` - CI sidecar'i. Og'ir/platformaga xos qolgan ekstralar alohida.
 SHIPPED_EXTRAS = ["desktop", "onnx", "fonts"]
+# `pip install --no-deps -r` bilan o'rnatiladigan paketlar (faster-whisper: PyAV'siz, ADR-0015).
+# Ular yopilmaga kiradi, lekin ularning e'lon qilingan bog'liqliklari kuzatilmaydi.
+NODEPS_REQUIREMENTS = ROOT / "engine" / "requirements-desktop-nodeps.txt"
+# Sidecar'ga hech qachon kirmasligi shart bo'lgan Python paketlari (scripts/build_sidecar.py
+# FORBIDDEN_MODULES bilan bir xil). PyAV g'ildiraklari GPL libx264/libx265 olib keladi.
+FORBIDDEN_PYTHON = {"av"}
 
 _CLASSIFIER = {
     "MIT License": "MIT",
@@ -268,6 +274,33 @@ def root_requirements() -> list[str]:
     return out
 
 
+def nodeps_requirements() -> list[str]:
+    """`requirements-desktop-nodeps.txt` dagi paket nomlari (izoh/bo'sh qatorlarsiz)."""
+    from packaging.requirements import Requirement
+
+    if not NODEPS_REQUIREMENTS.is_file():
+        return []
+    out = []
+    for line in NODEPS_REQUIREMENTS.read_text(encoding="utf-8").splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line and not line.startswith("-"):
+            out.append(Requirement(line).name)
+    return out
+
+
+def gpl_violations(data: dict) -> list[str]:
+    """Sidecar'ga kiradigan Python/native qismlardagi GPL komponentlar (ADR-0004, ADR-0015)."""
+    bad = []
+    for c in data["components"]:
+        if c["category"] not in ("python", "python-native"):
+            continue
+        lic = c["license"]
+        gpl = "GPL" in lic and "LGPL" not in lic and "Bootloader-exception" not in lic
+        if _norm(c["name"]) in FORBIDDEN_PYTHON or c.get("risk") == "GPL" or gpl:
+            bad.append(f"{c['id']} ({lic}; {c['via']})")
+    return bad
+
+
 def _dist_license_texts(dist, texts: Texts) -> list[str]:
     ids: list[str] = []
     for f in sorted(dist.files or [], key=str):
@@ -320,7 +353,9 @@ def python_components(texts: Texts) -> list[dict]:
     seen: dict[str, dict] = {}
     natives: list[dict] = []
     missing: list[str] = []
+    nodeps = {_norm(n) for n in nodeps_requirements()}
     queue = [(n, "to'g'ridan") for n in root_requirements()]
+    queue += [(n, "to'g'ridan (--no-deps)") for n in nodeps_requirements()]
     while queue:
         name, via = queue.pop(0)
         key = _norm(name)
@@ -342,7 +377,8 @@ def python_components(texts: Texts) -> list[dict]:
                 "python", base, lib, lic, basis="nom jadvali" if lic != UNKNOWN else "topilmadi",
                 via=f"{meta['Name']} {meta['Version']} g'ildiragi", category="python-native", risk=risk,
                 notes="G'ildirakka biriktirilgan native kutubxona; litsenziya fayl nomi bo'yicha, tasdiqlansin."))
-        queue += [(n, meta["Name"]) for n in _requirements(dist, [])]
+        if key not in nodeps:
+            queue += [(n, meta["Name"]) for n in _requirements(dist, [])]
     if missing:
         print("ogohlantirish: o'rnatilmagan, jadvalga kirmadi: " + ", ".join(sorted(set(missing))),
               file=sys.stderr)
@@ -638,7 +674,7 @@ def sections(data: dict) -> dict[str, str]:
                             [(c["name"], c["version"], c["license"], c["via"]) for c in py])),
         "python-native": (f"Python g'ildiraklariga biriktirilgan native kutubxonalar: {len(native)} ta. Litsenziya fayl nomi "
                           "bo'yicha (\"nom jadvali\"), yuridik tekshiruvda tasdiqlanadi. **GPL** belgisi - "
-                          "ADR-0004 ga zid, relizdan oldin hal qilinadi.\n\n"
+                          "ADR-0004 ga zid: generator bunday holatda yiqiladi (ADR-0015).\n\n"
                           + _table(["Kutubxona", "Fayl", "Litsenziya", "Manba", "Xavf"],
                                    [(c["name"], c["version"], c["license"], c["via"], c["risk"] and f"**{c['risk']}**")
                                     for c in native])),
@@ -722,6 +758,11 @@ def main(argv: list[str] | None = None) -> int:
     if bad:
         ap.error(f"noma'lum guruh: {', '.join(sorted(bad))}")
     data = collect(reuse, load_previous())
+    violations = gpl_violations(data)
+    if violations:
+        print("XATO: sidecar'ga GPL komponent kiradi (ADR-0004, ADR-0015):\n  " + "\n  ".join(violations),
+              file=sys.stderr)
+        return 2
     secs = sections(data)
     if a.report:
         print(json.dumps({"counts": counts(data), "unresolved": [c["id"] for c in unresolved(data)]},

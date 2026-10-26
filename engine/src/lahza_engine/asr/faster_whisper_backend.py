@@ -1,6 +1,10 @@
 """faster-whisper (CTranslate2) backend - Windows + NVIDIA (CUDA) va CPU.
 
 Apple Silicon uses CPU int8; CTranslate2 does not support the Apple GPU.
+
+PyAV ishlatilmaydi (ADR-0015): audio LGPL FFmpeg bilan 16 kHz mono float32 massivga dekod
+qilinib, `transcribe()` ga massiv sifatida beriladi; faster-whisper `import_faster_whisper()`
+orqali `av` qo'riqchisi bilan yuklanadi.
 """
 
 from __future__ import annotations
@@ -11,13 +15,15 @@ from unicodedata import category
 
 from lahza_engine.align.realign import distribute
 from lahza_engine.asr.base import AsrOptions, hotword_prompt
+from lahza_engine.asr.fw_compat import import_faster_whisper
+from lahza_engine.media.pcm import WHISPER_SAMPLE_RATE, decode_pcm_f32
 from lahza_engine.text.orthography import normalize
 from lahza_engine.types import Word
 
 
 class FasterWhisperBackend:
     def __init__(self, model_dir: Path, model_id: str, device: str = "auto") -> None:
-        from faster_whisper import WhisperModel
+        WhisperModel = import_faster_whisper().WhisperModel
 
         compute = "float16" if device == "cuda" else "int8"
         self.model = WhisperModel(str(model_dir), device=device, compute_type=compute, local_files_only=True)
@@ -25,6 +31,8 @@ class FasterWhisperBackend:
 
     def transcribe_chunk(self, wav: Path, offset_ms: int, opts: AsrOptions) -> list[Word]:
         prompt = hotword_prompt(opts.hotwords)
+        # Fayl yo'li emas, massiv: faster-whisper decode_audio()/PyAV'ga tushmaydi.
+        audio = decode_pcm_f32(wav, WHISPER_SAMPLE_RATE)
         kwargs = dict(
             language=opts.language,
             # "ctc": timestamp tokenlarisiz (aniqroq matn), vaqtlarni CTC aligner beradi.
@@ -39,7 +47,7 @@ class FasterWhisperBackend:
             vad_filter=False,  # VAD oldinroq bajarilgan
         )
         try:
-            segments, _ = self.model.transcribe(str(wav), hotwords=prompt, **kwargs)
+            segments, _ = self.model.transcribe(audio, hotwords=prompt, **kwargs)
         except TypeError as exc:
             # The callable's name may itself contain 'hotwords'; only a rejected
             # keyword is evidence for the compatibility fallback.
@@ -48,7 +56,7 @@ class FasterWhisperBackend:
             )):
                 raise
             # faster-whisper < 1.0: `hotwords` yo'q - lug'at initial_prompt orqali uzatiladi.
-            segments, _ = self.model.transcribe(str(wav), initial_prompt=prompt, **kwargs)
+            segments, _ = self.model.transcribe(audio, initial_prompt=prompt, **kwargs)
         if opts.timestamps == "ctc":
             return _text_words(segments, offset_ms)
         out: list[Word] = []

@@ -13,6 +13,7 @@ BIN := $(VENV)/bin
 setup-local:
 	$(PY) -m venv $(VENV)
 	$(BIN)/pip install -e "engine[dev,desktop]"
+	$(BIN)/pip install --no-deps -r engine/requirements-desktop-nodeps.txt  # PyAV siz (ADR-0015)
 	cd app && npm ci
 	$(BIN)/python scripts/setup_local_render.py --install-deps --stage
 	$(BIN)/python scripts/bootstrap_local_models.py --download --consent

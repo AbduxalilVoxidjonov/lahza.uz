@@ -26,28 +26,30 @@ aniq versiyalari quyidagi avtomatik jadvallarda.
 | HarfBuzz | MIT ("Old MIT") | libass bog'liqligi |
 | FriBiDi | LGPL-2.1+ | libass bog'liqligi; dinamik bog'lanadi |
 | whisper.cpp, llama.cpp (ggml) | MIT | |
+| faster-whisper, CTranslate2, tokenizers | MIT / MIT / Apache-2.0 | ASR (`engine[desktop]`); faster-whisper `--no-deps` bilan o'rnatiladi |
+| PyAV (`av`) | — (to'plamga **kirmaydi**) | PyPI g'ildiraklari GPL libx264/libx265 bilan yig'ilgan FFmpeg olib keladi. Sidecar'dan chiqarilgan, ASR audio'si yuqoridagi LGPL FFmpeg bilan dekod qilinadi ([ADR-0015](docs/adr/0015-pyavsiz-asr-dekod.md)) |
 
 Barcha avtomatik bo'limlar: `make licenses` (`engine/.venv/bin/python scripts/gen_licenses.py`), tekshiruv:
-`make check-licenses`. Belgilar orasini qo'lda tahrirlamang.
+`make check-licenses`. Belgilar orasini qo'lda tahrirlamang. Generator sidecar'ning Python/native
+qismida GPL komponent (masalan `av`, `libx264`, `libx265`) topsa xato bilan to'xtaydi (ADR-0015).
 
 ### Python paketlari (sidecar)
 
 <!-- gen_licenses:python:start -->
-`lahza-engine` + ekstralar: desktop, onnx, fonts; CPython va PyInstaller bootloader. 43 komponent.
+`lahza-engine` + ekstralar: desktop, onnx, fonts; CPython va PyInstaller bootloader. 42 komponent.
 
 | Paket | Versiya | Litsenziya | Kim tortgan |
 | --- | --- | --- | --- |
 | annotated-doc | 0.0.5 | MIT | fastapi |
 | annotated-types | 0.8.0 | MIT | pydantic |
 | anyio | 4.15.1 | MIT | httpx |
-| av | 16.1.0 | BSD-3-Clause | to'g'ridan |
 | certifi | 2026.7.22 | MPL-2.0 | httpx |
 | cffi | 2.1.1 | MIT-0 | cryptography |
 | click | 8.5.0 | BSD-3-Clause | uvicorn |
 | cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause | to'g'ridan |
-| ctranslate2 | 4.8.3 | MIT | faster-whisper |
+| ctranslate2 | 4.8.3 | MIT | to'g'ridan |
 | fastapi | 0.143.2 | MIT | to'g'ridan |
-| faster-whisper | 1.2.1 | MIT | to'g'ridan |
+| faster-whisper | 1.2.1 | MIT | to'g'ridan (--no-deps) |
 | filelock | 4.2.4 | MIT | huggingface_hub |
 | flatbuffers | 25.12.19 | Apache-2.0 | onnxruntime |
 | fonttools | 4.67.0 | MIT | to'g'ridan |
@@ -58,12 +60,12 @@ Barcha avtomatik bo'limlar: `make licenses` (`engine/.venv/bin/python scripts/ge
 | httpcore2 | 2.16.0 | BSD-3-Clause | httpx2 |
 | httpx | 0.28.1 | BSD-3-Clause | to'g'ridan |
 | httpx2 | 2.16.0 | BSD-3-Clause | huggingface_hub |
-| huggingface_hub | 2.3.0 | Apache-2.0 | faster-whisper |
+| huggingface_hub | 2.3.0 | Apache-2.0 | to'g'ridan |
 | idna | 3.20 | BSD-3-Clause | httpx |
 | numpy | 2.5.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | to'g'ridan |
 | onnxruntime | 1.31.0 | MIT | to'g'ridan |
 | opentelemetry-api | 1.45.1 | Apache-2.0 | fastapi |
-| packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | onnxruntime |
+| packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | huggingface_hub |
 | protobuf | 7.36.2 | BSD-3-Clause | onnxruntime |
 | psutil | 7.2.2 | BSD-3-Clause | to'g'ridan |
 | pycparser | 3.11 | BSD-3-Clause | cffi |
@@ -71,8 +73,8 @@ Barcha avtomatik bo'limlar: `make licenses` (`engine/.venv/bin/python scripts/ge
 | pydantic_core | 2.50.1 | MIT | pydantic |
 | PyYAML | 6.0.3 | MIT | ctranslate2 |
 | starlette | 1.8.0 | BSD-3-Clause | fastapi |
-| tokenizers | 0.23.3 | Apache-2.0 | faster-whisper |
-| tqdm | 4.70.1 | MPL-2.0 AND MIT | faster-whisper |
+| tokenizers | 0.23.3 | Apache-2.0 | to'g'ridan |
+| tqdm | 4.70.1 | MPL-2.0 AND MIT | to'g'ridan |
 | truststore | 0.10.5 | MIT | httpx2 |
 | typing-inspection | 0.4.4 | MIT | pydantic |
 | typing_extensions | 4.16.0 | PSF-2.0 | pydantic |
@@ -85,36 +87,11 @@ Barcha avtomatik bo'limlar: `make licenses` (`engine/.venv/bin/python scripts/ge
 ### Python g'ildiraklaridagi native kutubxonalar
 
 <!-- gen_licenses:python-native:start -->
-Python g'ildiraklariga biriktirilgan native kutubxonalar: 26 ta. Litsenziya fayl nomi bo'yicha ("nom jadvali"), yuridik tekshiruvda tasdiqlanadi. **GPL** belgisi - ADR-0004 ga zid, relizdan oldin hal qilinadi.
+Python g'ildiraklariga biriktirilgan native kutubxonalar: 1 ta. Litsenziya fayl nomi bo'yicha ("nom jadvali"), yuridik tekshiruvda tasdiqlanadi. **GPL** belgisi - ADR-0004 ga zid: generator bunday holatda yiqiladi (ADR-0015).
 
 | Kutubxona | Fayl | Litsenziya | Manba | Xavf |
 | --- | --- | --- | --- | --- |
-| aom | libaom.3.13.1.dylib | BSD-2-Clause | av 16.1.0 g'ildiragi |  |
-| avcodec | libavcodec.62.11.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
-| avdevice | libavdevice.62.1.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
-| avfilter | libavfilter.11.4.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
-| avformat | libavformat.62.3.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
-| avutil | libavutil.60.8.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
 | ctranslate2 | libctranslate2.4.8.3.dylib | MIT | ctranslate2 4.8.3 g'ildiragi |  |
-| dav1d | libdav1d.7.dylib | BSD-2-Clause | av 16.1.0 g'ildiragi |  |
-| mp3lame | libmp3lame.0.dylib | LGPL-2.0-or-later | av 16.1.0 g'ildiragi |  |
-| ogg | libogg.0.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| opencore-amrnb | libopencore-amrnb.0.dylib | Apache-2.0 | av 16.1.0 g'ildiragi |  |
-| opencore-amrwb | libopencore-amrwb.0.dylib | Apache-2.0 | av 16.1.0 g'ildiragi |  |
-| openh264 | libopenh264.7.dylib | BSD-2-Clause | av 16.1.0 g'ildiragi |  |
-| opus | libopus.0.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| sharpyuv | libsharpyuv.0.1.1.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| speex | libspeex.1.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| SvtAv1Enc | libSvtAv1Enc.3.1.2.dylib | BSD-3-Clause-Clear | av 16.1.0 g'ildiragi |  |
-| swresample | libswresample.6.1.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
-| swscale | libswscale.9.1.100.dylib | LGPL-3.0-or-later | av 16.1.0 g'ildiragi |  |
-| vorbis | libvorbis.0.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| vorbisenc | libvorbisenc.2.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| vpx | libvpx.11.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| webp | libwebp.7.1.10.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| webpmux | libwebpmux.3.1.1.dylib | BSD-3-Clause | av 16.1.0 g'ildiragi |  |
-| x264 | libx264.165.dylib | GPL-2.0-or-later | av 16.1.0 g'ildiragi | **GPL** |
-| x265 | libx265.215.dylib | GPL-2.0-or-later | av 16.1.0 g'ildiragi | **GPL** |
 <!-- gen_licenses:python-native:end -->
 
 ### npm paketlari (UI)
