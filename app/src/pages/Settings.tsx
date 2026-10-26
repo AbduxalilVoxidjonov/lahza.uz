@@ -3,6 +3,7 @@ import { ExternalAssetsPanel } from "../components/settings/ExternalAssetsPanel"
 import { CapabilitiesPanel } from "../components/settings/CapabilitiesPanel";
 import { DiagnosticsPanel } from "../components/settings/DiagnosticsPanel";
 import { LexiconManager } from "../components/settings/LexiconManager";
+import { LicensePanel } from "../components/settings/LicensePanel";
 import { LicensesPanel } from "../components/settings/LicensesPanel";
 import { ModelManager } from "../components/settings/ModelManager";
 import { ShortcutsTable } from "../components/settings/ShortcutsTable";
@@ -50,6 +51,7 @@ export function Settings() {
       <LexiconManager />
       <DiagnosticsPanel />
       <ShortcutsTable />
+      <LicensePanel />
       <LicensesPanel />
       <p className="muted">{t("set.privacy")}</p>
     </div>

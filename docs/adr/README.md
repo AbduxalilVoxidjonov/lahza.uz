@@ -19,5 +19,6 @@ Har bir ADR: kontekst → qaror → oqibatlar → ko'rib chiqilgan muqobillar. Q
 | [0013](0013-haqiqiy-kadr-tamoyili.md) | "Haqiqiy kadr" tamoyili — yangi kadr generatsiya qilinmaydi | Qabul qilindi |
 | [0014](0014-adobe-plaginlar.md) | Adobe plaginlari: Premiere — UXP, After Effects — CEP + ExtendScript; umumiy engine va host-reja | Taklif |
 | [0015](0015-pyavsiz-asr-dekod.md) | ASR audio dekodi PyAV'siz — LGPL FFmpeg orqali numpy massiv; `av` sidecar'ga kirmaydi | Qabul qilindi |
+| [0016](0016-oflayn-litsenziya-kaliti.md) | Oflayn litsenziya kaliti — Ed25519 imzolangan payload, standart holatda o'chiq | Taklif |
 
 Yangi ADR shabloni: [`0000-shablon.md`](0000-shablon.md).

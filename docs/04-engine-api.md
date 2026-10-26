@@ -85,6 +85,20 @@ Funksiya **standart holatda o'chiq** va yurist xulosasidan oldin relizga kirmayd
 * Tayyor bo'lgach oddiy import oqimi: `create_episode` (sarlavha — `title` yoki video sarlavhasi, `/ \ : * ? " < > |` → `_`) + `analyze` vazifasi (`meta.source_url`). `job.result = {"episode_id", "analysis_job_id", "path", "title", "reused"}`, `job.meta.episode_id` ham to'ldiriladi.
 * Partiyaviy navbatga (`/v1/queue`) URL elementi hali qo'shilmagan (ochiq masala).
 
+## Litsenziya (V1-3, ADR-0016)
+
+Funksiya **standart holatda o'chiq** (`Settings.licensing_enabled`, sinov uchun `LAHZA_LICENSING=1`); o'chiq bo'lsa hech narsa bloklanmaydi. Tarmoq ishlatilmaydi. Format va chiqarish: [litsenziya-kaliti.md](litsenziya-kaliti.md).
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/license` | — | `LicenseStatus` |
+| PUT | `/v1/license` | `{"key": "LAHZA-…"}` | `LicenseStatus` |
+| DELETE | `/v1/license` | — | `LicenseStatus` |
+
+`LicenseStatus`: `{"enabled", "state", "device_id", "license", "reason", "app_version", "activated_at?"}`; `state`: `disabled | not_configured | unlicensed | valid | expired | not_yet_valid | wrong_version | wrong_device | clock_rollback | invalid`; `license`: `{"id", "licensee", "edition", "issued", "expires", "perpetual", "max_devices", "device_locked", "min_version", "max_version"}`. Saqlash: `library.db` → `settings` (`license`, `license_clock`; sxema o'zgarmagan).
+
+* PUT/DELETE bayroq o'chiq bo'lsa — **409**; yaroqsiz kalit — **400**, `detail` = `"<kod>: <xabar>"`, kod: `malformed | unsupported | bad_signature | not_configured | expired | not_yet_valid | wrong_version | wrong_device | clock_rollback`. Yaroqsiz kalit saqlanmaydi.
+
 ## Partiyaviy tahlil navbati (PRO-5)
 
 | Metod | Yo'l | Tana | Javob |

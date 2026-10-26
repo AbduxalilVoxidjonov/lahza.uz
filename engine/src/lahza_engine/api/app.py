@@ -37,6 +37,7 @@ from lahza_engine.api import (
     routes_hostplan,
     routes_interop,
     routes_library,
+    routes_license,
     routes_models,
     routes_montage,
     routes_queue,
@@ -184,6 +185,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     routes_interop.register(app, auth)
     routes_skills.register(app, auth)
     routes_youtube.register(app, auth)
+    routes_license.register(app, auth)
 
     # ---- Hodisalar ---------------------------------------------------------
     @app.websocket("/v1/events")

@@ -33,6 +33,10 @@ eval/results/**
 # Maxfiy kalitlar
 *.key
 .env
+# Litsenziya imzolash kalitlari (scripts/license_issue.py keygen) - faqat repozitoriydan tashqarida
+.lahza-keys/
+license_signing.*
+!license_signing.pub
 
 # Lokal relizlar: matn fayllari git'da, binarlar yo'q (versiyalar/README.md)
 versiyalar/*/*.app/

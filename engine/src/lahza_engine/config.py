@@ -85,6 +85,9 @@ class Settings(BaseModel):
     reframe: ReframeConfig = Field(default_factory=ReframeConfig)
     safe_zone: SubtitleSafeZone = Field(default_factory=SubtitleSafeZone)
     allow_network: bool = False  # NFR-01: faqat model yuklash/yangilash uchun yoqiladi
+    # V1-3 (TZ 19, ADR-0016): oflayn litsenziya kaliti. Tijorat qarori qabul qilinmaguncha O'CHIQ -
+    # o'chiq bo'lsa hech narsa tekshirilmaydi/bloklanmaydi. Sinash uchun: LAHZA_LICENSING=1.
+    licensing_enabled: bool = Field(default_factory=lambda: os.environ.get("LAHZA_LICENSING") == "1")
 
     @property
     def models_dir(self) -> Path:
