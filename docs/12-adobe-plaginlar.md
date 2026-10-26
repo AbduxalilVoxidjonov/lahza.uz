@@ -114,12 +114,83 @@ va host API'siga qo'yadi. Shu sabab Premiere va AE natijasi bir xil reja asosida
 | Variant | Kim ishga tushiradi | Afzallik | Kamchilik | Holat |
 | --- | --- | --- | --- | --- |
 | **A. Lahza Studio o'rnatilgan** | Studio o'z sidecar'ini `--discovery` bilan ishga tushiradi | Modellar, katalog, yangilanish bitta joyda | Studio ochiq turishi kerak | MVP (birinchi) |
-| **B. Mustaqil "Lahza Engine" servisi** | macOS LaunchAgent / Windows foydalanuvchi autostart'i | Studio'siz ishlaydi, faqat plagin kerak bo'lganlar uchun | Alohida o'rnatuvchi, yangilash, model menejeri UI'siz | Keyin (ADB-7) |
-| **C. Plagin + engine o'rnatuvchisi** | Bitta o'rnatuvchi: `.ccx`/`.zxp` + engine (B) | Bir qadamda o'rnatish | Marketplace "companion app" talablari [U8] | Keyin; B ga bog'liq |
+| **B. Mustaqil "Lahza Engine" servisi** | macOS LaunchAgent / Windows foydalanuvchi autostart'i | Studio'siz ishlaydi, faqat plagin kerak bo'lganlar uchun | Alohida o'rnatuvchi, yangilash, model menejeri UI'siz | Kod tayyor (ADB-7, 3.3); Windows qo'lda sinalmagan |
+| **C. Plagin + engine o'rnatuvchisi** | Bitta o'rnatuvchi: `.ccx`/`.zxp` + engine (B) | Bir qadamda o'rnatish | Marketplace "companion app" talablari [U8] | Skript (3.3); imzolangan o'rnatuvchi — ADB-9 |
 
 **Muhim cheklov.** Creative Cloud Marketplace ko'rik qoidalari: *plagin tashqi ilovani ishga tushirmasligi kerak (faqat brauzer havolalari)* [U8].
 Shuning uchun panel engine'ni o'zi **ishga tushirmaydi** — faqat yo'riqnoma beradi ("Lahza Studio'ni oching yoki Lahza Engine servisini yoqing").
 Bu qoida Marketplace'dan tashqari tarqatishda ham saqlanadi (bitta xatti-harakat).
+
+### 3.3 Mustaqil "Lahza Engine" servisi (ADB-7)
+
+Kod: `engine/src/lahza_engine/service/`; testlar: `engine/tests/test_service.py` (`launchctl`/`schtasks` hech qachon chaqirilmaydi).
+
+**Buyruqlar** (`lahza` CLI; o'rnatilgan ilovada — sidecar'ning o'zi, masalan `"/Applications/Lahza Studio.app/Contents/MacOS/lahza-engine" install-service`):
+
+| Buyruq | Nima qiladi |
+| --- | --- |
+| `lahza install-service [--dry-run] [--program EXE]` | Servisni yozadi va yuklaydi. `--dry-run` — hech narsa yozmaydi va hech qanday buyruq chaqirmaydi, rejani (plist/XML matni bilan) JSON qilib chiqaradi. `--program` — servis ishga tushiradigan engine (standart: joriy sidecar yoki dev'da `python -m lahza_engine`). |
+| `lahza uninstall-service [--dry-run] [--purge-logs]` | Servisni tushiradi, plist/vazifani, `<data_dir>/service/` va `<data_dir>/engine.clients/` ni o'chiradi. Modellar, kutubxona, `engine.log` ga tegmaydi; `--purge-logs` — faqat `engine-service.*.log`. Takroriy chaqiruv xavfsiz. |
+| `lahza service-status` | O'rnatilganmi, yuklanganmi (macOS: `launchctl print`; Windows: `schtasks /Query`), `engine.json` dagi engine tirik va javob beradimi (token chiqarilmaydi). |
+
+Servis `lahza serve --service` ni ishga tushiradi = `--discovery` (qat'iy portlar 47600–47602, **faqat 127.0.0.1**, har startda yangi token
+faqat `engine.json` ga, 0600; fayl-IPC yoqiq) + quyidagi himoyalar. Token plist/XML/env fayliga hech qachon yozilmaydi.
+
+**macOS — LaunchAgent** `~/Library/LaunchAgents/uz.lahza.engine.plist` (Label `uz.lahza.engine` = ilova identifikatori `uz.lahza.studio`
+ning `uz.lahza` prefiksi + `.engine`), domen `gui/<uid>` (`launchctl bootout` → `launchctl bootstrap`), sudo kerak emas:
+
+* `RunAtLoad`; `KeepAlive = {SuccessfulExit: false}` — qulasa qayta ishga tushiriladi, 0 kod bilan chiqsa — yo'q; `ThrottleInterval = 10`;
+* `LimitLoadToSessionType = Aqua` (faqat grafik sessiya); `WorkingDirectory = <data_dir>`;
+* loglar: `<data_dir>/Logs/engine-service.out.log`, `engine-service.err.log` (+ odatiy aylanma `engine.log`);
+* `EnvironmentVariables` — o'rnatish paytidagi muhitdan faqat `LAHZA_BIN_DIR`, `LAHZA_CATALOG`, `LAHZA_CATALOG_PUBKEY`, `LAHZA_DATA_DIR`,
+  `LAHZA_ADOBE_CORS`, `PYTHONPATH` (bor bo'lsa).
+
+**Windows — Task Scheduler** vazifasi `\Lahza\Engine` (HKCU `Run` emas: u qulashda qayta ishga tushirmaydi va ikkinchi nusxani to'smaydi):
+`LogonTrigger` (joriy foydalanuvchi, 15 s kechikish), `InteractiveToken` + `LeastPrivilege` (admin kerak emas), `MultipleInstancesPolicy=IgnoreNew`,
+`ExecutionTimeLimit=PT0S`, `RestartOnFailure` 3 marta / 1 daqiqa. `schtasks /Create /XML` UTF-16 fayl kutadi — nusxasi
+`<data_dir>\service\lahza-engine-task.xml`. Task Scheduler `Exec` muhit o'zgaruvchisi bera olmaydi, shuning uchun ular
+`<data_dir>\service\service-env.json` ga yoziladi va `serve --env-file` bilan o'qiladi (faqat yuqoridagi ruxsat etilgan kalitlar, mavjud qiymat
+ustiga yozilmaydi). Zaxira (Task Scheduler taqiqlangan muhit): `winsched.run_key_command` — HKCU `Run` qiymati, qo'lda.
+
+**Ikki nusxaning oldini olish** (`service/runtime.py`):
+
+* `serve --service` — `engine.json` dagi engine tirik (pid) **va** token bilan `/v1/health` 200 qaytarsa, ikkinchisi ko'tarilmaydi, 0 kod
+  (launchd/Task Scheduler qayta urinmaydi). Eskirgan fayl (o'lik pid) e'tiborsiz.
+* **Desktop ilova ochilganda** sidecar (`serve --port 0`, Tauri tokeni bilan) tirik discovery engine'ini topsa, o'z engine'ini ko'tarmaydi.
+  Tauri o'z tokenini yaratadi (`app/src-tauri/src/engine.rs`), shuning uchun sidecar uni **taxallus** sifatida ro'yxatdan o'tkazadi:
+  `<data_dir>/engine.clients/<pid>.json` (papka 0700, fayl 0600); discovery engine'i `TokenAliasMiddleware` bilan tirik pid'li taxallusni
+  asosiy tokenga almashtiradi (sarlavha va `?t=` — media va `/v1/events` WebSocket ham). So'ng sidecar `LAHZA_READY port=<servis porti>`
+  yozadi va Tauri (ota jarayon, `--parent-pid`/`--watch-stdin`) yoki servis o'lguncha kutadi; chiqishda taxallusni o'chiradi.
+  Servis to'xtasa sidecar 3 kod bilan chiqadi → Tauri uni qayta ishga tushiradi → endi o'z engine'i ko'tariladi.
+  Taxallus ishlamasa (eski engine) — o'z engine'i ko'tariladi. O'chirish: `LAHZA_ATTACH=0`; dev desktop (`LAHZA_CORS_ORIGINS` berilgan —
+  Vite origin'i servis CORS ro'yxatida yo'q) avtomatik ulanmaydi. Xavfsizlik chegarasi o'zgarmaydi: taxallus yozish uchun `data_dir` ga yozish
+  huquqi kerak — bu `engine.json` ni o'qish bilan bir xil (o'sha foydalanuvchi).
+* Ma'lum cheklov: servis desktop sidecar'i **allaqachon ishlab turganda** ishga tushsa (sidecar discovery yozmaydi), ikki engine bo'ladi —
+  odatda servis kirishda, ilovadan oldin ishga tushadi. Plagin va Studio bitta engine'da ishlaganda job navbati — 10-bo'lim, 9-savol.
+
+**Qulash cheklovi.** `<data_dir>/service/starts.json`: 5 daqiqada 5 tadan ko'p start bo'lsa servis xato yozib 0 kod bilan chiqadi
+(launchd `ThrottleInterval` va Windows `RestartOnFailure` ustiga). Qayta yoqish: `lahza install-service` (yoki keyingi kirish, 5 daqiqadan keyin).
+
+**O'rnatish tartibi (plagin + engine)** — `scripts/install_adobe_engine.sh` (macOS) / `scripts/install_adobe_engine.ps1` (Windows); imzolangan
+o'rnatuvchi emas (ADB-9). Ikkalasida `--dry-run`/`-DryRun` va `--uninstall`/`-Uninstall` bor:
+
+1. Engine servisi: `--app "/Applications/Lahza Studio.app"` (Windows: `-AppDir <o'rnatish papkasi>`) — ilova sidecar'i va resurslari
+   (`LAHZA_BIN_DIR`, `LAHZA_CATALOG`) ishlatiladi; berilmasa — repo'dagi `engine/.venv` (dev) va `PYTHONPATH=engine/src`.
+   Keyin `lahza service-status`.
+2. After Effects paneli — `adobe/scripts/cep-dev-install.{sh,ps1}` (`dist/` build qilingan bo'lsa).
+3. Premiere paneli — `--ccx FILE` berilsa UPIA (`--install` / `/install`), aks holda UXP Developer Tool yo'riqnomasi.
+
+Modellar Studio'siz: servis Studio bilan bir xil `data_dir/Models` ni ishlatadi; modellarni yuklash hozircha Studio orqali (10-bo'lim, 7-savol).
+
+**Windows'da qo'lda sinash kerak** (macOS'da faqat generatsiya testlangan):
+
+* `schtasks /Create /XML` bizning XML'ni qabul qiladimi (UTF-16 BOM, `Settings` elementlari tartibi), `/Run` ishga tushiradimi,
+  `RestartOnFailure` qulashda (`taskkill /F`) ishlaydimi, `IgnoreNew` ikkinchi startni to'sadimi;
+* kirishda (logon) avtomatik start va `LeastPrivilege` bilan admin so'ralmasligi; domen (`USERDOMAIN\USERNAME`) va Microsoft hisobi foydalanuvchisi;
+* konsol oynasi: `InteractiveToken` bilan konsol ilova (`python.exe`, konsolli sidecar) oyna ochishi mumkin — oynasiz build yoki `pythonw.exe` kerakmi;
+* `service-env.json` + `--env-file` (bo'shliqli yo'llar, `list2cmdline` qo'shtirnoqlari);
+* desktop ilova + servis: sidecar ulanadimi (`LAHZA_READY` servis porti bilan), ilova yopilganda (Job Object) servis tirik qoladimi;
+* `uninstall-service`: vazifa va `<data_dir>\service` o'chadimi; `install_adobe_engine.ps1` PowerShell 5.1 va 7 da.
 
 ---
 

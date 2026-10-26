@@ -47,6 +47,17 @@ lahza serve --discovery          # yoki: LAHZA_DISCOVERY=1 lahza serve
 
 Lahza Studio o'rnatilgan bo'lsa, uning engine'i ham ishlaydi. Panel engine'ni o'zi ishga tushirmaydi (Adobe Marketplace qoidasi).
 
+Studio ochilmagan holda ham ishlashi uchun — mustaqil **Lahza Engine servisi** (macOS LaunchAgent / Windows Task Scheduler, ADB-7):
+
+```bash
+lahza install-service --dry-run      # nima qilishini ko'rish (hech narsa yozmaydi)
+lahza install-service                # yoki hammasi birga: scripts/install_adobe_engine.sh [--app "/Applications/Lahza Studio.app"]
+lahza service-status
+lahza uninstall-service
+```
+
+Studio keyin ochilsa, ikkinchi engine ko'tarilmaydi — servisga ulanadi. Batafsil: [`docs/12`, 3.3](../docs/12-adobe-plaginlar.md#33-mustaqil-lahza-engine-servisi-adb-7).
+
 **2. Premiere Pro paneli (UXP).**
 
 ```bash

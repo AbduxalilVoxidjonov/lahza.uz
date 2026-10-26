@@ -2,6 +2,10 @@
 
     lahza serve --port 0 --token T      # Tauri sidecar rejimi
     lahza serve --discovery             # + <data_dir>/engine.json (Adobe plaginlari)
+    lahza serve --service               # mustaqil servis (= --discovery + ikki nusxa/qulash himoyasi)
+    lahza install-service [--dry-run] [--program EXE]   # macOS LaunchAgent / Windows vazifasi (ADB-7)
+    lahza uninstall-service [--dry-run] [--purge-logs]
+    lahza service-status
     lahza hw                            # apparat va daraja
     lahza bundle                        # katalogdan mos model to'plami
     lahza analyze VIDEO --project-dir D [--lite]
@@ -25,6 +29,11 @@ def _print(obj) -> None:
 
 
 def cmd_serve(a: argparse.Namespace) -> int:
+    if getattr(a, "env_file", None):
+        # Windows vazifasi muhitni shu fayldan oladi (Task Scheduler `Exec` env bermaydi) - Settings'dan oldin.
+        from lahza_engine.service.runtime import load_env_file
+
+        load_env_file(Path(a.env_file))
     # Ota jarayon watchdog'i eng boshida: ilova engine yuklanayotganda o'ldirilsa ham chiqamiz.
     a.server_slot = {}
     if a.parent_pid or a.watch_stdin:
@@ -54,7 +63,37 @@ def cmd_serve(a: argparse.Namespace) -> int:
     # M2-APP-11 / NFR-12: Logs/engine.log (aylanma, transkript matnisiz - NFR-02).
     setup_file_logging(settings.logs_dir)
     logging.getLogger("lahza_engine").info("engine %s ishga tushdi", __version__)
-    use_discovery = discovery_enabled(getattr(a, "discovery", False))
+    service_mode = bool(getattr(a, "service", False))
+    use_discovery = service_mode or discovery_enabled(getattr(a, "discovery", False))
+    token = a.token or os.environ.get("LAHZA_TOKEN")
+    if service_mode:
+        from lahza_engine.service.runtime import find_live_engine, record_start
+
+        live = find_live_engine(settings.data_dir)
+        if live is not None:
+            # Ikkinchi nusxa yo'q; 0 kod - launchd/Task Scheduler qayta ishga tushirmaydi.
+            print(f"Lahza engine allaqachon ishlayapti (pid {live['pid']}, port {live['port']}) - "
+                  "servis ikkinchi nusxani ishga tushirmaydi.", file=sys.stderr, flush=True)
+            return 0
+        if not record_start(settings.data_dir):
+            logging.getLogger("lahza_engine").error(
+                "servis qisqa vaqtda juda ko'p qayta ishga tushdi - to'xtatildi (Logs/engine-service.err.log)")
+            print("Xato: Lahza engine servisi qisqa vaqtda juda ko'p qulab tushdi - qayta ishga tushirish "
+                  "to'xtatildi. Loglarni tekshiring va `lahza install-service` bilan qayta yoqing.",
+                  file=sys.stderr, flush=True)
+            return 0
+    elif not a.port and token:
+        # Desktop sidecar'i: servis (yoki boshqa discovery engine) ishlayotgan bo'lsa - ikkinchi
+        # engine ko'tarilmaydi, mavjudiga ulanamiz (service/runtime.py "Attach rejimi").
+        from lahza_engine.service import runtime as svc_rt
+
+        live = svc_rt.find_live_engine(settings.data_dir) if svc_rt.attach_allowed() else None
+        if live is not None:
+            waiter = svc_rt.AttachWaiter()
+            a.server_slot["server"] = waiter  # watchdog ota jarayon o'lganda should_exit qiladi
+            code = svc_rt.run_attached(settings.data_dir, live, token, waiter)
+            if code is not None:
+                return code
     if a.port:
         port = a.port
     elif use_discovery:
@@ -67,7 +106,6 @@ def cmd_serve(a: argparse.Namespace) -> int:
             return 2
     else:
         port = free_port()
-    token = a.token or os.environ.get("LAHZA_TOKEN")
     discovery = None
     if use_discovery and not token:
         import secrets
@@ -79,6 +117,10 @@ def cmd_serve(a: argparse.Namespace) -> int:
         discovery = Discovery(settings.data_dir, port, token, __version__)
         discovery.start()
         app.state.shutdown_hooks.append(discovery.stop)
+        # Desktop sidecar'i shu engine'ga ulansa, uning tokeni taxallus sifatida qabul qilinadi.
+        from lahza_engine.service.runtime import TokenAliasMiddleware
+
+        app.add_middleware(TokenAliasMiddleware, data_dir=settings.data_dir, token=token)
     if token and ipc_enabled(use_discovery):
         # Fayl-IPC (`lahza.ipc/1`) - UXP'da HTTP ishlamasa zaxira transport.
         ipc = IpcServer(app, settings.data_dir)
@@ -132,6 +174,41 @@ def _run_server(app, port: int, a: argparse.Namespace, cleanup) -> None:  # type
     # Og'ir vazifadagi ThreadPool oqimlari (non-daemon) interpreter chiqishini to'sadi -
     # kutmasdan, bola jarayonlarni o'ldirib chiqamiz.
     lifecycle.finish(code)
+
+
+def _service_call(fn) -> int:
+    from lahza_engine.service.manager import ServiceError
+
+    try:
+        _print(fn())
+    except ServiceError as e:
+        print(f"Xato: {e}", file=sys.stderr, flush=True)
+        return 1
+    return 0
+
+
+def cmd_install_service(a: argparse.Namespace) -> int:
+    from lahza_engine.config import Settings
+    from lahza_engine.service import manager
+    from lahza_engine.service.spec import build_spec
+
+    spec = build_spec(Settings().data_dir, program=a.program)
+    return _service_call(lambda: manager.install(spec, dry_run=a.dry_run))
+
+
+def cmd_uninstall_service(a: argparse.Namespace) -> int:
+    from lahza_engine.config import Settings
+    from lahza_engine.service import manager
+
+    return _service_call(lambda: manager.uninstall(Settings().data_dir, dry_run=a.dry_run,
+                                                   purge_logs=a.purge_logs))
+
+
+def cmd_service_status(a: argparse.Namespace) -> int:
+    from lahza_engine.config import Settings
+    from lahza_engine.service import manager
+
+    return _service_call(lambda: manager.status(Settings().data_dir))
 
 
 def cmd_hw(a: argparse.Namespace) -> int:
@@ -284,7 +361,24 @@ def main(argv: list[str] | None = None) -> int:
                    help="stdin EOF bo'lsa (ota jarayon yopildi) engine o'zini to'xtatadi")
     s.add_argument("--shutdown-timeout", type=float, default=5.0,
                    help="yumshoq to'xtashdan keyin majburiy chiqishgacha soniya")
+    s.add_argument("--service", action="store_true",
+                   help="mustaqil servis rejimi (LaunchAgent/Task Scheduler): --discovery + ikki nusxa va "
+                        "qulash himoyasi")
+    s.add_argument("--env-file", help="servis muhiti (JSON; Windows vazifasi uchun)")
     s.set_defaults(fn=cmd_serve)
+
+    si = sub.add_parser("install-service", help="mustaqil Lahza Engine servisini o'rnatish (ADB-7)")
+    si.add_argument("--dry-run", action="store_true", help="hech narsa yozmasdan rejani chiqarish")
+    si.add_argument("--program", help="engine dasturi (masalan, .app ichidagi lahza-engine); "
+                                      "standart - joriy Python + `-m lahza_engine`")
+    si.set_defaults(fn=cmd_install_service)
+
+    su = sub.add_parser("uninstall-service", help="servisni o'chirish")
+    su.add_argument("--dry-run", action="store_true", help="hech narsa o'chirmasdan rejani chiqarish")
+    su.add_argument("--purge-logs", action="store_true", help="engine-service.*.log fayllarini ham o'chirish")
+    su.set_defaults(fn=cmd_uninstall_service)
+
+    sub.add_parser("service-status", help="servis va engine holati").set_defaults(fn=cmd_service_status)
 
     sub.add_parser("hw").set_defaults(fn=cmd_hw)
 
