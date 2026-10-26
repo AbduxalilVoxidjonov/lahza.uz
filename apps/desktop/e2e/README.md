@@ -83,8 +83,8 @@ npm run build:e2e                          # VITE_WEFTCUT_E2E=1 build — see be
 ### Native-decode CI coverage
 
 Linux nightly enables `decode-engine`, `export-native-wedges` and
-`export-prores-fidelity`. The existing slices own these files and Linux runs
-one worker per leg. Three scoped dispatches on `4c850942` each returned
+`export-prores-fidelity`. The pack places these files like any other, so each
+gate runs on whichever Linux leg owns its file, at one worker. Three scoped dispatches on `4c850942` each returned
 16 passed / 1 skipped in 17–21 minutes (#15); the one hardware-dependent
 decode-engine cell self-skips when its lane cannot engage.
 
@@ -127,7 +127,7 @@ npm run e2e -- --full                            # + the @matrix cells
 npm run e2e -- color-conformance.spec.ts         # one file
 npm run e2e -- -g "role"                         # by title grep
 npm run e2e -- --project=serial                  # only the @serial gates
-npm run e2e -- --slice=overlap                   # one CI runner's share (slices.mjs)
+npm run e2e -- --slice=e2e-3                     # one CI leg's share (slices.mjs; `node e2e/slices.mjs --table` lists them)
 ```
 
 For a full three-platform CI sweep, use the dedicated `full` input so the
@@ -167,10 +167,12 @@ job is cancelled before Playwright writes its final JSON report.
 - `suites[].specs[].tests[].results[]` — per test: `duration`, `startTime`,
   `workerIndex`, and `steps[].duration`.
 
-electron-ci publishes them per leg as the `e2e-timings-<os>-<slice>` artifact on
-every run, green or red. Nothing consumes the reports automatically — they exist
-to be read when a leg approaches its job timeout (which is what produced the
-`@matrix` tier below) and to rebalance the split.
+electron-ci publishes them per leg as the `e2e-timings-<os>-<part>` artifact on
+every run, green or red. They are what `npm run e2e:timings -- <green run id>`
+folds into `e2e/timings.json`, the measured cost `slices.mjs` packs the split
+from (§How CI spreads one run across runners). They are still worth reading by
+hand when a leg approaches its job timeout — that reading is what produced the
+`@matrix` tier below.
 
 The Rust analyzer (`media_conformance`) used by the export/conformance specs,
 fixture generation, and per-gate details are documented in
@@ -213,83 +215,76 @@ tolerate running alongside other app instances.
 ### How CI spreads one run across runners
 
 Because the GPU-less legs cannot use a second worker, electron-ci buys its
-parallelism across machines instead: each OS runs the suite as several concurrent
-slices. A slice either **owns** named spec files (`WEFTCUT_E2E_ONLY`) or takes
-**everything the owning slices did not** (`WEFTCUT_E2E_IGNORE`), so a new spec
-joins the catch-all on its own and only the heavy names are maintained. The
-`serial` project, the packaging step and the decode-bench media each ride one
-designated slice, keeping any of them off whichever slice is already the worst
-case — so each has to ride one that every OS runs.
+parallelism across machines instead: each OS runs the suite as several
+concurrent **legs**, named by position — `e2e-1` … `e2e-N`. How many is per OS
+(`LEGS` in `slices.mjs`: five on Windows and Linux, four on macOS) and is set by
+the account's concurrency caps — 20 jobs, of which 5 may be macOS and one of
+those is `rust-test` — not by the suite's shape.
 
-How many slices is per OS rather than uniform: it follows that OS's own suite
-total and its worker count, which is why macOS runs fewer of them. Not
-arbitrarily fewer, though — a slice an OS skips does not vanish, it lands on the
-catch-all, and the catch-all is the one slice that cannot be named out. So an
-OS's longest leg is bounded below by everything except its heaviest named files,
-and dropping a slice too far makes the cheapest OS the critical path. That makes the
-catch-all's ignore set per OS too, and it is the load-bearing part: computed over
-slices an OS does not run, it hides those files from the one leg that should have
-absorbed them, and they run on **no** runner of that OS while every leg reports
-green. The workflow matrix's `exclude:` is the same fact from the other side.
+Which files a leg runs is **packed**, not written down. `slices.mjs` costs every
+spec file from `e2e/timings.json` — summed test time per OS, measured from a
+green run — and places each on the lightest leg so far, heaviest first, per OS:
+a spec that is 2 min on Linux is often 1 min on macOS, so the macOS pack is a
+different pack. Summed test time is leg wall clock here: on every measured leg,
+macOS with `workers: 2` included, no two tests ever overlapped (run
+40287526652, 38.0 min of tests in a 38.7 min leg), so the sums add directly to
+the extras below. The leg then restricts its parallel project to that set
+(`WEFTCUT_E2E_ONLY`); there is no catch-all and no ignore list. A spec the
+snapshot has not measured is a new one: it packs at a default cost and still
+lands on exactly one leg, because every leg of a commit packs the same directory
+listing against the same committed snapshot.
 
-All of it — which slices exist, what each owns, which carry the extras, and which
-slices an OS runs — lives in `slices.mjs`, the one home for it: the workflow's
-E2E step reads it per (OS, slice), `npm run e2e -- --slice=<name>` replays one
-runner's share locally, and `scripts/e2e-split.test.mjs` asserts the invariants
-per OS, including the workflow conditions it cannot express itself. Rebalance
-from the `e2e-timings-<os>-<slice>` artifacts by naming one more heavy file — not
-by adding a slice, since the split is per file and no leg finishes sooner than
-the single most expensive spec.
+The three once-per-OS extras ride **fixed** legs (`CARRIERS`): the `serial`
+project and the decode-bench media it alone reads on `e2e-1`, the packaging
+step on `e2e-2`. Fixed so the workflow's `if:` conditions can name them — a
+condition cannot call into the pack — and every OS runs both legs. The pack
+counts each extra's measured wall clock toward its leg before placing any spec,
+so a carrier simply receives fewer files; no leg is the worst case for carrying
+one.
 
-Deliberately not Playwright's `--shard`; `playwright.config.ts` carries why.
+All of it lives in `slices.mjs`, the one home: the workflow's E2E step reads it
+per (OS, part), `npm run e2e -- --slice=<name>` replays one leg locally, and
+`scripts/e2e-split.test.mjs` asserts what the construction guarantees and what
+it cannot — every spec on exactly one leg of every OS, the carriers where the
+workflow's conditions expect them, the matrix's `part:` list and `exclude:`
+agreeing with `LEGS`, the pack within **balance** (heaviest leg ≤ 1.5× the
+lightest, by the snapshot) and the snapshot within **drift** (≤ 10 specs
+unmeasured or stale). When either of the last two fires, the fix is the refresh
+command in the next section — never a hand edit, which is the maintenance this
+design exists to remove.
+
+Deliberately not Playwright's `--shard`: it splits whole files by count in path
+order, blind to cost and to the extras.
 
 ### Re-measuring the split
 
 Two earlier descriptions of this split rotted into folklore — the per-slice
 minutes, and which slice was cheapest enough to host the packaging step. Both
-were true when written and neither said how to check, so nobody did. The recipe
-is therefore part of the split's documentation:
+were true when written and neither said how to check, so nobody did, and the
+catch-all grew from ten minutes to over thirty while the named legs shrank to a
+few. The recipe is therefore a command, and the split is derived from its
+output rather than described next to it:
 
 ```bash
-gh run download <run-id> --pattern 'e2e-timings-windows-latest-*' --dir /tmp/t
-node -e '
-const fs = require("fs")
-const cost = {}
-const walk = (s) => {
-  for (const sp of s.specs ?? [])
-    for (const t of sp.tests) for (const r of t.results)
-      cost[sp.file] = (cost[sp.file] ?? 0) + r.duration
-  for (const c of s.suites ?? []) walk(c)
-}
-for (const f of process.argv.slice(1))
-  for (const s of JSON.parse(fs.readFileSync(f)).suites) walk(s)
-for (const [f, ms] of Object.entries(cost).sort((a, b) => b[1] - a[1]))
-  console.log((ms / 60000).toFixed(2).padStart(6), f)
-' /tmp/t/*/*.json
+npm run e2e:timings -- <run-id>     # a GREEN push run of all three OSes
+node e2e/slices.mjs --table         # the resulting pack, per-leg minutes per OS
 ```
 
-Read it on **Windows**: it is the binding OS, and its parallel project runs at
-`workers: 1`, so summed test time there *is* leg wall clock. The whole set of
-slices is needed, because a file's cost is spread across whichever leg owns it.
+The first rewrites `e2e/timings.json` from the run's `e2e-timings-<os>-<part>`
+artifacts and the wall clock of the carrier steps; it refuses a red run (a leg
+stopped at `maxFailures` measures nothing) and a run missing an OS. The second
+is what the balance test checks. By the 2026-10-26 snapshot (run 40287526652):
 
-The shape those numbers currently describe — the pack `slices.mjs` is balanced
-against, plus the two once-per-OS lumps the slice flags place:
+| OS | legs | each | parallel tests | `serial` | `Package (unsigned)` |
+|---|---|---|---|---|---|
+| Windows | 5 | 10.1 min | 42.8 min | 5.1 min | 2.0 min |
+| Linux | 5 | 12.2 min | 53.0 min | 4.7 min | 2.9 min |
+| macOS | 4 | 13.7 min | 45.7 min | 7.1 min | 1.4 min |
 
-| spec file | min |
-|---|---|
-| `audio.spec.ts` | 8.29 |
-| `export_overlap_same_source.spec.ts` | 7.70 |
-| `export-range-audio.spec.ts` | 6.59 |
-| `export_codecs.spec.ts` | 5.97 |
-| `export_eos_tail.spec.ts` | 2.89 |
-| `conformance.spec.ts` | 2.08 |
-| the catch-all's remaining files, together | 9.70 |
-| the `serial` project, whole | 3.02 |
-| `Package (unsigned)` | 2.17 |
-
-The largest single file is the floor for every leg, which is why five slices is
-the useful maximum and why lowering the ceiling further is test-content work
-rather than CI work.
+The leg count, not the heaviest file, is now the floor: with the pack balanced,
+a leg costs its OS's total over `LEGS[os]`. Going lower means fewer specs,
+cheaper specs, or legs bought back from the concurrency budget — the heaviest
+single file (four minutes) is far below any leg and no longer shapes the split.
 
 ## Tiers: the `@matrix` sweep
 
