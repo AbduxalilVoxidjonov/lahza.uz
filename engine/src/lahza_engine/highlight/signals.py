@@ -12,6 +12,7 @@ from typing import Protocol
 import numpy as np
 
 from lahza_engine.highlight.rules import is_question
+from lahza_engine.media.probe import frame_power
 from lahza_engine.types import Sentence
 
 FRAME_MS = 100
@@ -29,13 +30,12 @@ class NullDetector:
 
 
 def loudness_db(pcm: np.ndarray, sample_rate: int, frame_ms: int = FRAME_MS) -> np.ndarray:
-    """Har frame uchun RMS (dBFS)."""
+    """Har frame uchun RMS (dBFS). pcm - ndarray yoki WavPcm (oqimli o'qiladi)."""
     hop = max(1, int(sample_rate * frame_ms / 1000))
     n = len(pcm) // hop
     if n == 0:
         return np.zeros(0, dtype=np.float32)
-    frames = pcm[: n * hop].astype(np.float32).reshape(n, hop)
-    rms = np.sqrt(np.mean(frames**2, axis=1) + 1e-12)
+    rms = np.sqrt(frame_power(pcm, hop, np.float32) + 1e-12)
     return (20.0 * np.log10(rms + 1e-12)).astype(np.float32)
 
 

@@ -34,13 +34,13 @@ from lahza_engine.diarize.assign import (
 )
 from lahza_engine.highlight.finder import find_highlights
 from lahza_engine.highlight.signals import compute_signals
-from lahza_engine.media.probe import extract_wav, make_proxy, probe, read_wav_mono
+from lahza_engine.media.probe import extract_wav, make_proxy, open_wav_mono, probe
 from lahza_engine.media.tools import find_tool, run
 from lahza_engine.text.orthography import normalize
 from lahza_engine.text.punctuation import needs_restoration, restore_punctuation
 from lahza_engine.text.sentences import build_sentences
 from lahza_engine.types import Transcript, Word
-from lahza_engine.vad.energy import energy_vad
+from lahza_engine.vad.energy import energy_vad, vad_input
 
 log = logging.getLogger(__name__)
 
@@ -76,11 +76,11 @@ def stage_ingest(ctx: StageContext) -> dict[str, Any]:
 
 
 def stage_vad(ctx: StageContext) -> dict[str, Any]:
-    pcm, sr = read_wav_mono(ctx.results["ingest"]["wav"])
+    pcm, sr = open_wav_mono(ctx.results["ingest"]["wav"])  # oqimli: 4 soat = ~920 MB float32 emas
     vad = ctx.services["svc"].vad
     if vad is not None:
         try:
-            return {"speech": vad(pcm, sr), "method": getattr(vad, "method", "silero")}
+            return {"speech": vad(vad_input(vad, pcm), sr), "method": getattr(vad, "method", "silero")}
         except Exception as e:  # noqa: BLE001 - VAD xatosi tahlilni to'xtatmaydi
             log.warning("Silero VAD xatosi, energiya VAD'iga o'tildi: %s", e)
     return {"speech": energy_vad(pcm, sr), "method": "energy"}
@@ -93,7 +93,7 @@ def stage_asr(ctx: StageContext) -> dict[str, Any]:
     wav = Path(ctx.results["ingest"]["wav"])
     speech = [tuple(r) for r in ctx.results["vad"]["speech"]]
     try:  # uzun nutqni jim joyda kesish uchun; audio o'qilmasa teng bo'laklar
-        pcm, sr = read_wav_mono(wav)
+        pcm, sr = open_wav_mono(wav)  # jim nuqta qidirish faqat kerakli oraliqni o'qiydi
     except Exception:  # noqa: BLE001
         pcm, sr = None, 16_000
     chunks = plan_chunks(speech, pcm=pcm, sample_rate=sr)
@@ -201,7 +201,7 @@ def stage_sentences(ctx: StageContext) -> dict[str, Any]:
 
 def stage_signals(ctx: StageContext) -> dict[str, Any]:
     tr = db.load_transcript(ctx.conn, ctx.media_id)
-    pcm, sr = read_wav_mono(ctx.results["ingest"]["wav"])
+    pcm, sr = open_wav_mono(ctx.results["ingest"]["wav"])
     rep = compute_signals(tr.sentences, pcm, sr)
     return {"sentences": [s.__dict__ for s in rep.sentences]}
 

@@ -10,6 +10,8 @@ from typing import Protocol
 
 import numpy as np
 
+from lahza_engine.media.probe import frame_power
+
 
 class Vad(Protocol):
     def __call__(self, pcm: np.ndarray, sample_rate: int) -> list[tuple[int, int]]:
@@ -17,8 +19,16 @@ class Vad(Protocol):
         ...
 
 
+def vad_input(vad: object, pcm: object) -> object:
+    """VAD'ga beriladigan audio: oqimli VAD (`streaming = True`) WavPcm'ni o'zi o'qiydi,
+    qolganlariga (torch/test VAD'lari) butun ndarray beriladi."""
+    if isinstance(pcm, np.ndarray) or getattr(vad, "streaming", False):
+        return pcm
+    return np.asarray(pcm)
+
+
 def energy_vad(
-    pcm: np.ndarray,
+    pcm: np.ndarray,  # yoki media.probe.WavPcm (oqimli, butun massiv o'qilmaydi)
     sample_rate: int,
     frame_ms: int = 30,
     min_speech_ms: int = 250,
@@ -29,8 +39,7 @@ def energy_vad(
     n = len(pcm) // hop
     if n == 0:
         return []
-    frames = pcm[: n * hop].reshape(n, hop)
-    db = 20 * np.log10(np.sqrt(np.mean(frames**2, axis=1)) + 1e-9)
+    db = 20 * np.log10(np.sqrt(frame_power(pcm, hop)) + 1e-9)
     noise = np.percentile(db, 10)
     voiced = db > noise + margin_db
     regions: list[tuple[int, int]] = []
@@ -65,6 +74,7 @@ class SileroVad:
     def __call__(self, pcm: np.ndarray, sample_rate: int) -> list[tuple[int, int]]:
         import torch
 
-        ts = self._get(torch.from_numpy(pcm), self._model, sampling_rate=sample_rate,
+        arr = pcm if isinstance(pcm, np.ndarray) else np.asarray(pcm)
+        ts = self._get(torch.from_numpy(arr), self._model, sampling_rate=sample_rate,
                        return_seconds=False)
         return [(int(t["start"] * 1000 / sample_rate), int(t["end"] * 1000 / sample_rate)) for t in ts]

@@ -258,7 +258,7 @@ def analyze_file(
     """Manba faylni tahlil qiladi (kesh bo'lsa - keshdan). `cancel` o'rnatilsa `AnalysisCancelled`."""
     from lahza_engine.media.codec_check import check_decodable
     from lahza_engine.media.frames import iter_frames
-    from lahza_engine.media.probe import extract_wav, read_wav_mono
+    from lahza_engine.media.probe import extract_wav, frame_power, open_wav_mono
     from lahza_engine.media.scenes import DEFAULT_THRESHOLD, detect_scene_cuts
     from lahza_engine.vad.energy import energy_vad
 
@@ -313,17 +313,21 @@ def analyze_file(
             wav = Path(td) / "a.wav"
             try:
                 extract_wav(path, wav)
-                pcm, rate = read_wav_mono(wav)
+                pcm, rate = open_wav_mono(wav)  # oqimli; WAV shu blok ichida o'qiladi
             except MediaError:
                 pcm, rate = np.zeros(0, dtype=np.float32), 16_000
-        if len(pcm):
-            hop = int(rate * CURVE_STEP_MS / 1000)
-            n = min(n_steps, len(pcm) // hop + (1 if len(pcm) % hop else 0))
-            for i in range(n):
-                seg = pcm[i * hop:(i + 1) * hop]
-                rms = float(np.sqrt(np.mean(seg.astype(np.float32) ** 2) + 1e-12))
-                energy_steps[i] = energy_norm(20.0 * np.log10(rms + 1e-12))
-            speech = [(int(a), int(b)) for a, b in energy_vad(pcm, rate)]
+            if len(pcm):
+                hop = int(rate * CURVE_STEP_MS / 1000)
+                full = min(n_steps, len(pcm) // hop)
+                ms = frame_power(pcm, hop, np.float32)[:full]
+                for i in range(full):
+                    rms = float(np.sqrt(ms[i] + 1e-12))
+                    energy_steps[i] = energy_norm(20.0 * np.log10(rms + 1e-12))
+                if full < n_steps and len(pcm) % hop:  # oxirgi to'liq bo'lmagan qadam
+                    seg = pcm[full * hop:len(pcm)]
+                    rms = float(np.sqrt(np.mean(np.asarray(seg, dtype=np.float32) ** 2) + 1e-12))
+                    energy_steps[full] = energy_norm(20.0 * np.log10(rms + 1e-12))
+                speech = [(int(a), int(b)) for a, b in energy_vad(pcm, rate)]
     progress(0.4)
 
     # 3) Kadrlar: keskinlik, yorug'lik, harakat (2 fps, 320px).

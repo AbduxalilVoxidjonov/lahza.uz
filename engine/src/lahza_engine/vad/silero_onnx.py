@@ -102,6 +102,7 @@ class SileroOnnxVad:
     """Silero VAD v5 ONNX. `session` - testlar uchun (onnxruntime.InferenceSession o'rniga)."""
 
     method = "silero"
+    streaming = True  # media.probe.WavPcm ni butun massivga aylantirmasdan qabul qiladi
 
     def __init__(
         self,
@@ -140,8 +141,13 @@ class SileroOnnxVad:
         sr = np.array(sample_rate, dtype=np.int64)
         n = (len(pcm) + window - 1) // window
         out = np.zeros(n, dtype=np.float32)
+        per = max(1, (1 << 20) // window)  # oqimli: blok-blok o'qiladi (WavPcm uchun)
+        block = np.zeros(0, dtype=np.float32)
         for i in range(n):
-            chunk = pcm[i * window : (i + 1) * window]
+            if i % per == 0:
+                block = np.asarray(pcm[i * window : (i + per) * window])
+            k = i % per
+            chunk = block[k * window : (k + 1) * window]
             if len(chunk) < window:
                 chunk = np.pad(chunk, (0, window - len(chunk)))
             x = np.concatenate([context, chunk[None, :].astype(np.float32)], axis=1)
@@ -151,7 +157,9 @@ class SileroOnnxVad:
         return out
 
     def __call__(self, pcm: np.ndarray, sample_rate: int) -> list[tuple[int, int]]:
-        pcm = np.asarray(pcm, dtype=np.float32)
+        # WavPcm (oqimli) 16/8 kHz da butunicha o'qilmaydi; ndarray avvalgidek float32 ga.
+        if isinstance(pcm, np.ndarray) or not hasattr(pcm, "read") or sample_rate not in _WINDOW:
+            pcm = np.asarray(pcm, dtype=np.float32)
         if sample_rate not in _WINDOW:
             pcm = _resample_linear(pcm, sample_rate, 16000)
             sample_rate = 16000

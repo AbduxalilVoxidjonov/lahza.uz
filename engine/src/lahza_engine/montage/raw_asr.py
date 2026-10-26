@@ -21,14 +21,14 @@ from lahza_engine.asr.base import (
 from lahza_engine.asr.preprocess import normalize_wav_file
 from lahza_engine.core.runner import Cancelled
 from lahza_engine.core.services import Services, _align_model
-from lahza_engine.media.probe import extract_wav, fast_hash, read_wav_mono
+from lahza_engine.media.probe import extract_wav, fast_hash, open_wav_mono
 from lahza_engine.media.tools import find_tool, run
 from lahza_engine.models.catalog import Task
 from lahza_engine.models.store import InstalledModel, ModelStore
 from lahza_engine.text.orthography import normalize
 from lahza_engine.text.sentences import build_sentences
 from lahza_engine.types import Sentence, Word
-from lahza_engine.vad.energy import energy_vad
+from lahza_engine.vad.energy import energy_vad, vad_input
 
 if TYPE_CHECKING:
     from lahza_engine.montage.analyze import SourceAnalysis
@@ -103,10 +103,10 @@ def transcribe_source(
             work = Path(directory)
             wav = extract_wav(source.media.path, work / "audio.wav")
             progress(.1)
-            pcm, rate = read_wav_mono(wav)
+            pcm, rate = open_wav_mono(wav)  # oqimli: butun audio xotiraga o'qilmaydi
             check()
             try:
-                speech = svc.vad(pcm, rate) if svc.vad is not None else energy_vad(pcm, rate)
+                speech = svc.vad(vad_input(svc.vad, pcm), rate) if svc.vad is not None else energy_vad(pcm, rate)
             except Exception:
                 check()
                 speech = energy_vad(pcm, rate)

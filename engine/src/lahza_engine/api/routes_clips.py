@@ -166,9 +166,9 @@ def _signals(conn, pdir: Path, eid: str, sentences: list[Sentence]):
     wav = pdir / "cache" / "audio16k.wav"
     pcm, sr = None, 16_000
     if wav.exists():
-        from lahza_engine.media.probe import read_wav_mono
+        from lahza_engine.media.probe import open_wav_mono
 
-        pcm, sr = read_wav_mono(wav)
+        pcm, sr = open_wav_mono(wav)  # oqimli o'qish
     return compute_signals(sentences, pcm, sr)
 
 

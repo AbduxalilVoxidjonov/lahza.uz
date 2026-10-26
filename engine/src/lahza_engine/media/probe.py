@@ -122,7 +122,10 @@ def make_proxy(src: str | os.PathLike[str], dst: str | os.PathLike[str], height:
 
 
 def read_wav_mono(path: str | os.PathLike[str]) -> tuple[np.ndarray, int]:
-    """16-bit PCM WAV -> float32 [-1, 1]."""
+    """16-bit PCM WAV -> float32 [-1, 1] (butun fayl xotiraga).
+
+    Kichik fayllar uchun. Uzun audio uchun `open_wav_mono` (oqimli, oraliq o'qish) ishlating.
+    """
     import wave
 
     with wave.open(str(path), "rb") as w:
@@ -135,3 +138,133 @@ def read_wav_mono(path: str | os.PathLike[str]) -> tuple[np.ndarray, int]:
     if ch > 1:
         pcm = pcm.reshape(-1, ch).mean(axis=1)
     return pcm, rate
+
+
+# Oqimli o'qishda bitta blok hajmi (namuna): 16 kHz da ~65 s, float32 da 4 MB.
+WAV_BLOCK_SAMPLES = 1 << 20
+
+
+def _wav_layout(path: str) -> tuple[int, int, int, int]:
+    """RIFF/WAVE sarlavhasi: (data_offset, n_frames, channels, rate). Faqat 16-bit PCM."""
+    import struct
+
+    size = os.path.getsize(path)
+    with open(path, "rb") as f:
+        head = f.read(12)
+        if len(head) < 12 or head[:4] not in (b"RIFF", b"RF64") or head[8:12] != b"WAVE":
+            raise MediaError("WAV fayli emas")
+        rf64 = head[:4] == b"RF64"
+        ds64_data: int | None = None
+        fmt: tuple[int, int, int, int] | None = None
+        pos = 12
+        while pos + 8 <= size:
+            f.seek(pos)
+            cid, clen = struct.unpack("<4sI", f.read(8))
+            body = pos + 8
+            if cid == b"ds64":
+                ds64_data = struct.unpack("<QQ", f.read(16))[1]
+            elif cid == b"fmt ":
+                tag, ch, rate, _br, _ba, bits = struct.unpack("<HHIIHH", f.read(16))
+                fmt = (tag, ch, rate, bits)
+            elif cid == b"data":
+                if fmt is None:
+                    raise MediaError("WAV: fmt bo'limi yo'q")
+                tag, ch, rate, bits = fmt
+                if bits != 16 or tag not in (1, 0xFFFE) or ch < 1:
+                    raise MediaError("faqat 16-bit PCM WAV qo'llanadi")
+                avail = size - body
+                n_bytes = ds64_data if rf64 and clen == 0xFFFFFFFF and ds64_data else clen
+                n_bytes = min(n_bytes, avail)  # oqimda yozilgan (o'lchami 0/-1) fayllar
+                if clen in (0, 0xFFFFFFFF) and not (rf64 and ds64_data):
+                    n_bytes = avail
+                return body, n_bytes // (2 * ch), ch, rate
+            pos = body + clen + (clen & 1)
+    raise MediaError("WAV: data bo'limi topilmadi")
+
+
+class WavPcm:
+    """16-bit PCM WAV ustidan dangasa mono float32 ko'rinish (V1-1: 4 soatlik audio uchun).
+
+    Butun faylni xotiraga o'qimaydi: `pcm[a:b]` faqat shu oraliqni diskdan o'qib, `read_wav_mono`
+    bilan bit-darajada bir xil float32 qiymat qaytaradi. `len()`, `rate`, `blocks()` va
+    `np.asarray(pcm)` (butunini o'qish - faqat kichik fayllar uchun) qo'llanadi.
+    memmap emas, oddiy oraliq o'qish: xaritalangan sahifalar RSS ga qo'shilmasin.
+    """
+
+    def __init__(self, path: str | os.PathLike[str]) -> None:
+        self.path = str(path)
+        self._offset, self._n, self.channels, self.rate = _wav_layout(self.path)
+        self.dtype = np.dtype(np.float32)
+
+    def __len__(self) -> int:
+        return self._n
+
+    @property
+    def shape(self) -> tuple[int]:
+        return (self._n,)
+
+    def read(self, start: int, stop: int) -> np.ndarray:
+        """[start, stop) namunalar (mono float32, [-1, 1])."""
+        start = max(0, min(int(start), self._n))
+        stop = max(start, min(int(stop), self._n))
+        count = (stop - start) * self.channels
+        if count == 0:
+            return np.zeros(0, dtype=np.float32)
+        with open(self.path, "rb") as f:
+            f.seek(self._offset + start * 2 * self.channels)
+            raw = np.fromfile(f, dtype="<i2", count=count)
+        pcm = raw.astype(np.float32) / 32768.0
+        if self.channels > 1:
+            pcm = pcm[: len(pcm) - len(pcm) % self.channels].reshape(-1, self.channels).mean(axis=1)
+        return pcm
+
+    def __getitem__(self, key: object) -> np.ndarray:
+        if isinstance(key, slice):
+            start, stop, step = key.indices(self._n)
+            if step == 1:
+                return self.read(start, stop)
+            return np.asarray(self)[key]
+        if isinstance(key, (int, np.integer)):
+            i = int(key) + (self._n if key < 0 else 0)
+            if not 0 <= i < self._n:
+                raise IndexError(key)
+            return self.read(i, i + 1)[0]
+        raise TypeError(f"WavPcm indeksi qo'llanmaydi: {type(key).__name__}")
+
+    def __array__(self, dtype: object = None, copy: object = None) -> np.ndarray:
+        arr = self.read(0, self._n)
+        return arr if dtype is None else arr.astype(dtype)
+
+    def blocks(self, block: int = WAV_BLOCK_SAMPLES, align: int = 1):
+        """(start, float32 blok) juftlari; blok uzunligi `align` ga karrali (oxirgisidan tashqari)."""
+        block = max(align, block - block % align)
+        for a in range(0, self._n, block):
+            yield a, self.read(a, a + block)
+
+
+def open_wav_mono(path: str | os.PathLike[str]) -> tuple[WavPcm, int]:
+    """`read_wav_mono` ning oqimli o'rinbosari: (dangasa pcm, rate)."""
+    pcm = WavPcm(path)
+    return pcm, pcm.rate
+
+
+def frame_power(pcm: object, hop: int, dtype: object = None,
+                block: int = WAV_BLOCK_SAMPLES) -> np.ndarray:
+    """Har `hop` namunali kadr uchun o'rtacha kvadrat, oqimli; to'liq bo'lmagan oxiri tashlanadi.
+
+    ndarray ham, WavPcm ham qabul qilinadi. Natija `mean(frames**2, axis=1)` bilan bit-darajada
+    bir xil: har kadr alohida qisqartiriladi, bloklash qiymatga ta'sir qilmaydi. `dtype=None` -
+    kirish turi saqlanadi (WavPcm uchun float32).
+    """
+    hop = max(1, int(hop))
+    n = len(pcm) // hop  # type: ignore[arg-type]
+    dt = np.dtype(dtype) if dtype is not None else np.dtype(getattr(pcm, "dtype", np.float32))
+    if n == 0:
+        return np.zeros(0, dtype=np.result_type(dt, np.float32) if dt.kind != "f" else dt)
+    per = max(1, block // hop)
+    parts = []
+    for i in range(0, n, per):
+        j = min(n, i + per)
+        x = np.asarray(pcm[i * hop: j * hop], dtype=dt).reshape(j - i, hop)  # type: ignore[index]
+        parts.append(np.mean(x**2, axis=1))
+    return parts[0] if len(parts) == 1 else np.concatenate(parts)
