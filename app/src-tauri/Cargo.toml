@@ -1,6 +1,6 @@
 [package]
 name = "lahza-studio"
-version = "0.2.3"
+version = "0.2.4"
 description = "Lahza Studio - oflayn AI Reels kesuvchi"
 edition = "2021"
 publish = false

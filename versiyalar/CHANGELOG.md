@@ -5,6 +5,21 @@ Eng yangisi tepada. Keyingi reliz o'zgarishlari `## [Kelgusi]` bo'limiga yozilad
 
 ## [Kelgusi]
 
+## [0.2.4] — 2026-10-26
+
+- **Yangi — Claude montaj (standart o'chiq):** foydalanuvchi kompyuteridagi Claude Code/Desktop topiladi; montaj panelida Lokal/Claude reja tanlovi, Lahza MCP serveri (`lahza-engine mcp`, 13 tool) Claude'ga bir tugma bilan ulanadi. Claude'ga faqat timeline tavsifi va transkript matni boradi (`claude_bridge/`, `/v1/claude/*`, docs/15-claude-montaj.md).
+- **Yaxshilash — LLM highlight tezligi:** 10 daqiqalik videoda 498 s → 43 s (M3-PERF-2).
+- **Yaxshilash — xotira:** WAV oqimli o'qiladi; 4 soatlik podkastda RSS 2242 → 210 MB (V1-1).
+- **Yangi — aktiv spiker:** LR-ASD ONNX backend + diarizatsiya, eksportda kadr gapirayotgan odamga yo'naltiriladi (R0-VIS-2, M3-RF-1).
+- **Yangi — mustaqil Lahza Engine servisi:** macOS LaunchAgent / Windows Task Scheduler; Studio va Adobe plaginlari bitta engine'ni discovery orqali topadi (ADB-7).
+- **Yangi — shaxsiy lug'at va ball vaznlari:** real natijalardan o'rganadi (PRO-1, PRO-6).
+- **Yangi — oflayn litsenziya kaliti:** Ed25519, standart holatda o'chiq (V1-3, ADR-0016).
+- **Litsenziya — ASR PyAV'siz:** dekod LGPL FFmpeg orqali, GPL libx264/libx265 li `av` sidecar'dan chiqarildi (ADR-0015).
+- **Yaxshilash — import kartasi:** fayl va YouTube havolasi bitta sahifada.
+- **Sifat:** chidamlilik testlari, tezlik benchmarki, platforma limitlari (V1-1, M3-PERF-1, V1-6); navbat `shutdown()` dagi poyga holati tuzatildi.
+
+Tafsilotlar: [`0.2.4/NOTES.md`](0.2.4/NOTES.md)
+
 ## [0.2.3] — 2026-10-26
 
 - **Yangi — AV1 o'qish:** bundled FFmpeg dav1d 1.5.4 (BSD-2, statik) bilan yig'iladi, LGPL qoidasi saqlanadi (`--disable-gpl`). `codec_check` AV1 ni endi `ffmpeg -decoders` bo'yicha tekshiradi; dekoder bo'lmasa avvalgidek `unsupported_codec` (`scripts/setup_local_render.py`, `third_party/runtimes.toml`, `media/codec_check.py`).
