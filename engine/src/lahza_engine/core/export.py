@@ -10,12 +10,26 @@ import shutil
 import sqlite3
 import string
 import tempfile
+from collections.abc import Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
+import numpy as np
+
 from lahza_engine.config import Settings
 from lahza_engine.db import store as db
+from lahza_engine.diarize.assign import Turn
 from lahza_engine.media.tools import find_tool, run
+from lahza_engine.reframe.active_speaker import resolve_active_speakers
+from lahza_engine.reframe.asd import (
+    ASD_AUDIO_SR,
+    ASD_CHUNK_FRAMES,
+    ASD_VIDEO_FPS,
+    AsdBackend,
+    face_crop,
+    score_track,
+    scores_at,
+)
 from lahza_engine.reframe.planner import (
     Keyframe,
     LayoutSegment,
@@ -131,9 +145,16 @@ def _speech_at(words: list[Word], t_src: int) -> tuple[str | None, bool]:
 def observations_for_clip(
     src: Path, clip: Clip, timeline: Timeline, detector, settings: Settings, src_w: int, src_h: int,
     scene_cuts: list[int] | None = None, words: list[Word] | None = None,
+    asd: AsdBackend | None = None, turns: Sequence[Turn] | None = None,
+    overlaps: Sequence[tuple[int, int]] | None = None, audio_path: Path | None = None,
 ) -> list[Observation]:
-    """Yuz aniqlash (5 fps) -> klip vaqtidagi kuzatuvlar. ASD modeli R0'da qo'shiladi; hozircha
-    bitta yuz bo'lsa u, bir nechta bo'lsa eng kattasi faol hisoblanadi.
+    """Yuz aniqlash (5 fps) -> klip vaqtidagi kuzatuvlar (`track_ids` - FaceTracker ID lari).
+
+    ASD backend yo'q (`asd=None`): bitta yuz bo'lsa u, bir nechta bo'lsa eng kattasi faol
+    (ASD ulanishidan oldingi reja bilan bit-darajada bir xil; `turns` ishlatilmaydi).
+    ASD bor: kadrlar 25 fps da o'qiladi, detektor analiz chastotasida; har trekning yuz kesimlari
+    (25 fps) + klip oralig'i audiosi (16 kHz) -> `score_track` -> `scores_at` -> `asd_scores`;
+    so'ng manba vaqtida diarizatsiya (`turns`, `overlaps`) bilan `resolve_active_speakers`.
 
     scene_cuts (manba vaqtida) va matn orqali o'chirilgan joylar -> shot_cut (kamera yo'li qayta
     boshlanadi). words (spiker belgili) -> spiker almashinuvi va ustma-ust gapirish (split).
@@ -142,16 +163,33 @@ def observations_for_clip(
     from lahza_engine.reframe.faces import FaceTracker
 
     tracker = FaceTracker()
-    obs: list[Observation] = []
+    obs: list[Observation] = []  # t_ms - manba vaqtida; oxirida chiqish vaqtiga o'tkaziladi
+    t_outs: list[int] = []
     cuts = sorted(scene_cuts or [])
     bounds = timeline.boundaries_out()
     spk_words = [w for w in (words or []) if w.speaker]
     prev_src: int | None = None
     prev_out: int | None = None
-    for t_src, frame in iter_frames(src, clip.start_ms, clip.end_ms, settings.reframe.analysis_fps,
-                                    src_w=src_w, src_h=src_h):
+    fps = settings.reframe.analysis_fps
+    crops: _AsdCrops | None = None
+    step = 1
+    if asd is not None:
+        crops = _AsdCrops(asd, _clip_audio(audio_path or src, clip.start_ms, clip.end_ms),
+                          clip.start_ms)
+        step = max(1, round(ASD_VIDEO_FPS / fps))
+        fps = ASD_VIDEO_FPS
+    boxes: list = []
+    ids: list[int] = []
+    for n, (t_src, frame) in enumerate(iter_frames(src, clip.start_ms, clip.end_ms, fps,
+                                                   src_w=src_w, src_h=src_h)):
+        if crops is not None and n % step:
+            # oraliq 25 fps kadr: oxirgi aniqlangan qutilar bo'yicha yuz kesimlari
+            if timeline.to_out(t_src) is not None:
+                crops.add(t_src, frame, boxes, ids)
+            continue
         t_out = timeline.to_out(t_src)
         if t_out is None:
+            boxes, ids = [], []
             continue
         shot_cut = prev_src is not None and (
             any(prev_src < c <= t_src for c in cuts)
@@ -159,14 +197,125 @@ def observations_for_clip(
         )
         prev_src, prev_out = t_src, t_out
         boxes = detector.detect(frame)
-        tracker.update(t_out, boxes)
+        ids = _track_ids(boxes, tracker.update(t_out, boxes))
+        if crops is not None:
+            if shot_cut:
+                crops.flush()
+            crops.add(t_src, frame, boxes, ids)
         active = None
         if boxes:
             active = max(range(len(boxes)), key=lambda i: boxes[i].w * boxes[i].h)
         speaker, overlap = _speech_at(spk_words, t_src) if spk_words else (None, False)
-        obs.append(Observation(t_out, boxes, active, shot_cut=shot_cut, overlap_speech=overlap,
-                               speaker=speaker))
+        obs.append(Observation(t_src, boxes, active, shot_cut=shot_cut, overlap_speech=overlap,
+                               speaker=speaker, track_ids=ids))
+        t_outs.append(t_out)
+    if crops is not None:
+        scores = crops.finish()
+        obs = [replace(o, asd_scores=scores_at(scores, o.t_ms)) for o in obs]
+        # Manba vaqtida (diarizatsiya turn'lari ham manba vaqtida); tartib saqlanadi.
+        obs = resolve_active_speakers(obs, settings.reframe, turns, overlaps)
+    obs = [replace(o, t_ms=t) for o, t in zip(obs, t_outs, strict=True)]
     return _with_hook_prefix(obs, timeline)
+
+
+def _track_ids(boxes: list, live: list) -> list[int]:
+    """Har quti uchun FaceTracker ID si (treker berilgan quti obyektini saqlaydi - identifikatsiya)."""
+    by_box = {id(t.box): t.id for t in live}
+    return [by_box.get(id(b), -1 - j) for j, b in enumerate(boxes)]
+
+
+class _AsdCrops:
+    """Trek bo'yicha 25 fps yuz kesimlari. Trek uzilsa, sahna kesilsa yoki ASD_CHUNK_FRAMES ga
+    yetsa baholanadi - xotirada bir trekka ko'pi bilan 250 kesim (~12 MB) turadi."""
+
+    def __init__(self, backend: AsdBackend, audio: np.ndarray | None, audio_start_ms: int) -> None:
+        self.backend, self.audio, self.audio_start_ms = backend, audio, audio_start_ms
+        self.buf: dict[int, list[tuple[int, np.ndarray]]] = {}
+        self.scores: dict[int, list[tuple[int, float]]] = {}
+        self.max_gap_ms = 3 * 1000 // ASD_VIDEO_FPS
+
+    def add(self, t_ms: int, frame: np.ndarray, boxes: list, ids: list[int]) -> None:
+        if self.audio is None:
+            return
+        for tid in [t for t in self.buf if t not in ids]:
+            self._score(tid)
+        for b, tid in zip(boxes, ids, strict=True):
+            seq = self.buf.get(tid)
+            if seq and t_ms - seq[-1][0] > self.max_gap_ms:
+                self._score(tid)
+            seq = self.buf.setdefault(tid, [])
+            seq.append((t_ms, face_crop(frame, b)))
+            if len(seq) >= ASD_CHUNK_FRAMES:
+                self._score(tid)
+
+    def _score(self, tid: int) -> None:
+        seq = self.buf.pop(tid, [])
+        if seq and self.audio is not None:
+            self.scores.setdefault(tid, []).extend(
+                score_track(self.backend, seq, self.audio, self.audio_start_ms))
+
+    def flush(self) -> None:
+        for tid in list(self.buf):
+            self._score(tid)
+
+    def finish(self) -> dict[int, list[tuple[int, float]]]:
+        self.flush()
+        return self.scores
+
+
+def _clip_audio(path: Path, start_ms: int, end_ms: int) -> np.ndarray | None:
+    """Faqat klip oralig'i: ffmpeg bilan 16 kHz mono s16le dekod (butun WAV xotiraga olinmaydi).
+
+    Qiymatlar int16 shkalasida (LR-ASD MFCC shunday o'qitilgan). Xato bo'lsa None (ASD ballarisiz).
+    """
+    import subprocess
+
+    try:
+        ffmpeg = str(find_tool("ffmpeg"))
+        r = subprocess.run(
+            [ffmpeg, "-v", "error", "-ss", f"{start_ms / 1000:.3f}",
+             "-t", f"{max(0, end_ms - start_ms) / 1000:.3f}", "-i", str(path), "-vn",
+             "-ac", "1", "-ar", str(ASD_AUDIO_SR), "-f", "s16le", "-"],
+            capture_output=True, check=False)
+    except Exception as e:  # noqa: BLE001 - ASD ixtiyoriy
+        log.warning("ASD uchun audio o'qilmadi: %s", type(e).__name__)
+        return None
+    if r.returncode != 0 or not r.stdout:
+        log.warning("ASD uchun audio o'qilmadi (ffmpeg rc=%s)", r.returncode)
+        return None
+    return np.frombuffer(r.stdout[: len(r.stdout) // 2 * 2], dtype="<i2").astype(np.float32)
+
+
+def load_diarization(
+    conn: sqlite3.Connection, media_id: str,
+) -> tuple[list[Turn], list[tuple[int, int]], Path | None]:
+    """Tahlil keshidan (stage_runs -> JSON): diarizatsiya turn'lari (exclusive), ustma-ust
+    oraliqlar va ingest'dagi 16 kHz WAV yo'li. Diarizatsiya bo'lmagan (lite / model yo'q) yoki
+    kesh topilmasa - bo'sh ro'yxatlar."""
+    import json
+
+    def result(stage: str) -> dict:
+        try:
+            row = conn.execute(
+                "SELECT result_path FROM stage_runs WHERE media_id = ? AND stage = ? "
+                "AND status = 'done'", (media_id, stage)).fetchone()
+            if row and row[0] and Path(row[0]).is_file():
+                data = json.loads(Path(row[0]).read_text(encoding="utf-8"))
+                return data if isinstance(data, dict) else {}
+        except Exception as e:  # noqa: BLE001 - kesh buzuq bo'lsa diarizatsiyasiz
+            log.warning("%s natijasi o'qilmadi: %s", stage, type(e).__name__)
+        return {}
+
+    d = result("diarize")
+    try:
+        turns = [Turn(int(t["start_ms"]), int(t["end_ms"]), str(t["speaker"]))
+                 for t in d.get("turns") or []]
+        overlaps = [(int(a), int(b)) for a, b in d.get("overlaps") or []]
+    except (KeyError, TypeError, ValueError):
+        turns, overlaps = [], []
+    wav = result("ingest").get("wav")
+    wav_path = Path(wav) if isinstance(wav, str) and Path(wav).is_file() else None
+    return turns, overlaps, wav_path
 
 
 def _with_hook_prefix(obs: list[Observation], timeline: Timeline) -> list[Observation]:
@@ -188,7 +337,9 @@ def _with_hook_prefix(obs: list[Observation], timeline: Timeline) -> list[Observ
 def build_layout_plan(
     src: Path, clip: Clip, timeline: Timeline, detector, settings: Settings, src_w: int, src_h: int,
     manual_layout: Layout | None = None, words: list[Word] | None = None,
-    detect_scenes: bool = True,
+    detect_scenes: bool = True, asd: AsdBackend | None = None,
+    turns: Sequence[Turn] | None = None, overlaps: Sequence[tuple[int, int]] | None = None,
+    audio_path: Path | None = None,
 ) -> list[LayoutSegment]:
     if manual_layout is Layout.FIT_BLUR or detector is None:
         return [LayoutSegment(0, timeline.duration_ms, Layout.FIT_BLUR)]
@@ -201,7 +352,8 @@ def build_layout_plan(
         except Exception as e:  # noqa: BLE001 - kesim topilmasa ham reframe ishlaydi
             log.warning("sahna kesimlarini aniqlab bo'lmadi: %s", type(e).__name__)
     obs = observations_for_clip(src, clip, timeline, detector, settings, src_w, src_h,
-                                scene_cuts=cuts, words=words)
+                                scene_cuts=cuts, words=words, asd=asd, turns=turns,
+                                overlaps=overlaps, audio_path=audio_path)
     return plan(obs, timeline.duration_ms, settings.reframe)
 
 
@@ -209,9 +361,13 @@ def resolve_layouts(
     conn: sqlite3.Connection, src: Path, clip: Clip, timeline: Timeline, detector,
     settings: Settings, src_w: int, src_h: int, words: list[Word] | None = None,
     layouts: list[LayoutSegment] | None = None, use_auto_cache: bool = False,
+    asd: AsdBackend | None = None,
 ) -> tuple[list[LayoutSegment], str]:
     """Layout manbai ustuvorligi: qo'lda kalit kadrlar > berilgan `layouts` > (preview'da)
-    saqlangan avto qatorlar > yangi avtomatik reja (jadvalga 'avto' sifatida yoziladi)."""
+    saqlangan avto qatorlar > yangi avtomatik reja (jadvalga 'avto' sifatida yoziladi).
+
+    `asd` (LR-ASD backend) berilsa yangi rejada epizod diarizatsiyasi (tahlil keshidan) va klip
+    audiosi bilan aktiv spiker aniqlanadi; None - eng katta yuz (avvalgidek)."""
     dur = timeline.duration_ms
     cut_thr = settings.reframe.cut_threshold
     manual = load_keyframes(conn, clip.id, "qolda")
@@ -223,7 +379,12 @@ def resolve_layouts(
         auto = load_keyframes(conn, clip.id, "avto")
         if auto:
             return layouts_from_keyframes(auto, dur, cut_thr), "avto"
-    planned = build_layout_plan(src, clip, timeline, detector, settings, src_w, src_h, words=words)
+    extra: dict = {}
+    if asd is not None and detector is not None:
+        turns, overlaps, wav = load_diarization(conn, clip.media_id)
+        extra = {"asd": asd, "turns": turns, "overlaps": overlaps, "audio_path": wav}
+    planned = build_layout_plan(src, clip, timeline, detector, settings, src_w, src_h, words=words,
+                                **extra)
     save_auto_keyframes(conn, clip.id, planned)
     return planned, "avto"
 
@@ -271,9 +432,11 @@ def export_clip(
     filename_template: str = DEFAULT_FILENAME_TEMPLATE,
     allow_no_subs: bool = False,
     platform: str = "instagram_reels",
+    asd: AsdBackend | None = None,
 ) -> ExportResult:
     """Klipni eksport qiladi. libass yo'q bo'lsa LibassMissing (allow_no_subs=True - subtitrsiz,
-    ogohlantirish bilan). Qo'lda kalit kadrlar (reframe_keyframes, source='qolda') ustun."""
+    ogohlantirish bilan). Qo'lda kalit kadrlar (reframe_keyframes, source='qolda') ustun.
+    `asd` - LR-ASD backend (`Services.asd_backend()`); None - eng katta yuz heuristikasi."""
     settings = profile_settings(settings, platform)
     media = conn.execute("SELECT * FROM media WHERE id = ?", (media_id,)).fetchone()
     if media is None:
@@ -288,7 +451,7 @@ def export_clip(
     base = render_filename(filename_template, show_name, episode, index, clip.title)
     ass_text = build_ass(words, tl, style, settings.safe_zone, W, H)
     layouts, _source = resolve_layouts(conn, src, clip, tl, detector, settings, media["width"],
-                                       media["height"], words=words, layouts=layouts)
+                                       media["height"], words=words, layouts=layouts, asd=asd)
 
     # Shared profile restrictions were checked above; recommendations only warn here.
     warnings = check_limits(tl.duration_ms, W, H, platform=platform)
@@ -344,6 +507,7 @@ def render_preview_frame(
     settings: Settings,
     out_jpg: Path,
     detector=None,
+    asd: AsdBackend | None = None,
 ) -> Path:
     """Muharrir uchun bitta 1080x1920 JPG kadr: layout + subtitr (+ logotip).
 
@@ -359,7 +523,7 @@ def render_preview_frame(
     t_out = max(0, min(tl.duration_ms - 1, int(t_out_ms)))
     words = _clip_words(conn, media_id, clip)
     layouts, _ = resolve_layouts(conn, src, clip, tl, detector, settings, media["width"],
-                                 media["height"], words=words, use_auto_cache=True)
+                                 media["height"], words=words, use_auto_cache=True, asd=asd)
     seg = next((s for s in layouts if s.start_ms <= t_out < s.end_ms), layouts[-1])
     rel = t_out - seg.start_ms
     one = LayoutSegment(0, PREVIEW_SPAN_MS, seg.layout,

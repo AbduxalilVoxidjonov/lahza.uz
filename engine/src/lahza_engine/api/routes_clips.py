@@ -269,6 +269,9 @@ def submit_export(s: State, eid: str, cid: str, body: ExportIn, retry_of: str | 
                 kwargs["allow_no_subs"] = body.allow_no_subs
             if "platform" in params:
                 kwargs["platform"] = body.platform
+            asd_backend = getattr(s.services(), "asd_backend", None)
+            if "asd" in params and callable(asd_backend):
+                kwargs["asd"] = asd_backend()  # LR-ASD (lazy); model yo'q - None
             res = export_clip(conn, eid, c, Path(body.out_dir), pdir / "work" / f"{cid}-{job.id}",
                               s.settings, enc, style, **kwargs)
             db.finish_export(conn, export_id, "done", path=str(res.video))

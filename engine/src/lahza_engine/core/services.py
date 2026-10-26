@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 import sys
-from dataclasses import dataclass
+import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +34,21 @@ class Services:
     face_detector: Any | None = None
     llm_model_path: Path | None = None
     llm_model_id: str | None = None
+    # ASD (LR-ASD ONNX) - eksportda birinchi kerak bo'lganda bir marta yuklanadi (`asd_backend`).
+    model_store: Any | None = field(default=None, repr=False, compare=False)
+    _asd: Any | None = field(default=None, init=False, repr=False, compare=False)
+    _asd_loaded: bool = field(default=False, init=False, repr=False, compare=False)
+    _asd_lock: threading.Lock = field(default_factory=threading.Lock, init=False, repr=False,
+                                      compare=False)
+
+    def asd_backend(self) -> Any | None:
+        """LR-ASD backend (lazy, bir marta). Model yo'q / yuklanmasa - None: reframe eng katta
+        yuz heuristikasida qoladi (natija ASD qo'shilishidan oldingi bilan bir xil)."""
+        with self._asd_lock:
+            if not self._asd_loaded:
+                self._asd = _build_asd(self.model_store)
+                self._asd_loaded = True
+            return self._asd
 
 
 def _first_file(path: Path, suffixes: tuple[str, ...]) -> Path | None:
@@ -45,7 +61,7 @@ def _first_file(path: Path, suffixes: tuple[str, ...]) -> Path | None:
 
 
 def build_services(store: ModelStore) -> Services:
-    s = Services()
+    s = Services(model_store=store)
     asr = store.default_for(Task.ASR)
     if asr is not None:
         root = Path(asr.path)
@@ -86,6 +102,14 @@ def build_services(store: ModelStore) -> Services:
         s.llm_model_path = _first_file(Path(llm.path), (".gguf",))
         s.llm_model_id = llm.id if s.llm_model_path else None
     return s
+
+
+def _build_asd(store: Any | None) -> Any | None:
+    if store is None:
+        return None
+    from lahza_engine.reframe.asd import load_asd_from_store
+
+    return load_asd_from_store(store)
 
 
 def _build_vad(store: ModelStore) -> Any | None:
