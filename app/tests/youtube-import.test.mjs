@@ -64,6 +64,29 @@ test('rozilik: ikkala belgi ham shart; tugma faqat yoqilgan + o\'rnatilgan + to\
   assert.equal(yt.canStart({ ...ok, url: 'https://vimeo.com/1' }), false);
 });
 
+test('youtubeFieldState: maydon har doim ko\'rinadi, o\'chiq/noma\'lum holatda disabled', () => {
+  assert.equal(yt.youtubeFieldState(undefined), 'loading');
+  assert.equal(yt.youtubeFieldState(null), 'loading');
+  // ADR-0010: standart o'chiq - yt-dlp o'rnatilgan bo'lsa ham maydon disabled.
+  assert.equal(yt.youtubeFieldState({ enabled: false, installed: true, js_runtime: 'deno' }), 'disabled');
+  assert.equal(yt.youtubeFieldState({ enabled: false, installed: false, js_runtime: null }), 'disabled');
+  assert.equal(yt.youtubeFieldState({ enabled: true, installed: false, js_runtime: 'deno' }), 'notInstalled');
+  assert.equal(yt.youtubeFieldState({ enabled: true, installed: true, js_runtime: null }), 'noJs');
+  assert.equal(yt.youtubeFieldState({ enabled: true, installed: true, js_runtime: 'deno' }), 'ready');
+  assert.equal(yt.youtubeInputEnabled('loading'), false);
+  assert.equal(yt.youtubeInputEnabled('disabled'), false);
+  for (const s of ['notInstalled', 'noJs', 'ready']) assert.equal(yt.youtubeInputEnabled(s), true, s);
+});
+
+test('i18n: bitta kartadagi import (fayl / yoki / havola) matnlari', () => {
+  assert.equal(youtubeDictionaries.uz.pickFile, 'Fayl tanlash');
+  assert.equal(youtubeDictionaries.uz.or, 'yoki');
+  assert.match(youtubeDictionaries.uz.enableInSettings, /Sozlamalarda yoqing/);
+  for (const loc of ['uz', 'uz-Cyrl', 'ru', 'en']) {
+    for (const k of ['pickFile', 'or', 'disabledShort', 'enableInSettings']) assert.ok(youtubeDictionaries[loc][k]?.trim(), `${loc}.${k}`);
+  }
+});
+
 test('downloadView: foiz, tezlik, qolgan vaqt, xato kodi', () => {
   const v = yt.downloadView({
     progress: 0.4237,

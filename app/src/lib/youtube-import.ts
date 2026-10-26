@@ -98,3 +98,22 @@ export function downloadView(job: { progress: number; meta: Record<string, unkno
     episodeId: typeof job.meta["episode_id"] === "string" ? (job.meta["episode_id"] as string) : null,
   };
 }
+
+/**
+ * Import kartasidagi YouTube maydonining holati (maydon har doim ko'rinadi, faqat faolligi o'zgaradi).
+ * loading: holat hali kelmagan; disabled: Sozlamalarda o'chiq (standart, ADR-0010);
+ * notInstalled: yt-dlp yo'q; noJs: ishlaydi, lekin JS runtime yo'q (ogohlantirish); ready: tayyor.
+ */
+export type YoutubeFieldState = "loading" | "disabled" | "notInstalled" | "noJs" | "ready";
+
+export function youtubeFieldState(
+  st: { enabled: boolean; installed: boolean; js_runtime?: string | null } | null | undefined,
+): YoutubeFieldState {
+  if (!st) return "loading";
+  if (!st.enabled) return "disabled";
+  if (!st.installed) return "notInstalled";
+  return st.js_runtime ? "ready" : "noJs";
+}
+
+/** Havola maydoniga yozish mumkinmi (o'chiq yoki holat noma'lum bo'lsa - yo'q). */
+export const youtubeInputEnabled = (s: YoutubeFieldState) => s !== "loading" && s !== "disabled";

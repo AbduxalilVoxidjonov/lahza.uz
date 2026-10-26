@@ -4,7 +4,6 @@ import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 
 import { useCreateProject, useEpisodes, useImportMedia, useProjects } from "../api/hooks";
-import { useYoutubeImportStatus } from "../api/youtube";
 import { BatchQueue } from "../components/batch/BatchQueue";
 import { YoutubeImport } from "../components/import/YoutubeImport";
 import { Empty, ErrorText } from "../components/ui";
@@ -60,12 +59,10 @@ function Episodes({ projectId }: { projectId: string }) {
   const [focus, setFocus] = useState("");
   const [lite, setLite] = useState(false);
   const [manualPath, setManualPath] = useState("");
-  // YT-1: "YouTube havolasi" tanlovi faqat Sozlamalarda yoqilgan bo'lsa ko'rinadi (standart o'chiq).
+  // YT-1: fayl va YouTube havolasi bitta kartada, tablarsiz. YouTube maydoni har doim ko'rinadi;
+  // Sozlamalarda o'chiq bo'lsa (standart, ADR-0010) disabled + "Sozlamalarda yoqing" havolasi.
   const locale = useSettings((s) => s.locale);
   const y = youtubeDictionaries[locale];
-  const ytEnabled = !!useYoutubeImportStatus().data?.enabled;
-  const [sourceSel, setSource] = useState<"file" | "url">("file");
-  const source = ytEnabled ? sourceSel : "file";
 
   const pick = async () => {
     let path: string | null = manualPath || null;
@@ -80,40 +77,39 @@ function Episodes({ projectId }: { projectId: string }) {
     <section className="stack">
       <div className="card stack">
         <h2>{t("proj.import")}</h2>
-        {ytEnabled && (
-          <div className="tabs" role="tablist" aria-label={y.sourceLabel}>
-            {(["file", "url"] as const).map((m) => (
-              <button key={m} type="button" role="tab" aria-selected={source === m}
-                      className={`tab${source === m ? " active" : ""}`} onClick={() => setSource(m)}>
-                {m === "file" ? y.sourceFile : y.sourceUrl}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* Fokus va "lite" ikkala yo'lga (fayl va havola) umumiy. */}
         <div className="row">
           <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder={t("proj.focus")} value={focus}
                  onChange={(e) => setFocus(e.target.value)} />
-          {source === "file" && !isTauri() && (
-            <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder="/yo'l/video.mp4" value={manualPath}
-                   onChange={(e) => setManualPath(e.target.value)} />
-          )}
           <label className="row muted">
             <input type="checkbox" checked={lite} onChange={(e) => setLite(e.target.checked)} /> {t("proj.lite")}
           </label>
-          {source === "file" && (
-            <button className="btn primary" onClick={() => void pick()} disabled={importMedia.isPending}>
-              {t("proj.import")}
-            </button>
-          )}
         </div>
-        {source === "url" ? (
+
+        <div className="stack" role="group" aria-label={y.sourceFile}>
+          <div className="row">
+            {!isTauri() && (
+              <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder="/yo'l/video.mp4" value={manualPath}
+                     aria-label={y.sourceFile} onChange={(e) => setManualPath(e.target.value)} />
+            )}
+            <button className="btn primary" type="button" onClick={() => void pick()}
+                    disabled={importMedia.isPending || (!isTauri() && !manualPath.trim())}>
+              {y.pickFile}
+            </button>
+          </div>
+          <span className="muted">{t("proj.importHint")}</span>
+          <ErrorText error={importMedia.error} />
+        </div>
+
+        <div className="row muted" role="separator" aria-label={y.or} style={{ gap: 10 }}>
+          <hr style={{ flex: 1, border: 0, borderTop: "1px solid var(--line)", margin: 0 }} />
+          <span>{y.or}</span>
+          <hr style={{ flex: 1, border: 0, borderTop: "1px solid var(--line)", margin: 0 }} />
+        </div>
+
+        <div role="group" aria-label={y.sourceUrl}>
           <YoutubeImport projectId={projectId} focus={focus} lite={lite} />
-        ) : (
-          <>
-            <span className="muted">{t("proj.importHint")}</span>
-            <ErrorText error={importMedia.error} />
-          </>
-        )}
+        </div>
       </div>
 
       <BatchQueue projectId={projectId} />

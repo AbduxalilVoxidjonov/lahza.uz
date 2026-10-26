@@ -6,7 +6,9 @@ import { useImportUrl, useYoutubeImportStatus } from "../../api/youtube";
 import { translate } from "../../i18n";
 import { fmt, youtubeDictionaries, youtubeErrors } from "../../i18n/youtube";
 import { jobCodedError } from "../../lib/error-codes";
-import { canStart, consentGiven, downloadView, parseYoutubeVideoId, type ConsentState } from "../../lib/youtube-import";
+import {
+  canStart, consentGiven, downloadView, parseYoutubeVideoId, youtubeFieldState, youtubeInputEnabled, type ConsentState,
+} from "../../lib/youtube-import";
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
 import { ErrorText, ProgressBar, QueryState } from "../ui";
@@ -36,18 +38,26 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
 
   const view = job ? downloadView(job) : null;
   const coded = job ? jobCodedError(job) : null; // masalan, yuklangan video AV1 (unsupported_codec)
+  // Maydon har doim ko'rinadi; Sozlamalarda o'chiq bo'lsa disabled + "Sozlamalarda yoqing" havolasi.
+  const field = youtubeFieldState(st);
   return (
     <div className="stack">
-      <div className="notice">{y.recommend}</div>
       <QueryState query={status} />
-      {st && !st.enabled && <div className="notice warn" role="status">{y.disabled}</div>}
-      {st?.enabled && !st.installed && <div className="notice bad" role="alert">{y.notInstalled}</div>}
-      {st?.enabled && st.installed && !st.js_runtime && <div className="notice warn">{y.noJs}</div>}
+      {field === "disabled" && (
+        <div className="notice warn row" role="status" id="yt-disabled-note" style={{ justifyContent: "space-between" }}>
+          <span>{y.disabledShort}</span>
+          <Link className="btn small" to="/settings#set-youtube">{y.enableInSettings}</Link>
+        </div>
+      )}
+      {field !== "disabled" && field !== "loading" && <div className="notice">{y.recommend}</div>}
+      {field === "notInstalled" && <div className="notice bad" role="alert">{y.notInstalled}</div>}
+      {field === "noJs" && <div className="notice warn">{y.noJs}</div>}
       <div className="row">
         <label className="field" style={{ flex: 1, minWidth: 260 }}>
           {y.url}
           <input className="input" type="url" inputMode="url" placeholder={y.urlPlaceholder} value={url}
-                 aria-invalid={url.trim() !== "" && !validUrl} disabled={!st?.enabled}
+                 aria-invalid={url.trim() !== "" && !validUrl} disabled={!youtubeInputEnabled(field)}
+                 aria-describedby={field === "disabled" ? "yt-disabled-note" : undefined}
                  onChange={(e) => setUrl(e.target.value)} />
         </label>
         <button className="btn primary" type="button" onClick={() => setAsking(true)}
