@@ -41,6 +41,14 @@ class HighlightConfig(BaseModel):
     # R0: LLM oynasi uzunligi va ustma-ustligi R0'da tanlanadi.
     llm_window_ms: int = 8 * 60_000
     llm_window_overlap_ms: int = 60_000
+    # M3-PERF-2 (docs/09-test-va-sifat.md, tezlik jadvali): LLM tezligi sozlamalari.
+    llm_max_candidates: int = 4  # bir oynadan ko'pi bilan nomzod (sxema maxItems ham shu)
+    llm_max_tokens: int = 1536  # chiqish tokenlari chegarasi (sxema chegaralari bilan ~900 yetadi)
+    llm_thinking: bool = False  # Qwen3 "o'ylash" rejimi: 4x ko'p token, sifatga foydasi ko'rinmadi
+    llm_dry_multiplier: float = 0.8  # DRY takror jazosi: erkin matn halqalarini to'xtatadi
+    # 2 slot x 8192 = avvalgi 1 x 16384 bilan bir xil KV xotira; 4 slot atigi ~15% tezroq edi.
+    llm_parallel: int = 2  # llama-server slotlari: oynalar parallel yuboriladi
+    llm_slot_ctx: int = 8192  # bitta slot konteksti (8 daq oyna prompti ~2-4k + chiqish)
     # R0: yakuniy ball vaznlari foydalanuvchi qarorlaridan o'rganiladi.
     weight_llm: float = 0.7
     weight_signals: float = 0.3

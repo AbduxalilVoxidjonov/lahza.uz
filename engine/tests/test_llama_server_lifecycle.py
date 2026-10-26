@@ -28,6 +28,20 @@ def test_success_preserves_user_context_and_stops(child, monkeypatch):
         assert args[args.index("--parallel") + 1] == "1"
         assert args[args.index("-c") + 1] == "2048"
         assert args[args.index("-ngl") + 1] == "3"
+        assert "--reasoning-budget" not in args
+    child.terminate.assert_called_once()
+    child.wait.assert_called_once_with(timeout=10)
+    assert server.proc is None
+
+
+def test_parallel_slots_and_thinking_off_flags(child, monkeypatch):
+    monkeypatch.setattr(module.httpx, "get", Mock(return_value=Mock(status_code=200)))
+    server = module.LlamaServer(Path("model.gguf"), ctx_size=16384, parallel=2, thinking=False)
+    with server:
+        args = module.subprocess.Popen.call_args.args[0]
+        assert args[args.index("--parallel") + 1] == "2"
+        assert args[args.index("-c") + 1] == "16384"
+        assert args[args.index("--reasoning-budget") + 1] == "0"
     child.terminate.assert_called_once()
     child.wait.assert_called_once_with(timeout=10)
     assert server.proc is None

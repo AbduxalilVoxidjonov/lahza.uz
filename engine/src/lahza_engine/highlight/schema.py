@@ -58,6 +58,24 @@ class LlmResponse(BaseModel):
     nomzodlar: list[LlmCandidate] = Field(default_factory=list, max_length=12)
 
 
-def json_schema() -> dict:
-    """llama-server'ga uzatiladigan JSON Schema."""
-    return LlmResponse.model_json_schema()
+# M3-PERF-2: LLM'ga beriladigan sxemadagi qattiqroq chegaralar. Grammatika ularni majburlaydi,
+# shuning uchun 4B model erkin matn maydonlarida takrorlanib, minglab token "yoza olmaydi"
+# (o'lchov: chegarasiz 1751 chiqish tokeni/oyna, asosan takrorlangan "sabab"/"izoh_matni").
+# Pydantic modeli (yuqorida) o'zgarmaydi - qo'lda tahrirlangan ma'lumot uchun kengroq.
+LLM_TEXT_LIMITS = {"sarlavha": 80, "sabab": 200, "izoh_matni": 300}
+LLM_MAX_HASHTAGS = 5
+LLM_HASHTAG_MAX_LEN = 30
+
+
+def json_schema(max_candidates: int | None = None) -> dict:
+    """llama-server'ga uzatiladigan JSON Schema (LLM uchun torroq chegaralar bilan)."""
+    schema = LlmResponse.model_json_schema()
+    cand = schema["$defs"]["LlmCandidate"]["properties"]
+    for name, limit in LLM_TEXT_LIMITS.items():
+        cand[name]["maxLength"] = limit
+    tags = cand["heshteglar"]
+    tags["maxItems"] = LLM_MAX_HASHTAGS
+    tags["items"] = {**tags.get("items", {"type": "string"}), "maxLength": LLM_HASHTAG_MAX_LEN}
+    if max_candidates is not None:
+        schema["properties"]["nomzodlar"]["maxItems"] = max_candidates
+    return schema

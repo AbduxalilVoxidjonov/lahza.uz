@@ -222,8 +222,11 @@ def stage_highlight(ctx: StageContext) -> dict[str, Any]:
             propose_candidates,
         )
 
-        with LlamaServer(svc.llm_model_path) as url:
-            client = LlamaServerClient(url, svc.llm_model_id or "llm")
+        hc = settings.highlight
+        with LlamaServer(svc.llm_model_path, ctx_size=hc.llm_slot_ctx * hc.llm_parallel,
+                         parallel=hc.llm_parallel, thinking=hc.llm_thinking) as url:
+            client = LlamaServerClient(url, svc.llm_model_id or "llm", max_tokens=hc.llm_max_tokens,
+                                       thinking=hc.llm_thinking, dry_multiplier=hc.llm_dry_multiplier)
             try:
                 llm_candidates = propose_candidates(
                     client, tr.sentences, settings.highlight, focus=ctx.services.get("focus"),

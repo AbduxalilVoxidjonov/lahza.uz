@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from importlib import resources
 
@@ -104,13 +105,21 @@ def parse_response(raw: str, window: Window) -> list[LlmCandidate]:
 
 
 class LlamaServerClient:
-    def __init__(self, base_url: str, model_id: str, timeout_s: float = 600.0) -> None:
+    """OpenAI-mos `llama-server` mijozi. httpx.Client oqimlar orasida xavfsiz - parallel oynalar
+    bitta mijoz orqali yuboriladi."""
+
+    def __init__(self, base_url: str, model_id: str, timeout_s: float = 600.0,
+                 max_tokens: int | None = None, thinking: bool = False,
+                 dry_multiplier: float = 0.0) -> None:
         self.base_url = base_url.rstrip("/")
         self.model_id = model_id
+        self.max_tokens = max_tokens
+        self.thinking = thinking
+        self.dry_multiplier = dry_multiplier
         self._http = httpx.Client(timeout=timeout_s)
 
-    def complete_json(self, prompt: str, schema: dict, temperature: float = 0.2) -> str:
-        body = {
+    def request_body(self, prompt: str, schema: dict, temperature: float = 0.2) -> dict:
+        body: dict = {
             "model": self.model_id,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": temperature,
@@ -118,10 +127,33 @@ class LlamaServerClient:
                 "type": "json_schema",
                 "json_schema": {"name": "nomzodlar", "schema": schema, "strict": True},
             },
+            # M3-PERF-2: Qwen3 standart holatda avval <think> matnini yozadi (o'lchov: ~5000
+            # token/oyna). JSON grammatika bilan bu foydasiz va eng katta vaqt sababi edi.
+            "chat_template_kwargs": {"enable_thinking": self.thinking},
+            "cache_prompt": True,
         }
-        r = self._http.post(f"{self.base_url}/v1/chat/completions", json=body)
+        if self.max_tokens:
+            body["max_tokens"] = self.max_tokens
+        if self.dry_multiplier > 0:
+            # DRY: takrorlanuvchi n-gramlarni jazolaydi ("Bu narsa nima? Bu narsa nima? ..." ->
+            # maydon chegarasigacha). JSON qo'shtirnoq/":"/qator - standart ajratkichlar, shuning
+            # uchun kalitlar va sxema tuzilmasiga ta'sir qilmaydi.
+            body["dry_multiplier"] = self.dry_multiplier
+        return body
+
+    def complete_json(self, prompt: str, schema: dict, temperature: float = 0.2) -> str:
+        r = self._http.post(f"{self.base_url}/v1/chat/completions",
+                            json=self.request_body(prompt, schema, temperature))
         r.raise_for_status()
-        return r.json()["choices"][0]["message"]["content"]
+        data = r.json()
+        choice = data["choices"][0]
+        t = data.get("timings") or {}
+        log.info("LLM oyna: prompt=%s tok (%.0f tok/s), chiqish=%s tok (%.1f tok/s), finish=%s",
+                 t.get("prompt_n"), t.get("prompt_per_second") or 0.0, t.get("predicted_n"),
+                 t.get("predicted_per_second") or 0.0, choice.get("finish_reason"))
+        if choice.get("finish_reason") == "length":
+            log.warning("LLM javobi max_tokens=%s da kesildi", self.max_tokens)
+        return choice["message"]["content"]
 
     def close(self) -> None:
         self._http.close()
@@ -134,17 +166,33 @@ def propose_candidates(
     focus: str | None = None,
     on_progress=None,
 ) -> list[LlmCandidate]:
-    """Map bosqichi: har oynadan nomzodlar."""
+    """Map bosqichi: har oynadan nomzodlar.
+
+    Oynalar `cfg.llm_parallel` ta oqimda yuboriladi (llama-server shuncha slot bilan ishga
+    tushiriladi, Metal'da bir nechta ketma-ketlikni birga dekodlash deyarli bepul). Natija
+    tartibi oynalar tartibida qoladi; progress asosiy oqimda chaqiriladi.
+    """
     windows = make_windows(sentences, cfg)
-    schema = json_schema()
-    found: list[LlmCandidate] = []
-    for i, w in enumerate(windows):
-        prompt = render_prompt(sentences, w, cfg, focus=focus)
-        raw = client.complete_json(prompt, schema)
-        found.extend(parse_response(raw, w))
-        if on_progress:
-            on_progress((i + 1) / len(windows))
-    return found
+    if not windows:
+        return []
+    schema = json_schema(cfg.llm_max_candidates)
+    prompts = [render_prompt(sentences, w, cfg, focus=focus, max_candidates=cfg.llm_max_candidates)
+               for w in windows]
+    results: list[list[LlmCandidate]] = [[] for _ in windows]
+    workers = max(1, min(cfg.llm_parallel, len(windows)))
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="lahza-llm") as pool:
+        futs = {pool.submit(client.complete_json, p, schema): i for i, p in enumerate(prompts)}
+        try:
+            for done, fut in enumerate(as_completed(futs), start=1):
+                i = futs[fut]
+                results[i] = parse_response(fut.result(), windows[i])
+                if on_progress:
+                    on_progress(done / len(windows))
+        except BaseException:
+            for f in futs:
+                f.cancel()
+            raise
+    return [c for r in results for c in r]
 
 
 def validate_full_response(raw: str) -> LlmResponse:

@@ -98,4 +98,28 @@ make bench BENCH_ARGS="--minutes 10"       # M3-PERF-1 (sintetik nutq); --video 
 | Tahlil, LLM'siz (lite) | 160.2 | 0.267 | ~16.0 | maqsadga sig'adi |
 | Render, 1 klip 49.5 s | 9.9 | - | - | h264_videotoolbox + libass, 5.0x real vaqt (yuz detektorisiz) |
 
-Xulosa: Standard darajada tor joy - LLM highlight (~250 s / 8 daqiqalik oyna). Ekstrapolyatsiya chiziqli (oynalar soni davomiylikka proporsional); haqiqiy 60 daq o'lchov: `make bench BENCH_ARGS="--minutes 60"` yoki haqiqiy podkast bilan `--video`. Optimallashtirish yo'nalishlari: Qwen3 "thinking" rejimi yoqilganligini tekshirish (taxmin, tasdiqlanmagan), LLM promptini qisqartirish, oynani kattalashtirish, kichikroq LLM (Qwen3.5-2B/4B) va ASR'ni GPU'da (whisper.cpp Metal) ishlatish.
+### LLM highlight tezlashtirish (M3-PERF-2) - avval / keyin
+
+Profil (bitta 8 daq oyna, llama-server `timings`, Metal `-ngl 999`): prompt 1780 token, prefill 1.6 s (~1100 tok/s) - muammo emas. Chiqish **6992 token** (~29 ms/token, 34 tok/s) - shundan ~5000 token Qwen3 `<think>` matni (`reasoning_content`, 12 300 belgi), qolgani `sabab`/`izoh_matni` maydonlarida takrorlanuvchi halqa (pydantic `max_length` 400/2200 - grammatika uni to'xtatmadi). Oyna 204 s. Grammatika (json_schema) tezlikka sezilarli ta'sir qilmadi (34-37 tok/s).
+
+| Tuzatish (o'lchov, 1 oyna) | Chiqish, token | Vaqt, s |
+| --- | ---: | ---: |
+| Avval (thinking yoqiq, keng sxema) | 6992 | 204.3 |
+| `enable_thinking=false` (+ server `--reasoning-budget 0`) | 1751 | 47.5 |
+| + LLM sxemasida chegaralar (sarlavha 80, sabab 200, izoh 300 belgi, <= 5 heshteg, `maxItems` = 4) + promptda qisqalik qoidasi | 1304 | 40.1 |
+| + DRY takror jazosi (`dry_multiplier` 0.8), `max_tokens` 1536, `cache_prompt` | 934 | 26.1 |
+| + 2 parallel slot (2 oyna birga; 2 x 8192 kontekst = avvalgi 1 x 16384 bilan bir xil KV xotira) | ~900 x 2 | 31.6 / 2 oyna = **15.8 / oyna** |
+| (4 slot - 13.7 s/oyna, lekin KV xotira 2x; tanlanmadi) | | |
+
+Sozlamalar `HighlightConfig.llm_*` (`config.py`): `llm_thinking=False`, `llm_max_tokens=1536`, `llm_max_candidates=4`, `llm_dry_multiplier=0.8`, `llm_parallel=2`, `llm_slot_ctx=8192`.
+
+| `bench.py` (Standard, M5 16 GB) | Avval: Highlight, s | Keyin: Highlight, s | Keyin: tahlil jami | 60 daq ga |
+| --- | ---: | ---: | ---: | --- |
+| `--minutes 10` (2 oyna) | 498.4 | **43.3** (11.5x) | 206.4 s (ASR 130.7, proksi 28.2) | ekstrapolyatsiya 20.6 daq |
+| `--minutes 60 --no-render` (9 oyna, haqiqiy o'lchov) | ~2990 (ekstrapolyatsiya) | **256.4** (4.3 daq) | 1471.6 s = **24.5 daq** (ASR 1044.4, proksi 154.1) | o'lchandi |
+
+O'lchov paytida mashinada boshqa agentlarning testlari ishlagan (load average 8-15) - ASR va proksi avvalgi o'lchovdan sekinroq chiqdi (ASR RTF 0.29 vs 0.23). Natija: LLM endi tor joy emas (60 daq videoda 4.3 daq, avval ~50 daq); 60 daq tahlilning qolgan ~20 daqiqasi asosan ASR (17.4 daq) - Standard maqsad (<= 20 daq) uchun keyingi qadam ASR (alohida vazifa). Shovqinsiz mashinada (ASR RTF 0.23 => ~14 daq) jami ~19-20 daq kutiladi.
+
+Sifat: 60 daq o'lchovda xato yo'q, 10/10 klip `ai_llm` (LLM nomzodlari `parse_response` dan o'tdi), davomiyligi 44-59 s (maqsad 30-60), NMS bilan ustma-ust tushmaydi. Profil so'rovlarida har oyna 4/4 nomzod qat'iy tekshiruvdan o'tdi, `finish_reason=stop` (max_tokens'ga yetmadi). Sintetik `say` nutqi ASR'dan keyin ma'nosiz bo'lgani uchun semantik sifatni (precision@5) bu o'lchov baholamaydi - UzHighlight-Eval bilan tekshirilsin. Thinking o'chirilgach `sabab`/`izoh_matni` takrorlanish halqalari yo'qoldi, ballar nomzodlar orasida farqlanadigan bo'ldi (avval hammasi 10).
+
+Xulosa (M3-PERF-1, avval): Standard darajada tor joy - LLM highlight (~250 s / 8 daqiqalik oyna). Ekstrapolyatsiya chiziqli (oynalar soni davomiylikka proporsional); haqiqiy 60 daq o'lchov: `make bench BENCH_ARGS="--minutes 60"` yoki haqiqiy podkast bilan `--video`. Optimallashtirish yo'nalishlari: Qwen3 "thinking" rejimi yoqilganligini tekshirish (taxmin, tasdiqlanmagan), LLM promptini qisqartirish, oynani kattalashtirish, kichikroq LLM (Qwen3.5-2B/4B) va ASR'ni GPU'da (whisper.cpp Metal) ishlatish.
