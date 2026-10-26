@@ -427,6 +427,80 @@ def test_explicit_port_never_attaches(serve_env, tmp_path, monkeypatch, live_pid
     assert serve_env["port"] == 45123
 
 
+# ---- Desktop sidecar `--discovery` bilan (Studio, app/src-tauri/src/engine.rs) ---------------
+
+def test_desktop_discovery_then_service_refuses(serve_env, tmp_path, monkeypatch, capsys):
+    """Desktop o'z engine'ini `--discovery` bilan ko'taradi -> engine.json (Tauri tokeni bilan);
+    keyin ishga tushgan servis uni ko'rib ikkinchi nusxa ko'tarmaydi."""
+    from lahza_engine import cli
+
+    data = tmp_path / "data"
+    monkeypatch.setenv("LAHZA_TOKEN", "desktop-tok")
+    assert cli.main(["serve", "--port", "0", "--discovery"]) == 0
+    assert serve_env["port"] == 47600
+    assert serve_env["engine"]["token"] == "desktop-tok" and serve_env["engine"]["port"] == 47600
+    c = TestClient(serve_env["app"])
+    assert c.get("/v1/health", headers={"Authorization": "Bearer desktop-tok"}).status_code == 200
+    assert "LAHZA_READY port=47600" in capsys.readouterr().out
+
+    # Desktop engine "tirik": engine.json ni tirik pid bilan qayta yozamiz (fake_run'dan keyin cleanup o'chirgan).
+    p = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    try:
+        _write_engine_json(data, p.pid, port=47600, token="desktop-tok")
+        monkeypatch.setattr(runtime, "http_health", lambda port, token: token == "desktop-tok")
+        monkeypatch.delenv("LAHZA_TOKEN")
+        serve_env.clear()
+        assert cli.main(["serve", "--service"]) == 0
+        assert "port" not in serve_env  # servis engine'i ko'tarilmadi
+        assert "allaqachon ishlayapti" in capsys.readouterr().err
+        assert json.loads((data / "engine.json").read_text())["pid"] == p.pid
+    finally:
+        p.kill()
+        p.wait()
+
+
+def test_desktop_discovery_dev_cors(serve_env, monkeypatch):
+    """Dev (`LAHZA_CORS_ORIGINS`) + `--discovery`: Vite origin'i CORS'da, Tauri va Adobe origin'lari ham."""
+    from lahza_engine import cli
+
+    monkeypatch.setenv("LAHZA_CORS_ORIGINS", "http://127.0.0.1:1420,http://localhost:1420")
+    assert cli.main(["serve", "--port", "0", "--token", "desktop-tok", "--discovery"]) == 0
+    assert serve_env["port"] == 47600 and serve_env["engine"]["token"] == "desktop-tok"
+    c = TestClient(serve_env["app"])
+    for origin in ("http://127.0.0.1:1420", "tauri://localhost", "null"):
+        r = c.options("/v1/health", headers={"Origin": origin, "Access-Control-Request-Method": "GET",
+                                             "Access-Control-Request-Headers": "authorization"})
+        assert r.headers.get("access-control-allow-origin") == origin
+
+
+@pytest.mark.parametrize("env", [{}, {"LAHZA_CORS_ORIGINS": "http://127.0.0.1:1420"}])
+def test_desktop_discovery_does_not_take_over_live_engine(serve_env, tmp_path, monkeypatch, live_pid, env):
+    """Ulanib bo'lmasa (eski engine yoki dev CORS) - o'z engine'i, lekin tirik engine'ning engine.json'i
+    egallanmaydi va qat'iy discovery portlari ishlatilmaydi."""
+    from lahza_engine import cli
+
+    data = tmp_path / "data"
+    _write_engine_json(data, live_pid.pid)
+    monkeypatch.setattr(runtime, "http_health", lambda port, token: token == "svc-token")
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    assert cli.main(["serve", "--port", "0", "--token", "desktop-tok", "--discovery"]) == 0
+    assert serve_env["port"] not in d.DISCOVERY_PORTS
+    assert serve_env["engine"]["pid"] == live_pid.pid
+    assert json.loads((data / "engine.json").read_text())["token"] == "svc-token"
+
+
+def test_desktop_discovery_ports_busy_falls_back(serve_env, monkeypatch):
+    """47600-47602 band: servis 2 bilan chiqadi, desktop ilova esa ishlashi kerak - tasodifiy port."""
+    from lahza_engine import cli
+
+    monkeypatch.setattr(d, "port_free", lambda p, host="127.0.0.1": False)
+    assert cli.main(["serve", "--port", "0", "--token", "desktop-tok", "--discovery"]) == 0
+    assert serve_env["port"] not in d.DISCOVERY_PORTS and serve_env["engine"] is None
+    serve_env.clear()
+    assert cli.main(["serve", "--service"]) == 2
+
+
 # ---- Taxallus middleware ----------------------------------------------------------------------
 
 def test_alias_middleware_header_query_ws_and_dead_pid(tmp_path):

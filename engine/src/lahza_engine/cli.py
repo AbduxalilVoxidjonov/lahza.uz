@@ -1,6 +1,6 @@
 """`lahza` buyruq qatori (M1 CLI MVP va diagnostika).
 
-    lahza serve --port 0 --token T      # Tauri sidecar rejimi
+    lahza serve --port 0 --token T [--discovery]   # Tauri sidecar rejimi (Studio --discovery bilan)
     lahza serve --discovery             # + <data_dir>/engine.json (Adobe plaginlari)
     lahza serve --service               # mustaqil servis (= --discovery + ikki nusxa/qulash himoyasi)
     lahza install-service [--dry-run] [--program EXE]   # macOS LaunchAgent / Windows vazifasi (ADB-7)
@@ -66,6 +66,7 @@ def cmd_serve(a: argparse.Namespace) -> int:
     service_mode = bool(getattr(a, "service", False))
     use_discovery = service_mode or discovery_enabled(getattr(a, "discovery", False))
     token = a.token or os.environ.get("LAHZA_TOKEN")
+    sidecar = False  # Tauri sidecar'i: `--port 0` + tashqi token (app/src-tauri/src/engine.rs)
     if service_mode:
         from lahza_engine.service.runtime import find_live_engine, record_start
 
@@ -87,19 +88,33 @@ def cmd_serve(a: argparse.Namespace) -> int:
         # engine ko'tarilmaydi, mavjudiga ulanamiz (service/runtime.py "Attach rejimi").
         from lahza_engine.service import runtime as svc_rt
 
-        live = svc_rt.find_live_engine(settings.data_dir) if svc_rt.attach_allowed() else None
-        if live is not None:
+        sidecar = True
+        attach = svc_rt.attach_allowed()
+        live = svc_rt.find_live_engine(settings.data_dir) if (attach or use_discovery) else None
+        if live is not None and attach:
             waiter = svc_rt.AttachWaiter()
             a.server_slot["server"] = waiter  # watchdog ota jarayon o'lganda should_exit qiladi
             code = svc_rt.run_attached(settings.data_dir, live, token, waiter)
             if code is not None:
                 return code
+        if live is not None and use_discovery:
+            # Ulanib bo'lmadi (dev CORS, LAHZA_ATTACH=0, eski engine) - o'z engine'imiz, lekin tirik
+            # engine'ning `engine.json` ini egallamaymiz: Adobe plaginlari va servis uni ko'rib turadi.
+            logging.getLogger("lahza_engine").warning(
+                "tirik discovery engine (pid %s) bor - sidecar discovery'siz ishlaydi", live["pid"])
+            use_discovery = False
     if a.port:
         port = a.port
     elif use_discovery:
         # UXP manifest `network.domains` portlarni oldindan sanaydi - qat'iy ro'yxat.
         port = pick_discovery_port()
-        if port is None:
+        if port is None and sidecar:
+            # Desktop ilova discovery portlarisiz ham ishlashi kerak (Tauri portni LAHZA_READY dan oladi).
+            logging.getLogger("lahza_engine").warning(
+                "47600-47602 portlari band - sidecar discovery'siz, tasodifiy portda ishlaydi")
+            use_discovery = False
+            port = free_port()
+        elif port is None:
             print("Xato: Lahza engine uchun 47600, 47601 va 47602 portlarining hammasi band. "
                   "Boshqa Lahza engine ishlayotgan bo'lishi mumkin - uni yoping yoki portlarni "
                   "bo'shating.", file=sys.stderr, flush=True)

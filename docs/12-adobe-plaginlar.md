@@ -102,7 +102,8 @@ va host API'siga qo'yadi. Shu sabab Premiere va AE natijasi bir xil reja asosida
 ### 3.1 Discovery
 
 * Engine `lahza serve --discovery` (yoki `LAHZA_DISCOVERY=1`) bilan ishga tushganda `<data_dir>/engine.json` yozadi:
-  `{"port", "token", "pid", "version", "started_at"}`; fayl huquqi `0600`; to'xtaganda o'chiriladi. `--port` berilmasa bo'sh port tanlanadi.
+  `{"port", "token", "pid", "version", "started_at"}`; fayl huquqi `0600`; to'xtaganda o'chiriladi. `--port` berilmasa qat'iy portlardan birinchi bo'shi
+  tanlanadi: 47600–47602 (UXP manifest `network.domains` ularni oldindan sanaydi).
 * `data_dir`: macOS — `~/Library/Application Support/Lahza Studio`, Windows — `%LOCALAPPDATA%\Lahza Studio` (`adobe/shared/src/engine.ts` `dataDir`).
 * Panel faylni o'qiydi (Premiere: UXP `localFileSystem`; AE: CEP Node `fs`, ixtiyoriy), `parseDiscovery` bilan tekshiradi, `GET /v1/hostplan/schema`
   javobidagi `schema` = `lahza.hostplan/1` bo'lmasa — "Lahza versiyalari mos emas" xabari.
@@ -113,7 +114,7 @@ va host API'siga qo'yadi. Shu sabab Premiere va AE natijasi bir xil reja asosida
 
 | Variant | Kim ishga tushiradi | Afzallik | Kamchilik | Holat |
 | --- | --- | --- | --- | --- |
-| **A. Lahza Studio o'rnatilgan** | Studio o'z sidecar'ini `--discovery` bilan ishga tushiradi | Modellar, katalog, yangilanish bitta joyda | Studio ochiq turishi kerak | MVP (birinchi) |
+| **A. Lahza Studio o'rnatilgan** | Studio o'z sidecar'ini `serve --port 0 --discovery` bilan ishga tushiradi (`app/src-tauri/src/engine.rs` `sidecar_args`) | Modellar, katalog, yangilanish bitta joyda | Studio ochiq turishi kerak | MVP (birinchi); kod tayyor |
 | **B. Mustaqil "Lahza Engine" servisi** | macOS LaunchAgent / Windows foydalanuvchi autostart'i | Studio'siz ishlaydi, faqat plagin kerak bo'lganlar uchun | Alohida o'rnatuvchi, yangilash, model menejeri UI'siz | Kod tayyor (ADB-7, 3.3); Windows qo'lda sinalmagan |
 | **C. Plagin + engine o'rnatuvchisi** | Bitta o'rnatuvchi: `.ccx`/`.zxp` + engine (B) | Bir qadamda o'rnatish | Marketplace "companion app" talablari [U8] | Skript (3.3); imzolangan o'rnatuvchi — ADB-9 |
 
@@ -156,7 +157,7 @@ ustiga yozilmaydi). Zaxira (Task Scheduler taqiqlangan muhit): `winsched.run_key
 
 * `serve --service` — `engine.json` dagi engine tirik (pid) **va** token bilan `/v1/health` 200 qaytarsa, ikkinchisi ko'tarilmaydi, 0 kod
   (launchd/Task Scheduler qayta urinmaydi). Eskirgan fayl (o'lik pid) e'tiborsiz.
-* **Desktop ilova ochilganda** sidecar (`serve --port 0`, Tauri tokeni bilan) tirik discovery engine'ini topsa, o'z engine'ini ko'tarmaydi.
+* **Desktop ilova ochilganda** sidecar (`serve --port 0 --discovery`, Tauri tokeni bilan) tirik discovery engine'ini topsa, o'z engine'ini ko'tarmaydi.
   Tauri o'z tokenini yaratadi (`app/src-tauri/src/engine.rs`), shuning uchun sidecar uni **taxallus** sifatida ro'yxatdan o'tkazadi:
   `<data_dir>/engine.clients/<pid>.json` (papka 0700, fayl 0600); discovery engine'i `TokenAliasMiddleware` bilan tirik pid'li taxallusni
   asosiy tokenga almashtiradi (sarlavha va `?t=` — media va `/v1/events` WebSocket ham). So'ng sidecar `LAHZA_READY port=<servis porti>`
@@ -165,8 +166,18 @@ ustiga yozilmaydi). Zaxira (Task Scheduler taqiqlangan muhit): `winsched.run_key
   Taxallus ishlamasa (eski engine) — o'z engine'i ko'tariladi. O'chirish: `LAHZA_ATTACH=0`; dev desktop (`LAHZA_CORS_ORIGINS` berilgan —
   Vite origin'i servis CORS ro'yxatida yo'q) avtomatik ulanmaydi. Xavfsizlik chegarasi o'zgarmaydi: taxallus yozish uchun `data_dir` ga yozish
   huquqi kerak — bu `engine.json` ni o'qish bilan bir xil (o'sha foydalanuvchi).
-* Ma'lum cheklov: servis desktop sidecar'i **allaqachon ishlab turganda** ishga tushsa (sidecar discovery yozmaydi), ikki engine bo'ladi —
-  odatda servis kirishda, ilovadan oldin ishga tushadi. Plagin va Studio bitta engine'da ishlaganda job navbati — 10-bo'lim, 9-savol.
+* **Servis desktop ochiq turganda ishga tushsa**: Studio sidecar'i o'z engine'ini `--discovery` bilan ko'taradi va `engine.json` ga Tauri
+  tokeni va qat'iy portni (47600–47602) yozadi — shu sababli Adobe plaginlari Studio ochiq bo'lsa ham engine'ni topadi, servis esa uni
+  ko'rib (birinchi band) ikkinchi nusxa ko'tarmaydi. Desktop sidecar'i discovery'ni faqat xavfsiz bo'lganda yoqadi:
+  * tirik boshqa engine bor-u, unga ulanib bo'lmasa (dev CORS, `LAHZA_ATTACH=0`, taxallusni bilmaydigan eski engine) — o'z engine'i
+    **discovery'siz** tasodifiy portda ishlaydi, tirik engine'ning `engine.json` iga tegmaydi;
+  * 47600–47602 hammasi band bo'lsa — servis 2 kod bilan chiqadi, desktop esa discovery'siz tasodifiy portga o'tadi (ilova ishlashda davom etadi,
+    plaginlar uni topmaydi).
+
+  Dev (`npm run tauri dev`): `LAHZA_CORS_ORIGINS` (Vite origin'i) Tauri/Adobe origin'lariga **qo'shiladi**, shuning uchun `--discovery` bilan
+  ham webview ishlaydi; dev desktop servisga ulanmaydi (yuqorida). Testlar: `engine/tests/test_service.py` (`test_desktop_discovery_*`),
+  `engine.rs` (`sidecar_args_enable_discovery`).
+  Plagin va Studio bitta engine'da ishlaganda job navbati — 10-bo'lim, 9-savol.
 
 **Qulash cheklovi.** `<data_dir>/service/starts.json`: 5 daqiqada 5 tadan ko'p start bo'lsa servis xato yozib 0 kod bilan chiqadi
 (launchd `ThrottleInterval` va Windows `RestartOnFailure` ustiga). Qayta yoqish: `lahza install-service` (yoki keyingi kirish, 5 daqiqadan keyin).

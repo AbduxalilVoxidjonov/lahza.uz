@@ -7,6 +7,8 @@
 //!   bootloader + Python bolasi + ffmpeg/llama-server), ~2.5 s kutish, keyin SIGKILL (`kill`).
 //! * Chuqur himoya: engine `--parent-pid <pid> --watch-stdin` bilan ishga tushadi - ilova force quit/
 //!   crash bo'lsa (Rust kodi ishlamaydi) engine o'zi chiqadi (engine/src/lahza_engine/core/lifecycle.py).
+//! * Engine `--discovery` bilan: `<data_dir>/engine.json` - Adobe plaginlari va mustaqil servis uni
+//!   ko'radi (servis ochiq desktop'ni ko'rib ikkinchi engine ko'tarmaydi; `sidecar_args`).
 //! * SIGTERM/SIGINT/SIGHUP ilovaga kelsa ham engine to'xtatilib, ilova toza chiqadi (`install_signal_handlers`).
 
 use std::sync::Mutex;
@@ -50,6 +52,28 @@ impl EngineState {
     }
 }
 
+/// Vite dev server origin'lari (faqat debug build).
+const DEV_CORS_ORIGINS: &str = "http://127.0.0.1:1420,http://localhost:1420";
+
+/// Sidecar argumentlari. `--discovery`: engine `<data_dir>/engine.json` yozadi (qat'iy portlar
+/// 47600-47602) - Adobe plaginlari Studio engine'ini topadi, `install-service` servisi esa uni ko'rib
+/// ikkinchi nusxa ko'tarmaydi (docs/12-adobe-plaginlar.md 3.2/3.3). Portlar band yoki boshqa tirik
+/// engine bor bo'lsa, engine o'zi discovery'siz tasodifiy portga o'tadi (`cli.py` `cmd_serve`).
+fn sidecar_args(parent_pid: u32) -> Vec<String> {
+    [
+        "serve",
+        "--port",
+        "0",
+        "--discovery",
+        "--watch-stdin",
+        "--parent-pid",
+    ]
+    .iter()
+    .map(|s| s.to_string())
+    .chain([parent_pid.to_string()])
+    .collect()
+}
+
 #[tauri::command]
 pub fn engine_info(state: tauri::State<'_, EngineState>) -> Result<EngineInfo, String> {
     state
@@ -68,8 +92,7 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
         .shell()
         .sidecar("lahza-engine")
         .map_err(|e| e.to_string())?
-        .args(["serve", "--port", "0", "--watch-stdin", "--parent-pid"])
-        .args([std::process::id().to_string()])
+        .args(sidecar_args(std::process::id()))
         // Bootloader, Python bolasi va ularning bolalari bitta guruhda - birga to'xtatiladi
         // (Windows: Job Object).
         .set_process_group(true)
@@ -83,10 +106,7 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
         .env("LAHZA_CATALOG_PUBKEY", env!("LAHZA_BUNDLED_CATALOG_PUBKEY"))
         .env("LAHZA_DEV", "0");
     if cfg!(debug_assertions) {
-        cmd = cmd.env(
-            "LAHZA_CORS_ORIGINS",
-            "http://127.0.0.1:1420,http://localhost:1420",
-        );
+        cmd = cmd.env("LAHZA_CORS_ORIGINS", DEV_CORS_ORIGINS);
     }
 
     let (mut rx, child) = cmd.spawn().map_err(|e| e.to_string())?;
@@ -242,6 +262,32 @@ pub fn install_signal_handlers(_app: &AppHandle) {}
 #[cfg(all(test, unix))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sidecar_args_enable_discovery() {
+        assert_eq!(
+            sidecar_args(4321),
+            [
+                "serve",
+                "--port",
+                "0",
+                "--discovery",
+                "--watch-stdin",
+                "--parent-pid",
+                "4321"
+            ]
+        );
+        // Token argumentda emas (`ps` da ko'rinmasin) - faqat LAHZA_TOKEN muhitida.
+        assert!(!sidecar_args(1).iter().any(|a| a == "--token"));
+    }
+
+    #[test]
+    fn dev_cors_origins_are_vite() {
+        assert_eq!(
+            DEV_CORS_ORIGINS.split(',').collect::<Vec<_>>(),
+            ["http://127.0.0.1:1420", "http://localhost:1420"]
+        );
+    }
 
     #[test]
     fn graceful_stop_budget_is_short() {
