@@ -93,6 +93,7 @@ class PlanIn(Strict):
     prompt: str = Field(min_length=1, max_length=2000)
     timeline: MontageTimeline
     selected_video_id: str | None = None
+    planner: Literal["local", "claude"] = "local"
 
 
 class PreviewIn(Strict):
@@ -112,6 +113,7 @@ class PlanOut(Strict):
     changes: list[str]
     warnings: list[str]
     model_id: str
+    planner: Literal["local", "claude"] = "local"
 
 
 class Status(Strict):

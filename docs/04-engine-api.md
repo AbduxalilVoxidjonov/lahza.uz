@@ -275,6 +275,21 @@ Manba: `api/routes_montage.py` (docs/11 5-6, 10-bo'limlar; ADR-0011/0012/0013). 
 * `thumb`: `media_id` timeline `media` yoki `sources` dan; fayl yo'q — 404. `ffmpeg -ss t -i <fayl> -frames:v 1 -vf scale=320:-2` (yo'l faqat `-i` kirishi sifatida), `Library/_montage/<id>/thumbs/<media_id>-<t_ms>.jpg` da keshlanadi; `t_ms` media davomiyligiga qisiladi.
 * `DELETE`: rejalashtirish vazifasi ishlayotgan bo'lsa bekor qilinadi; `montages` (va kaskad bilan `montage_exports`) qatori va `Library/_montage/<id>/` papkasi o'chiriladi. Render qilingan videolar o'chirilmaydi.
 
+## Claude
+
+Manba: `api/routes_claude.py`, `claude_bridge/` ([15-claude-montaj.md](15-claude-montaj.md)). Funksiya **standart holatda o'chiq**; o'chiq bo'lsa `status`, `settings` va `cancel` dan boshqa endpointlar (Claude rejali `editing-agent:plan` ham) **409** `claude_disabled` qaytaradi.
+
+| Metod | Yo'l | Tana | Javob |
+| --- | --- | --- | --- |
+| GET | `/v1/claude/status?refresh=` | — | `ClaudeStatus` |
+| PUT | `/v1/claude/settings` | `{"enabled": bool}` | `ClaudeStatus` |
+| POST | `/v1/claude/check-auth` | — | `ClaudeStatus` |
+| POST | `/v1/claude/connect` | `{"target": "claude_code"\|"claude_desktop", "dry_run?"}` | `{"actions": [str], "status": ClaudeStatus}` |
+| POST | `/v1/claude/disconnect` | xuddi shunday | xuddi shunday |
+| POST | `/v1/claude/cancel` | — | `{"cancelled": bool}` |
+
+`ClaudeStatus`: `{"enabled", "cli": {"installed","path","version"}, "desktop": {"installed","path"}, "auth": {"state","detail","checked_at"}, "mcp": {"claude_code","claude_desktop"}, "mcp_command": [str]}`. Montaj rejasi: `POST /v1/editing-agent:plan` tanasida `"planner": "claude"` (standart `"local"`); javobda ham `planner`. Xato `detail` = `"<kod>: <xabar>"`, kod: `claude_disabled | claude_not_installed | claude_not_logged_in | claude_timeout | claude_bad_plan | claude_busy | claude_cancelled | claude_config_invalid | claude_error`.
+
 ## Adobe plaginlari
 
 Premiere Pro (UXP) va After Effects (CEP) plaginlari engine'ni topadi, klip yoki montaj uchun **host-reja** (`lahza.hostplan/1`, `hostplan/model.py`) oladi va uni o'z dasturi API'si orqali sekvensiya/kompozitsiyaga qo'yadi. Render'ni Adobe qiladi.

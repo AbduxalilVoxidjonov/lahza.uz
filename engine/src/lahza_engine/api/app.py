@@ -31,6 +31,7 @@ from pydantic import BaseModel
 
 from lahza_engine import __version__
 from lahza_engine.api import (
+    routes_claude,
     routes_clips,
     routes_editing_agent,
     routes_episodes,
@@ -188,6 +189,7 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
     routes_youtube.register(app, auth)
     routes_license.register(app, auth)
     routes_learning.register(app, auth)
+    routes_claude.register(app, auth)
 
     # ---- Hodisalar ---------------------------------------------------------
     @app.websocket("/v1/events")

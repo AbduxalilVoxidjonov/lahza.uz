@@ -25,6 +25,10 @@ def register(app: FastAPI, auth) -> None:
 
     @app.post("/v1/editing-agent:plan", response_model=PlanOut)
     def plan(body: PlanIn, s: State = Depends(auth)):
+        if body.planner == "claude":
+            # Lazy import: lokal rejim Claude ko'prigiga bog'liq emas (docs/15-claude-montaj.md).
+            from lahza_engine.api.routes_claude import claude_plan
+            return guarded(lambda: claude_plan(body, s))
         return guarded(lambda: planner.plan(body, s.store, s.settings))
 
     @app.post("/v1/editing-agent:preview", response_model=PreviewOut)
