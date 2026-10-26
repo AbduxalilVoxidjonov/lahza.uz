@@ -76,6 +76,14 @@ class ReframeConfig(BaseModel):
     cut_threshold: float = 0.25
     min_layout_hold_ms: int = 2_000
     face_top_third: bool = True
+    # Aktiv spiker (M3-RF-1: ASD + diarizatsiya). R0: hammasi Reframe-Eval'da tanlanadi.
+    asd_weight: float = 0.6  # R0: yakuniy ball = w*ASD + (1-w)*diarizatsiya mosligi
+    asd_min_score: float = 0.5  # R0: spiker<->trek moslashtirishda hisobga olinadigan ASD bali
+    speaker_switch_margin: float = 0.15  # R0: yangi yuz joriydan shuncha ustun bo'lsa almashadi
+    speaker_switch_confirm_ms: int = 400  # R0: ustunlik shuncha davom etsa almashadi
+    speaker_min_hold_ms: int = 1_500  # R0: almashgandan keyin minimal ushlab turish
+    active_min_confidence: float = 0.35  # R0: nutq bor, eng yaxshi ball shundan past - past ishonch
+    low_confidence_wide_ms: int = 1_000  # R0: past ishonch shuncha davom etsa - keng kadr
 
 
 class Settings(BaseModel):

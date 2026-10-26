@@ -23,6 +23,9 @@ class Observation:
     shot_cut: bool = False
     overlap_speech: bool = False
     speaker: str | None = None  # diarizatsiya bo'yicha shu daqiqadagi spiker (bo'lsa)
+    track_ids: list[int] = field(default_factory=list)  # faces bilan bir tartibda (treker ID)
+    asd_scores: dict[int, float] = field(default_factory=dict)  # trek -> ASD ehtimoli (model bo'lsa)
+    wide: bool = False  # aktiv spiker ishonchi past - keng kadr (xira fon), M3-RF-1
 
 
 @dataclass
@@ -54,6 +57,8 @@ def decide_layout(obs: Observation, recent_switches: int) -> Layout:
         return Layout.FIT_BLUR
     if len(obs.faces) >= 2 and (obs.overlap_speech or recent_switches >= SPLIT_MIN_SWITCHES):
         return Layout.SPLIT
+    if obs.wide:
+        return Layout.FIT_BLUR
     return Layout.FOCUS
 
 

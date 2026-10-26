@@ -123,7 +123,7 @@
       "license": "Apache-2.0 (BlazeFace), MIT (LR-ASD)",
       "source_url": "https://github.com/airmeet/LR-ASD",
       "status": "candidate",
-      "notes": "BlazeFace ONNX: https://huggingface.co/Heliosoph/mediapipe-face-onnx ; LR-ASD ONNX: https://pypi.org/project/deeptalk-asd/"
+      "notes": "BlazeFace ONNX: https://huggingface.co/Heliosoph/mediapipe-face-onnx ; LR-ASD ONNX: https://pypi.org/project/deeptalk-asd/ . R0-VIS-2: ASD backend (reframe/asd.py) shu papkadan asd_audio_frontend/asd_visual_frontend/asd_av_backend.onnx (yoki bitta birlashgan asd.onnx) ni oladi; fayl yo'q bo'lsa reframe heuristikada ishlaydi. sha256/hajm/URL noma'lum - kutilmoqda (R0'da eksport qilinib, o'lchanib to'ldiriladi); tensor kontrakti va Reframe-Eval natijasi R0'da tasdiqlanadi."
     },
     {
       "id": "llm-qwen3.5-4b-q4",

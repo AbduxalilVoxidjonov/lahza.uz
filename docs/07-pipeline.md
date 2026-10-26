@@ -49,3 +49,18 @@ Partiyaviy tahlil (PRO-5, `core/batch.py`): bir nechta epizod `analysis_queue` j
 4. Render: `render/graph.py` — bo'laklar (kesim × layout) → concat → `ass` → audio fade (+ loudnorm, agar maqsad belgilangan bo'lsa) → enkoder.
 5. Yonida: `.srt`, `_caption.txt` (sarlavha, matn, heshteglar — tanlangan imloda), `_cover.jpg`.
 6. Fayl nomi: `{shou}_{epizod}_{nn}_{sarlavha}.mp4`.
+
+### Aktiv spiker: ASD + diarizatsiya (R0-VIS-2, M3-RF-1)
+
+* **ASD backend** — `reframe/asd.py`, LR-ASD ONNX (onnxruntime, CPU). Fayllar Task.VISION standart to'plami papkasidan (`vision-blazeface-lrasd`, hozircha `candidate`, sha256 noma'lum): uchta bo'lingan fayl (`asd_audio_frontend.onnx`, `asd_visual_frontend.onnx`, `asd_av_backend.onnx`) yoki bitta `asd.onnx`. Kirish: MFCC [1, 4T, 13] (16 kHz, 100 kadr/s, `python_speech_features` ga teng numpy hisob) va kulrang yuz kesimlari [1, T, 112, 112] (25 fps, `face_crop`). Chiqish [T, 2] (softmax) yoki [T] (logit/ehtimol) → 0..1. Uzun trek 250 kadrlik bo'laklarda baholanadi. `score_track` — trek bo'yicha (t_ms, ball); `scores_at` — 25 fps ballarni 5 fps kuzatuvga (±200 ms o'rtacha).
+* **Fallback** — model fayli yo'q, onnxruntime yo'q yoki fayl buzuq: `load_asd_backend` xatosiz `None` qaytaradi; reframe hozirgi heuristikada ishlaydi (eng katta yuz).
+* **Birlashma** — `reframe/active_speaker.py: resolve_active_speakers(obs, cfg, turns, overlaps)`. `Observation` da `track_ids` (treker ID) va `asd_scores` (trek → ehtimol) bo'lsa:
+  1. har kuzatuvga diarizatsiya spikeri va ustma-ust belgisi;
+  2. spiker ↔ trek xaritasi ASD ballarining birgalikda uchrashidan (`speaker_map.learn_speaker_to_track`);
+  3. trek bali = `asd_weight`·ASD + (1−`asd_weight`)·[diarizatsiya kutgan trek];
+  4. gisterezis: yangi yuz `speaker_switch_margin` ga ustun bo'lib `speaker_switch_confirm_ms` davom etsa va joriy yuz `speaker_min_hold_ms` ushlangan bo'lsa almashadi; joriy yuz kadrdan chiqsa yoki sahna kesilsa — darhol;
+  5. nutq bor, lekin eng yaxshi bal `active_min_confidence` dan past holat `low_confidence_wide_ms` davom etsa — `wide=True` → layout FIT_BLUR (keng kadr). Sukunatda joriy yuz ushlanadi.
+  
+  ASD ballari bo'lmasa — eng katta yuz, shu gisterezis bilan (o'lchami yaqin yuzlar orasida sakramaydi), keng kadrga o'tilmaydi. Natija `planner.plan` ga beriladi: kamera yo'li (o'lik zona, One-Euro, almashuvda keskin kesim) o'zgarmaydi.
+* Barcha chegaralar `ReframeConfig` da "R0" deb belgilangan — Reframe-Eval to'plamida (aktiv spiker kadrda bo'lgan vaqt ulushi, keraksiz kamera harakatlari soni) tanlanadi.
+* Hali ulanmagan: `core/export.py: observations_for_clip` 25 fps yuz kesimlari + audio bilan `score_track` ni chaqirishi va `resolve_active_speakers` ni `plan` dan oldin ishlatishi kerak (hozir eng katta yuz).

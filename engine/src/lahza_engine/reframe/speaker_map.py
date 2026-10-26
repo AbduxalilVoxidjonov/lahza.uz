@@ -42,6 +42,17 @@ def learn_speaker_to_track(samples: list[AsdSample], min_score: float = 0.5) -> 
     return mapping
 
 
+def fused_scores(
+    track_ids: Sequence[int], asd: dict[int, float], expected: int | None,
+    asd_weight: float = 0.6,
+) -> dict[int, float]:
+    """Har ko'rinayotgan trek uchun: w*ASD + (1-w)*[diarizatsiya kutgan trek]. ASD yo'q - 0."""
+    return {
+        tid: asd_weight * asd.get(tid, 0.0) + (1 - asd_weight) * (1.0 if tid == expected else 0.0)
+        for tid in track_ids
+    }
+
+
 def active_track(
     sample: AsdSample, speaker_to_track: dict[str, int], asd_weight: float = 0.6
 ) -> int | None:
@@ -49,12 +60,8 @@ def active_track(
     if not sample.track_scores:
         return None
     expected = speaker_to_track.get(sample.speaker or "")
-    best, best_score = None, -1.0
-    for tid, sc in sample.track_scores.items():
-        total = asd_weight * sc + (1 - asd_weight) * (1.0 if tid == expected else 0.0)
-        if total > best_score:
-            best, best_score = tid, total
-    return best
+    fused = fused_scores(list(sample.track_scores), sample.track_scores, expected, asd_weight)
+    return max(fused, key=lambda tid: fused[tid])
 
 
 def largest_face_index(boxes: Sequence[Box]) -> int | None:
