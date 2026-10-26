@@ -217,7 +217,7 @@ tolerate running alongside other app instances.
 Because the GPU-less legs cannot use a second worker, electron-ci buys its
 parallelism across machines instead: each OS runs the suite as several
 concurrent **legs**, named by position — `e2e-1` … `e2e-N`. How many is per OS
-(`LEGS` in `slices.mjs`: five on Windows and Linux, four on macOS) and is set by
+(`LEGS` in `slices.mjs`: five on Windows and Linux, three on macOS) and is set by
 the account's concurrency caps — 20 jobs, of which 5 may be macOS and one of
 those is `rust-test` — not by the suite's shape.
 
@@ -233,6 +233,20 @@ the extras below. The leg then restricts its parallel project to that set
 snapshot has not measured is a new one: it packs at a default cost and still
 lands on exactly one leg, because every leg of a commit packs the same directory
 listing against the same committed snapshot.
+
+macOS runs fewer legs AND fewer specs. It is the account's binding concurrency
+constraint, and most of the suite is renderer logic that behaves identically
+under Chromium on every OS, so `SKIP_ON["macos-latest"]` in `slices.mjs` lists
+the specs macOS leaves to Linux and Windows — agent and MCP surfaces, dock and
+timeline editing, keyframes, text, media-pool plumbing. What macOS keeps is what
+only macOS can show: window chrome and the traffic lights, the application menu,
+Keychain storage, notifications, window geometry, the VideoToolbox and Metal
+lanes, Motif capture on the GPU host, every `@serial` spec, the per-OS ffmpeg
+build's codec matrix, and the export gates only a real GPU holds to the strict
+SSIM floor. The list is a skip list, not an allow list, so a new spec runs on
+macOS until someone decides it need not; `scripts/e2e-split.test.mjs` checks
+each entry exists, has no `@serial` test, and is not an export-pressure suite.
+ADR 0141 is the decision.
 
 The three once-per-OS extras ride **fixed** legs (`CARRIERS`): the `serial`
 project and the decode-bench media it alone reads on `e2e-1`, the packaging
@@ -279,7 +293,7 @@ is what the balance test checks. By the 2026-10-26 snapshot (run 40287526652):
 |---|---|---|---|---|---|
 | Windows | 5 | 10.1 min | 42.8 min | 5.1 min | 2.0 min |
 | Linux | 5 | 12.2 min | 53.0 min | 4.7 min | 2.9 min |
-| macOS | 4 | 13.7 min | 45.7 min | 7.1 min | 1.4 min |
+| macOS | 3 | 11.2 min | 24.6 min of the 45.7 the whole suite costs there (`SKIP_ON`) | 7.1 min | 1.4 min |
 
 The leg count, not the heaviest file, is now the floor: with the pack balanced,
 a leg costs its OS's total over `LEGS[os]`. Going lower means fewer specs,

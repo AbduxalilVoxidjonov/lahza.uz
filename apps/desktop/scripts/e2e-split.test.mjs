@@ -9,6 +9,7 @@ import {
   LEGS,
   OS_SLICES,
   DEFAULT_SECONDS,
+  SKIP_ON,
   osLabelFor,
   pack,
   readSnapshot,
@@ -17,6 +18,7 @@ import {
   slicesFor,
   snapshotDrift,
   specFiles,
+  specFilesFor,
 } from '../e2e/slices.mjs'
 import { EXTRA_STEPS } from './e2e-timings-snapshot.mjs'
 
@@ -69,10 +71,10 @@ const stepIf = (step) => {
 
 // ── the pack ───────────────────────────────────────────────────────────────
 
-test('every spec file is owned by exactly one leg of every OS', () => {
-  const specs = specFiles()
-  assert.ok(specs.length > 0, 'no spec files found — the split would run nothing')
+test('every spec file an OS runs is owned by exactly one of its legs', () => {
+  assert.ok(specFiles().length > 0, 'no spec files found — the split would run nothing')
   for (const os of OSES) {
+    const specs = specFilesFor(os)
     const legs = slicesFor(os)
     assert.equal(legs.length, LEGS[os], `${os} packs ${legs.length} legs, LEGS says ${LEGS[os]}`)
     const own = legs.flatMap((leg) => leg.own)
@@ -177,9 +179,52 @@ test('the snapshot costs every spec and every extra on every OS', () => {
   assert.ok(DEFAULT_SECONDS > 0)
 })
 
+// ── SKIP_ON: what an OS deliberately does not run ──────────────────────────
+
+const SPEC_DIR = path.join(DESKTOP, 'e2e', 'electron')
+const PRESSURE = [
+  'export-resource-admission.spec.ts',
+  'export-finalization-retry.spec.ts',
+  'resource-recovery.spec.ts',
+  'resource-single-slot.spec.ts',
+]
+/** Source with comments removed, so a prose mention of `@serial` does not count. */
+const code = (file) =>
+  readFileSync(path.join(SPEC_DIR, file), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+
+test('a skipped spec exists, is listed once, has no @serial test, and is not a pressure suite', () => {
+  const onDisk = new Set(specFiles())
+  for (const [os, skipped] of Object.entries(SKIP_ON)) {
+    assert.ok(LEGS[os], `SKIP_ON names ${os}, which is not an OS the matrix runs`)
+    assert.deepEqual([...new Set(skipped)].length, skipped.length, `${os}: a spec is listed twice`)
+    for (const file of skipped) {
+      assert.ok(onDisk.has(file), `${os} skips ${file}, which does not exist — a rename left it behind`)
+      assert.ok(
+        !/@serial/.test(code(file)),
+        `${os} skips ${file}, but it has a @serial test: the serial project runs the whole suite regardless, so listing it misdescribes what the OS runs`,
+      )
+      assert.ok(!PRESSURE.includes(file), `${os} skips ${file}: the pressure suites' platform coverage is a separate, open decision`)
+    }
+    assert.ok(skipped.length < onDisk.size / 2 + 20, `${os} skips most of the suite — that is a different design, not a skip list`)
+  }
+  // Every OS still runs the suite's platform surface: the serial carrier's
+  // determinism capture, window chrome, and the smoke test.
+  for (const os of OSES)
+    for (const kept of ['smoke.spec.ts', 'window-chrome.spec.ts', 'determinism.spec.ts'])
+      assert.ok(specFilesFor(os).includes(kept), `${os} must run ${kept}`)
+})
+
+test('an OS without a skip list runs every spec', () => {
+  const full = OSES.filter((os) => !SKIP_ON[os])
+  assert.ok(full.length >= 2, 'at least two OSes must run the whole suite, so a skipped spec still runs twice')
+  for (const os of full) assert.deepEqual(specFilesFor(os), specFiles())
+})
+
 test('an unmeasured spec still lands on exactly one leg', () => {
-  const files = [...specFiles(), 'zz-brand-new.spec.ts']
   for (const os of OSES) {
+    const files = [...specFilesFor(os), 'zz-brand-new.spec.ts']
     const own = pack(os, { files }).flatMap((leg) => leg.own)
     assert.equal(own.filter((f) => f === 'zz-brand-new.spec.ts').length, 1, os)
   }

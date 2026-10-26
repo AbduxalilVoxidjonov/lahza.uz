@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { after, test } from 'node:test'
-import { CARRIERS, LEGS, osLabelFor, sliceEnv, slicesFor, specFiles } from '../e2e/slices.mjs'
+import { CARRIERS, LEGS, osLabelFor, sliceEnv, slicesFor, specFilesFor } from '../e2e/slices.mjs'
 import {
   foldRunStatuses,
   planE2ERuns,
@@ -215,8 +215,8 @@ test('a replay restricts as its own OS does, not as the widest OS does', () => {
   const macLegs = slicesFor('macos-latest').map((slice) => slice.name)
   const macTotal = macLegs.flatMap((slice) => ownedOn('darwin', slice)).sort()
   const winTotal = slicesFor(OS).flatMap((slice) => ownedOn('win32', slice.name)).sort()
-  assert.deepEqual(macTotal, specFiles(), 'every spec is on exactly one macOS leg')
-  assert.deepEqual(winTotal, specFiles(), 'every spec is on exactly one Windows leg')
+  assert.deepEqual(macTotal, specFilesFor('macos-latest'), 'every spec macOS runs is on exactly one macOS leg')
+  assert.deepEqual(winTotal, specFilesFor(OS), 'every spec is on exactly one Windows leg')
   assert.notDeepEqual(ownedOn('darwin', SERIAL_SLICE), ownedOn('win32', SERIAL_SLICE))
 })
 

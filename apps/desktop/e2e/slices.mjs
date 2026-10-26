@@ -37,7 +37,123 @@ export const SNAPSHOT_PATH = path.join(HERE, "timings.json");
 export const LEGS = {
   "windows-latest": 5,
   "ubuntu-latest": 5,
-  "macos-latest": 4,
+  "macos-latest": 3,
+};
+
+/// Specs an OS does not run, keyed by its `os:` matrix label. Only macOS has
+/// an entry: it is the account's binding concurrency constraint (5 macOS jobs
+/// across every repository), and most of the suite is renderer logic that
+/// behaves identically under Chromium on every OS — Linux and Windows run it
+/// in full. What macOS keeps is what only macOS can show: window chrome and
+/// the traffic lights, the application menu, Keychain-backed storage,
+/// notifications and shell integration, window geometry, the VideoToolbox and
+/// Metal lanes, Motif capture on the GPU host, every @serial spec (the
+/// determinism PNGs come from there), the per-OS ffmpeg build's codec matrix,
+/// and the export conformance gates that only a real GPU holds to the strict
+/// SSIM floor (electron-ci §WEFTCUT_E2E_SSIM_FLOOR). ADR 0141 is the decision.
+///
+/// Rules, asserted in scripts/e2e-split.test.mjs: a listed spec exists, is
+/// listed once, has no @serial test (the serial project is never sliced and
+/// would run it anyway), and is not one of the export-pressure suites, whose
+/// platform coverage is a decision still open. Kept on macOS although they
+/// would qualify: `smoke` (a per-platform smoke test is the point of one),
+/// `caption-corpus` (the one end-to-end use of the Meta modifier),
+/// `timeline-selection-focus` (branches on macOS Display P3), and
+/// `model-settings`, `popup-overflow`, `role-mixer-audition` (each records a
+/// failure first seen only on macOS).
+///
+/// The nightly @matrix sweep uses the same pack, so a spec here runs on macOS
+/// only through a scoped dispatch (`inputs.e2e_args`), which is unsliced.
+export const SKIP_ON = {
+  "macos-latest": [
+    // agent / MCP / TS-actor surfaces: SDK round-trips against the same
+    // renderer state on every OS
+    "agent-panel.spec.ts",
+    "mcp-editing-workflow.spec.ts",
+    "mcp-export.spec.ts",
+    "mcp-flip.spec.ts",
+    "mcp-motif.spec.ts",
+    "mcp-server.spec.ts",
+    "motif-workspace.spec.ts",
+    "ts-actor-bringup.spec.ts",
+    "ts-actor-flip.spec.ts",
+    "ts-actor-motif-flip.spec.ts",
+    "ts-actor-native-compute.spec.ts",
+    // audio analysis in Web Audio / OfflineAudioContext: no device, no codec
+    "audio-denoise.spec.ts",
+    "audio-pan-preview.spec.ts",
+    "audio-transport.spec.ts",
+    "audio-waveform-alignment.spec.ts",
+    // dock, panels, layout, theme
+    "composition-scope.spec.ts",
+    "composition-tabs.spec.ts",
+    "dock-integration-acceptance.spec.ts",
+    "dock-tab-overflow.spec.ts",
+    "dock-workspace.spec.ts",
+    "focus-regions.spec.ts",
+    "history-panel.spec.ts",
+    "layout-theme.spec.ts",
+    "preview-canvas-layout.spec.ts",
+    "property-panel.spec.ts",
+    "search-palette.spec.ts",
+    "shots-panel.spec.ts",
+    // timeline editing
+    "dragdrop.spec.ts",
+    "group-media-pool.spec.ts",
+    "group-render-nested.spec.ts",
+    "group-timeline.spec.ts",
+    "link-duplicate.spec.ts",
+    "link-override.spec.ts",
+    "link-visibility.spec.ts",
+    "motion-path.spec.ts",
+    "move-to-composition.spec.ts",
+    "pauses.spec.ts",
+    "playhead-restack.spec.ts",
+    "subtitle-pool-drop.spec.ts",
+    "time-remapping.spec.ts",
+    "timeline-drop-strip.spec.ts",
+    "timeline-layout.spec.ts",
+    "timeline-markers.spec.ts",
+    "timeline-marquee.spec.ts",
+    "timeline-raise-to-strip.spec.ts",
+    "timeline-ripple-delete.spec.ts",
+    "timeline-split-delete-race.spec.ts",
+    "track-reorder.spec.ts",
+    // keyframes and transitions: preview and export compared against each
+    // other, with the same assertions on every OS
+    "keyframe-batch.spec.ts",
+    "keyframe-color.spec.ts",
+    "keyframe-conformance.spec.ts",
+    "keyframe-effects.spec.ts",
+    "transitions-wysiwyg.spec.ts",
+    // group exports compared against their own exports
+    "group-export-conformance.spec.ts",
+    "group-export-nested.spec.ts",
+    // text
+    "text-box-cjk-export.spec.ts",
+    "text-box-gizmo.spec.ts",
+    "text-correction.spec.ts",
+    "text-shadow.spec.ts",
+    "text-tool.spec.ts",
+    // media pool and protocols on identical fixtures
+    "import-reopen.spec.ts",
+    "media-gif-animated.spec.ts",
+    "media-image-preview.spec.ts",
+    "media-import.spec.ts",
+    "media-protocol.spec.ts",
+    "motif-library.spec.ts",
+    "motif-params-page.spec.ts",
+    "motif-protocol.spec.ts",
+    // export plumbing that is not a codec or a GPU
+    "export-presets.spec.ts",
+    "export-repeat.spec.ts",
+    "publication-protocol.spec.ts",
+    // bridges and diagnostics with deterministic, host-independent output
+    "driver-diagnostics.spec.ts",
+    "edit-latency.spec.ts",
+    "fs-guard.spec.ts",
+    "ipc-handlers.spec.ts",
+  ],
 };
 
 /// The leg each once-per-OS extra rides, fixed so that a workflow `if:` can
@@ -56,7 +172,7 @@ export const DEFAULT_SECONDS = 30;
 /// `eval`, so a quote character in one would run arbitrary shell on every runner.
 const SPEC_NAME = /^[\w.-]+\.spec\.ts$/;
 
-/// Every spec file the suite has, sorted — the universe each OS's pack covers.
+/// Every spec file the suite has, sorted.
 export function specFiles(dir = SPEC_DIR) {
   const files = readdirSync(dir).filter((name) => name.endsWith(".spec.ts")).sort();
   for (const name of files) {
@@ -65,6 +181,12 @@ export function specFiles(dir = SPEC_DIR) {
     }
   }
   return files;
+}
+
+/// The spec files one OS runs — the universe its pack covers.
+export function specFilesFor(os, files = specFiles()) {
+  const skipped = new Set(SKIP_ON[os] ?? []);
+  return files.filter((file) => !skipped.has(file));
 }
 
 export function readSnapshot(file = SNAPSHOT_PATH) {
@@ -117,11 +239,12 @@ export function specSeconds(file, os, snapshot) {
 /// every spec heaviest-first onto the currently lightest leg (ties to the lowest
 /// index, then by name), which is the classic longest-processing-time rule and
 /// lands within a few percent of optimal for this many small items.
-export function pack(os, { files = specFiles(), snapshot = readSnapshot() } = {}) {
+export function pack(os, { files, snapshot = readSnapshot() } = {}) {
   const count = LEGS[os];
   if (!count) {
     throw new Error(`unknown OS "${os}" — expected one of ${Object.keys(LEGS).join(", ")}`);
   }
+  files ??= specFilesFor(os);
   const bins = legNames(count).map((name) => ({
     name,
     own: [],
@@ -226,6 +349,8 @@ function table() {
       );
     }
   }
+  for (const [os, skipped] of Object.entries(SKIP_ON))
+    lines.push(`${os} skips ${skipped.length} specs (SKIP_ON)`);
   const drift = snapshotDrift();
   if (drift.unmeasured.length) lines.push(`unmeasured (default cost): ${drift.unmeasured.join(", ")}`);
   if (drift.stale.length) lines.push(`stale snapshot entries: ${drift.stale.join(", ")}`);

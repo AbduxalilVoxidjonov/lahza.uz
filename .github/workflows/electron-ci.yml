@@ -102,16 +102,17 @@ jobs:
     # Coverage cuts belong in the @matrix tier (apps/desktop/e2e/README.md),
     # not here.
     timeout-minutes: ${{ matrix.part == 'all' && 90 || 60 }}
-    # CONCURRENCY BUDGET — the build/test phase has 19 jobs: 1 `checks` + 3
-    # `rust-test` + this matrix's 14 + 1 `compare`. The short release-plan runs
+    # CONCURRENCY BUDGET — the build/test phase has 18 jobs: 1 `checks` + 3
+    # `rust-test` + this matrix's 13 + 1 `compare`. The short release-plan runs
     # before this matrix; the release job waits for all gates. GitHub Free
     # allows 20 concurrent, of which
     # 5 may be macOS, counted per billing entity across ALL repositories. macOS
-    # is the binding constraint and this matrix sits ON it: 4 legs here + 1
-    # `rust-test` — so another macOS job anywhere in the account queues behind
-    # this run rather than beside it. The pack (e2e/slices.mjs §LEGS) balances
-    # each OS across exactly these counts, so a leg's wall clock is that OS's
-    # suite over its leg count: widening means buying legs back from somewhere.
+    # is the binding constraint: 3 legs here + 1 `rust-test` leave one macOS
+    # slot for a concurrent push run or another repository. macOS affords
+    # three because it runs only the platform's own specs (e2e/slices.mjs
+    # §SKIP_ON, ADR 0141). The pack (§LEGS) balances each OS across exactly
+    # these counts, so a leg's wall clock is that OS's suite over its leg
+    # count: widening means buying legs back from somewhere.
     strategy:
       fail-fast: false
       matrix:
@@ -136,6 +137,8 @@ jobs:
         # every leg reports green. Both halves are asserted against each other
         # in apps/desktop/scripts/e2e-split.test.mjs.
         exclude:
+          - os: macos-latest
+            part: e2e-4
           - os: macos-latest
             part: e2e-5
     runs-on: ${{ matrix.os }}
