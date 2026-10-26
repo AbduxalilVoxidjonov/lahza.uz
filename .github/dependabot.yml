@@ -1,0 +1,12 @@
+# Dependabot security updates only. The one npm lockfile is the workspace
+# root's package-lock.json, so a security update must run from `/`: pointed
+# at `/apps/desktop` it edits that package.json without the lock, and `npm ci`
+# then fails on every runner (PR #75). open-pull-requests-limit: 0 keeps
+# version-update PRs off; security updates ignore the limit.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
