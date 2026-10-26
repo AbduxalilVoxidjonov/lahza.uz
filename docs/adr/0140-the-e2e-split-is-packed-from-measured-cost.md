@@ -89,4 +89,14 @@ old catch-all leg; suite totals are 42.8 / 53.0 / 45.7 min of parallel
 test time, 5.1 / 4.7 / 7.1 min of serial project, 2.0 / 2.9 / 1.4 min of
 packaging.
 
-First CI run after the change: to be recorded here.
+First CI run after the change (40302096925, 2026-10-26): green, 25 minutes
+end to end against 65 (42 of them jobs) for the run before it. Legs ran 7 to
+18 minutes; the parallel project's summed test time matched its wall clock
+on every single-worker leg, and Windows matched the snapshot within a
+minute. Linux ran one leg 4.5 minutes over its prediction (runner
+variance, seen before the change too), and one Linux leg lost 12 minutes
+to a slow apt mirror, which is not the split's. One macOS leg of UI specs
+did run its two workers concurrently (9.8 min of tests in 5.0), so the
+no-overlap observation holds for the export-heavy legs, not universally;
+the pack still treats sums as wall clock, which over-estimates such a leg
+and only costs balance, never coverage.
