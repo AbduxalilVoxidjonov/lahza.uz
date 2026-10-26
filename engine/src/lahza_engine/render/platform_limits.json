@@ -1,7 +1,61 @@
 {
-  "_note": "Legacy compatibility data. Shared typed profiles and provenance live in profiles.py. No unverified Instagram upload limits are enforced.",
-  "instagram_reels": {"width": 1080, "height": 1920, "aspect": "9:16", "max_duration_s": null},
-  "youtube_shorts": {"width": 1080, "height": 1920, "aspect": "9:16", "max_duration_s": 180},
-  "youtube_video": {"width": 1920, "height": 1080, "aspect": "16:9", "max_duration_s": null},
+  "_note": "Legacy compatibility data (check_limits(limits=load_limits())). Shared typed profiles live in profiles.py. Each numeric value has a source id in the platform's _provenance; the source list is in _sources (V1-6, checked 2026-10-26). width/height for vertical platforms are the Lahza 1080x1920 preset, not a platform requirement. Values under 'api' apply to Instagram Graph API publishing only, not to manual uploads in the app.",
+  "_checked_at": "2026-10-26",
+  "_sources": {
+    "ig_help_reels_length": {"url": "https://www.facebook.com/help/instagram/2720958398006062", "checked_at": "2026-10-26", "status": "verified", "note": "Official Instagram Help Center article (facebook.com/help/instagram mirror of help.instagram.com/2720958398006062, which returned only a login/JS shell). Reels can be recorded as one or more clips totalling up to 20 minutes; reels longer than 3 minutes are not recommended to new audiences."},
+    "ig_creators_faq": {"url": "https://creators.instagram.com/faq?locale=en_US", "checked_at": "2026-10-26", "status": "verified", "note": "'We recommend videos to unconnected audiences that are 3 minutes or less.' 'Upload the highest resolution possible.'"},
+    "ig_graph_api_reels": {"url": "https://developers.facebook.com/docs/instagram-platform/instagram-graph-api/reference/ig-user/media", "checked_at": "2026-10-26", "status": "verified", "note": "Reel specifications (API publishing): MOV/MP4, moov atom front, no edit lists; HEVC or H.264 progressive, closed GOP, 4:2:0; 23-60 FPS; max 1920 horizontal px; aspect 0.01:1-10:1, 9:16 recommended; VBR 25 Mbps max; AAC 48 kHz max, mono/stereo, 128 kbps; 3 s min, 15 min max; 300 MB max."},
+    "meta_reels_ads": {"url": "https://www.facebook.com/business/ads-guide/update/video/instagram-reels", "checked_at": "2026-10-26", "status": "verified", "note": "Ads guide (paid placements only): 0 s - 15 min, up to 4 GB, 1440x2560 9:16, MP4/MOV, H.264, AAC >= 128 kbps, fixed frame rate."},
+    "ig_help_upload_specs": {"url": "https://help.instagram.com/1038071743007909", "checked_at": "2026-10-26", "status": "unavailable", "note": "Returned a Help Center shell without article text; nothing taken from it."},
+    "yt_shorts_length": {"url": "https://support.google.com/youtube/answer/15424877", "checked_at": "2026-10-26", "status": "verified", "note": "Videos with a square or vertical aspect ratio up to three minutes are categorized as Shorts (uploads after 2024-10-15)."},
+    "yt_upload_size": {"url": "https://support.google.com/youtube/answer/71673", "checked_at": "2026-10-26", "status": "verified", "note": "Maximum upload 256 GB or 12 hours, whichever is less; by default 15 minutes unless the account is verified."},
+    "yt_encoding": {"url": "https://support.google.com/youtube/answer/1722171", "checked_at": "2026-10-26", "status": "verified", "note": "Recommended (not required): MP4, H.264, same frame rate as recorded; AAC-LC/Opus 48 kHz, stereo 384 kbps; SDR 1080p 8 Mbps (24-30 fps) / 12 Mbps (48-60 fps); 16:9 standard on desktop."}
+  },
+  "instagram_reels": {
+    "width": 1080, "height": 1920, "aspect": "9:16",
+    "max_duration_s": 1200,
+    "reach_max_duration_s": 180,
+    "max_file_bytes": null,
+    "api": {
+      "min_duration_s": 3, "max_duration_s": 900, "max_file_bytes": 314572800,
+      "max_width": 1920, "fps_min": 23, "fps_max": 60, "max_video_bitrate_kbps": 25000,
+      "video_codecs": ["h264", "hevc"], "containers": ["mp4", "mov"],
+      "audio_codec": "aac", "audio_max_hz": 48000, "audio_channels_max": 2, "audio_bitrate_kbps": 128
+    },
+    "_provenance": {
+      "width": "lahza_preset", "height": "lahza_preset", "aspect": "ig_graph_api_reels",
+      "max_duration_s": "ig_help_reels_length", "reach_max_duration_s": "ig_creators_faq",
+      "max_file_bytes": "unverified: no official organic (app upload) file size limit found",
+      "api": "ig_graph_api_reels"
+    },
+    "_unverified": ["organic minimum duration", "organic file size limit", "organic fps range", "organic bitrate limit", "official organic upload resolution (1080x1920 is the Lahza preset)"]
+  },
+  "youtube_shorts": {
+    "width": 1080, "height": 1920, "aspect": "9:16",
+    "max_duration_s": 180,
+    "square_or_vertical": true,
+    "_provenance": {
+      "width": "lahza_preset", "height": "lahza_preset",
+      "aspect": "yt_shorts_length (square or vertical; 9:16 is the Lahza preset)",
+      "max_duration_s": "yt_shorts_length", "square_or_vertical": "yt_shorts_length"
+    },
+    "_unverified": ["Shorts-specific resolution, fps, bitrate or file size (none published; general upload rules apply)", "minimum duration"]
+  },
+  "youtube_video": {
+    "width": 1920, "height": 1080, "aspect": "16:9",
+    "max_duration_s": 43200,
+    "max_file_bytes": 274877906944,
+    "unverified_account_max_duration_s": 900,
+    "recommended": {
+      "container": "mp4", "video_codec": "h264", "fps": "same as recorded",
+      "video_bitrate_kbps_1080p_24_30": 8000, "video_bitrate_kbps_1080p_48_60": 12000,
+      "audio_codec": "aac-lc", "audio_hz": 48000, "audio_bitrate_kbps_stereo": 384
+    },
+    "_provenance": {
+      "width": "lahza_preset", "height": "lahza_preset", "aspect": "yt_encoding",
+      "max_duration_s": "yt_upload_size", "max_file_bytes": "yt_upload_size",
+      "unverified_account_max_duration_s": "yt_upload_size", "recommended": "yt_encoding"
+    }
+  },
   "custom": {}
 }

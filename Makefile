@@ -86,6 +86,22 @@ asr-eval:
 	@for m in $(ASR_MODELS); do $(BIN)/python -I eval/run_asr_eval.py --set fleurs-uz --model $$m $(ASR_EVAL_ARGS) || exit 1; done
 	$(BIN)/python -I eval/run_asr_eval.py --table $$(ls -t build/asr-eval/results-*.json | head -n $(words $(ASR_MODELS)))
 
+# V1-1 chidamlilik: 4 soatlik sintetik video + navbatda 20 epizod (soxta ASR/LLM). Oddiy `pytest` da
+# tanlanmaydi. Qisqa variant: make test-stress STRESS_ENV="LAHZA_STRESS_HOURS=0.5 LAHZA_STRESS_EPISODES=5"
+STRESS_ENV ?=
+.PHONY: test-stress
+test-stress:
+	mkdir -p build
+	cd engine && env LAHZA_STRESS_REPORT=$(CURDIR)/build/stress-report.json $(STRESS_ENV) \
+		../$(BIN)/pytest -m stress tests/stress -v
+
+# M3-PERF-1: bosqichlar bo'yicha tezlik va TZ 2-bo'lim maqsadi (o'rnatilgan modellar bilan).
+# Misollar: make bench BENCH_ARGS="--minutes 60"; make bench BENCH_ARGS="--video /abs/podcast.mp4"
+BENCH_ARGS ?= --minutes 10
+.PHONY: bench
+bench:
+	$(BIN)/python scripts/bench.py --out build/bench-$$(date +%Y%m%d-%H%M).json $(BENCH_ARGS)
+
 check-versions:
 	$(PY) scripts/check_versions.py
 
