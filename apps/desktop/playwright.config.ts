@@ -40,6 +40,15 @@ export default defineConfig({
   testIgnore: IGNORED,
   timeout: 60_000,
   retries: process.env.CI ? 1 : 0,
+  /// Stop a broadly broken leg early. Counted in failed ATTEMPTS, retries
+  /// included, so with `retries: 1` this is five tests failing twice — a broken
+  /// build, not a flake. Without it the two export regressions of 2026-10-24/26
+  /// ran every remaining spec and every retry on macOS: 77 and 84 minutes to
+  /// report what the first ten failures already said. The matrix's own
+  /// `fail-fast: false` is the other half — the other legs still finish and
+  /// report, only the broken one stops. Local runs keep going so a developer
+  /// sees the whole picture.
+  maxFailures: process.env.CI ? 10 : 0,
   /// A JSON report rides alongside the console reporter: `stats` carries the invocation's
   /// wall clock, every test result its own `duration`, `workerIndex`, and
   /// `startTime`. Nothing else here does — CI's default `dot` prints no

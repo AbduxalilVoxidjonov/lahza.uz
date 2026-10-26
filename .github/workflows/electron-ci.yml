@@ -42,17 +42,26 @@ on:
 permissions:
   contents: read
 
-# Collapse redundant PR/scheduled runs; main pushes finish in sequence so a
-# partially uploaded release cannot be interrupted by an unrelated commit.
-# event_name is in the key so the nightly @matrix sweep and a same-ref push
-# can never cancel each other — schedule/dispatch runs group only among
-# themselves.
+# Collapse redundant PR/scheduled runs. event_name is in the key so the nightly
+# @matrix sweep and a same-ref push can never cancel each other —
+# schedule/dispatch runs group only among themselves.
+#
+# main pushes run PER COMMIT, not in sequence: the sha is in their key, so two
+# pushes never queue behind each other. Serialising the whole workflow was how a
+# single wedged leg (the macOS export regression of 2026-10-26, 77 minutes to
+# its timeout) made the NEXT push wait 24 minutes before its first job started.
+# The one thing that must not run twice at once — publishing a release — is
+# serialised where it happens, by the `release` job's own concurrency group,
+# and `release.mjs publish` re-reads the published set at that point so a
+# version a sibling run already shipped is left untouched. Two concurrent push
+# runs do share the account's concurrency cap (see the e2e job's budget note),
+# so they slow each other rather than wait; that is the trade.
 concurrency:
   # run_id for dispatch: partial runs of DIFFERENT parts must coexist, not
   # cancel each other.
-  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || 'ref' }}
-  # Let an in-flight main release finish. Later pushes retry an unpublished
-  # version, so coalescing pending runs cannot lose a version bump.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ (github.event_name == 'workflow_dispatch' && github.run_id) || (github.event_name == 'push' && github.sha) || 'ref' }}
+  # Never cancel a push run: with per-commit groups there is nothing to coalesce,
+  # and a cancelled main run would leave its commit untested.
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
@@ -81,14 +90,18 @@ jobs:
   e2e:
     needs: release-plan
     # A wedged offscreen capture / Electron has hung before (the swiftshader
-    # case); cap the job instead of letting it run to the 6h default. Sized to
-    # the `all` e2e slice, NOT to the split ones: a scoped dispatch can
-    # still put the whole suite (`--full` included) on a single runner, and that
-    # is the longest a green job can legitimately be. Headroom matters because a
-    # leg that hits the cap reports only "exceeded the maximum execution time"
-    # and hides which specs actually failed. Coverage cuts belong in the @matrix
-    # tier (apps/desktop/e2e/README.md), not here.
-    timeout-minutes: 90
+    # case); cap the job instead of letting it run to the 6h default. Two
+    # budgets: the `all` slice — a scoped dispatch can put the whole suite
+    # (`--full` included) on a single runner — keeps 90, the longest a green job
+    # can legitimately be. A split leg gets 60: the longest measured leg is
+    # under 40, and Playwright's `maxFailures` (playwright.config.ts) now ends a
+    # broadly broken leg long before either cap, so the cap is for a HUNG leg,
+    # which no headroom helps. A leg that hits the cap reports only "exceeded
+    # the maximum execution time" and hides which specs failed, so the budget
+    # must still clear a slow green leg; re-check it after rebalancing the split.
+    # Coverage cuts belong in the @matrix tier (apps/desktop/e2e/README.md),
+    # not here.
+    timeout-minutes: ${{ matrix.part == 'all' && 90 || 60 }}
     # CONCURRENCY BUDGET — the build/test phase has 19 jobs: 1 `checks` + 3
     # `rust-test` + this matrix's 14 + 1 `compare`. The short release-plan runs
     # before this matrix; the release job waits for all gates. GitHub Free
@@ -586,6 +599,15 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'WeftCut/WeftCut' && needs.release-plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Push runs are per commit (see the workflow's concurrency note), so two of
+    # them can reach this job with the same unpublished version. Publishing is
+    # the one step that must not interleave — a draft created by one run and
+    # uploaded to by another is exactly the "draft belongs to another commit"
+    # refusal in release.mjs — so it alone queues, never cancels. The second run
+    # then finds the version published and leaves it untouched.
+    concurrency:
+      group: ${{ github.workflow }}-release-publish
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
