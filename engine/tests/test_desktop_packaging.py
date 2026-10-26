@@ -119,6 +119,8 @@ def test_gpl_toc_scan(tmp_path):
         "[('faster_whisper.audio', '/x/faster_whisper/audio.py', 'PYMODULE'),"
         " ('avro', '/x/avro.py', 'PYMODULE'), ('lahza_engine.media.pcm', '/x/pcm.py', 'PYMODULE')]")
     packaging.check_no_gpl_bundle(build)  # toza: `avro`/`pcm` PyAV emas
+    (build / "Analysis-00.toc").write_text("(['/x'], [], {}, ['tkinter',\n  'av',\n  '__main__'], [])")
+    packaging.check_no_gpl_bundle(build)  # toza: `--exclude-module av` ro'yxati
     for bad in ["('av', '/x/av/__init__.py', 'PYMODULE')", "('av.audio.frame', '/x/f.py', 'PYMODULE')",
                 "('av/.dylibs/libx264.165.dylib', '/x', 'BINARY')", "('libx265.215.dylib', '/x', 'BINARY')"]:
         (build / "Analysis-00.toc").write_text(f"[{bad}]")

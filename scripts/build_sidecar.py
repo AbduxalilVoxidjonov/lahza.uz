@@ -77,7 +77,8 @@ REQUIRED_BACKENDS = COLLECT_ALL | {"fontTools"}
 FORBIDDEN_MODULES = ["av"]
 # PyInstaller TOC'larida shu belgilar uchrasa build rad etiladi (PyAV va uning ichki FFmpeg'i).
 FORBIDDEN_TOC_PATTERNS = [
-    r"""['"]av(\.[\w.]+)?['"]""",  # PyAV moduli yoki submodullari
+    # PyAV moduli yoki submodullari - faqat TOC yozuvi `('av…', yo'l, tur)`; excludes ro'yxatidagi `'av'` emas
+    r"""\(\s*['"]av(\.[\w.]+)?['"]\s*,""",
     r"av[/\\]\.dylibs", r"av\.libs",  # delocate/auditwheel/delvewheel bilan qo'shilgan dylib/so/dll
     r"libx264", r"libx265",
 ]
