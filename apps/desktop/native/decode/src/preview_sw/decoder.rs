@@ -244,28 +244,6 @@ pub fn vaapi_copyback_supported() -> bool {
     false
 }
 
-/// Under WSL, VAAPI runs on Mesa's d3d12 driver, which loads Microsoft's D3D12
-/// runtime (`/usr/lib/wsl/lib/libd3d12core.so`). That runtime registers a
-/// per-thread destructor on every thread that calls into it — here the preview
-/// session thread doing copy-back — and Mesa unloads it again in `vaTerminate`,
-/// which the session thread runs as it drops its stream. The thread then exits
-/// into the destructor of an unmapped library: SIGSEGV on every VAAPI session
-/// close. Pinning the already-loaded runtime (`RTLD_NOLOAD | RTLD_NODELETE`:
-/// load nothing new, only refuse the unload) keeps that destructor mapped.
-/// Anywhere else the library is not loaded and this is a no-op.
-#[cfg(target_os = "linux")]
-fn pin_wsl_d3d12_runtime() {
-    let name = std::ffi::CString::new("libd3d12core.so").unwrap();
-    unsafe {
-        libc::dlopen(
-            name.as_ptr(),
-            libc::RTLD_NOW | libc::RTLD_NOLOAD | libc::RTLD_NODELETE,
-        );
-    }
-}
-#[cfg(not(target_os = "linux"))]
-fn pin_wsl_d3d12_runtime() {}
-
 /// Attach `accel`'s hw device context + `get_format` override to `codec_ctx`
 /// (called BEFORE `avcodec_open2`). Returns the created `AVBufferRef` — the
 /// caller owns it and must `av_buffer_unref` it (SwVideoStream does so on drop).
@@ -299,9 +277,6 @@ unsafe fn attach_hw_device(
         return Err(format!(
             "av_hwdevice_ctx_create({accel:?}) failed (ret={ret})"
         ));
-    }
-    if matches!(accel, DecodeAccel::Vaapi { .. }) {
-        pin_wsl_d3d12_runtime();
     }
     unsafe {
         let raw = codec_ctx.as_mut_ptr();
