@@ -23,6 +23,18 @@ export function readLayoutTheme(value: unknown): LayoutTheme {
   return isLayoutTheme(value) ? value : DEFAULT_LAYOUT_THEME;
 }
 
+/** Main appends the saved preset to each window's renderer argv so the first
+ * frame (the launch splash in particular) is already themed; settings
+ * hydration stays the authority and corrects a stale value after a reload. */
+const LAYOUT_THEME_SWITCH = '--weftcut-layout-theme=';
+
+export const layoutThemeArgument = (id: LayoutTheme) => `${LAYOUT_THEME_SWITCH}${id}`;
+
+export function readLayoutThemeArgument(argv: readonly string[]): LayoutTheme | null {
+  const value = argv.find(arg => arg.startsWith(LAYOUT_THEME_SWITCH))?.slice(LAYOUT_THEME_SWITCH.length);
+  return isLayoutTheme(value) ? value : null;
+}
+
 /** Native window floor before preset scaling (see main/mainWindowConfig.ts). */
 export const LAYOUT_MINIMUM_WINDOW = { width: 960, height: 640 } as const;
 

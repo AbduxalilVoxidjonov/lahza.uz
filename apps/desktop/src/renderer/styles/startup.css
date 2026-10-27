@@ -98,7 +98,7 @@ html.platform-mac :is(.startup-titlebar, .agent-titlebar, .perf-titlebar) {
   position: relative;
   width: min(46vw, calc(290 * var(--ui-px)));
   aspect-ratio: 640 / 440;
-  filter: drop-shadow(0 18px 44px rgba(0, 0, 0, 0.38));
+  filter: drop-shadow(0 calc(18 * var(--ui-px)) calc(44 * var(--ui-px)) rgba(0, 0, 0, 0.38));
   animation: splash-mark-settle 2500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -237,12 +237,12 @@ html.platform-mac :is(.startup-titlebar, .agent-titlebar, .perf-titlebar) {
 }
 
 @keyframes splash-wordmark-in {
-  0%, 51.2963% { opacity: 0; transform: translateY(6px); } /* fixed-px: motion offset */
+  0%, 51.2963% { opacity: 0; transform: translateY(calc(6 * var(--ui-px))); }
   60.2963%, 100% { opacity: 0.78; transform: translateY(0); }
 }
 
 @keyframes splash-progress-in {
-  0%, 48% { opacity: 0; transform: translateY(4px); } /* fixed-px: motion offset */
+  0%, 48% { opacity: 0; transform: translateY(calc(4 * var(--ui-px))); }
   62%, 100% { opacity: 0.78; transform: translateY(0); }
 }
 

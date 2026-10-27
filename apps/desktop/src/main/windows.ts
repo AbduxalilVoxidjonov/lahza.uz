@@ -4,6 +4,7 @@ import { secondaryWindowConfig, type SecondaryWinOpts } from './windowConfig.js'
 import { broadcastEvent } from './broadcast.js'
 import { isPageZoomShortcut, matchDevKeyAction } from './inputPolicy.js'
 import { WIN_CLOSED_EVENT, WIN_OPENED_EVENT } from '../shared/windowEvents.js'
+import { layoutThemeArgument, type LayoutTheme } from '../shared/layout-theme.js'
 import {
   sanitizeGeometry,
   withinDeadband,
@@ -200,7 +201,7 @@ export function rememberGeometry(
   })
 }
 
-export function createSecondary(label: string, opts?: SecondaryWinOpts): void {
+export function createSecondary(label: string, opts: SecondaryWinOpts | undefined, layoutTheme: LayoutTheme): void {
   let win = wins.get(label)
   if (win && !win.isDestroyed()) {
     win.show()
@@ -212,6 +213,7 @@ export function createSecondary(label: string, opts?: SecondaryWinOpts): void {
     ...secondaryWindowConfig(opts),
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.js'),
+      additionalArguments: [layoutThemeArgument(layoutTheme)],
       contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true,
     },
   })

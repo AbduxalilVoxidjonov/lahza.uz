@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { recommendLayoutTheme } from './layout-theme';
+import { LAYOUT_THEME_IDS, layoutThemeArgument, readLayoutThemeArgument, recommendLayoutTheme } from './layout-theme';
 
 /** Work area leaves room for a typical taskbar / menu bar. */
 const display = (width: number, height: number) =>
@@ -32,5 +32,18 @@ describe('recommendLayoutTheme', () => {
   it('falls back to the default when nothing fits', () => {
     expect(recommendLayoutTheme({ width: 800, height: 600 }, { width: 800, height: 560 }))
       .toBe('1080p-standard');
+  });
+});
+
+describe('layout theme launch argument', () => {
+  it('round-trips every preset through the renderer argv', () => {
+    for (const id of LAYOUT_THEME_IDS) {
+      expect(readLayoutThemeArgument(['electron', '--type=renderer', layoutThemeArgument(id)])).toBe(id);
+    }
+  });
+
+  it('ignores a missing or unknown preset', () => {
+    expect(readLayoutThemeArgument(['electron', '--type=renderer'])).toBeNull();
+    expect(readLayoutThemeArgument(['--weftcut-layout-theme=8k-standard'])).toBeNull();
   });
 });

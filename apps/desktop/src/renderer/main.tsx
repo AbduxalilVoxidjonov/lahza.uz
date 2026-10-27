@@ -21,6 +21,7 @@ recentsMostRecent
 import { isMac } from "./platform";
 import { PerformanceMonitorWindow } from "./render/PerfHUD";
 import { wireAppSettingsStream } from './settings/appSettingsStore';
+import { applyLayoutTheme } from './settings/layoutTheme';
 import { SplashScreen } from "./startup/SplashScreen";
 import { StartupScreen } from "./startup/StartupScreen";
 import {
@@ -55,6 +56,13 @@ if (!root) throw new Error("#root missing from index.html");
 // off macOS, so those rules stay platform-agnostic.
 // Applies to every renderer surface (main + Performance Monitor) that shares this bundle.
 if (isMac) document.documentElement.classList.add("platform-mac");
+
+// Theme the first frame from the preset main passed on the command line. The
+// settings stream hydrates only after an IPC round-trip, by which time the
+// window is shown and the splash has started its motion at the 1080p baseline,
+// so the mark would visibly jump to its themed size mid-intro.
+const launchLayoutTheme = window.api?.app?.launchLayoutTheme;
+if (launchLayoutTheme) applyLayoutTheme(launchLayoutTheme);
 
 // Production: suppress the Chromium/Electron default context menu (reload / print /
 // inspect) except over editable or copyable content, where the native

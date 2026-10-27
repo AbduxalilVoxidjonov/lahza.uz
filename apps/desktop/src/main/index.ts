@@ -73,7 +73,7 @@ import { openPreviewSw, requestFrameAtPreviewSw, closePreviewSw, consumePreviewS
 import { openExportSw, decodeRangeExportSw, returnCreditExportSw, closeExportSw, closeAllExportSw } from './exportSw.js'
 import { loadNativeDecode } from './native-decode.js'
 import { mainWindowGeometryDefaults, MAIN_WINDOW_LABEL } from './mainWindowConfig.js'
-import { DEFAULT_LAYOUT_THEME, readLayoutTheme } from '../shared/layout-theme.js'
+import { DEFAULT_LAYOUT_THEME, layoutThemeArgument, readLayoutTheme } from '../shared/layout-theme.js'
 import { openPathRobust, revealPathRobust } from './openPath.js'
 import {
   planMigration, runCopy, verify, rollback,
@@ -329,6 +329,8 @@ async function createWindow(): Promise<BrowserWindow> {
     backgroundColor: '#0a0a0a',
     webPreferences: {
       preload: path.join(import.meta.dirname, '../preload/index.js'),
+      // Theme the splash's first frame; settings hydration lands after it.
+      additionalArguments: [layoutThemeArgument(layoutTheme)],
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -2078,7 +2080,7 @@ app.whenReady().then(async () => {
   })
 
   // Secondary windows (Dev Performance Monitor etc.) via win:* IPC.
-  ipcMain.handle('win:create', (_e, { label, options }: { label: string; options?: SecondaryWinOpts }) => createSecondary(label, options))
+  ipcMain.handle('win:create', (_e, { label, options }: { label: string; options?: SecondaryWinOpts }) => createSecondary(label, options, layoutTheme))
   ipcMain.handle('win:act', (_e, { label, action }: { label: string; action: 'show' | 'hide' | 'close' | 'center' | 'focus' }) => actOnSecondary(label, action))
   ipcMain.handle('win:exists', (_e, { label }: { label: string }) => secondaryExists(label))
 

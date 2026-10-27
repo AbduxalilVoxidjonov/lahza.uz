@@ -473,7 +473,13 @@ export interface WeftcutApi {
   media: { dropped(paths: string[]): Promise<void> }
   /// Startup notices the renderer pulls on mount (see AppNotice), plus the
   /// version identity behind the Help → About dialog (see AppVersions).
-  app: { notices(): Promise<AppNotice[]>; versions(): Promise<AppVersions> }
+  app: {
+    notices(): Promise<AppNotice[]>
+    versions(): Promise<AppVersions>
+    /** The saved layout preset when main created this window (see
+     *  shared/layout-theme.ts); null when main did not pass one. */
+    launchLayoutTheme: import('./layout-theme').LayoutTheme | null
+  }
   updates: {
     status(): Promise<UpdateStatus>
     check(): Promise<UpdateStatus>
