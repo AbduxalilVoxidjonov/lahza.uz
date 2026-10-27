@@ -34,6 +34,7 @@ export function UpdateDialog({ onClose }: { onClose: () => void }) {
   const skip = (
     <Button variant="ghost" size="lg" className="mr-auto" disabled={status.phase === 'restarting'}
       onClick={() => {
+        if (!status.version) return
         void setAppSettings({ skipped_update_version: status.version }).catch(error => console.warn('[updates] skip', error))
         onClose()
       }}>
