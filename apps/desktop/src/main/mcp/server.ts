@@ -526,8 +526,9 @@ async function dispatchTool(
       const by = mcpActor(client)
       const hybridActor = tsHost.hybridDeps.actor
       const deps = { ...tsHost.hybridDeps, actor: { ...hybridActor, dispatch: (c: string, a: Record<string, unknown>) => hybridActor.dispatch(c, a, by) } }
+      const before = tsHost.actor.snapshot()
       const result = await runHybrid(name, args, deps)
-      return shapeHybridResult(name, result, tsHost.actor.snapshot()) as unknown as ServerResult
+      return shapeHybridResult(name, result, tsHost.actor.snapshot(), before) as unknown as ServerResult
     }
     if (route === 'motif') {
       // Catalog-read + authoring + install, served in TS. The raw value

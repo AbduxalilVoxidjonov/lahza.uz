@@ -72,6 +72,8 @@ export interface TsActorHostDeps {
   readFile: (p: string) => string
   /** node:fs stat folded to `PathFacts` — `import_media` refuses on it before any write. */
   statPath: HybridDeps['statPath']
+  /** node:fs realpath — an import of a file the pool already holds answers that item. */
+  realPath?: HybridDeps['realPath']
   /** Draws an imported SVG to a PNG (svgRaster.ts). Optional → SVGs are refused. */
   rasterizeSvg?: HybridDeps['rasterizeSvg']
   /** Current workspace directory (cached from backend). Null before first open/newWorkspace. */
@@ -360,6 +362,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     canImport: () => workspaceTransitions === 0,
     readFile: deps.readFile,
     statPath: deps.statPath,
+    realPath: deps.realPath,
     rasterizeSvg: deps.rasterizeSvg,
     snapshotComposition: () => rootComposition(actor.snapshot()),
   }

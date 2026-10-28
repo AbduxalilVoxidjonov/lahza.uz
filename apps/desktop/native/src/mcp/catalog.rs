@@ -150,11 +150,12 @@ tool_table! {
     #[cfg(feature = "jobs")]
     "compare_frames" => ("Compare two video frames for perceptual similarity — dedup shots, match a cutaway. Each side is `{ layer_id, t_us }`: a VideoClip layer and a SOURCE-ABSOLUTE µs timestamp (the space `analyze_clip`'s `keyframe_t_us` and `media://{id}/frame/<t_us>` use); the two may be the same clip or different clips. Returns `{ phash_hamming, ssim, similar }`: `phash_hamming` is the 0..64 distance between the frames' perceptual hashes (0 = identical, 20+ = a different scene), `ssim` is structural similarity 0..1, and `similar` is `phash_hamming <= 10 && ssim >= 0.5`. Read-only; VideoClip layers only, errors naming the offending side.", tools::CompareFramesArgs, tools::compare_frames, ToolAnnotations::READ),
     #[cfg(feature = "jobs")]
-    "import_media" => ("Import ONE media file from an absolute path. Hashes the file (blake3) and probes \
-                          metadata via ffprobe when installed. Returns `{ media_id, kind, label, path, duration_us, width, height, has_audio }`; \
-                          a subtitle document (.srt/.vtt/.ass) is laid onto a caption track instead and returns `{ caption_track_id, cues }`. \
+    "import_media" => ("Import ONE media file from an absolute path. Hashes it (blake3) and probes it with \
+                          ffprobe when installed. Returns `{ media_id, kind, label, path, duration_us, width, height, has_audio }`; \
+                          a subtitle (.srt/.vtt/.ass) is pooled for `apply_subtitles`. \
                           A directory, a missing path or an unreadable file is refused by name before anything is written; a read that \
-                          fails mid-import rolls the provisional pool row back. Unrecorded.", tools::ImportMediaArgs, tools::import_media, ToolAnnotations::WRITE),
+                          fails mid-import rolls the provisional pool row back. A pooled file answers \
+                          `existing: true`; `same_content_as` names copies of its bytes. Unrecorded.", tools::ImportMediaArgs, tools::import_media, ToolAnnotations::WRITE),
     #[cfg(feature = "speech")]
     "extract_clip_audio" => ("Extract a VideoClip or Audio layer's ORIGINAL source audio — before gain, mute, effects or mixing — for an agent running its own speech model; no engine or API key is involved and nothing is uploaded. Returns a JSON metadata block (`layer_id`, `media_id`, `t_start_us`, `t_end_us`, `source_in_us`, `source_out_us`, `duration_us`, `playback_rate`, `sample_rate_hz`, `channels`, `bits_per_sample`, `byte_length`, `mime_type`) plus an MCP audio block: base64 WAV, mono 16 kHz 16-bit, starting at zero. Optional `t_start_us`/`t_end_us` are composition-absolute µs, defaulting to the layer endpoints; at most 60 s of source audio per call — timeline windows ≤ 60 s / playback_rate. Map source-WAV offsets as `t_start_us + offset / playback_rate`, then `apply_transcripts`. Refuses a layer with no audio, a window outside the layer (a VideoClip's audio is its own stream, not its linked Audio layer).",
                              super::clip_audio::ExtractClipAudioArgs, super::clip_audio::extract_clip_audio, ToolAnnotations::READ),

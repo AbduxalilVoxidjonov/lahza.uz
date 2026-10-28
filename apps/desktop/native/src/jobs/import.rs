@@ -526,8 +526,9 @@ struct CopyResult {
 /// basename NFC-normalized (a macOS source hands NFD names; the copy we own
 /// must byte-match the `path_rel` recorded in project.json after any
 /// byte-preserving transfer — see relink.ts); if that name is already taken
-/// on disk, prefix with the first 8 hex chars of the source's blake3 hash to
-/// disambiguate.
+/// on disk, prefix with the first 8 hex chars of `hash_hint` to disambiguate,
+/// or with a time-based value when there is none (the import copy passes
+/// none: the hash is computed in the same pass as the copy).
 fn pick_dest_filename(media_dir: &Path, source: &Path, hash_hint: Option<&str>) -> PathBuf {
     use unicode_normalization::UnicodeNormalization;
     let base = source

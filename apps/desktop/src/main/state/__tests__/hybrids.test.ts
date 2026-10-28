@@ -42,7 +42,10 @@ function twoCuePayload() {
 }
 
 /** Build HybridDeps with a fake compute + spies; `workspaceDir` is overridable. */
-function makeDeps(actor: ActorHandle, opts: { workspaceDir?: string | null; fileContent?: string; statPath?: PathFacts | null } = {}): HybridDeps & {
+function makeDeps(actor: ActorHandle, opts: {
+  workspaceDir?: string | null; fileContent?: string; statPath?: PathFacts | null
+  realPath?: (p: string) => string; platform?: NodeJS.Platform
+} = {}): HybridDeps & {
   _probeMedia: ReturnType<typeof vi.fn>
   _hashMediaSource: ReturnType<typeof vi.fn>
   _parseSubtitles: ReturnType<typeof vi.fn>
@@ -74,6 +77,8 @@ function makeDeps(actor: ActorHandle, opts: { workspaceDir?: string | null; file
     readFile,
     // A regular, readable file unless a test says what else the path is.
     statPath: () => (opts.statPath === undefined ? { kind: 'file', readable: true } : opts.statPath),
+    realPath: opts.realPath,
+    platform: opts.platform ?? 'win32',
     snapshotComposition: () => root(actor.snapshot()),
   }
   return Object.assign(deps, {
@@ -186,6 +191,112 @@ describe('runHybrid: import_media', () => {
     const deps = makeDeps(actor, { workspaceDir: null })
     await runHybrid('import_media', { path: 'C:/x.mp4' }, deps)
     expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+  })
+
+  // Importing a file the pool already holds hands back the item that holds it:
+  // a second row, and a second copy in Media/, is what the user never asked for.
+  describe('a file the pool already holds', () => {
+    const HELD = '00000000-0000-0000-0000-0000000000bb'
+    function holding(pathAbs: string): ActorHandle {
+      const actor = freshActor()
+      const r = actor.dispatch('add_media_item', { media: { ...mediaItemTemplate(HELD, 'Video', 4_000_000), path_abs: pathAbs, file_hash_blake3: 'heldhash' } })
+      expect(r.ok).toBe(true)
+      return actor
+    }
+    async function reimport(actor: ActorHandle, source: string, opts: Parameters<typeof makeDeps>[1] = {}) {
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj', ...opts })
+      const id = await runHybrid('import_media', { path: source }, deps)
+      return { id, deps }
+    }
+
+    it('answers the held item and writes nothing', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const { id, deps } = await reimport(actor, 'C:/proj/Media/x.mp4')
+      expect(id).toBe(HELD)
+      expect(Object.keys(actor.snapshot().media_pool)).toEqual([HELD])
+      expect(deps._hashMediaSource).not.toHaveBeenCalled()
+      expect(deps._enqueueDerivatives).not.toHaveBeenCalled()
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+    })
+
+    it('matches the original source of a copy still in flight', async () => {
+      const actor = holding('D:/footage/x.mp4')
+      expect((await reimport(actor, 'D:/footage/x.mp4')).id).toBe(HELD)
+    })
+
+    it('matches across separators and case on Windows', async () => {
+      const actor = holding('C:\\Proj\\Media\\X.mp4')
+      expect((await reimport(actor, 'c:/proj/media/x.MP4')).id).toBe(HELD)
+    })
+
+    it('treats a different case as a different file on Linux', async () => {
+      const actor = holding('/proj/Media/X.mp4')
+      const { id } = await reimport(actor, '/proj/Media/x.mp4', { platform: 'linux', workspaceDir: null })
+      expect(id).toBe(MID)
+    })
+
+    it('matches through a link to the same file', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const realPath = (p: string) => (p === 'C:/shortcut/x.mp4' ? 'C:\\proj\\Media\\x.mp4' : p)
+      expect((await reimport(actor, 'C:/shortcut/x.mp4', { realPath })).id).toBe(HELD)
+    })
+
+    it('ends the import trace as already held, not as a failure', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const emit = vi.fn(), send = vi.fn()
+      const diagnostics = new ImportDiagnostics({ emit, send, version: 'test', id: () => 'import-request' })
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      deps.beginImport = () => diagnostics.begin()
+      await runHybrid('import_media', { path: 'C:/proj/Media/x.mp4' }, deps)
+      expect(emit.mock.calls.map(([row]) => row.details.stage)).toEqual(['requested', 'already_in_pool'])
+      expect(emit.mock.calls[1][0].details.media_id).toBe(HELD)
+      expect(send).toHaveBeenLastCalledWith('import:diagnostic-track', { import_id: 'import-request', remove: true })
+    })
+  })
+
+  // Media/ is where the import copy puts a file; one already there is
+  // recorded where it stands. Anywhere else, inside the project folder or
+  // not, is copied in, so every pooled file of a project lives in Media/.
+  describe('a file already in the project Media folder', () => {
+    it('is recorded in place with its Media-relative path, and not copied', async () => {
+      const actor = freshActor()
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      await runHybrid('import_media', { path: 'C:/proj/Media/x.mp4' }, deps)
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      const item = actor.snapshot().media_pool[MID]
+      expect(item.path_rel).toBe('Media\\x.mp4')
+      expect(item.path_abs).toBe('C:/proj/Media/x.mp4')
+      expect(item.file_hash_blake3).toBe('realhash-deadbeef')
+    })
+
+    it('keeps a subfolder of Media in the relative path', async () => {
+      const actor = freshActor()
+      const deps = makeDeps(actor, { workspaceDir: '/proj', platform: 'linux' })
+      await runHybrid('import_media', { path: '/proj/Media/b-roll/x.mp4' }, deps)
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      expect(actor.snapshot().media_pool[MID].path_rel).toBe('Media/b-roll/x.mp4')
+    })
+
+    it('recognises Media through a linked project folder', async () => {
+      const actor = freshActor()
+      const realPath = (p: string) => p.replace(/^\/link/, '/real')
+      const deps = makeDeps(actor, { workspaceDir: '/link/proj', platform: 'linux', realPath })
+      await runHybrid('import_media', { path: '/real/proj/Media/x.mp4' }, deps)
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      expect(actor.snapshot().media_pool[MID].path_rel).toBe('Media/x.mp4')
+    })
+
+    it('copies a file from elsewhere in the project folder into Media', async () => {
+      const deps = makeDeps(freshActor(), { workspaceDir: 'C:/proj' })
+      await runHybrid('import_media', { path: 'C:/proj/footage/x.mp4' }, deps)
+      expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledWith(MID, 'C:/proj/footage/x.mp4')
+    })
+
+    it('copies a sibling folder whose name only starts with Media', async () => {
+      const deps = makeDeps(freshActor(), { workspaceDir: 'C:/proj' })
+      await runHybrid('import_media', { path: 'C:/proj/Media-old/x.mp4' }, deps)
+      expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledWith(MID, 'C:/proj/Media-old/x.mp4')
+    })
   })
 
   // A folder passes the stat-only probe and would land a pool row with a

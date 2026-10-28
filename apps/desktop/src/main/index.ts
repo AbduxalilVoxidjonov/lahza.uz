@@ -1053,6 +1053,7 @@ app.whenReady().then(async () => {
         return { kind, readable }
       } catch { return null }
     },
+    realPath: (p) => { try { return fs.realpathSync.native(p) } catch { return p } },
     workspaceDir: () => wsCache,
     emitLog: (entry) => { void backend!.invoke('log_emit', JSON.stringify({ input: entry })) },
     listMotifs: () => backend!.invoke('list_motifs', '{}'),

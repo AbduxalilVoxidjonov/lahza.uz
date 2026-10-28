@@ -17,6 +17,7 @@ import { McpArgError, mapCommandError, mcpDef } from './mcp-commands'
 import type { Cue } from './mutations/captions'
 import { scopeComposition } from './mutations/helpers'
 import { parseDiscardSegments } from './mutations/split'
+import { mediaFolderPath, pooledItemFor } from './importSource'
 import { playsNoSoundError, resolvePauseSubject } from './pauseSubject'
 import { snapFrameRound } from './snap'
 import type { ImportTrace } from '../importDiagnostics'
@@ -128,6 +129,11 @@ export type HybridDeps = {
   /** node:fs stat, folded to what `import_media` refuses on: what the path IS,
    *  and whether this process may read it. `null` when nothing is there. */
   statPath: (p: string) => PathFacts | null
+  /** node:fs realpath, answering its input when the path cannot be resolved.
+   *  Absent: paths are compared as spelled. */
+  realPath?: (p: string) => string
+  /** Whose path rules compare import sources. Absent: this process's. */
+  platform?: NodeJS.Platform
   /** Draws an `.svg` to a PNG and returns its path (svgRaster.ts); the PNG is
    *  what `import_media` imports. Absent: an SVG is refused. */
   rasterizeSvg?: (p: string) => Promise<string>
@@ -817,9 +823,17 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         try { item = JSON.parse(await (trace ? deps.compute.probeMedia(path, trace.id) : deps.compute.probeMedia(path))) as MediaItem }
         catch (e) { throw new Error(`import_media: probing ${path} failed: ${errText(e)}. Nothing was imported`) }
         assertCurrent()
+        // Checked here, in the same turn as the insert, so two imports of one
+        // file racing through their probes still land one row.
+        const realPath = deps.realPath ?? ((p: string) => p)
+        const platform = deps.platform ?? process.platform
+        const held = pooledItemFor(deps.actor.snapshot().media_pool, path, realPath, platform)
+        if (held) { trace?.held(held.id); return held.id }
         const r = deps.actor.dispatch('add_media_item', { media: item })
         if (!r.ok) throw new Error(JSON.stringify(r.error))
-        trace?.bind(item, Boolean(deps.workspaceDir()))
+        const workspaceDir = deps.workspaceDir()
+        const inMedia = workspaceDir ? mediaFolderPath(workspaceDir, path, realPath, platform) : null
+        trace?.bind(item, Boolean(workspaceDir) && !inMedia)
         // Compute the REAL content hash (a lightweight standalone read pass), set it
         // on the pool item, THEN enqueue derivatives — so every job bakes the final
         // cache key and no derivative ever touches a pending alias (ADR 0007
@@ -849,8 +863,13 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         assertCurrent()
         // Workspace copy runs in PARALLEL: copies the source into <workspace>/Media,
         // re-confirms the same hash, and flips path_abs via the media:workspace_paths
-        // seam. No-op napi when no workspace.
-        if (deps.workspaceDir()) await deps.enqueueWorkspaceCopy(item.id, path)
+        // seam. No-op napi when no workspace. A source already under Media/ is
+        // where the copy would land: it is recorded in place instead.
+        if (inMedia) {
+          const wr = deps.actor.dispatch('set_media_workspace_paths', { media: item.id, paths: {
+            path_abs: path, path_rel: inMedia, file_hash_blake3: hash, file_size: item.file_size, file_mtime: item.file_mtime } })
+          if (!wr.ok) throw new Error(JSON.stringify(wr.error))
+        } else if (workspaceDir) await deps.enqueueWorkspaceCopy(item.id, path)
         trace?.queued()
         return item.id
       } catch (error) { trace?.fail(error); throw error }

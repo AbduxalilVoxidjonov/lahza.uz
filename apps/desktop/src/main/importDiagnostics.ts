@@ -18,6 +18,8 @@ export interface ImportTrace {
   id: string
   bind(item: MediaItem, copy: boolean): void
   queued(): void
+  /** The pool already held the file: the request ends with nothing written. */
+  held(mediaId: string): void
   fail(error: unknown): void
 }
 
@@ -66,6 +68,12 @@ export class ImportDiagnostics {
         this.send({ import_id: t.id, media_id: item.id })
       },
       queued: () => { if (this.traces.has(t.id)) { t.requestDone = true; this.log(t, 'request_completed', {}); this.summary(t) } },
+      held: mediaId => {
+        if (!this.traces.has(t.id)) return
+        t.media = mediaId
+        this.log(t, 'already_in_pool', {}, 'info')
+        this.remove(t)
+      },
       fail: error => {
         if (!this.traces.has(t.id)) return
         this.log(t, 'request_failed', { error: String(error) }, 'warn')
