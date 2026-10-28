@@ -27,12 +27,19 @@ export function spelledKey(realPath: (p: string) => string, platform: NodeJS.Pla
 }
 
 /** The pool item whose file `source` is: a link, another spelling or the
- *  source of a copy still in flight all match. A pooled file that is gone
- *  matches nothing. */
-export function pooledItemFor(pool: Record<string, MediaItem>, source: string, fileKey: FileKey): MediaItem | null {
+ *  source of a copy still in flight all match, provided the probe's size and
+ *  modification time still match the item. File identity alone survives an
+ *  overwrite; a changed fingerprint must go through content matching instead.
+ *  A pooled file that is gone matches nothing. */
+export function pooledItemFor(
+  pool: Record<string, MediaItem>, source: string, fileKey: FileKey,
+  found: Pick<MediaItem, 'file_size' | 'file_mtime'>,
+): MediaItem | null {
   const key = fileKey(source)
   if (key === null) return null
-  for (const item of Object.values(pool)) if (fileKey(item.path_abs) === key) return item
+  for (const item of Object.values(pool)) {
+    if (item.file_size === found.file_size && item.file_mtime === found.file_mtime && fileKey(item.path_abs) === key) return item
+  }
   return null
 }
 

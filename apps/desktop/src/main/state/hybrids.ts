@@ -835,11 +835,22 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         catch (e) { throw new Error(`import_media: probing ${path} failed: ${errText(e)}. Nothing was imported`) }
         assertCurrent()
         const hashSource = () => (trace ? deps.compute.hashMediaSource(path, trace.id) : deps.compute.hashMediaSource(path))
+        // Only an import still in flight may be joined by file identity alone.
+        // A settled item's file can have been overwritten, even with the same
+        // size and second-resolution mtime, so its bytes must be checked below.
+        const sameFile = pooledItemFor(deps.actor.snapshot().media_pool, path, fileKey, item)
+        const importing = sameFile && importsInFlight.get(deps.actor)?.get(sameFile.id)
+        if (importing) {
+          await importing
+          assertCurrent()
+          trace?.held(sameFile.id)
+          return sameFile.id
+        }
         // A pooled file copied into Media/ no longer has its source's path, only
         // its bytes. When an item of the source's size could hold them, the
         // source is hashed before the insert, not after.
         let hash: string | null = null
-        if (!pooledItemFor(deps.actor.snapshot().media_pool, path, fileKey) && hashedItemOfSize(deps.actor.snapshot().media_pool, item.file_size)) {
+        if (hashedItemOfSize(deps.actor.snapshot().media_pool, item.file_size)) {
           try { hash = await hashSource() }
           catch (e) { throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. Nothing was imported`) }
           assertCurrent()
@@ -847,7 +858,9 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         // Checked here, in the same turn as the insert, so two imports of one
         // file racing through their probes still land one row.
         const pool = deps.actor.snapshot().media_pool
-        const held = pooledItemFor(pool, path, fileKey) ?? (hash === null ? null : pooledItemWithHash(pool, hash))
+        const pendingFile = pooledItemFor(pool, path, fileKey, item)
+        const held = pendingFile && importsInFlight.get(deps.actor)?.has(pendingFile.id)
+          ? pendingFile : hash === null ? null : pooledItemWithHash(pool, hash)
         const workspaceDir = deps.workspaceDir()
         const inMedia = workspaceDir ? mediaFolderPath(workspaceDir, path, realPath, fileKey, platform) : null
         if (held) {
@@ -858,9 +871,9 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
           // The same bytes found while the held item's own file is gone (a
           // deleted Media/ copy, a drive offline): the item is relinked to them.
           else if (!usableFile(deps.statPath(held.path_abs))) {
-            await relink(held, item, path, workspaceDir, inMedia, deps)
-            assertCurrent()
+            await relink(held, item, path, workspaceDir, inMedia, assertCurrent, deps)
           }
+          assertCurrent()
           trace?.held(held.id)
           return held.id
         }
@@ -1034,12 +1047,14 @@ function usableFile(facts: PathFacts | null): boolean {
  *  to hold the same bytes: recorded in place under Media/, else copied in as an
  *  import's source is. Its derivatives regenerate whatever left with the file. */
 async function relink(
-  held: MediaItem, found: MediaItem, path: string, workspaceDir: string | null, inMedia: string | null, deps: HybridDeps,
+  held: MediaItem, found: MediaItem, path: string, workspaceDir: string | null, inMedia: string | null,
+  assertCurrent: () => void, deps: HybridDeps,
 ): Promise<void> {
   const r = deps.actor.dispatch('set_media_workspace_paths', { media: held.id, paths: {
     path_abs: path, path_rel: inMedia, file_hash_blake3: held.file_hash_blake3, file_size: found.file_size, file_mtime: found.file_mtime } })
   if (!r.ok) throw new Error(JSON.stringify(r.error))
   await deps.enqueueDerivatives([deps.actor.snapshot().media_pool[held.id]])
+  assertCurrent()
   if (workspaceDir && !inMedia) await deps.enqueueWorkspaceCopy(held.id, path)
 }
 

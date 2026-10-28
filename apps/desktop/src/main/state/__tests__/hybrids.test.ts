@@ -205,32 +205,68 @@ describe('runHybrid: import_media', () => {
       expect(r.ok).toBe(true)
       return actor
     }
-    async function reimport(actor: ActorHandle, source: string, opts: Parameters<typeof makeDeps>[1] = {}) {
+    async function reimport(actor: ActorHandle, source: string, opts: Parameters<typeof makeDeps>[1] & { hash?: string } = {}) {
       const deps = makeDeps(actor, { workspaceDir: 'C:/proj', ...opts })
+      if (opts.hash) deps._hashMediaSource.mockResolvedValue(opts.hash)
       const id = await runHybrid('import_media', { path: source }, deps)
       return { id, deps }
     }
 
     it('answers the held item and writes nothing', async () => {
       const actor = holding('C:/proj/Media/x.mp4')
-      const { id, deps } = await reimport(actor, 'C:/proj/Media/x.mp4')
+      const { id, deps } = await reimport(actor, 'C:/proj/Media/x.mp4', { hash: 'heldhash' })
       expect(id).toBe(HELD)
       expect(Object.keys(actor.snapshot().media_pool)).toEqual([HELD])
-      expect(deps._hashMediaSource).not.toHaveBeenCalled()
+      expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
       expect(deps._enqueueDerivatives).not.toHaveBeenCalled()
       expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
     })
 
     it('matches the original source of a copy still in flight', async () => {
       const actor = holding('D:/footage/x.mp4')
-      expect((await reimport(actor, 'D:/footage/x.mp4')).id).toBe(HELD)
+      expect((await reimport(actor, 'D:/footage/x.mp4', { hash: 'heldhash' })).id).toBe(HELD)
+    })
+
+    it.each(['file_size', 'file_mtime', 'neither'] as const)('imports replaced bytes when %s changed, with fresh metadata and derivatives', async (field) => {
+      const source = 'C:/proj/Media/x.mp4'
+      const actor = holding(source)
+      const original = structuredClone(actor.snapshot().media_pool[HELD])
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      const replacement = { ...mediaItemTemplate(MID, 'Video', 9_000_000), path_abs: source }
+      if (field !== 'neither') replacement[field] = original[field] + 100
+      deps._probeMedia.mockResolvedValue(JSON.stringify(replacement))
+
+      expect(await runHybrid('import_media', { path: source }, deps)).toBe(MID)
+      expect(actor.snapshot().media_pool[MID]).toMatchObject({
+        file_hash_blake3: 'realhash-deadbeef', metadata: { duration_us: 9_000_000 },
+      })
+      expect(actor.snapshot().media_pool[HELD]).toEqual(original)
+      expect(deps._enqueueDerivatives).toHaveBeenCalledWith([expect.objectContaining({
+        id: MID, file_hash_blake3: 'realhash-deadbeef', metadata: replacement.metadata,
+      })])
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      // The stale row still names this file: it must not hide the fresh row.
+      expect(await runHybrid('import_media', { path: source }, deps)).toBe(MID)
+      expect(deps._enqueueDerivatives).toHaveBeenCalledTimes(1)
+    })
+
+    it('checks the bytes before reusing a file whose modification time changed', async () => {
+      const source = 'C:/proj/Media/x.mp4'
+      const actor = holding(source)
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      deps._probeMedia.mockResolvedValue(JSON.stringify({ ...probedItem(), path_abs: source, file_mtime: 100 }))
+      deps._hashMediaSource.mockResolvedValue('heldhash')
+      expect(await runHybrid('import_media', { path: source }, deps)).toBe(HELD)
+      expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
+      expect(deps._enqueueDerivatives).not.toHaveBeenCalled()
+      expect(Object.keys(actor.snapshot().media_pool)).toEqual([HELD])
     })
 
     it('matches another spelling the volume calls the same file', async () => {
       const actor = holding('C:\\Proj\\Media\\X.mp4')
       // A case-insensitive volume, as its stat would say.
       const fileKey = (p: string) => path.win32.resolve(p).toLowerCase()
-      expect((await reimport(actor, 'c:/proj/media/x.MP4', { fileKey })).id).toBe(HELD)
+      expect((await reimport(actor, 'c:/proj/media/x.MP4', { fileKey, hash: 'heldhash' })).id).toBe(HELD)
     })
 
     // NTFS does not normalize names: a precomposed and a decomposed café.mp4
@@ -251,7 +287,7 @@ describe('runHybrid: import_media', () => {
     it('matches through a link to the same file', async () => {
       const actor = holding('C:/proj/Media/x.mp4')
       const realPath = (p: string) => (p === 'C:/shortcut/x.mp4' ? 'C:\\proj\\Media\\x.mp4' : p)
-      expect((await reimport(actor, 'C:/shortcut/x.mp4', { realPath })).id).toBe(HELD)
+      expect((await reimport(actor, 'C:/shortcut/x.mp4', { realPath, hash: 'heldhash' })).id).toBe(HELD)
     })
 
     // The copy into Media/ replaces the item's path: the outside file it came
@@ -301,6 +337,28 @@ describe('runHybrid: import_media', () => {
         const { item, deps } = await relinked('D:/backup/x.mp4', { workspaceDir: null })
         expect(item.path_abs).toBe('D:/backup/x.mp4')
         expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      })
+
+      it.each(['another project', 'the same project reopened'])('does not copy into %s after awaiting derivatives', async (change) => {
+        const actor = holding('C:/proj/Media/x.mp4')
+        const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+        deps.statPath = p => p === 'C:/proj/Media/x.mp4' ? null : { kind: 'file', readable: true }
+        deps._hashMediaSource.mockResolvedValue('heldhash')
+        let generation = 1
+        deps.importGeneration = () => generation
+        let finish!: () => void
+        deps._enqueueDerivatives.mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
+        const pending = runHybrid('import_media', { path: 'D:/backup/x.mp4' }, deps)
+        const cancelled = expect(pending).rejects.toThrow(/cancelled/i)
+        await vi.waitFor(() => expect(deps._enqueueDerivatives).toHaveBeenCalledTimes(1))
+        if (change === 'another project') deps.workspaceDir = () => 'C:/other-project'
+        else generation++
+        const replacement = structuredClone(actor.snapshot())
+        actor.replaceState(replacement)
+        finish()
+        await cancelled
+        expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+        expect(actor.snapshot()).toEqual(replacement)
       })
     })
 
@@ -369,6 +427,7 @@ describe('runHybrid: import_media', () => {
       const diagnostics = new ImportDiagnostics({ emit, send, version: 'test', id: () => 'import-request' })
       const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
       deps.beginImport = () => diagnostics.begin()
+      deps._hashMediaSource.mockResolvedValue('heldhash')
       await runHybrid('import_media', { path: 'C:/proj/Media/x.mp4' }, deps)
       expect(emit.mock.calls.map(([row]) => row.details.stage)).toEqual(['requested', 'already_in_pool'])
       expect(emit.mock.calls[1][0].details.media_id).toBe(HELD)
@@ -392,6 +451,7 @@ describe('runHybrid: import_media', () => {
       const HELD = '00000000-0000-0000-0000-0000000000bb'
       actor.dispatch('add_media_item', { media: { ...mediaItemTemplate(HELD, 'Video', 4_000_000), path_abs: '/proj/Media/x.mp4' } })
       const deps = makeDeps(actor, { workspaceDir: '/proj', platform: 'linux' })
+      deps._hashMediaSource.mockResolvedValue('0')
       expect(await runHybrid('import_media', { path: './Media/x.mp4' }, deps)).toBe(HELD)
     })
 

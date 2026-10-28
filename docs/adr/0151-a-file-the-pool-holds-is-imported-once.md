@@ -26,8 +26,13 @@ imports of files already in the project become the normal path, not a slip.
   file number, so the volume decides which spellings are one file: NTFS holds
   an NFC and an NFD `café.mp4` side by side, and no folding of the path could
   know that. A file system that reports no file number is compared by real
-  path, as spelled. A match ends the import with nothing written and answers
-  the held item's id. The check runs in the same synchronous turn as the
+  path, as spelled. Joining an import in flight also requires the probe's byte
+  size and modification time to match its stored fingerprint. A settled item
+  is matched by content instead: an overwrite can keep the same file number,
+  size and second-resolution modification time. Changed bytes are a new item
+  with fresh metadata and derivatives, without rewriting the old item's layer
+  references. A match ends the import with nothing written and answers the held
+  item's id. The check runs in the same synchronous turn as the
   insert, so two imports of one file racing through their probes still land
   one row; the later one waits for the earlier to settle and shares its
   result, so it never answers a row whose failed hash read rolls it back. The
@@ -41,7 +46,8 @@ imports of files already in the project become the normal path, not a slip.
 - **The same bytes are matched by their hash, before the insert.** The copy
   into `Media/` gives its item the copy's path, so the outside file it came
   from no longer matches by path. When a pool item with a real hash has the
-  source's byte size, the source is hashed before the insert, and the item
+  source's byte size, the source is hashed before the insert (including a
+  repeated import of the same path), and the item
   holding those bytes answers. The import reuses that hash, so a file of a
   new size is read no more than before. An item whose hash is still pending
   cannot be matched: two imports of the same bytes racing from two paths land
@@ -50,7 +56,9 @@ imports of files already in the project become the normal path, not a slip.
   the bytes has lost its own file (its `Media/` copy deleted, its drive
   offline), the import points that item at the source, copies it into
   `Media/` as any import's source is, and regenerates its derivatives. The
-  item keeps its id and its layers play again.
+  item keeps its id and its layers play again. After awaiting derivative enqueue,
+  the import checks its project generation before queuing the copy, including
+  when the same project has been closed and reopened.
 - **The MCP record says what happened.** An answer for an item the pool held
   before the call carries `existing: true`. The UI and MCP share the import
   arm, so both get the check; only MCP reports these fields.
