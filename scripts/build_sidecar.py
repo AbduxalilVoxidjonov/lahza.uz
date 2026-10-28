@@ -110,15 +110,62 @@ def vc_runtime_binaries(available: list[str], prefix: Path | None = None,
             for n in VC_RUNTIME_DLLS]
 
 
+# yt-dlp ilova relizisiz yangilanadi (Components): yangi versiya biz AST bo'yicha ko'rmagan stdlib
+# modulini import qilsa muzlatilgan Python'da ImportError bo'ladi. Shuning uchun AST ro'yxatidan
+# tashqari tarmoq/media yuklovchiga kerak bo'lishi mumkin bo'lgan keng stdlib to'plami doim kiradi.
+# Paketlar `--collect-submodules`, alohida modullar `--hidden-import` bilan; shu Python'da yo'qlari
+# (masalan 3.14 dagi `compression`) jimgina tashlab ketiladi.
+COMPONENT_STDLIB_PACKAGES = [
+    "http", "urllib", "email", "xml", "html", "json", "asyncio", "concurrent", "ctypes", "sqlite3",
+    "importlib", "encodings", "collections", "logging", "multiprocessing", "zipfile", "compression",
+]
+COMPONENT_STDLIB_MODULES = [
+    "hmac", "hashlib", "ssl", "socket", "netrc", "getpass", "uuid", "secrets", "mimetypes", "shlex",
+    "tokenize", "unicodedata", "zlib", "bz2", "lzma", "gzip", "tarfile", "base64", "binascii",
+    "struct", "pickle", "copy", "datetime", "calendar", "locale", "gettext", "textwrap", "string",
+    "difflib", "decimal", "fractions", "statistics", "random", "math", "heapq", "bisect", "queue",
+    "sched", "selectors", "signal", "subprocess", "tempfile", "shutil", "glob", "fnmatch",
+    "pathlib", "platform", "sysconfig", "warnings", "traceback", "inspect", "dataclasses", "enum",
+    "typing", "contextvars", "weakref", "abc", "io", "csv", "configparser", "quopri", "codecs",
+    "operator", "functools", "itertools",
+]
+# Keng to'plamga ham hech qachon kirmaydigan stdlib qismlari (test/GUI/o'rnatuvchilar).
+STDLIB_EXCLUDES = ["test", "idlelib", "tkinter", "turtle", "turtledemo", "lib2to3", "ensurepip",
+                   "venv", "pydoc_data"]
+
+
+def _stdlib_spec(name: str):
+    """`find_spec`, lekin faqat stdlib nomlari uchun; topilmasa/xato bo'lsa None."""
+    import importlib.util
+
+    if name.split(".")[0] not in sys.stdlib_module_names:
+        return None
+    try:
+        return importlib.util.find_spec(name)
+    except (ImportError, ValueError):
+        return None
+
+
+def component_stdlib_bundle() -> tuple[list[str], list[str]]:
+    """(paketlar, modullar): shu Python'da mavjud COMPONENT_STDLIB_* nomlari."""
+    packages = [n for n in COMPONENT_STDLIB_PACKAGES
+                if (s := _stdlib_spec(n)) is not None and s.submodule_search_locations]
+    modules = [n for n in COMPONENT_STDLIB_MODULES if _stdlib_spec(n) is not None]
+    return packages, modules
+
+
 def component_stdlib_imports(required: bool = True) -> list[str]:
     """yt-dlp/yt-dlp-ejs ishlatadigan stdlib modullari (hidden-import).
 
     Komponent sidecar'dan tashqarida, lekin u muzlatilgan Python'da ishlaydi: unga kerakli stdlib
-    modullari to'plamda bo'lishi shart. Manba AST bo'yicha o'qiladi (import qilinmaydi)."""
+    modullari to'plamda bo'lishi shart. Manba AST bo'yicha o'qiladi (import qilinmaydi).
+    `from xml.etree import ElementTree` ham `xml.etree`, ham (modul bo'lgani uchun)
+    `xml.etree.ElementTree` ni beradi; `from json import loads` esa faqat `json` ni."""
     import ast
     import importlib.util
 
     names: set[str] = set()
+    submodules: set[str] = set()
     for mod in COMPONENT_MODULES:
         spec = importlib.util.find_spec(mod)
         if spec is None or not spec.submodule_search_locations:
@@ -133,7 +180,10 @@ def component_stdlib_imports(required: bool = True) -> list[str]:
                     names.update(a.name for a in node.names)
                 elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
                     names.add(node.module)
-    return sorted(n for n in names if n.split(".")[0] in sys.stdlib_module_names)
+                    submodules.update(f"{node.module}.{a.name}" for a in node.names if a.name != "*")
+    stdlib = {n for n in names if n.split(".")[0] in sys.stdlib_module_names}
+    stdlib.update(n for n in submodules if _stdlib_spec(n) is not None)
+    return sorted(stdlib)
 
 
 def check_desktop_backends(available: list[str]) -> None:
@@ -199,8 +249,8 @@ def prepare_catalog(destination: Path) -> str:
 # yt-dlp ilovaga kirmaydi (ADR-0010): u `<data_dir>/Components` dan yuklanadi va yangilanadi. Ichida
 # bo'lsa muzlatilgan import'chi sys.path'dan oldin turadi - komponent yangilanishi e'tiborsiz qolardi.
 COMPONENT_MODULES = ["yt_dlp", "yt_dlp_ejs"]
-EXCLUDES = ["tkinter", "pytest", "_pytest", "IPython", "matplotlib", "PyInstaller", "mypy", "ruff",
-            *FORBIDDEN_MODULES, *COMPONENT_MODULES]
+EXCLUDES = ["pytest", "_pytest", "IPython", "matplotlib", "PyInstaller", "mypy", "ruff",
+            *STDLIB_EXCLUDES, *FORBIDDEN_MODULES, *COMPONENT_MODULES]
 
 _MACHINE = {"arm64": "aarch64", "aarch64": "aarch64", "x86_64": "x86_64", "amd64": "x86_64"}
 
@@ -312,7 +362,11 @@ def pyinstaller_cmd(entry: Path, clean: bool, extra_hidden: list[str],
     ]
     if clean:
         cmd.append("--clean")
-    for mod in [*HIDDEN_IMPORTS, *extra_hidden]:
+    # Yangilanadigan yt-dlp komponenti uchun keng stdlib to'plami (COMPONENT_STDLIB_* ga qarang).
+    stdlib_packages, stdlib_modules = component_stdlib_bundle()
+    for pkg in stdlib_packages:
+        cmd += ["--collect-submodules", pkg]
+    for mod in dict.fromkeys([*HIDDEN_IMPORTS, *stdlib_modules, *extra_hidden]):
         cmd += ["--hidden-import", mod]
     for mod in sorted(COLLECT_ALL.intersection(extra_hidden)):
         cmd += ["--collect-all", mod]
@@ -399,7 +453,7 @@ def main(argv: list[str] | None = None) -> int:
     entry.write_text(
         # PyInstaller must dispatch resource_tracker/spawn helpers before argparse.
         "import multiprocessing\nmultiprocessing.freeze_support()\n\n"
-        "import importlib\nimport json\nimport sys\nfrom pathlib import Path\n\n"
+        "import importlib\nimport json\nimport os\nimport sys\nfrom pathlib import Path\n\n"
         "from lahza_engine.cli import main\n\n"
         "if sys.argv[1:] == ['--packaging-check']:\n"
         "    from lahza_engine.asr.fw_compat import av_guard_active, install_av_guard\n"
@@ -413,8 +467,20 @@ def main(argv: list[str] | None = None) -> int:
         "    importlib.import_module('lahza_engine.api.app')\n"
         "    package = importlib.import_module('lahza_engine')\n"
         "    fonts = Path(package.__file__).parent / 'subtitle' / 'fonts'\n"
-        "    print(json.dumps({'imported_backends': modules, 'av_guard': True,\n"
-        "                      'fonts': sorted(p.name for p in fonts.glob('*'))}))\n"
+        "    report = {'imported_backends': modules, 'av_guard': True,\n"
+        "              'fonts': sorted(p.name for p in fonts.glob('*'))}\n"
+        # Ixtiyoriy: tashqi papkadagi yt-dlp komponenti muzlatilgan stdlib bilan to'liq yuklanadimi
+        # (barcha extractor va tarmoq handlerlari) - bolada ishlatiladigan import yo'li bilan bir xil.
+        "    ytdlp_path = [p for p in os.environ.get('LAHZA_YTDLP_PATH', '').split(os.pathsep) if p]\n"
+        "    if ytdlp_path:\n"
+        "        sys.path[:0] = ytdlp_path\n"
+        "        yt_dlp = importlib.import_module('yt_dlp')\n"
+        "        importlib.import_module('yt_dlp.extractor.extractors')\n"
+        "        importlib.import_module('yt_dlp.networking._urllib')\n"
+        "        importlib.import_module('yt_dlp.YoutubeDL')\n"
+        "        report['yt_dlp'] = {'version': yt_dlp.version.__version__, 'file': yt_dlp.__file__,\n"
+        "                            'external': not yt_dlp.__file__.startswith(sys._MEIPASS)}\n"
+        "    print(json.dumps(report))\n"
         "elif sys.argv[1:] == ['--packaging-mp-check']:\n"
         "    from multiprocessing import shared_memory\n"
         "    block = shared_memory.SharedMemory(create=True, size=16)\n"

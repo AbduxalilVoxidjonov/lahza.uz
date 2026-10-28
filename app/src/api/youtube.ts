@@ -48,8 +48,14 @@ export interface ImportUrlBody {
 
 const KEY = ["youtube-import"] as const;
 
+// `refetchOnMount: "always"`: kesh eskirgan bo'lsa ham (masalan, o'rnatish import sahifasidan boshlangan,
+// keyin Sozlamalar ochilgan) ketayotgan `install_job` yashirin qolmasin.
 export const useYoutubeImportStatus = () =>
-  useQuery({ queryKey: KEY, queryFn: () => get<YoutubeImportStatus>("/v1/settings/youtube-import") });
+  useQuery({
+    queryKey: KEY,
+    queryFn: () => get<YoutubeImportStatus>("/v1/settings/youtube-import"),
+    refetchOnMount: "always",
+  });
 
 export function useSetYoutubeImport() {
   const qc = useQueryClient();

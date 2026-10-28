@@ -151,6 +151,9 @@ def test_ytdlp_is_component_not_bundled(monkeypatch):
     cmd = packaging.pyinstaller_cmd(Path("entry.py"), False, [])
     excluded = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--exclude-module"]
     assert {"yt_dlp", "yt_dlp_ejs"} <= set(excluded)
+    hidden = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--hidden-import"]
+    collected = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--collect-submodules"]
+    assert not any(m.startswith("yt_dlp") for m in [*hidden, *collected])
     import importlib.util
 
     real = importlib.util.find_spec
@@ -166,9 +169,33 @@ def test_ytdlp_stdlib_imports_are_stdlib_only(tmp_path, monkeypatch):
     (pkg / "__init__.py").write_text("import http.cookiejar, requests\nfrom .utils import x\n"
                                      "from xml.etree import ElementTree\nimport Cryptodome\n")
     (tmp_path / "yt_dlp_ejs").mkdir()
-    (tmp_path / "yt_dlp_ejs" / "__init__.py").write_text("import json\n")
+    (tmp_path / "yt_dlp_ejs" / "__init__.py").write_text("import json\nfrom json import loads\n"
+                                                         "from email import message, nonexistent\n")
     monkeypatch.syspath_prepend(str(tmp_path))
-    assert packaging.component_stdlib_imports() == ["http.cookiejar", "json", "xml.etree"]
+    # from-import'dagi submodul ham kiradi; funksiya/yo'q nom (`loads`, `nonexistent`) kirmaydi.
+    assert packaging.component_stdlib_imports() == ["email", "email.message", "http.cookiejar", "json",
+                                                    "xml.etree", "xml.etree.ElementTree"]
+
+
+def test_runtime_updated_component_gets_broad_stdlib():
+    """yt-dlp ilova relizisiz yangilanadi: AST ko'rmagan stdlib ham muzlatilgan Python'da bo'lsin."""
+    cmd = packaging.pyinstaller_cmd(Path("entry.py"), False, [])
+    collected = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--collect-submodules"]
+    hidden = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--hidden-import"]
+    excluded = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--exclude-module"]
+    assert {"http", "email", "urllib", "xml", "asyncio", "sqlite3"} <= set(collected)
+    assert {"hmac", "ssl", "netrc", "unicodedata", "lzma", "uuid"} <= set(hidden)
+    assert len(hidden) == len(set(hidden))
+    assert {"test", "idlelib", "tkinter", "lib2to3", "ensurepip", "venv", "pydoc_data"} <= set(excluded)
+    assert not set(collected) & set(excluded) and not set(hidden) & set(excluded)
+
+
+def test_broad_stdlib_skips_missing_names(monkeypatch):
+    monkeypatch.setattr(packaging, "COMPONENT_STDLIB_PACKAGES", ["http", "no_such_pkg", "json"])
+    monkeypatch.setattr(packaging, "COMPONENT_STDLIB_MODULES", ["hmac", "no_such_mod", "requests"])
+    packages, modules = packaging.component_stdlib_bundle()
+    assert packages == ["http", "json"]
+    assert modules == ["hmac"]
 
 
 def test_desktop_build_rejects_missing_inference_dependencies():

@@ -156,6 +156,7 @@ def test_parse_video_id_rejects_other_links(url: str) -> None:
     ("ERROR: Video unavailable. This video has been removed", "unavailable"),
     ("ERROR: This live event will begin in a few moments", "live"),
     ("ERROR: something odd", "unknown"),
+    ("ModuleNotFoundError: No module named 'xml.etree'", "incompatible"),
 ])
 def test_classify_error(text: str, code: str) -> None:
     got, msg = youtube.classify_error(text)
@@ -337,6 +338,49 @@ def test_child_reports_missing_ytdlp(monkeypatch: pytest.MonkeyPatch, tmp_path: 
     assert kind == "error" and data["code"] == "not_installed"
 
 
+def _broken_pkg(root: Path, init: str) -> Path:
+    (root / "yt_dlp").mkdir(parents=True)
+    (root / "yt_dlp" / "__init__.py").write_text(textwrap.dedent(init), encoding="utf-8")
+    return root
+
+
+def test_child_reports_incompatible_when_dependency_missing(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """yt-dlp bor, lekin u import qiladigan modul (muzlatilgan ilovada yo'q stdlib) topilmadi."""
+    root = _broken_pkg(tmp_path / "comp", "import lahza_yoq_modul_xyz\n")
+    monkeypatch.delitem(sys.modules, "yt_dlp", raising=False)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    q: queue.Queue = queue.Queue()
+    youtube.child_main("https://www.youtube.com/watch?v=okokokokok1", str(tmp_path), {}, [str(root)], q)
+    kind, data = q.get_nowait()
+    assert kind == "error" and data["code"] == "incompatible", data
+    assert data["module"] == "lahza_yoq_modul_xyz" and "lahza_yoq_modul_xyz" in data["message"]
+    assert data["message"].startswith(youtube.MESSAGES["incompatible"])
+
+
+def test_child_reports_incompatible_on_lazy_import(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    root = _broken_pkg(tmp_path / "comp", """
+        class YoutubeDL:
+            def __init__(self, params):
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def extract_info(self, url, download=False):
+                import lahza_yoq_extractor_xyz  # noqa: F401
+    """)
+    monkeypatch.delitem(sys.modules, "yt_dlp", raising=False)
+    monkeypatch.setattr(sys, "path", list(sys.path))
+    q: queue.Queue = queue.Queue()
+    youtube.child_main("https://www.youtube.com/watch?v=okokokokok1", str(tmp_path), {}, [str(root)], q)
+    kind, data = q.get_nowait()
+    assert kind == "error" and data["code"] == "incompatible" and data["module"] == "lahza_yoq_extractor_xyz"
+    sys.modules.pop("yt_dlp", None)
+
+
 def test_status_reports_components(tmp_path: Path, fake_ytdlp: Path) -> None:
     st = youtube.status(tmp_path)
     assert st["installed"] is True and st["version"] == "2099.01.01"
@@ -437,6 +481,24 @@ def test_api_download_error_and_cancel(tmp_path: Path, monkeypatch: pytest.Monke
     assert not part.parent.exists()
     assert not calls  # epizod yaratilmadi, tahlil boshlanmadi
     assert c.get(f"/v1/projects/{pid}/episodes").json() == []
+
+
+def test_api_import_blocked_while_components_install(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                      fake_ytdlp: Path) -> None:
+    """Komponentlar almashtirilayotganda yangi yuklash boshlanmaydi (aralash eski/yangi modullar)."""
+    c, st = make_client(tmp_path, monkeypatch)
+    pid = _project(c)
+    _stub_analysis(monkeypatch, [])
+    gate = threading.Event()
+    inst = st.jobs.submit("install", lambda job: gate.wait(10) and {}, op="youtube-components")
+    body = {"project_id": pid, "url": "https://youtu.be/okokokokok1", "consent": True}
+    r = c.post("/v1/media:import-url", json=body)
+    assert r.status_code == 409 and r.json()["detail"] == routes_youtube.BUSY_INSTALLING
+    gate.set()
+    assert wait_job(st, inst.id).status == "done"
+    r = c.post("/v1/media:import-url", json=body)
+    assert r.status_code == 200, r.text
+    assert wait_job(st, r.json()["job"]["id"], timeout=60).status == "done"
 
 
 def test_file_import_unchanged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

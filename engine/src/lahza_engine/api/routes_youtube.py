@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -26,6 +27,11 @@ from lahza_engine.core.jobs import Job
 from lahza_engine.media import youtube, youtube_components
 
 SETTING_KEY = "youtube_import"
+# Komponent o'rnatish va YouTube yuklash bir-birini istisno qiladi: tekshiruv + navbatga qo'yish atomik.
+_GATE = threading.Lock()
+BUSY_DOWNLOADING = ("YouTube videosi yuklanmoqda - komponentlarni hozir o'rnatib/yangilab bo'lmaydi"
+                    " (ishlatilayotgan fayllar almashtirilmaydi). Yuklash tugashini kuting yoki uni bekor qiling.")
+BUSY_INSTALLING = ("YouTube komponentlari o'rnatilmoqda - tugashini kuting, keyin videoni qayta yuklang.")
 _UNSAFE = re.compile(r'[/\\:*?"<>|\x00-\x1f]+')
 
 
@@ -81,6 +87,16 @@ def _download_running(s: State, video_id: str) -> bool:
                for j in s.jobs.list_jobs("download"))
 
 
+def _components_installing(s: State) -> bool:
+    return any(j.meta.get("op") == "youtube-components" and j.status in ("queued", "running")
+               for j in s.jobs.list_jobs("install"))
+
+
+def _youtube_downloading(s: State) -> bool:
+    return any(j.meta.get("op") == "youtube" and j.status in ("queued", "running")
+               for j in s.jobs.list_jobs("download"))
+
+
 def register(app: FastAPI, auth: Callable[..., State]) -> None:
     def setting_view(s: State) -> dict[str, Any]:
         running = next((j for j in s.jobs.list_jobs("install") if j.meta.get("op") == "youtube-components"
@@ -102,9 +118,6 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
     def install_components(body: InstallComponentsIn, s: State = Depends(auth)) -> dict[str, Any]:
         if body.consent is not True:
             raise HTTPException(400, "rozilik kerak: komponentlar internetdan bir marta yuklanadi")
-        if any(j.meta.get("op") == "youtube-components" and j.status in ("queued", "running")
-               for j in s.jobs.list_jobs("install")):
-            raise HTTPException(409, "komponentlar allaqachon o'rnatilmoqda")
         data_dir = s.settings.data_dir
 
         def work(job: Job) -> dict[str, Any]:
@@ -119,7 +132,14 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
                 job.meta["error_code"] = "component"
                 raise RuntimeError(str(e)) from e
 
-        job = s.jobs.submit("install", work, op="youtube-components")
+        with _GATE:
+            if _components_installing(s):
+                raise HTTPException(409, "komponentlar allaqachon o'rnatilmoqda")
+            # Ishlab turgan yuklash Components/ dagi yt-dlp va deno'ni ishlatadi: almashtirish aralash
+            # eski/yangi modullarga yoki (Windows'da) PermissionError'ga olib keladi.
+            if _youtube_downloading(s):
+                raise HTTPException(409, BUSY_DOWNLOADING)
+            job = s.jobs.submit("install", work, op="youtube-components")
         return {"job": job.public()}
 
     @app.post("/v1/settings/youtube-import:check-updates")
@@ -147,8 +167,6 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             raise HTTPException(400, "spikerlar soni 1..20 oralig'ida bo'lishi kerak")
         if youtube.find_ytdlp(youtube.component_paths(s.settings.data_dir)) is None:
             raise HTTPException(409, youtube.MESSAGES["not_installed"])
-        if _download_running(s, video_id):
-            raise HTTPException(409, "bu video allaqachon yuklanmoqda")
 
         url = youtube.canonical_url(video_id)
         out_dir = downloads_dir(s, video_id)
@@ -179,6 +197,11 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             return {"episode_id": eid, "analysis_job_id": analysis.id, "path": str(res.path),
                     "title": res.title, "reused": res.reused}
 
-        job = s.jobs.submit("download", work, op="youtube", project_id=project_id, url=url,
-                            video_id=video_id)
+        with _GATE:
+            if _components_installing(s):
+                raise HTTPException(409, BUSY_INSTALLING)
+            if _download_running(s, video_id):
+                raise HTTPException(409, "bu video allaqachon yuklanmoqda")
+            job = s.jobs.submit("download", work, op="youtube", project_id=project_id, url=url,
+                                video_id=video_id)
         return {"job": job.public()}

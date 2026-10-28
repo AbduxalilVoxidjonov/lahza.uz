@@ -90,9 +90,14 @@ MESSAGES: dict[str, str] = {
     "ffmpeg": "Video va audioni birlashtirish uchun FFmpeg topilmadi.",
     "crashed": "Yuklovchi jarayon kutilmaganda to'xtadi.",
     "invalid_url": "Havola YouTube videosiga ishora qilmaydi.",
+    "incompatible": "O'rnatilgan yt-dlp versiyasi Lahza'ning bu versiyasi bilan ishlamaydi (kerakli modul "
+                    "yetishmayapti). Lahza'ni yangilang yoki Sozlamalar -> YouTube havolasidan import -> "
+                    "komponentlarni qayta o'rnating.",
 }
 
 _PATTERNS: list[tuple[str, tuple[str, ...]]] = [
+    # Muzlatilgan ilovada yt-dlp kutgan modul (stdlib yoki bog'liqlik) yo'q - yuklash paytida ham chiqishi mumkin.
+    ("incompatible", ("no module named",)),
     ("private", ("private video",)),
     ("age_restricted", ("confirm your age", "age-restricted", "age restricted",
                         "inappropriate for some users")),
@@ -123,6 +128,13 @@ def classify_error(text: str) -> tuple[str, str]:
     first = next((ln.strip() for ln in text.splitlines() if ln.strip()), "noma'lum xato")
     first = first.removeprefix("ERROR:").strip()
     return "unknown", f"YouTube'dan yuklab bo'lmadi: {first[:300]}"
+
+
+def incompatible_error(e: BaseException) -> dict[str, str]:
+    """yt-dlp topildi, lekin import qilinmadi: xabarga yetishmayotgan modul nomi qo'shiladi."""
+    module = (e.name or "") if isinstance(e, ModuleNotFoundError) else ""
+    detail = f"yetishmayotgan modul: {module}" if module else f"{type(e).__name__}: {str(e)[:200]}"
+    return {"code": "incompatible", "message": f"{MESSAGES['incompatible']} ({detail})", "module": module}
 
 
 # ---- havola ------------------------------------------------------------------------------
@@ -297,8 +309,13 @@ def child_main(url: str, out_dir: str, params: dict[str, Any], sys_paths: list[s
     q = _Sender(conn)
     try:
         from yt_dlp import YoutubeDL
-    except ImportError:
-        q.put(("error", {"code": "not_installed", "message": MESSAGES["not_installed"]}))
+    except Exception as e:  # noqa: BLE001 - import xatosi ota jarayonga kod sifatida
+        if find_ytdlp([]) is None or (isinstance(e, ModuleNotFoundError) and e.name == "yt_dlp"):
+            q.put(("error", {"code": "not_installed", "message": MESSAGES["not_installed"]}))
+        else:
+            # Paket bor, lekin u import qiladigan modul yo'q (masalan, muzlatilgan ilovaga kirmagan
+            # stdlib moduli) yoki API mos emas: yangi yt-dlp eski Lahza bilan ishlamaydi.
+            q.put(("error", incompatible_error(e)))
         return
     out = Path(out_dir)
     parts = 2 if params.get("format") == FORMAT_MERGE else 1
@@ -339,6 +356,9 @@ def child_main(url: str, out_dir: str, params: dict[str, Any], sys_paths: list[s
         q.put(("done", {"path": str(path), "title": (info or {}).get("title"),
                         "id": (info or {}).get("id"), "duration": (info or {}).get("duration")}))
     except BaseException as e:  # noqa: BLE001 - har qanday xato ota jarayonga matn sifatida
+        if isinstance(e, ImportError):  # yt-dlp ichidagi kechiktirilgan import (extractor va h.k.)
+            q.put(("error", incompatible_error(e)))
+            return
         text = "\n".join([str(e), *logger.last])
         code, msg = classify_error(text)
         q.put(("error", {"code": code, "message": msg}))

@@ -41,6 +41,8 @@ export function parseYoutubeVideoId(input: string): string | null {
 export const YT_ERROR_CODES = [
   "not_installed", "network", "private", "age_restricted", "login_required", "unavailable", "live",
   "js_runtime", "format_unavailable", "ffmpeg", "crashed", "invalid_url",
+  // O'rnatilgan yt-dlp ilovaning bu versiyasiga mos emas (yangi Lahza yoki komponentlarni qayta o'rnatish kerak).
+  "incompatible",
 ] as const;
 export type YtErrorCode = (typeof YT_ERROR_CODES)[number];
 

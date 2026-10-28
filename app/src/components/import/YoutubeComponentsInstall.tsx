@@ -22,10 +22,21 @@ export function YoutubeComponentsInstall({ st, updates = false }: { st: YoutubeI
   const install = useInstallYoutubeComponents();
   const check = useCheckYoutubeUpdates();
   const refresh = useRefreshYoutubeImport();
-  const [jobId, setJobId] = useState<string | null>(st.install_job?.id ?? null);
-  const job = useJobs((s) => (jobId ? s.jobs[jobId] : undefined)) ?? (jobId === st.install_job?.id ? st.install_job : undefined);
+  // Kuzatiladigan vazifa: shu yerda boshlangani (mutatsiya javobi) yoki engine aytgan `install_job`.
+  // `install_job` keyinroq paydo bo'lishi mumkin (kesh eskirgan, o'rnatish boshqa sahifada boshlangan) -
+  // shuning uchun faqat birinchi mountda emas, u o'zgarganda har safar unga ergashamiz. Vazifa tugagach
+  // `install_job` null bo'ladi, lekin id saqlanib qoladi - natija (tayyor/xato) ko'rinib turadi.
+  const engineJobId = st.install_job?.id ?? null;
+  const [jobId, setJobId] = useState<string | null>(engineJobId);
+  useEffect(() => {
+    if (engineJobId) setJobId(engineJobId);
+  }, [engineJobId]);
+  const trackedId = jobId ?? engineJobId;
+  const job = useJobs((s) => (trackedId ? s.jobs[trackedId] : undefined))
+    ?? (trackedId && trackedId === engineJobId ? st.install_job ?? undefined : undefined);
   const running = install.isPending || job?.status === "queued" || job?.status === "running";
 
+  // Vazifa tugadi (yoki mount paytida allaqachon tugagan edi) - holatni yangilaymiz.
   useEffect(() => {
     if (job?.status === "done" || job?.status === "failed") {
       void refresh();
@@ -34,7 +45,12 @@ export function YoutubeComponentsInstall({ st, updates = false }: { st: YoutubeI
     // `refresh`/`check` har renderda yangi obyekt; faqat vazifa holati o'zgarganda.
   }, [job?.status]);
 
-  const start = (update: boolean) => install.mutate(update, { onSuccess: (res) => setJobId(res.job.id) });
+  // 409 (o'rnatish boshqa joyda allaqachon ketmoqda) bo'lsa ham holatni yangilaymiz - `install_job` kelib,
+  // progress ko'rinadi.
+  const start = (update: boolean) => install.mutate(update, {
+    onSuccess: (res) => setJobId(res.job.id),
+    onSettled: () => void refresh(),
+  });
   const progress = running && (
     <>
       <span>{fmt(y.installing, { component: job?.stage ?? "…" })}</span>
@@ -79,7 +95,8 @@ export function YoutubeComponentsInstall({ st, updates = false }: { st: YoutubeI
         </button>
       )}
       {failed}
-      <ErrorText error={install.error} />
+      {/* 409 dan keyin boshqa joyda boshlangan vazifa progressi ko'rinsa, eskirgan xato kerak emas. */}
+      <ErrorText error={running ? null : install.error} />
     </div>
   );
 }

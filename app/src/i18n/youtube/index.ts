@@ -143,6 +143,7 @@ export const youtubeErrors: Record<Locale, Record<YtErrorCode, string>> = {
     ffmpeg: "Video va audioni birlashtirish uchun FFmpeg topilmadi.",
     crashed: "Yuklovchi jarayon kutilmaganda to'xtadi.",
     invalid_url: youtubeUz.urlInvalid,
+    incompatible: "O'rnatilgan yt-dlp Lahza'ning bu versiyasiga mos emas. Lahza'ni yangilang yoki Sozlamalar → YouTube bo'limida komponentlarni qayta o'rnating.",
   },
   "uz-Cyrl": {
     not_installed: youtubeUzCyrl.notInstalled,
@@ -157,6 +158,7 @@ export const youtubeErrors: Record<Locale, Record<YtErrorCode, string>> = {
     ffmpeg: "Видео ва аудиони бирлаштириш учун FFmpeg топилмади.",
     crashed: "Юкловчи жараён кутилмаганда тўхтади.",
     invalid_url: youtubeUzCyrl.urlInvalid,
+    incompatible: "Ўрнатилган yt-dlp Lahza'нинг бу версиясига мос эмас. Lahza'ни янгиланг ёки Созламалар → YouTube бўлимида компонентларни қайта ўрнатинг.",
   },
   ru: {
     not_installed: youtubeRu.notInstalled,
@@ -171,6 +173,7 @@ export const youtubeErrors: Record<Locale, Record<YtErrorCode, string>> = {
     ffmpeg: "FFmpeg для объединения видео и аудио не найден.",
     crashed: "Процесс загрузки неожиданно завершился.",
     invalid_url: youtubeRu.urlInvalid,
+    incompatible: "Установленный yt-dlp несовместим с этой версией Lahza. Обновите Lahza или переустановите компоненты в Настройках → YouTube.",
   },
   en: {
     not_installed: youtubeEn.notInstalled,
@@ -185,6 +188,7 @@ export const youtubeErrors: Record<Locale, Record<YtErrorCode, string>> = {
     ffmpeg: "FFmpeg was not found for merging video and audio.",
     crashed: "The download process stopped unexpectedly.",
     invalid_url: youtubeEn.urlInvalid,
+    incompatible: "The installed yt-dlp is not compatible with this Lahza version. Update Lahza or reinstall the components in Settings → YouTube.",
   },
 };
 

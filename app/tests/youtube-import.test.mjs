@@ -116,6 +116,9 @@ test('i18n: to\'rt til, bir xil kalitlar, har xato kodi uchun matn', () => {
     for (const code of yt.YT_ERROR_CODES) assert.ok(youtubeErrors[loc][code], `${loc}.${code}`);
     assert.equal(Object.keys(youtubeErrors[loc]).length, yt.YT_ERROR_CODES.length);
   }
+  // Engine: o'rnatilgan yt-dlp ilovaning bu versiyasiga mos emas.
+  assert.ok(yt.isYtErrorCode('incompatible'));
+  assert.match(youtubeErrors.en.incompatible, /Lahza/);
   // ADR-0010: rozilik "menga tegishli yoki ruxsatim bor" va YouTube shartlari ogohlantirishi.
   assert.match(youtubeDictionaries.uz.consentOwner, /menga tegishli/);
   assert.match(youtubeDictionaries.uz.consentOwner, /ruxsatim bor/);

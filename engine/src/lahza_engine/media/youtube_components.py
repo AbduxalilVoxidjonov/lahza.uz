@@ -27,6 +27,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -84,6 +85,9 @@ DENO_DOWNLOAD = "https://github.com/denoland/deno/releases/download/"
 DENO_MAJOR = 2
 MAX_WHEEL = 64 * 1024 * 1024
 MAX_DENO = 256 * 1024 * 1024
+# Faqat oddiy reliz versiyalari (`2026.10.26`, `0.8.0`, `2.9.8`): `_vt` pre-reliz/dev qo'shimchalarini
+# (`rc1`, `-rc.1`, `.dev0`) to'g'ri tartiblamaydi - bunday versiya kelsa mahkamlangani qoladi.
+_PLAIN_VERSION = re.compile(r"\d+(\.\d+)*")
 
 _LOCK = threading.Lock()
 Progress = Callable[[float, dict[str, Any]], None]
@@ -101,6 +105,10 @@ def _arch() -> str:
 def _vt(version: str) -> tuple[int, ...]:
     """`2026.10.26` / `0.8.0` / `v2.9.8` -> taqqoslanadigan raqamlar."""
     return tuple(int(x) for x in re.findall(r"\d+", version))
+
+
+def _plain(version: str) -> bool:
+    return _PLAIN_VERSION.fullmatch(version) is not None
 
 
 def deno_asset(plat: str = sys.platform, arch: str | None = None) -> Asset | None:
@@ -186,7 +194,7 @@ def _ejs_pin(client: httpx.Client, ytdlp_version: str) -> str | None:
     r = client.get(PYPI_JSON.format(name="yt-dlp", version=f"{ytdlp_version}/"))
     r.raise_for_status()
     for req in r.json()["info"].get("requires_dist") or []:
-        m = re.match(r"yt-dlp-ejs\s*==\s*([0-9][0-9.]*)", req)
+        m = re.match(r"yt-dlp-ejs\s*==\s*([^\s;,]+)", req)
         if m:
             return m.group(1)
     return None
@@ -199,17 +207,33 @@ def _deno_latest(client: httpx.Client, plat: str, arch: str) -> Asset | None:
     r = client.get(DENO_LATEST, headers={"Accept": "application/vnd.github+json"})
     r.raise_for_status()
     data = r.json()
-    ver = str(data["tag_name"]).removeprefix("v")
-    if not re.fullmatch(r"\d+\.\d+\.\d+", ver) or _vt(ver)[0] != DENO_MAJOR:
+    tag = str(data["tag_name"])
+    ver = tag.removeprefix("v")
+    if not _plain(ver):
+        return None  # pre-reliz (`v2.10.0-rc.1`) - mahkamlangani qoladi
+    if _vt(ver)[0] != DENO_MAJOR:
         raise ComponentError(f"Deno {ver}: kutilmagan versiya (faqat {DENO_MAJOR}.x)")
     name = f"deno-{triple}.zip"
+    # Havola aynan shu relizniki bo'lishi kerak: `.../download/v<tag>/<name>`.
+    expected = f"{DENO_DOWNLOAD}v{ver}/{name}"
     for a in data.get("assets", []):
         digest = str(a.get("digest") or "")
-        if (a.get("name") == name and str(a["browser_download_url"]).startswith(DENO_DOWNLOAD)
-                and 0 < a["size"] <= MAX_DENO and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)):
-            return Asset("deno", ver, a["browser_download_url"], digest.removeprefix("sha256:"),
-                         a["size"], "MIT")
+        if (a.get("name") == name and 0 < a["size"] <= MAX_DENO
+                and re.fullmatch(r"sha256:[0-9a-f]{64}", digest)):
+            url = str(a["browser_download_url"])
+            if url != expected:
+                raise ComponentError(f"Deno {ver}: yuklash havolasi relizga ({tag}) mos emas: {url}")
+            return Asset("deno", ver, url, digest.removeprefix("sha256:"), a["size"], "MIT")
     raise ComponentError(f"Deno {ver}: {name} (sha256 bilan) topilmadi")
+
+
+def _pick(new: Asset | None, pin: Asset | None) -> Asset | None:
+    """Yangisi faqat oddiy reliz versiyasi va mahkamlangandan eski bo'lmasa olinadi."""
+    if new is None or not _plain(new.version):
+        return pin
+    if pin is None or _vt(new.version) >= _vt(pin.version):
+        return new
+    return pin
 
 
 def resolve_latest(client: httpx.Client | None = None, plat: str = sys.platform,
@@ -219,19 +243,24 @@ def resolve_latest(client: httpx.Client | None = None, plat: str = sys.platform,
     own = client is None
     client = client or httpx.Client(timeout=httpx.Timeout(20.0), follow_redirects=True)
     try:
+        ytdlp: Asset | None
         ytdlp = _pypi_wheel(client, "yt-dlp", None, "Unlicense")
-        ejs = _pypi_wheel(client, "yt-dlp-ejs", _ejs_pin(client, ytdlp.version), "Unlicense")
+        ejs: Asset | None = None
+        if _plain(ytdlp.version):
+            pin = _ejs_pin(client, ytdlp.version)
+            if pin is None or _plain(pin):
+                ejs = _pypi_wheel(client, "yt-dlp-ejs", pin, "Unlicense")
+        if ejs is None or not _plain(ejs.version):
+            # yt-dlp va yt-dlp-ejs juft: biri pre-reliz bo'lsa ikkalasi ham mahkamlangani qoladi.
+            ytdlp = ejs = None
         deno = _deno_latest(client, plat, arch)
     except (httpx.HTTPError, KeyError, TypeError, ValueError) as e:
         raise ComponentError(f"yangilanish ma'lumotini olib bo'lmadi: {e}") from e
     finally:
         if own:
             client.close()
-    out = [new if _vt(new.version) >= _vt(pin.version) else pin for new, pin in ((ytdlp, YTDLP), (ejs, EJS))]
-    base = deno_asset(plat, arch)
-    if deno is not None:
-        out.append(deno if base is None or _vt(deno.version) >= _vt(base.version) else base)
-    return out
+    out = [_pick(ytdlp, YTDLP), _pick(ejs, EJS), _pick(deno, deno_asset(plat, arch))]
+    return [a for a in out if a is not None]
 
 
 def check_updates(data_dir: Path, client: httpx.Client | None = None) -> dict[str, Any]:
@@ -268,13 +297,45 @@ def _extract_deno(path: Path, dest: Path, exe: str) -> Path:
     return target
 
 
+def _cache_name(asset: Asset) -> str:
+    """Kesh fayli nomi versiya bilan: boshqa versiyaning `.part` qoldig'i davom ettirilmaydi."""
+    base = urlsplit(asset.url).path.rsplit("/", 1)[-1]
+    if base in ("", ".", "..") or "\\" in base:
+        raise ComponentError(f"{asset.name}: yuklash havolasida fayl nomi yaroqsiz: {asset.url}")
+    name = f"{asset.name}-{asset.version}-{base}"
+    return re.sub(r"[^A-Za-z0-9._-]", "_", name).lstrip(".") or "component"
+
+
 def _publish(staging: Path, final: Path) -> None:
-    """Eski papkani yangisi bilan almashtiradi (Windows'da band papkaga os.replace ishlamaydi)."""
+    """Eski papkani yangisi bilan almashtiradi (Windows'da band papkaga os.replace ishlamaydi).
+
+    Eskisi yangisi joyiga tushgandan keyingina o'chiriladi; almashtirish yiqilsa - eskisi qaytariladi.
+    Windows'da ishlab turgan deno.exe yoki ochiq fayl bo'lsa nomini o'zgartirib bo'lmaydi
+    (PermissionError) - `ComponentError` (toza matn) bo'lib chiqadi."""
     old = final.with_name(final.name + ".old")
-    shutil.rmtree(old, ignore_errors=True)
-    if final.exists():
-        final.rename(old)
-    staging.rename(final)
+    try:
+        if old.exists() and not final.exists():
+            old.rename(final)  # oldingi yiqilgan almashtirishdan qolgan yagona nusxa - tiklanadi
+        shutil.rmtree(old, ignore_errors=True)
+        moved = False
+        if final.exists():
+            final.rename(old)
+            moved = True
+        try:
+            staging.rename(final)
+        except OSError:
+            if moved:
+                try:
+                    old.rename(final)
+                except OSError as e2:
+                    raise ComponentError(
+                        f"{final.name}: yangi versiyani joylab bo'lmadi va eskisini qaytarib bo'lmadi"
+                        f" ({e2}). Ilovani qayta ishga tushirib, komponentlarni qayta o'rnating.") from e2
+            raise
+    except OSError as e:
+        raise ComponentError(
+            f"{final.name}: komponent papkasini almashtirib bo'lmadi - u hozir ishlatilayotgan bo'lishi"
+            f" mumkin (masalan, YouTube yuklashi). Yuklash tugagach qayta urinib ko'ring. ({e})") from e
     shutil.rmtree(old, ignore_errors=True)
 
 
@@ -310,7 +371,7 @@ def install(data_dir: Path, *, consent: bool, cancel: threading.Event | None = N
                     progress(min(1.0, (start + have) / total),
                              {"component": asset.name, "downloaded_bytes": start + have, "total_bytes": total})
 
-            path = download([asset.url], cache / Path(asset.url).name, asset.sha256, asset.size,
+            path = download([asset.url], cache / _cache_name(asset), asset.sha256, asset.size,
                             progress=report, client=client)
             done = start + asset.size
             return path
