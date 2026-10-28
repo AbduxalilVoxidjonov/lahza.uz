@@ -5,6 +5,11 @@ Eng yangisi tepada. Keyingi reliz o'zgarishlari `## [Kelgusi]` bo'limiga yozilad
 
 ## [Kelgusi]
 
+- **Tuzatish — Windows desktop: engine ishga tushmasdi.** `--watch-stdin` (Tauri doim beradi) Windows'da sinxron stdin pipe'ni bloklab o'qirdi va meros handle'li bola jarayonlar (ffmpeg, subprocess) CRT ishga tushishida osilib qolardi; endi `PeekNamedPipe` bilan so'raladi (`core/lifecycle.py`).
+- **Yangi — Windows MSVC relizi adminsiz:** xwin (MSVC CRT/SDK) + rust-lld + clang-cl, `+crt-static` - `lahza-studio.exe` VC++ runtime'ga bog'lanmaydi; NSIS per-user o'rnatuvchi WebView2 offline o'rnatuvchisi bilan (`tauri.conf.json`). `scripts/stage_windows_dlls.py` har exe/dll importini tekshiradi va yetishmagan VC++ runtime DLL'larini `resources/bin` ga qo'yadi.
+- **Yangi — Windows uchun LGPL FFmpeg 7.1.1:** `scripts/build_runtimes.ps1 -FFmpegOnly` portativ MSYS2 (UCRT64) bilan dav1d 1.5.4 (statik), libass, Media Foundation/AMF/VPL; GPL DLL darvozasi, litsenziya matnlari `bin/licenses/local-render/`. 455 MB GPL sinov yig'masi o'rniga 37.6 MB.
+- **Litsenziyalar:** Windows komponentlari (VC++ runtime, cuDNN, Intel/LLVM OpenMP, MinGW runtime) va so'rov bilan yuklanadigan yt-dlp/yt-dlp-ejs (meriyah, astring)/Deno uchun alohida bo'limlar; GPL tekshiruvi GCC runtime istisnosini to'g'ri taniydi.
+
 - **O'zgarish — YouTube importi standart yoqilgan** (egasi qarori, ADR-0010); har importda rozilik saqlanadi.
 - **Yangi — komponent yangilanishi ilova relizisiz:** Sozlamalarda "Yangilanishni tekshirish" — PyPI/GitHub'dagi oxirgi yt-dlp, yt-dlp-ejs (yt-dlp talab qilgan versiya) va Deno 2.x, e'lon qilingan sha256 bilan; YouTube yuklash yiqilsa import kartasida shu tugmaga havola.
 - **Yangi — YouTube komponentlari ilovaning o'zidan:** Sozlamalar (va import kartasi)dagi tugma yt-dlp, yt-dlp-ejs va Deno'ni bir marta yuklaydi — mahkamlangan versiya, sha256 tekshiruvi, atomik joylash (`media/youtube_components.py`, `/v1/settings/youtube-import:install-components`). Desktop ilovada YouTube importi endi `make setup-youtube`siz ishlaydi; yt-dlp sidecar'ga kirmaydi (ADR-0010).

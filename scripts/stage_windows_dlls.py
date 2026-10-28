@@ -135,7 +135,7 @@ def _pe_files(folder: Path) -> list[Path]:
 
 
 def _system_names() -> set[str]:
-    sysdir = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32"
+    sysdir = Path(os.environ.get("SYSTEMROOT", r"C:\Windows")) / "System32"
     return {p.name.lower() for p in sysdir.iterdir()} if sysdir.is_dir() else set()
 
 
