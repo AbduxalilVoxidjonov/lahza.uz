@@ -76,7 +76,10 @@ const PROPERTY_DESCRIPTION_CAP = 260
 // role's Motif without copying colours and fonts by hand.
 // +1 KB: `render_frames` (H3-D3) — the agent sees the composed frame export
 // renders; H2 placed titles over faces and cards off frame without it.
-const CATALOG_BYTE_BUDGET = 157_000
+// +1 KB: the project folder as an agent's working directory (ADR 0151, 0152) —
+// `import_media` takes project-relative paths and says when the pool already
+// held the file; `read_project` reads one media item's card.
+const CATALOG_BYTE_BUDGET = 158_000
 
 function compact(v: unknown): string { return JSON.stringify(v) }
 

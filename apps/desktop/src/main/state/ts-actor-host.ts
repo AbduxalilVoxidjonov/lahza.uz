@@ -25,7 +25,7 @@ import { MotifCatalog, type Manifest } from '../../shared/motifs/catalog'
 import type { UserMotifStore } from '../motif/store'
 import { runMotifTool, type MotifToolDeps } from '../motif/motifTools'
 import type { BuiltinMotif, MotifLayerRef } from '../motif/authoring'
-import type { MotifParams, MotifRebindEntry } from './model'
+import type { MediaItem, MotifParams, MotifRebindEntry } from './model'
 import type { AppSettingsStore } from '../app-settings'
 import type { AppSettingsPatch } from '../../shared/app-settings'
 import type { ViewStateStore } from '../view-state'
@@ -53,6 +53,9 @@ export interface TsActorHostDeps {
   send: (event: string, payload: unknown) => void
   /** mcpHost.notifyChange(payload) — the mcp:change relay. */
   mcpNotify: (payload: unknown) => void
+  /** notifications/resources/list_changed to every MCP session: the pool's
+   *  files or their names changed, and with them the `media://{id}` list. */
+  mcpResourcesChanged?: () => void
   /** fs.existsSync, for buildProjectSummary's media-availability checks. */
   fileExists: (absPath: string) => boolean
   /** Combined OrchestratorFs & AutosaveFs adapter — node:fs in production, in-memory in tests. */
@@ -231,6 +234,12 @@ function manifestsFromList(entries: unknown[]): Manifest[] {
     out.push(entry as unknown as Manifest)
   }
   return out
+}
+
+/** The pool as `resources/list` names it (`mediaResourceDefs`): ids, labels
+ *  and paths, so a change to any of them is a change to the list. */
+function mediaListKey(pool: Record<string, MediaItem>): string {
+  return JSON.stringify(Object.values(pool).map((m) => [m.id, m.label, m.path_abs, m.path_rel]))
 }
 
 export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
@@ -530,6 +539,8 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     }
   }
 
+  // What `resources/list` says of the pool: each file's id and name.
+  let listedMedia = ''
   function emitChange(e: ChangeEvent): void {
     const traceId = currentEditTrace()?.id
     if (replacing) {
@@ -538,6 +549,11 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     } else publishChange(e, traceId, e.replaced === true)
     // MCP retains its existing public notification schema.
     if (emitting) deps.mcpNotify(mapChangeEvent(e))
+    const listed = mediaListKey(actor.snapshot().media_pool)
+    if (listed !== listedMedia) {
+      listedMedia = listed
+      if (emitting) deps.mcpResourcesChanged?.()
+    }
   }
 
   function publication(): ProjectPublication<ReturnType<typeof buildProjectSummary>> {

@@ -46,3 +46,13 @@ export function mediaFolderPath(
   const exact = lib.relative(media, file)
   return lib.join(MEDIA_DIR, exact.startsWith('..') ? folded : exact)
 }
+
+/** `source` as an absolute path: a relative one is read from the project
+ *  folder. Null when it is relative and no project is open. A Windows path
+ *  counts as absolute on every host: no one means `C:/clip.mp4` relative to a
+ *  folder, and on POSIX it names nothing and is refused as missing. */
+export function absoluteSource(workspaceDir: string | null, source: string, platform: NodeJS.Platform): string | null {
+  const lib = pathLib(platform)
+  if (lib.isAbsolute(source) || path.win32.isAbsolute(source)) return source
+  return workspaceDir === null ? null : lib.join(workspaceDir, source)
+}

@@ -2313,10 +2313,10 @@ export const MCP_TOOL_DEFS: ReadonlyArray<McpToolDef> = [
     parseDedicated: (a) => ({ layer: parseUuid(a.layer_id, 'layer_id'), threshold_amp: parseNumOpt(a.threshold_amp, 'threshold_amp'), min_pause_us: parseNumOpt(a.min_pause_us, 'min_pause_us'), pad_us: parseNumOpt(a.pad_us, 'pad_us') }) },
   // ── dedicated-exec: reads, for a client without MCP resources ─────────────
   { name: 'read_project', exec: 'dedicated', annotations: ANN_READ,
-    description: "The `project://*` views as a tool result, for clients without resources. `view`: `current`, `composition`, `compositions`, `media`, `tracks` (layer envelopes), `layer` (needs `id`), `markers`, `links`, `transitions`, `settings` (preferences + metadata), `history`, `session` (who holds the session), `effects` (effects catalog), `tacks` (review tacks; `composition_id` narrows), `taste` (style tokens + provenance), `media_thumbnail` / `media_frame` (an IMAGE; `id` is the media id, `media_frame` takes `t_us`). `composition`, `tracks`, `markers`, `links`, `transitions` take `composition_id` for a Group's, the root when omitted. JSON views answer as text.",
+    description: "The `project://*` views as a tool result, for clients without resources. `view`: `current`, `composition`, `compositions`, `media` (with `id`, one item's card), `tracks` (layer envelopes), `layer` (needs `id`), `markers`, `links`, `transitions`, `settings` (preferences + metadata), `history`, `session` (who holds the session), `effects` (effects catalog), `tacks` (review tacks; `composition_id` narrows), `taste` (style tokens + provenance), `media_thumbnail` / `media_frame` (an IMAGE; `id` is the media id, `media_frame` takes `t_us`). `composition`, `tracks`, `markers`, `links`, `transitions` take `composition_id` for a Group's, the root when omitted. JSON views answer as text.",
     inputSchema: { type: 'object', properties: {
       view: { type: 'string', enum: [...READ_PROJECT_VIEWS], description: 'Which view to read.' },
-      id: { type: 'string', description: 'The layer id for view `layer`; the media id for `media_thumbnail` / `media_frame`.' },
+      id: { type: 'string', description: 'The layer id for view `layer`; the media id for `media` (optional) / `media_thumbnail` / `media_frame`.' },
       t_us: { type: 'integer', description: 'For `media_frame`: the frame time in the SOURCE, µs.' },
       composition_id: { type: 'string', description: 'For the per-composition views: a Group\'s composition; omit for the root.' },
     }, required: ['view'] },
@@ -2327,7 +2327,8 @@ export const MCP_TOOL_DEFS: ReadonlyArray<McpToolDef> = [
       if (needsId && (a.id === undefined || a.id === null)) throw new McpArgError(`view '${view}' needs \`id\` — ${view === 'layer' ? 'the layer id (project://tracks lists them)' : 'the media id (project://media lists them)'}`, 'id')
       if (view === 'media_frame' && (a.t_us === undefined || a.t_us === null)) throw new McpArgError("view 'media_frame' needs `t_us` — the frame time in the SOURCE, µs (media_thumbnail takes none)", 't_us')
       const t_us = view === 'media_frame' ? parseNum(a.t_us, 't_us') : null
-      return { view, id: needsId ? parseUuid(a.id, 'id') : null, t_us, composition_id: parseCompositionIdOpt(a.composition_id) }
+      const takesId = needsId || (view === 'media' && a.id !== undefined && a.id !== null)
+      return { view, id: takesId ? parseUuid(a.id, 'id') : null, t_us, composition_id: parseCompositionIdOpt(a.composition_id) }
     } },
   // ── projects — executed by the MCP host (`mcp/projectTools.ts`), not the
   //    actor: opening swaps the actor's whole state and the renderer follows.

@@ -36,6 +36,11 @@ describe('the built-in default style', () => {
 })
 
 describe('TASTE.md over its style', () => {
+  it('names where TASTE.md goes in a project that has none yet', () => {
+    const dir = temp()
+    expect(tasteView(dirs(), dir).taste).toEqual({ path: path.join(dir, 'TASTE.md'), present: false })
+  })
+
   it('refuses a pace: how dense a cut is, is not a token', () => {
     const v = tasteView(dirs(), project('---\ntokens:\n  pace: { beat_every_s: 6 }\n---\n'))
     expect(v.diagnostics.map((d) => [d.path, d.message])).toEqual([

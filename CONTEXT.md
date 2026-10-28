@@ -1166,6 +1166,13 @@ Read by tools and checks; never says what to do in what order.
 _Avoid_: theme (that is the app's layout theme), template, preset (export and
 keyframes own that word), brand
 
+**Project folder**:
+The folder holding `project.json`, which may be an agent's working directory.
+The app writes `project.json`. `Media/` holds the pooled files, recorded by
+path. `Cache/` is derived. `TASTE.md` is the one file an agent edits by hand.
+A relative path a tool takes is read from it (ADR 0152).
+_Avoid_: project directory
+
 **TASTE**:
 A project's style choice: `TASTE.md` in the project workspace, which extends
 one style and overrides its fields for this project. The agent reads style and

@@ -2354,7 +2354,8 @@ export function createActor(opts: ActorOptions): ActorHandle {
             return { ok: false, error: { code: 'invalid_params', message: `view '${view}' is served by the MCP host, not by the state actor — call it over MCP, or read the matching resource` } }
           const compositionId = p.composition_id as string | null
           const scoped = compositionId !== null && SCOPED_PROJECT_VIEWS.has(view) ? `?composition=${compositionId}` : ''
-          const uri = view === 'layer' ? `project://layers/${p.id as string}` : `project://${view}${scoped}`
+          const uri = view === 'layer' ? `project://layers/${p.id as string}`
+            : view === 'media' && p.id !== null ? `media://${p.id as string}` : `project://${view}${scoped}`
           try {
             const res = serveProjectResource(uri, { snapshot: current, historyView: (n) => history.view(n) })
             const text = (res as { contents?: Array<{ text?: string }> } | null)?.contents?.[0]?.text

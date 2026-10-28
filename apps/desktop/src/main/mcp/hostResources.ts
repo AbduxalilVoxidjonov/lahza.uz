@@ -12,6 +12,8 @@
 // and its kin): without `resources/templates/list` an agent finds them only
 // when a tool's prose happens to name one.
 
+import type { MediaItem } from '../state/model'
+
 const APP_JSON = 'application/json'
 
 export const HOST_RESOURCE_DEFS = [
@@ -52,6 +54,8 @@ export const HOST_RESOURCE_TEMPLATES = [
     description: "A composition's links; the root when the query is omitted." },
   { uriTemplate: 'project://transitions{?composition}', name: 'Transitions of a composition', mimeType: APP_JSON,
     description: "A composition's transitions; the root when the query is omitted." },
+  { uriTemplate: 'media://{id}', name: 'Media item', mimeType: APP_JSON,
+    description: 'One pooled file as a short card — media_id, kind, label, path, path_rel, duration_us, size, has_audio, used_by (layer ids), resources (its sub-resources). resources/list names one per pooled file.' },
   { uriTemplate: 'media://{id}/thumbnail', name: 'Media thumbnail', mimeType: 'image/jpeg',
     description: 'The middle frame of a media item as JPEG (base64 blob). 404 with a hint until the derivative exists.' },
   { uriTemplate: 'media://{id}/frame/{t_us}', name: 'Media frame', mimeType: 'image/jpeg',
@@ -65,3 +69,16 @@ export const HOST_RESOURCE_TEMPLATES = [
   { uriTemplate: 'media://{id}/shot-description', name: 'Media shot descriptions', mimeType: APP_JSON,
     description: 'Cached individual shot descriptions — { covered_ranges, segments }; 404 until describe_clip with purpose shot has run. Separate from clip content descriptions.' },
 ]
+
+/** One `media://{id}` entry per pooled file, named by its label or file name,
+ *  so a client that offers resources at its prompt lists the project's media. */
+export function mediaResourceDefs(pool: Record<string, MediaItem>): Array<{ uri: string; name: string; mimeType: string; description: string }> {
+  return Object.values(pool).map((m) => ({
+    uri: `media://${m.id}`, name: m.label ?? fileName(m.path_abs), mimeType: APP_JSON,
+    description: `${m.kind} in the media pool: ${m.path_rel ?? m.path_abs}`,
+  }))
+}
+
+function fileName(p: string): string {
+  return p.slice(Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')) + 1)
+}

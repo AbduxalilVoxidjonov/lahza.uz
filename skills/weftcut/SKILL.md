@@ -17,14 +17,14 @@ The server sends these as its `initialize` instructions, so a client without
 this skill reads the same etiquette; the long form follows.
 
 WeftCut is a desktop video editor; the user watches the same project live, and every edit you commit lands in their undo history. A video the user asks you to edit is the project open in WeftCut, named or not.
-1. Read `project://tracks` (or `read_project` with view "tracks") before your first edit. Ids come from reads, never from memory.
+1. Read `project://tracks` (or `read_project` view "tracks") before your first edit; ids come from reads, never memory.
 2. Every mutator answers with the committed record (minted ids, the span as it landed, `adjusted` for a grid snap); verify from it before reporting.
 3. A refusal (isError) names the cause and the fix: act on it, never retry the call verbatim.
 4. Times are microseconds on the frame grid: off-grid times are snapped and echoed, times outside their layer refused.
 5. Call `create_checkpoint` before your first edit. For a batch (rough cut, pause pass, captions): ask the user, then `begin_agent_session`, `set_history_lock` around the batch, `dry_run` where supported, and `end_agent_session` when done, on failure too.
 6. Others may edit concurrently; when a commit fails for that, re-read and reapply.
 7. Export: `start_export`; poll `get_export_status` for the completed output_path.
-8. Edit the project open in the app; never create one unless asked. With none open, project tools refuse: `open_project` or `create_project` the one the user named, else ask.
+8. Edit the project open in the app; never create one unless asked. With none open, `open_project` or `create_project` the one the user named, else ask. A folder with project.json is a project; if it is not the open one (`project.dir` in `project://session`), ask. Its files change only through tools, TASTE.md aside.
 The weftcut skill (Settings > Agent) carries the long form, common flows and the Motif contract.
 
 ## Session etiquette
@@ -79,6 +79,28 @@ personal names have a 40-character limit. Pass `preset_id` to `get_export_option
 to preview or `start_export` to use one; per-job settings override it. Omitting
 the ID keeps saved project settings, falling back to the global default.
 Library edits do not rewrite project settings or jobs already admitted.
+
+## Working in the project folder
+
+When your working directory is a project folder (it holds `project.json`),
+it is the project the user means. Compare it with `project.dir` in
+`project://session`; if the app has another project open, ask before
+`open_project`.
+
+- `project.json` is the app's to write; it autosaves over any edit of yours.
+  Read the project through `project://current` or `read_project`.
+- `Media/` holds the project's media. Never rename or move a file there: the
+  pool records it by that path. `Cache/` is derived data; leave it unread.
+- `TASTE.md` is the one file you edit by hand. `project://taste` names where
+  it goes even before it exists. Its tokens reach new layers; call
+  `restyle_to_taste` for the layers already placed.
+- A file the user mentions goes to `import_media` as it is: absolute, or
+  relative to the project folder. A file the pool already holds answers its
+  existing record (`existing: true`), so importing is also how a file is
+  matched to its media id. A file from anywhere else is copied into `Media/`.
+- Each pooled file is also a resource, `media://{id}`: a short card with its
+  path, length and the layers using it (`read_project` view `media` with
+  `id` reads the same).
 
 ## Batch jobs
 

@@ -41,7 +41,7 @@ import { argProblemMessage } from './argCheck.js'
 import { shapeHybridResult } from './hybridResult.js'
 import { PROJECT_TOOLS, runProjectTool } from './projectTools.js'
 import { MOTIF_TOOL_DEFS, MOTIF_RESOURCE_DEFS } from './motifToolDefs.js'
-import { HOST_RESOURCE_DEFS, HOST_RESOURCE_TEMPLATES } from './hostResources.js'
+import { HOST_RESOURCE_DEFS, HOST_RESOURCE_TEMPLATES, mediaResourceDefs } from './hostResources.js'
 import { MCP_INSTRUCTIONS } from './instructions.js'
 import { effectsCatalogView } from '../../shared/effects/catalogView.js'
 import { withLog, NO_MCP_LOG, type McpCommitWindow, type McpLogDeps, type McpRowSummary } from './withLog.js'
@@ -929,7 +929,7 @@ export function buildMcpServer(backend: Backend, opts: McpServerOptions = {}): S
   // dev launch reports Electron's, since there is no package.json in that path.
   const server = new Server(
     { name: 'weftcut', version: opts.version ?? '0.0.0-dev' },
-    { capabilities: { tools: {}, resources: {}, prompts: {} }, instructions: MCP_INSTRUCTIONS },
+    { capabilities: { tools: {}, resources: { listChanged: true }, prompts: {} }, instructions: MCP_INSTRUCTIONS },
   )
   // One Server per session (`mcp/index.ts`), so this closure resolves to the
   // client that opened *this* session — `undefined` until it has initialized.
@@ -978,7 +978,9 @@ export function buildMcpServer(backend: Backend, opts: McpServerOptions = {}): S
     callTool(withCanonicalToolName(req), extra))
   server.setRequestHandler(ListResourcesRequestSchema, track('resources/list', async () => {
     const cat = await rustCatalog(backend)
-    return { resources: mergeMcpResources(cat.resources, [...MOTIF_RESOURCE_DEFS, ...HOST_RESOURCE_DEFS]) } as unknown as ServerResult
+    const tsHost = getTsHost()
+    const media = tsHost && !noProjectOpen(tsHost) ? mediaResourceDefs(tsHost.actor.snapshot().media_pool) : []
+    return { resources: [...mergeMcpResources(cat.resources, [...MOTIF_RESOURCE_DEFS, ...HOST_RESOURCE_DEFS]), ...media] } as unknown as ServerResult
   }, log, clientInfo))
   server.setRequestHandler(ListResourceTemplatesRequestSchema, track('resources/templates/list', async () => {
     return { resourceTemplates: HOST_RESOURCE_TEMPLATES } as unknown as ServerResult

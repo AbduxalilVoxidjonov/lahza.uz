@@ -17,7 +17,7 @@ import { McpArgError, mapCommandError, mcpDef } from './mcp-commands'
 import type { Cue } from './mutations/captions'
 import { scopeComposition } from './mutations/helpers'
 import { parseDiscardSegments } from './mutations/split'
-import { mediaFolderPath, pooledItemFor } from './importSource'
+import { absoluteSource, mediaFolderPath, pooledItemFor } from './importSource'
 import { playsNoSoundError, resolvePauseSubject } from './pauseSubject'
 import { snapFrameRound } from './snap'
 import type { ImportTrace } from '../importDiagnostics'
@@ -800,13 +800,20 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
       if (deps.canImport?.() === false) throw new Error('Project is changing; retry importing after it opens')
       const trace = deps.beginImport?.()
       try {
-        let path = args.path as string
+        const asked = args.path as string
+        const realPath = deps.realPath ?? ((p: string) => p)
+        const platform = deps.platform ?? process.platform
+        const projectDir = deps.workspaceDir()
+        const resolved = absoluteSource(projectDir, asked, platform)
+        if (resolved === null) throw new McpArgError(`path ${asked} is relative and no project is open to read it from — pass the absolute path of the file`, 'path')
+        let path = resolved
         const assertCurrent = captureImportSession(deps)
         // Stat FIRST. The probe is stat-only when ffprobe is absent, so a folder
         // would pass it, land a pool row with null metadata and a pending hash,
         // and only then die in the hash pass with the OS's own locale text. What
         // the path IS is decided here, by name, before any read or write.
         const facts = deps.statPath(path)
+        if (facts === null && path !== asked) throw new McpArgError(`path ${asked} names nothing in the project folder ${projectDir} — a relative path is read from there; pass the absolute path of the file`, 'path')
         if (facts === null) throw new McpArgError(`path ${path} does not exist, or is not reachable from this machine — import_media takes the absolute path of ONE media file (project://media lists what is already imported)`, 'path')
         if (facts.kind === 'directory') throw new McpArgError(`path ${path} is a directory — import_media takes ONE media file; call it once per file inside`, 'path')
         if (facts.kind !== 'file') throw new McpArgError(`path ${path} is not a regular file — import_media takes a media file`, 'path')
@@ -825,8 +832,6 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         assertCurrent()
         // Checked here, in the same turn as the insert, so two imports of one
         // file racing through their probes still land one row.
-        const realPath = deps.realPath ?? ((p: string) => p)
-        const platform = deps.platform ?? process.platform
         const held = pooledItemFor(deps.actor.snapshot().media_pool, path, realPath, platform)
         if (held) { trace?.held(held.id); return held.id }
         const r = deps.actor.dispatch('add_media_item', { media: item })

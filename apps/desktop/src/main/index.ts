@@ -1028,6 +1028,7 @@ app.whenReady().then(async () => {
     },
     send: (event, payload) => emitToRenderer(event, payload),
     mcpNotify: (payload) => mcpHostRef?.notifyChange(payload),
+    mcpResourcesChanged: () => mcpHostRef?.notifyResourceListChanged(),
     fileExists: (p) => fs.existsSync(p),
     fs: nodeFs,
     relinkFs,

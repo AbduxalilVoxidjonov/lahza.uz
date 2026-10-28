@@ -254,6 +254,43 @@ describe('runHybrid: import_media', () => {
     })
   })
 
+  // A relative path is read from the open project's folder, the one place both
+  // sides know: the app cannot see the client's working directory.
+  describe('a relative path', () => {
+    it('is resolved against the project folder', async () => {
+      const actor = freshActor()
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      await runHybrid('import_media', { path: 'Media/x.mp4' }, deps)
+      expect(deps._probeMedia).toHaveBeenCalledWith('C:\\proj\\Media\\x.mp4')
+      expect(actor.snapshot().media_pool[MID].path_rel).toBe('Media\\x.mp4')
+    })
+
+    it('answers the held item for a pooled file', async () => {
+      const actor = freshActor()
+      const HELD = '00000000-0000-0000-0000-0000000000bb'
+      actor.dispatch('add_media_item', { media: { ...mediaItemTemplate(HELD, 'Video', 4_000_000), path_abs: '/proj/Media/x.mp4' } })
+      const deps = makeDeps(actor, { workspaceDir: '/proj', platform: 'linux' })
+      expect(await runHybrid('import_media', { path: './Media/x.mp4' }, deps)).toBe(HELD)
+    })
+
+    it('never takes a Windows drive path for a relative one', async () => {
+      const deps = makeDeps(freshActor(), { workspaceDir: '/proj', platform: 'linux' })
+      await runHybrid('import_media', { path: 'C:/x.mp4' }, deps)
+      expect(deps._probeMedia).toHaveBeenCalledWith('C:/x.mp4')
+    })
+
+    it('is refused with no project open, asking for an absolute path', async () => {
+      const deps = makeDeps(freshActor(), { workspaceDir: null })
+      await expect(runHybrid('import_media', { path: 'Media/x.mp4' }, deps)).rejects.toThrow(/relative.*no project is open.*absolute path/)
+      expect(deps._probeMedia).not.toHaveBeenCalled()
+    })
+
+    it('that names nothing in the project folder is refused naming the folder', async () => {
+      const deps = makeDeps(freshActor(), { workspaceDir: 'C:/proj', statPath: null })
+      await expect(runHybrid('import_media', { path: 'clips/x.mp4' }, deps)).rejects.toThrow(/clips\/x\.mp4.*project folder C:\/proj.*absolute path/)
+    })
+  })
+
   // Media/ is where the import copy puts a file; one already there is
   // recorded where it stands. Anywhere else, inside the project folder or
   // not, is copied in, so every pooled file of a project lives in Media/.

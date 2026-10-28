@@ -24,6 +24,8 @@ export interface McpHost {
   connectionSnapshot(): AgentConnectionSnapshot
   resetToken(): string
   notifyChange(summary: unknown): void
+  /** notifications/resources/list_changed to every session. */
+  notifyResourceListChanged(): void
   close(): Promise<void>
 }
 
@@ -311,6 +313,9 @@ export async function startMcpHost(backend: Backend, opts: McpHostOptions = {}):
             /* session may have closed */
           })
       }
+    },
+    notifyResourceListChanged(): void {
+      for (const server of servers) server.sendResourceListChanged().catch(() => { /* session may have closed */ })
     },
     async close(): Promise<void> {
       available = false

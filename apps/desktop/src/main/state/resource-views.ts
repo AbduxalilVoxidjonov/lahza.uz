@@ -1,6 +1,8 @@
 import type { ServerResult } from '@modelcontextprotocol/sdk/types.js'
 import type { ActorHandle } from './actor'
-import type { Animated, Composition, Layer, Project } from './model'
+import type { Animated, Composition, Layer, MediaItem, Project } from './model'
+import { mediaRecord } from './mcp-results'
+import { referencingLayers } from './mutations/media'
 import { eachLayer, rootComposition } from './model'
 import { serializeProject } from './serialize'
 
@@ -125,10 +127,36 @@ function scopedComposition(p: Project, query: string | null): Composition {
  *  `composition://meter`) the host forwards to the backend with an injected slice.
  *  Throws not-found for a bad `project://layers/{id}` URI or an unknown
  *  `?composition=` id. */
+/** The sub-resources each kind of media answers (`hostResources.ts`). */
+const MEDIA_SUBRESOURCES: Record<MediaItem['kind'], readonly string[]> = {
+  Video: ['thumbnail', 'frame/{t_us}', 'waveform', 'analysis', 'description', 'shot-description'],
+  Audio: ['waveform'],
+  Image: ['thumbnail'],
+  Subtitle: [],
+}
+
+/** One pool item as `media://{id}` answers it: what it is, where it lies, and
+ *  which layers place it — small enough to ride along as an @-mention's
+ *  attachment. Null when the pool has no such item. */
+export function mediaCard(p: Project, id: string): Record<string, unknown> | null {
+  const record = mediaRecord(p, id)
+  if (!record) return null
+  const item = p.media_pool[id]!
+  return { ...record, path_rel: item.path_rel, used_by: referencingLayers(p, id),
+    resources: MEDIA_SUBRESOURCES[item.kind].map((r) => `${PREFIX_MEDIA}${id}/${r}`) }
+}
+
 export function serveProjectResource(
   uri: string,
   actor: Pick<ActorHandle, 'snapshot' | 'historyView'>,
 ): ServerResult | null {
+  // `media://{id}` alone is the item's card; its sub-resources stay Rust compute.
+  const card = /^media:\/\/([^/?]+)$/.exec(uri)
+  if (card) {
+    const body = mediaCard(actor.snapshot(), card[1]!)
+    if (!body) resourceNotFound(`media ${card[1]} not found — project://media lists the pool`)
+    return textResource(uri, body)
+  }
   if (uri.startsWith(PREFIX_LAYERS)) {
     const tail = uri.slice(PREFIX_LAYERS.length)
     const slash = tail.indexOf('/')

@@ -16,6 +16,7 @@ import { root } from './__tests__/fixtures/project'
 import { DEFAULT_CAPTION_FONT_FAMILY } from '../../shared/fonts'
 import { EDIT_TRACE_ARG, EDIT_TRACE_PREFIX } from '../../shared/editTrace'
 import { applyDerivativesEvent } from './jobs-writeback'
+import { mediaItemTemplate } from './mutations/media'
 import { ExportJobs } from '../exportJobs'
 
 describe('mapChangeEvent', () => {
@@ -145,6 +146,26 @@ describe('createTsActorHost — persistence-route integration', () => {
       expect(host.openedProject()).toEqual({ dir })
       expect(sessions).toHaveLength(2)
       expect(sessions[1]).toEqual(jobs.rendererSession())
+    } finally { host.stop() }
+  })
+
+  // `media://{id}` is listed per pooled file, so a client that caches the list
+  // hears when the pool's files or their names change — and only then.
+  it('tells MCP clients the resource list changed when the pool does', async () => {
+    const { deps } = makeInMemoryDeps()
+    const mcpResourcesChanged = vi.fn()
+    const host = createTsActorHost({ ...deps, mcpResourcesChanged })
+    host.start()
+    try {
+      await host.handleInvoke('project_new_workspace', publicationProject)
+      mcpResourcesChanged.mockClear()
+      await host.handleInvoke('add_marker', { tUs: 1_000_000 })
+      expect(mcpResourcesChanged).not.toHaveBeenCalled()
+      const MID = '00000000-0000-0000-0000-0000000000aa'
+      expect(host.actor.dispatch('add_media_item', { media: mediaItemTemplate(MID, 'Video', 4_000_000) }).ok).toBe(true)
+      expect(mcpResourcesChanged).toHaveBeenCalledTimes(1)
+      expect(host.actor.dispatch('remove_media', { media: MID, force: false }).ok).toBe(true)
+      expect(mcpResourcesChanged).toHaveBeenCalledTimes(2)
     } finally { host.stop() }
   })
 

@@ -7,7 +7,7 @@ import { HOST_RESOURCE_DEFS, HOST_RESOURCE_TEMPLATES } from './hostResources'
 import { mediaItemTemplate } from '../state/mutations/media'
 import { createActor } from '../state/actor'
 import { uuidV7Gen } from '../state/ids'
-import { blankProject } from '../state/model'
+import { blankProject, rootComposition } from '../state/model'
 
 function tsHostStub() {
   const idGen = uuidV7Gen()
@@ -110,6 +110,62 @@ describe('resources/templates/list and resources/list', () => {
     expect(byUri.get('project://tracks')?.description).toContain('ENVELOPES')
     expect(resources.filter((r) => r.uri === 'project://tracks')).toHaveLength(1)
     for (const uri of ['project://links', 'project://transitions', 'project://settings', 'project://session']) expect(byUri.has(uri), uri).toBe(true)
+  })
+})
+
+// Each pooled file is a resource of its own, so a client that offers resources
+// at its prompt (an @-mention) lets the user name the media item itself rather
+// than a path. What is attached is a short card, never the bytes.
+describe('one media item as a resource', () => {
+  const MID = '00000000-0000-0000-0000-0000000000aa'
+  const RUST_CATALOG = readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 'utf8')
+  function pooled() {
+    const ts = tsHostStub()
+    ts.actor.dispatch('add_media_item', { media: { ...mediaItemTemplate(MID, 'Video', 4_000_000), label: 'Interview A', path_abs: '/proj/Media/interview.mp4', path_rel: 'Media/interview.mp4' } })
+    return ts
+  }
+  async function connected(ts: ReturnType<typeof tsHostStub>) {
+    const backend = { mcpCatalog: async () => RUST_CATALOG, mcpReadResource: async () => '{"ok":true,"result":{"contents":[]}}' } as any
+    const server = buildMcpServer(backend, { getTsHost: () => ts })
+    const [clientT, serverT] = InMemoryTransport.createLinkedPair()
+    const client = new Client({ name: 'media-card-test', version: '0' })
+    await Promise.all([server.connect(serverT), client.connect(clientT)])
+    return client
+  }
+
+  it('media://{id} answers its card from the pool, naming the layers that use it', async () => {
+    const ts = pooled()
+    const track = rootComposition(ts.actor.snapshot()).tracks[0].id
+    const added = ts.actor.dispatch('add_layer', { kind: 'video', track, media: MID, src_in_us: 0, src_out_us: 2_000_000, t_start_us: 0, t_end_us: 2_000_000 })
+    expect(added.ok).toBe(true)
+    const out = await handleReadResource(fakeBackend(async () => { throw new Error('no backend') }), () => ts, `media://${MID}`)
+    const card = JSON.parse(contents(out)[0].text)
+    expect(card).toMatchObject({ media_id: MID, kind: 'Video', label: 'Interview A', path: '/proj/Media/interview.mp4', path_rel: 'Media/interview.mp4', duration_us: 4_000_000 })
+    expect(card.used_by).toEqual([added.value])
+    expect(card.resources).toContain(`media://${MID}/description`)
+  })
+
+  it('media://{id} of an id the pool lacks is not found', async () => {
+    await expect(handleReadResource(fakeBackend(async () => { throw new Error('no backend') }), () => tsHostStub(), 'media://nope')).rejects.toThrow(/media nope not found/)
+  })
+
+  it('resources/list names each pooled file by its label', async () => {
+    const client = await connected(pooled())
+    const { resources } = await client.listResources()
+    expect(resources.find((r) => r.uri === `media://${MID}`)).toMatchObject({ name: 'Interview A', mimeType: 'application/json' })
+  })
+
+  it('declares that the resource list changes', async () => {
+    const client = await connected(pooled())
+    expect(client.getServerCapabilities()?.resources).toMatchObject({ listChanged: true })
+  })
+
+  it('read_project view media with an id reads the same card', async () => {
+    const ts = pooled()
+    const r = ts.actor.mcpCall('read_project', JSON.stringify({ view: 'media', id: MID }))
+    if (!r.ok) throw new Error(r.error.message)
+    const text = (r.result.content[0] as { text: string }).text
+    expect(JSON.parse(text)).toMatchObject({ media_id: MID, label: 'Interview A' })
   })
 })
 

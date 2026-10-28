@@ -27,7 +27,11 @@ describe('initialize instructions', () => {
 
   it('stay ten lines and under a session-sized budget', () => {
     expect(MCP_INSTRUCTION_LINES.length).toBeLessThanOrEqual(10)
-    expect(MCP_INSTRUCTIONS.length).toBeLessThanOrEqual(1400)
+    // 1400 → 1550: line 8 says a working directory holding project.json is a
+    // project whose files change only through tools (ADR 0152). Every client
+    // reads this, with or without the skill, and an agent working in the
+    // folder would otherwise edit project.json beside the app's autosave.
+    expect(MCP_INSTRUCTIONS.length).toBeLessThanOrEqual(1550)
     for (const l of MCP_INSTRUCTION_LINES) expect(l.trim()).toBe(l)
   })
 

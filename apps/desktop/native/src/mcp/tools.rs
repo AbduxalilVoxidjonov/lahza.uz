@@ -461,7 +461,7 @@ pub(super) async fn compare_frames(
 )]
 #[derive(Debug, Deserialize, JsonSchema)]
 pub(super) struct ImportMediaArgs {
-    /// Absolute path to a video / audio / image / subtitle file the host can read.
+    /// Path to a video / audio / image / subtitle file the host can read: absolute, or relative to the open project's folder.
     pub path: String,
 }
 

@@ -11,8 +11,9 @@
 // that sets an outline width alone does not inherit a colour it never chose.
 
 import { createHash } from 'node:crypto'
+import path from 'node:path'
 import { BUILTIN_GRAPHIC_ROLES } from '../../shared/graphicRole'
-import { listStyleDirs, readStylePackage, readTasteFile, type StylePackage } from './packages'
+import { listStyleDirs, readStylePackage, readTasteFile, TASTE_FILE, type StylePackage } from './packages'
 import { validateMotifs, validateRoles, validateTokens, type MotifsByRole, type RoleDeclaration, type TasteDiagnostic, type TasteSource, type Tokens } from './schema'
 import type { Manifest } from '../../shared/motifs/catalog'
 
@@ -221,7 +222,7 @@ export function tasteView(dirs: StyleDirs, projectDir: string | null, opts: { mo
   const revision = createHash('sha256').update(pkg.hash).update('\0').update(file && 'text' in file ? file.text : '').digest('hex')
   return {
     style: { name: pkg.name, hash: pkg.hash, origin, pinned: ext.pin, pin_matches: pinMatches },
-    taste: { path: file?.path ?? null, present: file !== null },
+    taste: { path: file?.path ?? (projectDir === null ? null : path.join(projectDir, TASTE_FILE)), present: file !== null },
     roles,
     tokens,
     motifs,
