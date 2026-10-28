@@ -111,7 +111,8 @@ def inspect_asset(filename: str) -> dict:
     path = path.resolve(strict=True)
     # Open nonblocking so special files cannot hang the engine; check the opened descriptor.
     import os
-    fd = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+    # Windows has no O_NONBLOCK (FIFOs cannot appear there) but needs O_BINARY.
+    fd = os.open(path, os.O_RDONLY | getattr(os, 'O_NONBLOCK', 0) | getattr(os, 'O_BINARY', 0))
     with os.fdopen(fd, 'rb') as stream:
         info = os.fstat(stream.fileno())
         if not stat.S_ISREG(info.st_mode):

@@ -64,7 +64,9 @@ class SkillStore:
         return out
 
     def install(self, source: str, replace: bool = False) -> Skill:
-        if ":" in source or source.startswith(("//", "\\\\")) or "\0" in source:
+        # Reject URLs and UNC shares; a Windows drive prefix ("C:\") is the only allowed colon.
+        local = source[2:] if os.name == "nt" and source[1:3] in (":\\", ":/") else source
+        if ":" in local or source.startswith(("//", "\\\\")) or "\0" in source:
             raise ValueError("Select a local .lahzaskill or JSON file")
         path = Path(source).expanduser()
         if not path.is_file() or path.stat().st_size > MAX_ARCHIVE:
@@ -84,6 +86,9 @@ class SkillStore:
                     seen = set()
                     for e in entries:
                         name = e.filename
+                        # zipfile turns "\" into "/" on Windows only; reject on the raw name for parity.
+                        if "\\" in e.orig_filename:
+                            raise ValueError("Unsafe archive path")
                         # Directory records are unnecessary; accepting them only under assets is safe.
                         clean = name.rstrip("/") if e.is_dir() else name
                         if clean != "skill.json":

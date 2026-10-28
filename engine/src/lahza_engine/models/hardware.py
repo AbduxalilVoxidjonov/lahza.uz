@@ -91,6 +91,16 @@ def classify(hw: HardwareProfile) -> TierDecision:
 
 
 def _ram_gb() -> float:
+    if sys.platform == "win32":
+        # psutil reports usable memory (16 GB laptop -> 15.7 GB), which would fail the 16 GB tier.
+        try:
+            import ctypes
+
+            kb = ctypes.c_ulonglong()
+            if ctypes.windll.kernel32.GetPhysicallyInstalledSystemMemory(ctypes.byref(kb)):
+                return kb.value * 1024 / GB
+        except Exception:  # pragma: no cover
+            pass
     try:
         import psutil
 
