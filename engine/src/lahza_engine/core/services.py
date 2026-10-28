@@ -44,6 +44,15 @@ def _first_file(path: Path, suffixes: tuple[str, ...]) -> Path | None:
     return None
 
 
+def _cuda_devices() -> int:
+    try:
+        import ctranslate2
+
+        return ctranslate2.get_cuda_device_count()
+    except Exception:  # noqa: BLE001 - no CUDA runtime means CPU
+        return 0
+
+
 def build_services(store: ModelStore) -> Services:
     s = Services()
     asr = store.default_for(Task.ASR)
@@ -54,8 +63,14 @@ def build_services(store: ModelStore) -> Services:
                 FasterWhisperBackend,
             )
 
-            device = "cuda" if sys.platform == "win32" else "cpu"
-            s.asr = FasterWhisperBackend(root, asr.id, device=device)
+            device = "cuda" if sys.platform == "win32" and _cuda_devices() else "cpu"
+            try:
+                s.asr = FasterWhisperBackend(root, asr.id, device=device)
+            except RuntimeError:
+                # An old NVIDIA driver can report a device yet fail to start CUDA; Lite runs on CPU.
+                if device != "cuda":
+                    raise
+                s.asr = FasterWhisperBackend(root, asr.id, device="cpu")
         else:
             ggml = _first_file(root, (".bin", ".gguf"))
             if ggml is not None:

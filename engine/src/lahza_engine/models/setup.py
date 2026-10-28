@@ -103,12 +103,23 @@ class Setup:
 
     def _save(self, job: Job) -> None:
         with self.lock:
-            self._write(job)
+            # A late callback of a finished job must not overwrite a newer job's journal.
+            if job is self.job:
+                self._write(job)
 
-    def _write(self, job: Job) -> None:
+    def _finish(self, job: Job, lease, **changes: Any) -> None:
+        """Journal, then release the lease, then publish the terminal state, atomically for start()."""
+        with self.lock:
+            if job is self.job:
+                self._write(job, changes)
+            lease.close()
+            for name, value in changes.items():
+                setattr(job, name, value)
+
+    def _write(self, job: Job, changes: dict[str, Any] | None = None) -> None:
         temporary = self.journal.with_suffix(".tmp")
         with temporary.open("w", encoding="utf-8") as stream:
-            json.dump(job.public(), stream, ensure_ascii=False)
+            json.dump({**job.public(), **(changes or {})}, stream, ensure_ascii=False)
             stream.flush()
             os.fsync(stream.fileno())
         temporary.replace(self.journal)
@@ -310,14 +321,14 @@ class Setup:
                     self._checkpoint(job, "verify", 1)
                     if not self.status()["ready"]:
                         raise RuntimeError("Sozlash tekshiruvi tugamadi. Qayta urining.")
-                    job.result = {"installed": installed, "ready": True}
-                    job.status, job.progress = "done", 1.0
-                    return job.result
+                    result = {"installed": installed, "ready": True}
+                    self._finish(job, lease, result=result, status="done", progress=1.0)
+                    return result
                 except Cancelled:
-                    job.status = "cancelled"
+                    self._finish(job, lease, status="cancelled")
                     raise
                 except Exception as exc:
-                    job.status, job.error = "failed", str(exc)
+                    self._finish(job, lease, status="failed", error=str(exc))
                     raise
                 finally:
                     self._save(job)

@@ -5,7 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import requires_ffmpeg, requires_libass
+from conftest import requires_ffmpeg, requires_libass, requires_symlink
 
 from lahza_engine.media.tools import find_tool
 
@@ -45,6 +45,7 @@ def test_setup_requires_lgpl_and_both_filters(monkeypatch, license_text, filters
 @requires_libass
 @pytest.mark.ffmpeg
 @pytest.mark.libass
+@requires_symlink
 def test_local_setup_renders_visible_uzbek_with_both_filters(tmp_path) -> None:
     (tmp_path / "bin").mkdir()
     for name in ("ffmpeg", "ffprobe"):

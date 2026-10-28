@@ -37,6 +37,24 @@ requires_ffmpeg = pytest.mark.skipif(not HAS_FFMPEG, reason="ffmpeg yo'q")
 
 
 @functools.cache
+def can_symlink() -> bool:
+    """Windows'da symlink uchun Developer Mode yoki admin huquqi kerak (WinError 1314)."""
+    import tempfile
+    from pathlib import Path
+
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            (Path(tmp) / "link").symlink_to(Path(tmp) / "target")
+        except OSError:
+            return False
+    return True
+
+
+requires_symlink = pytest.mark.skipif(not can_symlink(),
+                                      reason="symlink yaratib bo'lmaydi (Windows: Developer Mode o'chiq)")
+
+
+@functools.cache
 def ffmpeg_filters() -> frozenset[str]:
     """`ffmpeg -filters` dagi filtr nomlari (ffmpeg yo'q yoki xato bo'lsa - bo'sh)."""
     if not HAS_FFMPEG:

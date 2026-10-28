@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 from _api_helpers import make_client, wait_job
+from conftest import requires_symlink
 
 from lahza_engine.core.events import EventBus
 from lahza_engine.core.jobs import Job, JobManager
@@ -50,7 +51,8 @@ def prepared(tmp_path, monkeypatch):
 
 def test_status_offline_no_download_or_submit(tmp_path, monkeypatch):
     client, state = make_client(tmp_path, monkeypatch)
-    monkeypatch.setattr(httpx.Client, "request", lambda *a, **kw: pytest.fail("network"))
+    # Block the real transport: TestClient itself goes through httpx.Client.request.
+    monkeypatch.setattr(httpx.HTTPTransport, "handle_request", lambda *a, **kw: pytest.fail("network"))
     monkeypatch.setattr(state.jobs, "submit", lambda *a, **kw: pytest.fail("submit"))
     with client:
         response = client.get("/v1/setup")
@@ -426,7 +428,8 @@ def test_asr_load_failure_and_broken_provenance_not_ready(tmp_path, monkeypatch)
         jobs.shutdown()
 
 
-@pytest.mark.parametrize("shape", ["external", "symlink", "multiple", "wrong_suffix"])
+@pytest.mark.parametrize("shape", ["external", pytest.param("symlink", marks=requires_symlink),
+                                   "multiple", "wrong_suffix"])
 def test_llm_readiness_matches_editing_agent_managed_paths(tmp_path, shape):
     store = ModelStore(tmp_path / "models")
     directory = store.root / "llm"

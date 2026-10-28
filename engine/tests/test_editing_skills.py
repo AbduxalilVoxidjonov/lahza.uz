@@ -5,7 +5,7 @@ import subprocess
 import zipfile
 
 import pytest
-from conftest import requires_libass
+from conftest import requires_libass, requires_symlink
 from fastapi.testclient import TestClient
 
 from lahza_engine.api.app import create_app
@@ -31,6 +31,11 @@ def package(tmp_path, data=None, entries=()):
     with zipfile.ZipFile(p, 'w') as z:
         z.writestr('skill.json', json.dumps(data or recipe()))
         for name, content in entries:
+            # ZipInfo(name) turns "\" into "/" on Windows; write the raw name like a foreign archive.
+            if isinstance(name, str):
+                info = zipfile.ZipInfo(name)
+                info.filename = name
+                name = info
             z.writestr(name, content)
     return p
 
@@ -190,6 +195,7 @@ def test_assets_survive_remove(client, tmp_path):
     assert client.post('/v1/skills:install', json={'path': str(p)}).status_code == 400
 
 
+@requires_symlink
 def test_symlink_scope(tmp_path):
     data = tmp_path / 'data'
     data.mkdir()

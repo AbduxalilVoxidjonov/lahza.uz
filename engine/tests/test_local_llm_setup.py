@@ -11,6 +11,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+from conftest import requires_symlink
 
 from lahza_engine.models.catalog import Task
 from lahza_engine.models.store import InstalledModel, ModelStore
@@ -87,6 +88,7 @@ def test_tar_rejects_escape(tmp_path, name, link):
     assert not (tmp_path / "outside").exists()
 
 
+@requires_symlink
 def test_extract_keeps_safe_symlinks(tmp_path):
     archive = tmp_path / "fixture.tar.gz"
     prefix = f"llama-{setup.RUNTIME_RELEASE}"
@@ -160,6 +162,7 @@ def test_notice_tamper_prevents_registration(tmp_path, tiny_model):
     assert ModelStore(tmp_path).load().models == []
 
 
+@requires_symlink
 def test_publish_protects_existing_runtime(tmp_path):
     stage = tmp_path / "stage"
     dest = tmp_path / "bin"
@@ -183,6 +186,7 @@ def test_publish_protects_existing_runtime(tmp_path):
     assert (dest / "llama-server").read_bytes() == b"server"
 
 
+@requires_symlink
 def test_publish_rejects_symlink_parent(tmp_path):
     stage = tmp_path / "stage"
     (stage / "licenses").mkdir(parents=True)
@@ -229,6 +233,7 @@ def test_audit(monkeypatch, tmp_path, dep, rpath, identity, arch, ok):
             setup.audit_runtime(tmp_path)
 
 
+@requires_symlink
 def test_staging_uses_verified_archive_and_temporary_relocation(monkeypatch, tmp_path):
     prefix = f"llama-{setup.RUNTIME_RELEASE}"
     cache = tmp_path / "cache"
