@@ -80,6 +80,8 @@ reused or relinked explicitly; its outcome also preserves whether the pool held
 the item at call entry and which other items hold the same content. MCP shapes
 that outcome into the existing record; renderer IPC keeps returning the media
 id. A result does not promise that background derivatives or copying finished.
+The session is checked again after copy enqueue returns, before reporting
+completion or returning an outcome to either caller.
 
 In-flight coordination uses the actor's stable snapshot function, shared by
 agent-scoped dispatch adapters. Joining another import performs no writes under

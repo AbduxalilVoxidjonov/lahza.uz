@@ -150,7 +150,11 @@ export async function ensureImported(asked: string, deps: MediaImportDeps): Prom
     const settled = settleImport(item, path, hash, { hashSource, workspaceDir, inMedia, assertCurrent, trace }, deps)
     const inFlight = importsInFlight.get(deps.actor.snapshot) ?? new Map<string, Promise<string>>()
     importsInFlight.set(deps.actor.snapshot, inFlight.set(item.id, settled))
-    try { return outcome(await settled, 'added') }
+    try {
+      const mediaId = await settled
+      assertCurrent()
+      return outcome(mediaId, 'added')
+    }
     finally { inFlight.delete(item.id) }
   } catch (error) { trace?.fail(error); throw error }
 }
@@ -226,6 +230,7 @@ async function settleImport(item: MediaItem, path: string, hashed: string | null
       path_abs: path, path_rel: inMedia, file_hash_blake3: hash, file_size: item.file_size, file_mtime: item.file_mtime } })
     if (!wr.ok) throw new Error(JSON.stringify(wr.error))
   } else if (workspaceDir) await deps.enqueueWorkspaceCopy(item.id, path)
+  assertCurrent()
   trace?.queued()
   return item.id
 }

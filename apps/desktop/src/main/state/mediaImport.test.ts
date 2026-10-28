@@ -64,6 +64,23 @@ async function importFile(args: { path: string }, deps: MediaImportDeps): Promis
 }
 
 describe('ensureImported', () => {
+  it('does not return an old import after reopening the project while copy enqueue is pending', async () => {
+    const actor = freshActor(), deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+    let generation = 1
+    deps.importGeneration = () => generation
+    let finish!: () => void
+    deps._enqueueWorkspaceCopy.mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
+    const pending = ensureImported('D:/source.mp4', deps)
+    const cancelled = expect(pending).rejects.toThrow(/cancelled/i)
+    await vi.waitFor(() => expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledOnce())
+    const replacement = structuredClone(actor.snapshot())
+    generation++
+    actor.replaceState(replacement)
+    finish()
+    await cancelled
+    expect(actor.snapshot()).toEqual(replacement)
+  })
+
   it('reports added, reused and relinked outcomes without transport inference', async () => {
     const actor = freshActor(), deps = makeDeps(actor)
     const source = 'C:/x.mp4'
