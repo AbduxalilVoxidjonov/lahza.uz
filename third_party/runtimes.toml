@@ -37,3 +37,33 @@ configure_common = [
 ]
 configure_macos = ["--enable-videotoolbox", "--enable-audiotoolbox"]
 configure_windows = ["--enable-mediafoundation", "--enable-amf", "--enable-libvpl"]
+
+[msys2]
+# Windows: FFmpeg shu muhitda yig'iladi (scripts/build_runtimes.ps1). Portativ base arxiv - admin huquqi
+# kerak emas, ilova bilan berilmaydi (faqat yig'ish vositasi). Paketlar MSYS2'da "rolling": aniq
+# versiyalar har yig'mada bin/licenses/local-render/manifest.json ga yoziladi.
+version = "20260927"
+url = "https://github.com/msys2/msys2-installer/releases/download/2026-09-27/msys2-base-x86_64-20260927.sfx.exe"
+sha256 = "ad336cccfda47758b5e15cda993fbba421115cb0b126697daef1ee4dfe37209f"
+msystem = "UCRT64"
+packages = [
+  "make", "diffutils",
+  "mingw-w64-ucrt-x86_64-gcc", "mingw-w64-ucrt-x86_64-nasm", "mingw-w64-ucrt-x86_64-pkgconf",
+  "mingw-w64-ucrt-x86_64-meson", "mingw-w64-ucrt-x86_64-ninja",
+  "mingw-w64-ucrt-x86_64-libass", "mingw-w64-ucrt-x86_64-freetype", "mingw-w64-ucrt-x86_64-harfbuzz",
+  "mingw-w64-ucrt-x86_64-fribidi", "mingw-w64-ucrt-x86_64-zlib",
+  "mingw-w64-ucrt-x86_64-amf-headers", "mingw-w64-ucrt-x86_64-libvpl",
+]
+# FFmpeg configure'ga Windows'da qo'shimcha (runtimes.toml [ffmpeg] bayroqlaridan tashqari):
+# avtoaniqlash o'chiq - yig'ma muhitidagi tasodifiy kutubxonalar (iconv, lzma, sdl2...) kirib qolmaydi.
+ffmpeg_extra = [
+  "--disable-autodetect", "--disable-gpl", "--disable-nonfree", "--disable-version3",
+  "--disable-ffplay", "--enable-zlib", "--enable-d3d11va", "--enable-dxva2",
+  "--target-os=mingw32", "--arch=x86_64",
+]
+# DLL'ning o'z litsenziyasi (MSYS2 paket litsenziyasi paketdagi boshqa fayllarni ham qamraydi):
+# libintl-8.dll - gettext'ning intl/ kutubxonasi LGPL-2.1+; paketdagi GPL-3.0 qismi gettext vositalari
+# (envsubst va h.k.), ular ilovaga kirmaydi. libintl glib2 orqali harfbuzz'dan keladi.
+dll_license_overrides = ["libintl-8.dll=LGPL-2.1-or-later"]
+# MSYS2 paketida litsenziya matni yo'q bo'lsa, upstream'dan (shu versiya tegi) olinadi.
+license_urls = ["libass=https://raw.githubusercontent.com/libass/libass/{version}/COPYING"]

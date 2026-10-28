@@ -3,10 +3,11 @@
 
 export const UNKNOWN = "ANIQLANSIN";
 
-export type LicenseCategory = "python" | "python-native" | "npm" | "rust" | "runtime" | "native" | "font" | "model";
+export type LicenseCategory =
+  | "python" | "python-native" | "npm" | "rust" | "runtime" | "native" | "windows" | "font" | "model" | "download";
 
 export const CATEGORY_ORDER: readonly LicenseCategory[] = [
-  "runtime", "native", "python", "python-native", "npm", "rust", "font", "model",
+  "runtime", "native", "windows", "python", "python-native", "npm", "rust", "font", "model", "download",
 ];
 
 export type LicenseComponent = {

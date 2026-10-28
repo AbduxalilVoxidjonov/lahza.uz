@@ -2,11 +2,12 @@ import type { Locale } from "..";
 
 const en = {
   heading: "Third-party licenses",
-  intro: "Components bundled with Lahza Studio or downloaded from the model catalog. This list is a technical reference, not legal advice.",
+  intro: "Components bundled with Lahza Studio, installed on request, or downloaded from the model catalog. This list is a technical reference, not legal advice.",
   search: "Search", searchPlaceholder: "Name, license or version", category: "Type",
   all: "All", unresolved: "To be determined",
   cat_python: "Python packages", "cat_python-native": "Native libraries in Python wheels", cat_npm: "npm packages (UI)",
   cat_rust: "Rust crates", cat_runtime: "Native runtimes", cat_native: "Runtime libraries", cat_font: "Fonts", cat_model: "Models",
+  cat_windows: "Windows release only", cat_download: "Installed on request (not bundled)",
   name: "Component", version: "Version", license: "License", type: "Type",
   open: "License text", close: "Close", noText: "Full text is not available offline for this component. See the source:",
   source: "Source", attribution: "Attribution", notes: "Notes", via: "Pulled in by", basis: "Determined from",
@@ -20,11 +21,12 @@ type Messages = { [K in keyof typeof en]: string };
 
 const uz: Messages = {
   heading: "Uchinchi tomon litsenziyalari",
-  intro: "Lahza Studio bilan birga keladigan yoki model katalogidan yuklanadigan komponentlar. Ro‘yxat texnik ma’lumot, yuridik xulosa emas.",
+  intro: "Lahza Studio bilan birga keladigan, so‘rov bilan o‘rnatiladigan yoki model katalogidan yuklanadigan komponentlar. Ro‘yxat texnik ma’lumot, yuridik xulosa emas.",
   search: "Qidiruv", searchPlaceholder: "Nom, litsenziya yoki versiya", category: "Turi",
   all: "Hammasi", unresolved: "Aniqlanishi kerak",
   cat_python: "Python paketlari", "cat_python-native": "Python g‘ildiraklaridagi native kutubxonalar", cat_npm: "npm paketlari (UI)",
   cat_rust: "Rust crate’lari", cat_runtime: "Native runtime’lar", cat_native: "Runtime kutubxonalari", cat_font: "Shriftlar", cat_model: "Modellar",
+  cat_windows: "Faqat Windows relizida", cat_download: "So‘rov bilan o‘rnatiladi (paketga kirmaydi)",
   name: "Komponent", version: "Versiya", license: "Litsenziya", type: "Turi",
   open: "Litsenziya matni", close: "Yopish", noText: "Bu komponentning to‘liq matni oflayn mavjud emas. Manbaga qarang:",
   source: "Manba", attribution: "Muallifni ko‘rsatish", notes: "Izoh", via: "Kim tortgan", basis: "Qayerdan aniqlangan",
@@ -37,11 +39,12 @@ const uz: Messages = {
 
 const cyrl: Messages = {
   heading: "Учинчи томон лицензиялари",
-  intro: "Lahza Studio билан бирга келадиган ёки модел каталогидан юкланадиган компонентлар. Рўйхат техник маълумот, юридик хулоса эмас.",
+  intro: "Lahza Studio билан бирга келадиган, сўров билан ўрнатиладиган ёки модел каталогидан юкланадиган компонентлар. Рўйхат техник маълумот, юридик хулоса эмас.",
   search: "Қидирув", searchPlaceholder: "Ном, лицензия ёки версия", category: "Тури",
   all: "Ҳаммаси", unresolved: "Аниқланиши керак",
   cat_python: "Python пакетлари", "cat_python-native": "Python ғилдиракларидаги native кутубхоналар", cat_npm: "npm пакетлари (UI)",
   cat_rust: "Rust crate’лари", cat_runtime: "Native runtime’лар", cat_native: "Runtime кутубхоналари", cat_font: "Шрифтлар", cat_model: "Моделлар",
+  cat_windows: "Фақат Windows релизида", cat_download: "Сўров билан ўрнатилади (пакетга кирмайди)",
   name: "Компонент", version: "Версия", license: "Лицензия", type: "Тури",
   open: "Лицензия матни", close: "Ёпиш", noText: "Бу компонентнинг тўлиқ матни офлайн мавжуд эмас. Манбага қаранг:",
   source: "Манба", attribution: "Муаллифни кўрсатиш", notes: "Изоҳ", via: "Ким тортган", basis: "Қаердан аниқланган",
@@ -54,11 +57,12 @@ const cyrl: Messages = {
 
 const ru: Messages = {
   heading: "Лицензии сторонних компонентов",
-  intro: "Компоненты, входящие в Lahza Studio или загружаемые из каталога моделей. Список — техническая справка, а не юридическое заключение.",
+  intro: "Компоненты, входящие в Lahza Studio, устанавливаемые по запросу или загружаемые из каталога моделей. Список — техническая справка, а не юридическое заключение.",
   search: "Поиск", searchPlaceholder: "Название, лицензия или версия", category: "Тип",
   all: "Все", unresolved: "Требует уточнения",
   cat_python: "Пакеты Python", "cat_python-native": "Нативные библиотеки в колёсах Python", cat_npm: "Пакеты npm (UI)",
   cat_rust: "Крейты Rust", cat_runtime: "Нативные среды выполнения", cat_native: "Библиотеки сред выполнения", cat_font: "Шрифты", cat_model: "Модели",
+  cat_windows: "Только в выпуске для Windows", cat_download: "Устанавливается по запросу (не входит в пакет)",
   name: "Компонент", version: "Версия", license: "Лицензия", type: "Тип",
   open: "Текст лицензии", close: "Закрыть", noText: "Полный текст для этого компонента недоступен офлайн. См. источник:",
   source: "Источник", attribution: "Указание авторства", notes: "Примечание", via: "Подтянут через", basis: "Источник сведений",

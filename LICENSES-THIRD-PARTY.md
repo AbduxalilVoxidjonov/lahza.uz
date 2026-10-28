@@ -584,6 +584,22 @@ Faqat production bog'liqliklar (Vite, TypeScript, `@tauri-apps/cli` kabi build v
 | pcre2 | 10.49 | BSD-3-Clause | Dinamik bog'lanadi (bin/lib). |
 <!-- gen_licenses:runtimes:end -->
 
+### Windows relizi (platformaga xos fayllar)
+
+<!-- gen_licenses:windows:start -->
+Faqat Windows relizi paketiga kiradigan fayllar: 7 ta. Generator Linux/macOS'da ham ishlagani uchun ro'yxat statik va qo'lda tekshiriladi (`PLATFORM_COMPONENTS`); sidecar GPL tekshiruvi bularga ham qo'llanadi (GCC runtime istisnosi GPL hisoblanmaydi).
+
+| Komponent | Versiya | Litsenziya | Qayerda | Izoh |
+| --- | --- | --- | --- | --- |
+| Microsoft Visual C++ runtime | 14.51.36231 | LicenseRef-Microsoft-VC-Redist | Windows sidecar: onnxruntime/capi va ctranslate2 yonida (app-local); bin/ (llama.cpp yonida) | msvcp140.dll, msvcp140_1.dll, msvcp140_2.dll, msvcp140_atomic_wait.dll, msvcp140_codecvt_ids.dll, vcruntime140.dll, vcruntime140_1.dll, concrt140.dll (scripts/build_sidecar.py VC_RUNTIME_DLLS; DLL fayl versiyasi 14.51.36247.0). Manba: PyPI `msvc-runtime` 14.51.36231 (engine/pyproject.toml, sys_platform == 'win32'; metama'lumot: "License: Proprietary"). Visual Studio 2022 litsenziyasidagi "Distributable Code" (REDIST) ro'yxati: o'zgartirilmagan holda dastur bilan tarqatiladi; alohida DLL'larni tarqatish litsenziyalangan Visual Studio foydalanuvchisiga ruxsat etilgan. |
+| NVIDIA cuDNN (cudnn64_9.dll) | 9.10.2.21 | LicenseRef-NVIDIA-cuDNN-SLA | Windows sidecar: ctranslate2/ (ctranslate2 Windows g'ildiragiga biriktirilgan) | Litsenziya matni g'ildirakda yo'q. cuDNN Supplement 2-bo'lim: runtime .dll fayllari ilova bilan tarqatilishi mumkin (ilova qo'shimcha funksionallikka ega bo'lishi va DLL'ga faqat ilova murojaat qilishi sharti). Supplement 4.1: ilovalar NVIDIA GPU'li tizimlar uchun - CPU rejimida bu DLL ishlatilmaydi; sidecar'dan chiqarish yoki yuridik tekshiruv kerak. |
+| Intel OpenMP runtime (libiomp5md.dll) | 20250910 | ANIQLANSIN (Intel, proprietary) | Windows sidecar: ctranslate2/ (ctranslate2 Windows g'ildiragiga biriktirilgan) | Versiya - DLL fayl versiyasi. Litsenziya matni g'ildirakda yo'q; PyPI `intel-openmp` metama'lumoti: "Intel End User License Agreement for Developer Tools" - shu nusxaga taalluqliligi tasdiqlansin. |
+| LLVM OpenMP runtime (libomp.dll) | ANIQLANSIN | Apache-2.0 WITH LLVM-exception | bin/ (llama.cpp/ggml Windows yig'masi bilan) | Staging'da `bin/LICENSE-LLVM-OpenMP` bilan keladi; versiya llama.cpp Windows yig'masidan aniqlansin. |
+| mingw-w64 winpthreads (libwinpthread-1.dll) | ANIQLANSIN | MIT AND BSD-3-Clause | bin/ (FFmpeg Windows yig'masi, MSYS2) | COPYING: MIT (mingw-w64 project) + BSD-3-Clause (Lockless Inc.). FFmpeg Windows yig'masi (MSYS2 UCRT64) bilan `bin/` ga ko'chiriladi, agar FFmpeg DLL'lari unga bog'langan bo'lsa. Versiya yig'madan keyin `pacman -Q` bo'yicha to'ldiriladi. |
+| GCC runtime (libgcc_s_seh-1.dll) | ANIQLANSIN | GPL-3.0-or-later WITH GCC-exception-3.1 | bin/ (FFmpeg Windows yig'masi, MSYS2) | GCC Runtime Library Exception 3.1: ilovaga GPL talablari o'tmaydi. FFmpeg Windows yig'masi (MSYS2 UCRT64) bilan `bin/` ga ko'chiriladi, agar FFmpeg DLL'lari unga bog'langan bo'lsa. Versiya yig'madan keyin `pacman -Q` bo'yicha to'ldiriladi. |
+| GNU libstdc++ (libstdc++-6.dll) | ANIQLANSIN | GPL-3.0-or-later WITH GCC-exception-3.1 | bin/ (FFmpeg Windows yig'masi, MSYS2) | GCC Runtime Library Exception 3.1. FFmpeg Windows yig'masi (MSYS2 UCRT64) bilan `bin/` ga ko'chiriladi, agar FFmpeg DLL'lari unga bog'langan bo'lsa. Versiya yig'madan keyin `pacman -Q` bo'yicha to'ldiriladi. |
+<!-- gen_licenses:windows:end -->
+
 ### Shriftlar
 
 <!-- gen_licenses:fonts:start -->
@@ -657,15 +673,21 @@ tarqatiladi (LGPL-2.1 6-bo'lim; yuridik xulosa R0-LEG-1 da):
 O'z fine-tune'ingizda ISSAI/TUIT Uzbek Speech Corpus ishlatilsa, mahsulotga ISSAI belgilagan bayonot qo'shiladi:
 "Our product uses ISSAI and TUIT Uzbek Speech Corpus (https://doi.org/10.48342/drss-8q87), which is available under a Creative Commons Attribution 4.0 International License."
 
-## Ixtiyoriy komponentlar (qo'lda; ilovaga qo'shilmaydi)
+## Ish vaqtida o'rnatiladigan komponentlar (ilovaga qo'shilmaydi)
 
-YouTube havolasidan import (YT-1, [ADR-0010](docs/adr/0010-youtube-havola-import.md)) — standart o'chiq, yurist xulosasidan oldin relizga kirmaydi. Komponentlar o'rnatuvchiga kirmaydi: katalogdan (keyinchalik) yoki dasturchi muhitida `make setup-youtube` bilan olinadi.
+YouTube havolasidan import (YT-1, [ADR-0010](docs/adr/0010-youtube-havola-import.md)). Komponentlar o'rnatuvchiga kirmaydi: foydalanuvchi Sozlamalarda roziligi bilan o'rnatadi (PyPI va GitHub relizlaridan, sha256 tekshiruvi bilan).
 
-| Komponent | Litsenziya | Izoh |
-| --- | --- | --- |
-| yt-dlp (PyPI paketi) | Unlicense | Python kutubxonasi sifatida, alohida jarayonda. Rasmiy PyInstaller exe'lari GPLv3+ kod o'z ichiga oladi — ular **ishlatilmaydi** |
-| yt-dlp-ejs (PyPI paketi) | Unlicense (ANIQLANSIN: ichidagi JS bog'liqliklar) | YouTube JS challenge yechimi; internetdan avtomatik olinmaydi (`remote_components = []`) |
-| Deno | MIT | JavaScript runtime (>= 2.3), yt-dlp-ejs uchun |
+<!-- gen_licenses:downloads:start -->
+Ilova paketiga kirmaydi: foydalanuvchi so'rovi bilan ish vaqtida o'rnatiladi (`engine/src/lahza_engine/media/youtube_components.py`). 5 ta.
+
+| Komponent | Versiya | Litsenziya | Qayerda | Izoh |
+| --- | --- | --- | --- | --- |
+| yt-dlp | 2026.10.26 | Unlicense | Ilovaga kirmaydi: Sozlamalar -> YouTube komponentlari, foydalanuvchi roziligi bilan yuklanadi (`<data_dir>/Components/`) | PyPI'dagi sof Python g'ildiragi (License-Expression: Unlicense). Rasmiy yt-dlp.exe ishlatilmaydi (unda GPLv3+ kod bor). Boshlang'ich (mahkamlangan) versiya; komponent ilova relizisiz yangilanishi mumkin. |
+| yt-dlp-ejs | 0.8.0 | Unlicense AND MIT AND ISC | Ilovaga kirmaydi: Sozlamalar -> YouTube komponentlari, foydalanuvchi roziligi bilan yuklanadi (`<data_dir>/Components/`) | License-Expression g'ildirak METADATA'sidan. `yt/solver/lib.min.js` ichida meriyah 6.1.4 (ISC) va astring 1.9.0 (MIT) birlashtirilgan. Boshlang'ich (mahkamlangan) versiya; komponent ilova relizisiz yangilanishi mumkin. |
+| meriyah | 6.1.4 | ISC | yt-dlp-ejs 0.8.0 ichida (yt/solver/lib.min.js) | Copyright (c) 2019 and later, KFlash and others. |
+| astring | 1.9.0 | MIT | yt-dlp-ejs 0.8.0 ichida (yt/solver/lib.min.js) | Copyright (c) 2015, David Bonnet <david@bonnet.cc> |
+| Deno | 2.9.8 | MIT | Ilovaga kirmaydi: Sozlamalar -> YouTube komponentlari, foydalanuvchi roziligi bilan yuklanadi (`<data_dir>/Components/`) | GitHub relizi (denoland/deno), yt-dlp-ejs uchun JavaScript runtime. Bajariladigan fayl uchinchi tomon kodini (V8 va Rust crate'lari) o'z ichiga oladi - ularning litsenziyalari Deno repozitoriyasida. Boshlang'ich (mahkamlangan) versiya; komponent ilova relizisiz yangilanishi mumkin. Copyright 2018-2026 the Deno authors |
+<!-- gen_licenses:downloads:end -->
 
 ## Ishlatilmaydi
 
@@ -681,13 +703,18 @@ Litsenziyasi aniqlanmagan modellar (Abduqayum/whisper-uzbek-medium-callcenter, N
 ## ANIQLANSIN ro'yxati (avtomatik)
 
 <!-- gen_licenses:unresolved:start -->
-Jami 182 ta yozuvda `ANIQLANSIN` bor.
+Jami 187 ta yozuvda `ANIQLANSIN` bor.
 
 | Turi | Komponent | Versiya | Litsenziya |
 | --- | --- | --- | --- |
 | runtime | whisper.cpp (ggml) | ANIQLANSIN | MIT |
 | model | NeuronAI-2B (o'zbekcha, Qwen3.5-2B asosida) | r0 | ANIQLANSIN |
 | model | whisper-uzbek-medium-callcenter | r0 | ANIQLANSIN |
+| windows | Intel OpenMP runtime (libiomp5md.dll) | 20250910 | ANIQLANSIN (Intel, proprietary) |
+| windows | LLVM OpenMP runtime (libomp.dll) | ANIQLANSIN | Apache-2.0 WITH LLVM-exception |
+| windows | mingw-w64 winpthreads (libwinpthread-1.dll) | ANIQLANSIN | MIT AND BSD-3-Clause |
+| windows | GCC runtime (libgcc_s_seh-1.dll) | ANIQLANSIN | GPL-3.0-or-later WITH GCC-exception-3.1 |
+| windows | GNU libstdc++ (libstdc++-6.dll) | ANIQLANSIN | GPL-3.0-or-later WITH GCC-exception-3.1 |
 
 Rust (179 crate, lokal registry'da yo'q): android_system_properties, atk, atk-sys, atomic-waker, base64, bumpalo, bytemuck, cairo-rs, cairo-sys-rs, cesu8, cfg-expr, combine, core_detect, dbus, dlopen2, dlopen2_derive, field-offset, futures-channel, futures-core, futures-executor, futures-io, futures-macro, futures-sink, futures-task, futures-util, gdk, gdk-pixbuf, gdk-pixbuf-sys, gdk-sys, gdkwayland-sys, gdkx11, gdkx11-sys, gio, gio-sys, glib, glib-macros, glib-sys, gobject-sys, gtk, gtk-sys, gtk3-macros, heck, http-body, http-body-util, httparse, hyper, hyper-util, iana-time-zone-haiku, ipnet, is-docker, is-wsl, javascriptcore-rs, javascriptcore-rs-sys, jiff-static, jiff-tzdb, jiff-tzdb-platform, jni, jni-sys, jni-sys-macros, js-sys, libappindicator, libappindicator-sys, libdbus-sys, libloading, libredox, memoffset, ndk, ndk-context, ndk-sys, num_enum, num_enum_derive, objc2-cloud-kit, objc2-core-data, objc2-core-image, objc2-core-location, objc2-core-text, objc2-ui-kit, objc2-user-notifications, pango, pango-sys, pkg-config, portable-atomic, portable-atomic-util, proc-macro-crate, proc-macro-error, proc-macro-error-attr, r-efi, redox_syscall, redox_users, reqwest, serde_spanned, slab, softbuffer, soup3, soup3-sys, syn, sync_wrapper, system-deps, tao-macros, target-lexicon, thiserror, thiserror-impl, tokio-util, toml, toml_datetime, toml_edit, tower, tower-http, tower-layer, tower-service, tracing, tracing-core, try-lock, unicode-segmentation, version-compare, vswhom, vswhom-sys, want, wasi, wasip2, wasm-bindgen, wasm-bindgen-futures, wasm-bindgen-macro, wasm-bindgen-macro-support, wasm-bindgen-shared, wasm-streams, web-sys, webkit2gtk, webkit2gtk-sys, webview2-com, webview2-com-macros, webview2-com-sys, winapi, winapi-i686-pc-windows-gnu, winapi-util, winapi-x86_64-pc-windows-gnu, windows, windows-collections, windows-core, windows-future, windows-implement, windows-interface, windows-link, windows-numerics, windows-result, windows-strings, windows-sys, windows-targets, windows-threading, windows-version, windows_aarch64_gnullvm, windows_aarch64_msvc, windows_i686_gnu, windows_i686_gnullvm, windows_i686_msvc, windows_x86_64_gnu, windows_x86_64_gnullvm, windows_x86_64_msvc, winnow, winreg, wit-bindgen, x11, x11-dl.
 <!-- gen_licenses:unresolved:end -->

@@ -150,9 +150,35 @@ class ParentWatchdog:
             fd = -1
         if fd < 0:
             return
+        if sys.platform == "win32":
+            self._stdin_win32(fd)
+            return
         try:
             while os.read(fd, 4096):
                 pass  # ota hech narsa yozmaydi; faqat EOF kutiladi
         except OSError:
             pass
+        self._fire("stdin EOF")
+
+    def _stdin_win32(self, fd: int) -> None:
+        """Windows: stdin pipe'ni bloklovchi o'qishsiz kuzatish (PeekNamedPipe so'rovi).
+
+        Sinxron pipe'da tugamagan `ReadFile` turganda shu handle'ni meros qilgan har bir bola
+        jarayon (ffmpeg, PyInstaller sidecar ichidagi `subprocess.run`) CRT ishga tushishida
+        (`GetFileType`) osilib qoladi - engine `--watch-stdin` bilan umuman ko'tarilmasdi."""
+        import _winapi
+        import msvcrt
+
+        try:
+            handle = msvcrt.get_osfhandle(fd)
+        except OSError:
+            return
+        while not self._fired.is_set():
+            try:
+                _winapi.PeekNamedPipe(handle, 0)
+            except BrokenPipeError:
+                break  # ota pipe'ni yopdi (EOF)
+            except OSError:
+                return  # stdin pipe emas (konsol, NUL, fayl) - kuzatib bo'lmaydi
+            time.sleep(self.interval_s)
         self._fire("stdin EOF")

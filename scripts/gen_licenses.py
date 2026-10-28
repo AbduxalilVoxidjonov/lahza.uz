@@ -19,6 +19,10 @@ Manbalar (guruhlar):
   qilingan `app/src-tauri/resources/bin/licenses/` (Homebrew SBOM `licenseConcluded`, LICENSE fayllari).
 * font    - `engine/src/lahza_engine/subtitle/fonts/` (SOURCE.txt, OFL.txt).
 * model   - `catalog/catalog.json` yozuvlari.
+* platform - generator ishlayotgan OS'ga bog'liq bo'lmagan, qo'lda tekshirilgan statik ro'yxat
+  (`PLATFORM_COMPONENTS`): Windows relizigagina kiradigan fayllar (VC++ runtime, ctranslate2 g'ildiragi
+  DLL'lari, MinGW runtime) va foydalanuvchi so'rovi bilan yuklanadigan YouTube komponentlari. Matnlar
+  `third_party/licenses/` dan. Linux CI'da ham aynan shu natija chiqadi (`--check` barqaror).
 
 Kesh: lokal manba topilmasa (masalan CI'da registry/staging yo'q), oldingi `licenses.json` dagi aynan
 shu nom@versiya yozuvi o'zgarishsiz qayta ishlatiladi. Shu tufayli `--check` mashinalararo barqaror.
@@ -52,10 +56,12 @@ FONTS = ROOT / "engine" / "src" / "lahza_engine" / "subtitle" / "fonts"
 CATALOG = ROOT / "catalog" / "catalog.json"
 SETUP_RENDER = ROOT / "scripts" / "setup_local_render.py"
 SETUP_LLM = ROOT / "scripts" / "setup_local_llm.py"
+PLATFORM_TEXTS = ROOT / "third_party" / "licenses"
+YT_COMPONENTS = ROOT / "engine" / "src" / "lahza_engine" / "media" / "youtube_components.py"
 
 SCHEMA_VERSION = 1
 UNKNOWN = "ANIQLANSIN"
-GROUPS = ("python", "npm", "rust", "runtime", "font", "model")
+GROUPS = ("python", "npm", "rust", "runtime", "font", "model", "platform")
 
 ENGINE_DIST = "lahza-engine"
 # Mahsulotga kiradigan ekstralar: `desktop` - lokal alfa sidecar'i (faster-whisper bog'liqliklari, ONNX,
@@ -90,6 +96,9 @@ _ALIASES = {
 _TEXT_NAME = re.compile(r"^(LICEN[CS]E|COPYING|NOTICE|UNLICENSE|COPYRIGHT)([-._].*)?$", re.I)
 _TEXT_SKIP_SUFFIX = {".py", ".pyc", ".js", ".cjs", ".mjs", ".ts", ".json", ".h", ".rs", ".html"}
 
+# Microsoft VC++ Redistributable: Visual Studio 2022 litsenziyasidagi "Distributable Code" sharti.
+MSVC_LICENSE = "LicenseRef-Microsoft-VC-Redist"
+
 # G'ildirakka biriktirilgan native kutubxonalar: metama'lumotda litsenziyasi yo'q, shuning uchun
 # ma'lum loyiha nomlari bo'yicha (basis "nom jadvali"; yuridik tekshiruvda tasdiqlanadi).
 NATIVE_KNOWN = {
@@ -106,7 +115,35 @@ NATIVE_KNOWN = {
     "webp": "BSD-3-Clause", "webpmux": "BSD-3-Clause", "sharpyuv": "BSD-3-Clause",
     "SvtAv1Enc": "BSD-3-Clause-Clear",
     "ctranslate2": "MIT",
+    # Windows (MSYS2/MinGW-w64 va delvewheel DLL'lari): `native_base()` dagi asos nomlari.
+    # GCC runtime'lari GPL, lekin GCC Runtime Library Exception 3.1 bilan - yig'ilgan dasturga GPL
+    # talablari o'tmaydi, shuning uchun `is_gpl()` ularni xato deb hisoblamaydi.
+    "winpthread": "MIT AND BSD-3-Clause",
+    "gcc_s_seh": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "gcc_s_dw2": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "stdc++": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "gomp": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "atomic": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "ssp": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "gfortran": "GPL-3.0-or-later WITH GCC-exception-3.1",
+    "quadmath": "LGPL-2.1-or-later",
+    "iconv": "LGPL-2.1-or-later", "intl": "LGPL-2.1-or-later",
+    "zlib1": "Zlib", "z": "Zlib",
+    "bz2": "bzip2-1.0.6",
+    "png16": "libpng-2.0", "png": "libpng-2.0",
+    "brotlicommon": "MIT", "brotlidec": "MIT", "brotlienc": "MIT",
+    "freetype": "FTL", "harfbuzz": "MIT", "fribidi": "LGPL-2.1-or-later", "ass": "ISC", "unibreak": "Zlib",
+    "graphite2": "MIT OR MPL-2.0 OR LGPL-2.1-or-later OR GPL-2.0-or-later",
+    "expat": "MIT", "glib": "LGPL-2.1-or-later", "pcre2": "BSD-3-Clause",
+    "vpl": "MIT",
+    "scipy_openblas64_": "BSD-3-Clause", "scipy_openblas": "BSD-3-Clause",
+    # Microsoft VC++ runtime (delvewheel nusxalari, masalan numpy.libs/msvcp140-<xesh>.dll).
+    **dict.fromkeys(["msvcp140", "msvcp140_1", "msvcp140_2", "msvcp140_atomic_wait", "msvcp140_codecvt_ids",
+                     "vcruntime140", "vcruntime140_1", "vcruntime140_threads", "concrt140", "vcomp140"],
+                    MSVC_LICENSE),
 }
+# GPL bo'lsa ham yig'ilgan dasturga talab o'tkazmaydigan istisnolar (SPDX `WITH` ifodalari).
+GPL_EXCEPTIONS = ("Bootloader-exception", "GCC-exception-3.1", "GCC-exception-2.0", "Classpath-exception-2.0")
 
 # Staging qilingan native kutubxonalar bo'yicha izohlar (SBOM ifodasi butun formula uchun).
 NATIVE_NOTES = {
@@ -288,15 +325,38 @@ def nodeps_requirements() -> list[str]:
     return out
 
 
+def _gpl_term(expr: str) -> bool:
+    """`AND` bilan bog'langan qismlardan biri istisnosiz GPL/AGPL (LGPL emas)."""
+    for part in re.split(r"\s+AND\s+", expr):
+        if re.search(r"(?<!L)GPL", part) and not any(e in part for e in GPL_EXCEPTIONS):
+            return True
+    return False
+
+
+def is_gpl(lic: str) -> bool:
+    """Ilovaga GPL talablarini o'tkazadigan litsenziya ifodasi.
+
+    LGPL va `WITH <istisno>` (Bootloader, GCC runtime) GPL hisoblanmaydi. `OR` tanlovida GPL'siz
+    variant bo'lsa, o'sha tanlanadi. Qavsli murakkab ifodada `OR` ga ishonilmaydi (xavfsiz tomonga).
+    """
+    if "GPL" not in lic:
+        return False
+    alts = [lic] if "(" in lic else re.split(r"\s+OR\s+", lic)
+    return all(_gpl_term(a) for a in alts)
+
+
+# Ilova paketiga kiradigan (yuklab olinmaydigan) va GPL bo'lmasligi shart bo'lgan turlar.
+GPL_GUARDED = ("python", "python-native", "windows")
+
+
 def gpl_violations(data: dict) -> list[str]:
-    """Sidecar'ga kiradigan Python/native qismlardagi GPL komponentlar (ADR-0004, ADR-0015)."""
+    """Sidecar/Windows paketiga kiradigan qismlardagi GPL komponentlar (ADR-0004, ADR-0015)."""
     bad = []
     for c in data["components"]:
-        if c["category"] not in ("python", "python-native"):
+        if c["category"] not in GPL_GUARDED:
             continue
         lic = c["license"]
-        gpl = "GPL" in lic and "LGPL" not in lic and "Bootloader-exception" not in lic
-        if _norm(c["name"]) in FORBIDDEN_PYTHON or c.get("risk") == "GPL" or gpl:
+        if _norm(c["name"]) in FORBIDDEN_PYTHON or c.get("risk") == "GPL" or is_gpl(lic):
             bad.append(f"{c['id']} ({lic}; {c['via']})")
     return bad
 
@@ -333,11 +393,15 @@ def _native_libs(dist) -> list[str]:
 
 
 def native_base(filename: str) -> str:
-    """`libx264.165.dylib` -> `x264`, `libavcodec-62.dll` -> `avcodec`, `libvpx-1a2b3c.so.9` -> `vpx`."""
+    """`libx264.165.dylib` -> `x264`, `libavcodec-62.dll` -> `avcodec`, `libvpx-1a2b3c.so.9` -> `vpx`.
+
+    Windows/MinGW: `libwinpthread-1.dll` -> `winpthread`, `libstdc++-6.dll` -> `stdc++`,
+    `libgcc_s_seh-1-<xesh>.dll` -> `gcc_s_seh`, `libglib-2.0-0.dll` -> `glib`, `zlib1.dll` -> `zlib1`."""
     stem = filename.split(".", 1)[0]
     stem = stem.removeprefix("lib")
     stem = re.sub(r"-[0-9a-f]{8,}$", "", stem)  # auditwheel/delvewheel xesh qo'shimchasi
-    stem = re.sub(r"-\d+$", "", stem)  # Windows: avcodec-62
+    while re.search(r"-\d+$", stem):  # Windows: avcodec-62, libpcre2-8-0, libwinpthread-1
+        stem = re.sub(r"-\d+$", "", stem)
     return stem
 
 
@@ -372,7 +436,7 @@ def python_components(texts: Texts) -> list[dict]:
         for lib in _native_libs(dist):
             base = native_base(lib)
             lic = NATIVE_KNOWN.get(base, UNKNOWN)
-            risk = "GPL" if "GPL" in lic and "LGPL" not in lic else ""
+            risk = "GPL" if is_gpl(lic) else ""
             natives.append(component(
                 "python", base, lib, lic, basis="nom jadvali" if lic != UNKNOWN else "topilmadi",
                 via=f"{meta['Name']} {meta['Version']} g'ildiragi", category="python-native", risk=risk,
@@ -559,8 +623,12 @@ def runtime_components(texts: Texts, cache: Cache, staged: Path = STAGED) -> lis
                     version = pk.get("versionInfo") or UNKNOWN
                     concl = pk.get("licenseConcluded") or ""
                     lic = concl if concl and concl != "NOASSERTION" else UNKNOWN
+            basis = "Homebrew SBOM"
+            if lic == UNKNOWN and native_base(d.name) in NATIVE_KNOWN:
+                # SBOM'siz staging (masalan Windows/MSYS2 yig'masi): asos nom bo'yicha.
+                lic, basis = NATIVE_KNOWN[native_base(d.name)], "nom jadvali"
             ids = texts.add_dir(d)
-            out.append(component("runtime", d.name, version, lic, basis="Homebrew SBOM", texts=ids,
+            out.append(component("runtime", d.name, version, lic, basis=basis, texts=ids,
                                  category="native", via="FFmpeg/libass bog'liqligi (lokal alfa, Homebrew bottle)",
                                  notes=" ".join(x for x in ("Dinamik bog'lanadi (bin/lib).", NATIVE_NOTES.get(d.name, ""),
                                                           "" if ids else "LICENSE fayli bottle'da yo'q.") if x)))
@@ -604,6 +672,127 @@ def model_components(catalog: Path = CATALOG) -> list[dict]:
     return sorted(out, key=lambda c: c["name"].lower())
 
 
+# ---------------------------------------------------------------- platformaga xos statik ro'yxat
+
+_GCC_RT = NATIVE_KNOWN["gcc_s_seh"]
+_MINGW_NOTE = ("FFmpeg Windows yig'masi (MSYS2 UCRT64) bilan `bin/` ga ko'chiriladi, agar FFmpeg DLL'lari unga "
+               "bog'langan bo'lsa. Versiya yig'madan keyin `pacman -Q` bo'yicha to'ldiriladi.")
+_YT_WHERE = ("Ilovaga kirmaydi: Sozlamalar -> YouTube komponentlari, foydalanuvchi roziligi bilan yuklanadi "
+             "(`<data_dir>/Components/`)")
+_YT_NOTE = "Boshlang'ich (mahkamlangan) versiya; komponent ilova relizisiz yangilanishi mumkin."
+
+# Qo'lda tekshirilgan yozuvlar (manba va matnlar hisobotda ko'rsatilgan). `where` -> `via`,
+# `texts` -> `third_party/licenses/` dagi fayllar, `pin` -> youtube_components.py dagi Asset nomi.
+# category: `windows` - faqat Windows relizi paketiga kiradi (GPL tekshiruvi ostida);
+#           `download` - paketga kirmaydi, ish vaqtida foydalanuvchi so'rovi bilan o'rnatiladi.
+PLATFORM_COMPONENTS: list[dict] = [
+    {"category": "windows", "name": "Microsoft Visual C++ runtime", "version": "14.51.36231",
+     "license": MSVC_LICENSE,
+     "where": "Windows sidecar: onnxruntime/capi va ctranslate2 yonida (app-local); bin/ (llama.cpp yonida)",
+     "url": "https://learn.microsoft.com/en-us/visualstudio/releases/2022/redistribution#visual-c-runtime-files",
+     "texts": [("msvc-runtime.LICENSE.txt", "msvc-runtime LICENSE (Distributable Code for Visual Studio 2022)")],
+     "notes": ("msvcp140.dll, msvcp140_1.dll, msvcp140_2.dll, msvcp140_atomic_wait.dll, msvcp140_codecvt_ids.dll, "
+               "vcruntime140.dll, vcruntime140_1.dll, concrt140.dll (scripts/build_sidecar.py VC_RUNTIME_DLLS; "
+               "DLL fayl versiyasi 14.51.36247.0). Manba: PyPI `msvc-runtime` 14.51.36231 (engine/pyproject.toml, "
+               "sys_platform == 'win32'; metama'lumot: \"License: Proprietary\"). Visual Studio 2022 litsenziyasidagi "
+               "\"Distributable Code\" (REDIST) ro'yxati: o'zgartirilmagan holda dastur bilan tarqatiladi; alohida "
+               "DLL'larni tarqatish litsenziyalangan Visual Studio foydalanuvchisiga ruxsat etilgan.")},
+    {"category": "windows", "name": "NVIDIA cuDNN (cudnn64_9.dll)", "version": "9.10.2.21",
+     "license": "LicenseRef-NVIDIA-cuDNN-SLA",
+     "where": "Windows sidecar: ctranslate2/ (ctranslate2 Windows g'ildiragiga biriktirilgan)",
+     "url": "https://docs.nvidia.com/deeplearning/cudnn/latest/reference/eula.html",
+     "notes": ("Litsenziya matni g'ildirakda yo'q. cuDNN Supplement 2-bo'lim: runtime .dll fayllari ilova bilan "
+               "tarqatilishi mumkin (ilova qo'shimcha funksionallikka ega bo'lishi va DLL'ga faqat ilova murojaat "
+               "qilishi sharti). Supplement 4.1: ilovalar NVIDIA GPU'li tizimlar uchun - CPU rejimida bu DLL "
+               "ishlatilmaydi; sidecar'dan chiqarish yoki yuridik tekshiruv kerak.")},
+    {"category": "windows", "name": "Intel OpenMP runtime (libiomp5md.dll)", "version": "20250910",
+     "license": f"{UNKNOWN} (Intel, proprietary)",
+     "where": "Windows sidecar: ctranslate2/ (ctranslate2 Windows g'ildiragiga biriktirilgan)",
+     "url": "https://pypi.org/project/intel-openmp/",
+     "notes": ("Versiya - DLL fayl versiyasi. Litsenziya matni g'ildirakda yo'q; PyPI `intel-openmp` "
+               "metama'lumoti: \"Intel End User License Agreement for Developer Tools\" - shu nusxaga taalluqliligi "
+               "tasdiqlansin.")},
+    {"category": "windows", "name": "LLVM OpenMP runtime (libomp.dll)", "version": UNKNOWN,
+     "license": "Apache-2.0 WITH LLVM-exception",
+     "where": "bin/ (llama.cpp/ggml Windows yig'masi bilan)",
+     "url": "https://github.com/llvm/llvm-project/tree/main/openmp",
+     "texts": [("LLVM-OpenMP.LICENSE.txt", "LICENSE-LLVM-OpenMP")],
+     "notes": "Staging'da `bin/LICENSE-LLVM-OpenMP` bilan keladi; versiya llama.cpp Windows yig'masidan aniqlansin."},
+    {"category": "windows", "name": "mingw-w64 winpthreads (libwinpthread-1.dll)", "version": UNKNOWN,
+     "license": NATIVE_KNOWN["winpthread"], "where": "bin/ (FFmpeg Windows yig'masi, MSYS2)",
+     "url": "https://github.com/mingw-w64/mingw-w64/blob/master/mingw-w64-libraries/winpthreads/COPYING",
+     "notes": "COPYING: MIT (mingw-w64 project) + BSD-3-Clause (Lockless Inc.). " + _MINGW_NOTE},
+    {"category": "windows", "name": "GCC runtime (libgcc_s_seh-1.dll)", "version": UNKNOWN,
+     "license": _GCC_RT, "where": "bin/ (FFmpeg Windows yig'masi, MSYS2)",
+     "url": "https://www.gnu.org/licenses/gcc-exception-3.1.html",
+     "notes": "GCC Runtime Library Exception 3.1: ilovaga GPL talablari o'tmaydi. " + _MINGW_NOTE},
+    {"category": "windows", "name": "GNU libstdc++ (libstdc++-6.dll)", "version": UNKNOWN,
+     "license": _GCC_RT, "where": "bin/ (FFmpeg Windows yig'masi, MSYS2)",
+     "url": "https://www.gnu.org/licenses/gcc-exception-3.1.html",
+     "notes": "GCC Runtime Library Exception 3.1. " + _MINGW_NOTE},
+    {"category": "download", "name": "yt-dlp", "version": "2026.10.26", "license": "Unlicense", "pin": "yt-dlp",
+     "where": _YT_WHERE, "url": "https://pypi.org/project/yt-dlp/2026.10.26/",
+     "texts": [("Unlicense.txt", "LICENSE (Unlicense)")],
+     "notes": ("PyPI'dagi sof Python g'ildiragi (License-Expression: Unlicense). Rasmiy yt-dlp.exe ishlatilmaydi "
+               "(unda GPLv3+ kod bor). " + _YT_NOTE)},
+    {"category": "download", "name": "yt-dlp-ejs", "version": "0.8.0", "license": "Unlicense AND MIT AND ISC",
+     "pin": "yt-dlp-ejs", "where": _YT_WHERE, "url": "https://pypi.org/project/yt-dlp-ejs/0.8.0/",
+     "texts": [("Unlicense.txt", "LICENSE (Unlicense)"),
+               ("yt-dlp-ejs.bundled-deps.txt", "yt_dlp_ejs/yt/solver/lib.min.js: Bundled Dependencies")],
+     "notes": ("License-Expression g'ildirak METADATA'sidan. `yt/solver/lib.min.js` ichida meriyah 6.1.4 (ISC) va "
+               "astring 1.9.0 (MIT) birlashtirilgan. " + _YT_NOTE)},
+    {"category": "download", "name": "meriyah", "version": "6.1.4", "license": "ISC",
+     "where": "yt-dlp-ejs 0.8.0 ichida (yt/solver/lib.min.js)", "url": "https://github.com/meriyah/meriyah",
+     "texts": [("yt-dlp-ejs.bundled-deps.txt", "yt_dlp_ejs/yt/solver/lib.min.js: Bundled Dependencies")],
+     "attribution": "Copyright (c) 2019 and later, KFlash and others."},
+    {"category": "download", "name": "astring", "version": "1.9.0", "license": "MIT",
+     "where": "yt-dlp-ejs 0.8.0 ichida (yt/solver/lib.min.js)", "url": "https://github.com/davidbonnet/astring",
+     "texts": [("yt-dlp-ejs.bundled-deps.txt", "yt_dlp_ejs/yt/solver/lib.min.js: Bundled Dependencies")],
+     "attribution": "Copyright (c) 2015, David Bonnet <david@bonnet.cc>"},
+    {"category": "download", "name": "Deno", "version": "2.9.8", "license": "MIT", "pin": "deno",
+     "where": _YT_WHERE, "url": "https://github.com/denoland/deno/blob/main/LICENSE.md",
+     "texts": [("deno.LICENSE.md", "Deno LICENSE.md")],
+     "attribution": "Copyright 2018-2026 the Deno authors",
+     "notes": ("GitHub relizi (denoland/deno), yt-dlp-ejs uchun JavaScript runtime. Bajariladigan fayl uchinchi "
+               "tomon kodini (V8 va Rust crate'lari) o'z ichiga oladi - ularning litsenziyalari Deno "
+               "repozitoriyasida. " + _YT_NOTE)},
+]
+
+
+def youtube_pins(path: Path = YT_COMPONENTS) -> dict[str, str]:
+    """`youtube_components.py` dagi `Asset("nom", "versiya", ...)` pinlari (import qilinmaydi: httpx kerak)."""
+    text = path.read_text(encoding="utf-8") if path.is_file() else ""
+    out: dict[str, str] = {}
+    for name, version in re.findall(r'Asset\(\s*"([\w.-]+)",\s*"([^"]+)"', text):
+        out.setdefault(name, version)
+    return out
+
+
+def platform_components(texts: Texts, entries: list[dict] | None = None, base: Path = PLATFORM_TEXTS,
+                        pins: dict[str, str] | None = None) -> list[dict]:
+    """Statik ro'yxat: generator qaysi OS'da ishlashidan qat'i nazar bir xil natija."""
+    entries = PLATFORM_COMPONENTS if entries is None else entries
+    pins = youtube_pins() if pins is None else pins
+    stale = [f"{e['pin']}: ro'yxatda {e['version']}, youtube_components.py da {pins.get(e['pin'], '?')}"
+             for e in entries if e.get("pin") and pins.get(e["pin"]) != e["version"]]
+    if stale:
+        raise SystemExit("PLATFORM_COMPONENTS eskirgan (litsenziyani qayta tekshirib versiyani yangilang): "
+                         + "; ".join(stale))
+    out = []
+    for e in entries:
+        ids: list[str] = []
+        for fname, title in e.get("texts", []):
+            tid = texts.add_file(base / fname, title)
+            if tid is None:
+                raise SystemExit(f"litsenziya matni topilmadi: {(base / fname).as_posix()}")
+            if tid not in ids:
+                ids.append(tid)
+        out.append(component("platform", e["name"], e["version"], e["license"], basis="qo'lda tekshirilgan ro'yxat",
+                             texts=ids, via=e["where"], url=e.get("url", ""), notes=e.get("notes", ""),
+                             attribution=e.get("attribution", ""), category=e["category"]))
+    return out
+
+
 # ---------------------------------------------------------------- yig'ish
 
 def collect(reuse: Iterable[str] = (), previous: dict | None = None) -> dict:
@@ -617,6 +806,7 @@ def collect(reuse: Iterable[str] = (), previous: dict | None = None) -> dict:
         "runtime": lambda: runtime_components(texts, cache),
         "font": lambda: font_components(texts),
         "model": lambda: model_components(),
+        "platform": lambda: platform_components(texts),
     }
     comps: list[dict] = []
     for group in GROUPS:
@@ -695,6 +885,18 @@ def sections(data: dict) -> dict[str, str]:
                    + _table(["Model", "Katalog ID", "Litsenziya", "Muallifni ko'rsatish"],
                             [(c["name"], c["via"], c["license"], c["attribution"] and f"**Majburiy:** \"{c['attribution']}\"")
                              for c in by.get("model", [])])),
+        "windows": (f"Faqat Windows relizi paketiga kiradigan fayllar: {len(by.get('windows', []))} ta. Generator Linux/macOS'da "
+                    "ham ishlagani uchun ro'yxat statik va qo'lda tekshiriladi (`PLATFORM_COMPONENTS`); sidecar GPL "
+                    "tekshiruvi bularga ham qo'llanadi (GCC runtime istisnosi GPL hisoblanmaydi).\n\n"
+                    + _table(["Komponent", "Versiya", "Litsenziya", "Qayerda", "Izoh"],
+                             [(c["name"], c["version"], c["license"], c["via"], c["notes"])
+                              for c in by.get("windows", [])])),
+        "downloads": (f"Ilova paketiga kirmaydi: foydalanuvchi so'rovi bilan ish vaqtida o'rnatiladi "
+                      f"(`engine/src/lahza_engine/media/youtube_components.py`). {len(by.get('download', []))} ta.\n\n"
+                      + _table(["Komponent", "Versiya", "Litsenziya", "Qayerda", "Izoh"],
+                               [(c["name"], c["version"], c["license"], c["via"],
+                                 " ".join(x for x in (c["notes"], c["attribution"]) if x))
+                                for c in by.get("download", [])])),
         "lgpl": LGPL_NOTICE_MD.format(
             ffmpeg=ff["version"] if ff else UNKNOWN, ffmpeg_url=ff["url"] if ff else UNKNOWN,
             ffmpeg_sha=_pin(SETUP_RENDER, "SHA256") or UNKNOWN).rstrip(),
