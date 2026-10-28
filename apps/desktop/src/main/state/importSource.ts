@@ -2,8 +2,8 @@
 //
 // Where an import's source already stands: the pool item whose file or bytes
 // it is, or a place under the project's Media/ folder, where the import copy
-// would have put it. Pure but for the injected realpath; `platform` picks the path rules,
-// so a test on Linux can speak Windows paths.
+// would have put it. Pure but for the injected file key and realpath;
+// `platform` picks the path rules, so a test on Linux can speak Windows paths.
 import path from 'node:path'
 import type { MediaItem } from './model'
 
@@ -14,21 +14,25 @@ const PENDING_HASH = 'pending-'
 
 const pathLib = (platform: NodeJS.Platform) => (platform === 'win32' ? path.win32 : path.posix)
 
-/** One spelling per file: resolved, and folded for case and Unicode
- *  normalization on the platforms whose default volumes ignore both. */
-function pathKey(p: string, platform: NodeJS.Platform): string {
-  const resolved = pathLib(platform).resolve(p)
-  return platform === 'win32' || platform === 'darwin' ? resolved.normalize('NFC').toLowerCase() : resolved
+/** Which file a path names: two paths name one file exactly when their keys
+ *  are equal. Null when nothing is there. */
+export type FileKey = (p: string) => string | null
+
+/** The key when the host can tell no file identity: the resolved real path,
+ *  as spelled. Never folded for case or Unicode normalization: whether two
+ *  spellings are one file is the volume's call (NTFS holds an NFC and an NFD
+ *  `café.mp4` side by side), and only a stat can ask it. */
+export function spelledKey(realPath: (p: string) => string, platform: NodeJS.Platform): FileKey {
+  return (p) => pathLib(platform).resolve(realPath(p))
 }
 
-/** The pool item whose file `source` is. Both sides go through realpath, so a
- *  link, another spelling or the source of a copy still in flight all match. */
-export function pooledItemFor(
-  pool: Record<string, MediaItem>, source: string,
-  realPath: (p: string) => string, platform: NodeJS.Platform,
-): MediaItem | null {
-  const key = pathKey(realPath(source), platform)
-  for (const item of Object.values(pool)) if (pathKey(realPath(item.path_abs), platform) === key) return item
+/** The pool item whose file `source` is: a link, another spelling or the
+ *  source of a copy still in flight all match. A pooled file that is gone
+ *  matches nothing. */
+export function pooledItemFor(pool: Record<string, MediaItem>, source: string, fileKey: FileKey): MediaItem | null {
+  const key = fileKey(source)
+  if (key === null) return null
+  for (const item of Object.values(pool)) if (fileKey(item.path_abs) === key) return item
   return null
 }
 
@@ -45,20 +49,20 @@ export function pooledItemWithHash(pool: Record<string, MediaItem>, hash: string
 }
 
 /** `source`'s path relative to the project folder when it already sits under
- *  the project's Media/ folder, else null. */
+ *  the project's Media/ folder, else null. A folder is Media/ when it is the
+ *  same folder, however the two paths spell it. */
 export function mediaFolderPath(
   workspaceDir: string, source: string,
-  realPath: (p: string) => string, platform: NodeJS.Platform,
+  realPath: (p: string) => string, fileKey: FileKey, platform: NodeJS.Platform,
 ): string | null {
   const lib = pathLib(platform)
-  const media = realPath(lib.join(workspaceDir, MEDIA_DIR))
+  const media = fileKey(lib.join(workspaceDir, MEDIA_DIR))
+  if (media === null) return null
   const file = realPath(source)
-  const folded = lib.relative(pathKey(media, platform), pathKey(file, platform))
-  if (folded === '' || folded === '..' || folded.startsWith(`..${lib.sep}`) || lib.isAbsolute(folded)) return null
-  // The file's own spelling when the two agree past the fold; the folded one
-  // names the same file on the volumes that fold.
-  const exact = lib.relative(media, file)
-  return lib.join(MEDIA_DIR, exact.startsWith('..') ? folded : exact)
+  for (let dir = lib.dirname(file); ; dir = lib.dirname(dir)) {
+    if (fileKey(dir) === media) return lib.join(MEDIA_DIR, lib.relative(dir, file))
+    if (lib.dirname(dir) === dir) return null
+  }
 }
 
 /** `source` as an absolute path: a relative one is read from the project

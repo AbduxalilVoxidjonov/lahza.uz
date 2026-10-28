@@ -1055,6 +1055,15 @@ app.whenReady().then(async () => {
       } catch { return null }
     },
     realPath: (p) => { try { return fs.realpathSync.native(p) } catch { return p } },
+    // Volume + file number, so the volume decides which spellings are one
+    // file. A file system that reports no file number (some network shares
+    // answer 0) is compared by its real path instead.
+    fileKey: (p) => {
+      try {
+        const s = fs.statSync(p, { bigint: true })
+        return s.ino === 0n ? `path:${fs.realpathSync.native(p)}` : `${s.dev}:${s.ino}`
+      } catch { return null }
+    },
     workspaceDir: () => wsCache,
     emitLog: (entry) => { void backend!.invoke('log_emit', JSON.stringify({ input: entry })) },
     listMotifs: () => backend!.invoke('list_motifs', '{}'),

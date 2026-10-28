@@ -63,7 +63,7 @@ export interface MediaDerivativesPatch {
   thumbnails_dir?: string | null
 }
 export interface WorkspacePaths {
-  path_abs: string; path_rel: string; file_hash_blake3: string; file_size: number; file_mtime: number
+  path_abs: string; path_rel: string | null; file_hash_blake3: string; file_size: number; file_mtime: number
 }
 
 /** set_media_derivatives — patch one pool item's derivative fields, returning
@@ -98,7 +98,8 @@ export function applySetMediaDerivatives(pool: Record<string, MediaItem>, id: Uu
 }
 
 /** set_media_workspace_paths — set the workspace-relative path + file
- *  fingerprint after the import copy. path_rel is always set. */
+ *  fingerprint after the import copy, or after an import relinks an item whose
+ *  file was gone (path_rel null until that file is copied into Media/). */
 export function applySetMediaWorkspacePaths(pool: Record<string, MediaItem>, id: Uuid, paths: WorkspacePaths): Record<string, MediaItem> {
   const item = pool[id]
   if (!item) throw new CommandFailure({ error: 'MediaNotFound', media: id })

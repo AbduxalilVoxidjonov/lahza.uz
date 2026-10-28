@@ -22,11 +22,15 @@ imports of files already in the project become the normal path, not a slip.
 
 - **The pool is checked in the turn that inserts.** After the probe and
   before the insert, `import_media` looks for a pool item whose file is the
-  source. Both paths go through realpath and are compared under the host's
-  rules: case and Unicode normalization fold on Windows and macOS, not on
-  Linux. A match ends the import with nothing written and answers the held
-  item's id. The check runs in the same synchronous turn as the insert, so two
-  imports of one file racing through their probes still land one row. The
+  source. Two paths name one file when a stat gives them the same volume and
+  file number, so the volume decides which spellings are one file: NTFS holds
+  an NFC and an NFD `café.mp4` side by side, and no folding of the path could
+  know that. A file system that reports no file number is compared by real
+  path, as spelled. A match ends the import with nothing written and answers
+  the held item's id. The check runs in the same synchronous turn as the
+  insert, so two imports of one file racing through their probes still land
+  one row; the later one waits for the earlier to settle and shares its
+  result, so it never answers a row whose failed hash read rolls it back. The
   import diagnostic ends as `already_in_pool`, not as a failure.
 - **A source already under `Media/` is recorded in place.** It is where the
   copy would put it, so its pool item gets its `Media/`-relative `path_rel`
@@ -42,6 +46,11 @@ imports of files already in the project become the normal path, not a slip.
   new size is read no more than before. An item whose hash is still pending
   cannot be matched: two imports of the same bytes racing from two paths land
   two rows, and the MCP record names the other in `same_content_as`.
+- **Found bytes relink an item whose file is gone.** When the item holding
+  the bytes has lost its own file (its `Media/` copy deleted, its drive
+  offline), the import points that item at the source, copies it into
+  `Media/` as any import's source is, and regenerates its derivatives. The
+  item keeps its id and its layers play again.
 - **The MCP record says what happened.** An answer for an item the pool held
   before the call carries `existing: true`. The UI and MCP share the import
   arm, so both get the check; only MCP reports these fields.

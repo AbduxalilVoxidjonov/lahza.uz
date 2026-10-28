@@ -17,7 +17,7 @@ import { McpArgError, mapCommandError, mcpDef } from './mcp-commands'
 import type { Cue } from './mutations/captions'
 import { scopeComposition } from './mutations/helpers'
 import { parseDiscardSegments } from './mutations/split'
-import { absoluteSource, hashedItemOfSize, mediaFolderPath, pooledItemFor, pooledItemWithHash } from './importSource'
+import { absoluteSource, hashedItemOfSize, mediaFolderPath, pooledItemFor, pooledItemWithHash, spelledKey, type FileKey } from './importSource'
 import { playsNoSoundError, resolvePauseSubject } from './pauseSubject'
 import { snapFrameRound } from './snap'
 import type { ImportTrace } from '../importDiagnostics'
@@ -132,6 +132,9 @@ export type HybridDeps = {
   /** node:fs realpath, answering its input when the path cannot be resolved.
    *  Absent: paths are compared as spelled. */
   realPath?: (p: string) => string
+  /** Which file a path names, from a stat (volume + file number); null when
+   *  nothing is there. Absent: the real path as spelled stands in. */
+  fileKey?: FileKey
   /** Whose path rules compare import sources. Absent: this process's. */
   platform?: NodeJS.Platform
   /** Draws an `.svg` to a PNG and returns its path (svgRaster.ts); the PNG is
@@ -803,6 +806,7 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         const asked = args.path as string
         const realPath = deps.realPath ?? ((p: string) => p)
         const platform = deps.platform ?? process.platform
+        const fileKey = deps.fileKey ?? spelledKey(realPath, platform)
         const projectDir = deps.workspaceDir()
         const resolved = absoluteSource(projectDir, asked, platform)
         if (resolved === null) throw new McpArgError(`path ${asked} is relative and no project is open to read it from — pass the absolute path of the file`, 'path')
@@ -835,7 +839,7 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         // its bytes. When an item of the source's size could hold them, the
         // source is hashed before the insert, not after.
         let hash: string | null = null
-        if (!pooledItemFor(deps.actor.snapshot().media_pool, path, realPath, platform) && hashedItemOfSize(deps.actor.snapshot().media_pool, item.file_size)) {
+        if (!pooledItemFor(deps.actor.snapshot().media_pool, path, fileKey) && hashedItemOfSize(deps.actor.snapshot().media_pool, item.file_size)) {
           try { hash = await hashSource() }
           catch (e) { throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. Nothing was imported`) }
           assertCurrent()
@@ -843,53 +847,31 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         // Checked here, in the same turn as the insert, so two imports of one
         // file racing through their probes still land one row.
         const pool = deps.actor.snapshot().media_pool
-        const held = pooledItemFor(pool, path, realPath, platform) ?? (hash === null ? null : pooledItemWithHash(pool, hash))
-        if (held) { trace?.held(held.id); return held.id }
+        const held = pooledItemFor(pool, path, fileKey) ?? (hash === null ? null : pooledItemWithHash(pool, hash))
+        const workspaceDir = deps.workspaceDir()
+        const inMedia = workspaceDir ? mediaFolderPath(workspaceDir, path, realPath, fileKey, platform) : null
+        if (held) {
+          // A row still importing is not held yet: its hash read may fail and
+          // roll it back, so this import answers what that one does.
+          const importing = importsInFlight.get(deps.actor)?.get(held.id)
+          if (importing) await importing
+          // The same bytes found while the held item's own file is gone (a
+          // deleted Media/ copy, a drive offline): the item is relinked to them.
+          else if (!usableFile(deps.statPath(held.path_abs))) {
+            await relink(held, item, path, workspaceDir, inMedia, deps)
+            assertCurrent()
+          }
+          trace?.held(held.id)
+          return held.id
+        }
         const r = deps.actor.dispatch('add_media_item', { media: item })
         if (!r.ok) throw new Error(JSON.stringify(r.error))
-        const workspaceDir = deps.workspaceDir()
-        const inMedia = workspaceDir ? mediaFolderPath(workspaceDir, path, realPath, platform) : null
         trace?.bind(item, Boolean(workspaceDir) && !inMedia)
-        // Compute the REAL content hash (a lightweight standalone read pass), set it
-        // on the pool item, THEN enqueue derivatives — so every job bakes the final
-        // cache key and no derivative ever touches a pending alias (ADR 0007
-        // superseded). One extra full read of the source, accepted to start
-        // derivatives promptly instead of waiting for the workspace copy. Skipped
-        // when the source was hashed before the insert.
-        if (hash === null) {
-          try { hash = await hashSource() }
-          catch (e) {
-            assertCurrent()
-            // The row is provisional until its hash lands, so a read that fails
-            // here leaves nothing behind. `force: false`: were a layer already
-            // placed on it, the row stays and the error still names the failure.
-            const rollback = deps.actor.dispatch('remove_media', { media: item.id, force: false })
-            throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. ${rollback.ok
-              ? 'The provisional pool row was rolled back; nothing was imported'
-              : `The provisional pool row ${item.id} could not be rolled back (${mapCommandError(rollback.error).message}); it stays with a pending hash — delete_media removes it`}`)
-          }
-          assertCurrent()
-        }
-        const hr = deps.actor.dispatch('set_media_hash', { media: item.id, file_hash_blake3: hash })
-        // Benign if the media was removed during hashing — nothing left to enqueue.
-        if (!hr.ok) { trace?.fail('Media removed during hashing'); return item.id }
-        const hashedItem: MediaItem = { ...item, file_hash_blake3: hash }
-        // Derivative jobs read the SOURCE (hashedItem.path_abs is still the original);
-        // content-addressed by the real hash, so source vs the workspace copy is
-        // equivalent.
-        await deps.enqueueDerivatives([hashedItem])
-        assertCurrent()
-        // Workspace copy runs in PARALLEL: copies the source into <workspace>/Media,
-        // re-confirms the same hash, and flips path_abs via the media:workspace_paths
-        // seam. No-op napi when no workspace. A source already under Media/ is
-        // where the copy would land: it is recorded in place instead.
-        if (inMedia) {
-          const wr = deps.actor.dispatch('set_media_workspace_paths', { media: item.id, paths: {
-            path_abs: path, path_rel: inMedia, file_hash_blake3: hash, file_size: item.file_size, file_mtime: item.file_mtime } })
-          if (!wr.ok) throw new Error(JSON.stringify(wr.error))
-        } else if (workspaceDir) await deps.enqueueWorkspaceCopy(item.id, path)
-        trace?.queued()
-        return item.id
+        const settled = settleImport(item, path, hash, { hashSource, workspaceDir, inMedia, assertCurrent, trace }, deps)
+        const inFlight = importsInFlight.get(deps.actor) ?? new Map<string, Promise<string>>()
+        importsInFlight.set(deps.actor, inFlight.set(item.id, settled))
+        try { return await settled }
+        finally { inFlight.delete(item.id) }
       } catch (error) { trace?.fail(error); throw error }
     }
     case 'apply_subtitles':
@@ -1038,6 +1020,78 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
     default:
       throw new Error(`runHybrid: unhandled tool ${tool}`)
   }
+}
+
+/** Each actor's imports between their provisional row and its settling, by
+ *  media id: an import of the same file meanwhile answers what that one does. */
+const importsInFlight = new WeakMap<ActorHandle, Map<string, Promise<string>>>()
+
+function usableFile(facts: PathFacts | null): boolean {
+  return facts?.kind === 'file' && facts.readable
+}
+
+/** Point `held`, whose own file is gone, at `path`, a file `found` by its probe
+ *  to hold the same bytes: recorded in place under Media/, else copied in as an
+ *  import's source is. Its derivatives regenerate whatever left with the file. */
+async function relink(
+  held: MediaItem, found: MediaItem, path: string, workspaceDir: string | null, inMedia: string | null, deps: HybridDeps,
+): Promise<void> {
+  const r = deps.actor.dispatch('set_media_workspace_paths', { media: held.id, paths: {
+    path_abs: path, path_rel: inMedia, file_hash_blake3: held.file_hash_blake3, file_size: found.file_size, file_mtime: found.file_mtime } })
+  if (!r.ok) throw new Error(JSON.stringify(r.error))
+  await deps.enqueueDerivatives([deps.actor.snapshot().media_pool[held.id]])
+  if (workspaceDir && !inMedia) await deps.enqueueWorkspaceCopy(held.id, path)
+}
+
+/** The rest of an import once its provisional row is in the pool: the real
+ *  hash, derivatives, then the workspace copy. A failed hash read rolls the row
+ *  back. Shared with any import of the same file that lands meanwhile. */
+async function settleImport(item: MediaItem, path: string, hashed: string | null, ctx: {
+  hashSource: () => Promise<string>; workspaceDir: string | null; inMedia: string | null
+  assertCurrent: () => void; trace: ImportTrace | undefined
+}, deps: HybridDeps): Promise<string> {
+  const { hashSource, workspaceDir, inMedia, assertCurrent, trace } = ctx
+  let hash = hashed
+  // Compute the REAL content hash (a lightweight standalone read pass), set it
+  // on the pool item, THEN enqueue derivatives — so every job bakes the final
+  // cache key and no derivative ever touches a pending alias (ADR 0007
+  // superseded). One extra full read of the source, accepted to start
+  // derivatives promptly instead of waiting for the workspace copy. Skipped
+  // when the source was hashed before the insert.
+  if (hash === null) {
+    try { hash = await hashSource() }
+    catch (e) {
+      assertCurrent()
+      // The row is provisional until its hash lands, so a read that fails
+      // here leaves nothing behind. `force: false`: were a layer already
+      // placed on it, the row stays and the error still names the failure.
+      const rollback = deps.actor.dispatch('remove_media', { media: item.id, force: false })
+      throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. ${rollback.ok
+        ? 'The provisional pool row was rolled back; nothing was imported'
+        : `The provisional pool row ${item.id} could not be rolled back (${mapCommandError(rollback.error).message}); it stays with a pending hash — delete_media removes it`}`)
+    }
+    assertCurrent()
+  }
+  const hr = deps.actor.dispatch('set_media_hash', { media: item.id, file_hash_blake3: hash })
+  // Benign if the media was removed during hashing — nothing left to enqueue.
+  if (!hr.ok) { trace?.fail('Media removed during hashing'); return item.id }
+  const hashedItem: MediaItem = { ...item, file_hash_blake3: hash }
+  // Derivative jobs read the SOURCE (hashedItem.path_abs is still the original);
+  // content-addressed by the real hash, so source vs the workspace copy is
+  // equivalent.
+  await deps.enqueueDerivatives([hashedItem])
+  assertCurrent()
+  // Workspace copy runs in PARALLEL: copies the source into <workspace>/Media,
+  // re-confirms the same hash, and flips path_abs via the media:workspace_paths
+  // seam. No-op napi when no workspace. A source already under Media/ is
+  // where the copy would land: it is recorded in place instead.
+  if (inMedia) {
+    const wr = deps.actor.dispatch('set_media_workspace_paths', { media: item.id, paths: {
+      path_abs: path, path_rel: inMedia, file_hash_blake3: hash, file_size: item.file_size, file_mtime: item.file_mtime } })
+    if (!wr.ok) throw new Error(JSON.stringify(wr.error))
+  } else if (workspaceDir) await deps.enqueueWorkspaceCopy(item.id, path)
+  trace?.queued()
+  return item.id
 }
 
 /** A project opening owns each asynchronous import continuation. Checking the

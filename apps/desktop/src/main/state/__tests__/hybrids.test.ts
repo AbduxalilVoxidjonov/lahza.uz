@@ -1,3 +1,4 @@
+import path from 'node:path'
 import { describe, it, expect, vi } from 'vitest'
 import { createActor, type ActorHandle } from '../actor'
 import { seededGen } from '../ids'
@@ -44,7 +45,7 @@ function twoCuePayload() {
 /** Build HybridDeps with a fake compute + spies; `workspaceDir` is overridable. */
 function makeDeps(actor: ActorHandle, opts: {
   workspaceDir?: string | null; fileContent?: string; statPath?: PathFacts | null
-  realPath?: (p: string) => string; platform?: NodeJS.Platform
+  realPath?: (p: string) => string; fileKey?: (p: string) => string | null; platform?: NodeJS.Platform
 } = {}): HybridDeps & {
   _probeMedia: ReturnType<typeof vi.fn>
   _hashMediaSource: ReturnType<typeof vi.fn>
@@ -78,6 +79,7 @@ function makeDeps(actor: ActorHandle, opts: {
     // A regular, readable file unless a test says what else the path is.
     statPath: () => (opts.statPath === undefined ? { kind: 'file', readable: true } : opts.statPath),
     realPath: opts.realPath,
+    fileKey: opts.fileKey,
     platform: opts.platform ?? 'win32',
     snapshotComposition: () => root(actor.snapshot()),
   }
@@ -224,9 +226,20 @@ describe('runHybrid: import_media', () => {
       expect((await reimport(actor, 'D:/footage/x.mp4')).id).toBe(HELD)
     })
 
-    it('matches across separators and case on Windows', async () => {
+    it('matches another spelling the volume calls the same file', async () => {
       const actor = holding('C:\\Proj\\Media\\X.mp4')
-      expect((await reimport(actor, 'c:/proj/media/x.MP4')).id).toBe(HELD)
+      // A case-insensitive volume, as its stat would say.
+      const fileKey = (p: string) => path.win32.resolve(p).toLowerCase()
+      expect((await reimport(actor, 'c:/proj/media/x.MP4', { fileKey })).id).toBe(HELD)
+    })
+
+    // NTFS does not normalize names: a precomposed and a decomposed café.mp4
+    // are two files, which the path alone cannot tell are not one.
+    it('keeps apart names that differ only in Unicode normalization', async () => {
+      const actor = holding('C:/footage/caf\u00e9.mp4')
+      const { id } = await reimport(actor, 'C:/footage/cafe\u0301.mp4', { workspaceDir: null })
+      expect(id).toBe(MID)
+      expect(Object.keys(actor.snapshot().media_pool).sort()).toEqual([MID, HELD].sort())
     })
 
     it('treats a different case as a different file on Linux', async () => {
@@ -254,6 +267,43 @@ describe('runHybrid: import_media', () => {
       expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
     })
 
+    // The held item's own file is gone (its Media/ copy deleted, its drive
+    // offline): the same bytes found elsewhere are what it is relinked to.
+    describe('whose own file is gone', () => {
+      async function relinked(source: string, opts: Parameters<typeof makeDeps>[1] = {}) {
+        const actor = holding('C:/proj/Media/x.mp4')
+        const deps = makeDeps(actor, { workspaceDir: 'C:/proj', ...opts })
+        deps.statPath = (p) => (p === 'C:/proj/Media/x.mp4' ? null : { kind: 'file', readable: true })
+        deps._hashMediaSource.mockResolvedValue('heldhash')
+        const id = await runHybrid('import_media', { path: source }, deps)
+        return { id, deps, item: actor.snapshot().media_pool[HELD], pool: actor.snapshot().media_pool }
+      }
+
+      it('relinks the held item to the found file and copies it in', async () => {
+        const { id, deps, item, pool } = await relinked('D:/backup/x.mp4')
+        expect(id).toBe(HELD)
+        expect(Object.keys(pool)).toEqual([HELD])
+        expect(item.path_abs).toBe('D:/backup/x.mp4')
+        expect(item.path_rel).toBeNull()
+        expect(item.file_hash_blake3).toBe('heldhash')
+        expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledWith(HELD, 'D:/backup/x.mp4')
+        expect((deps._enqueueDerivatives.mock.calls[0][0] as MediaItem[]).map((m) => [m.id, m.path_abs])).toEqual([[HELD, 'D:/backup/x.mp4']])
+      })
+
+      it('records a found file already under Media in place', async () => {
+        const { id, deps, item } = await relinked('C:/proj/Media/restored/x.mp4')
+        expect(id).toBe(HELD)
+        expect(item.path_rel).toBe('Media\\restored\\x.mp4')
+        expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      })
+
+      it('relinks in place with no project open', async () => {
+        const { item, deps } = await relinked('D:/backup/x.mp4', { workspaceDir: null })
+        expect(item.path_abs).toBe('D:/backup/x.mp4')
+        expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+      })
+    })
+
     it('imports other bytes of the same size, hashing them once', async () => {
       const actor = holding('C:/proj/Media/x.mp4')
       const { id, deps } = await reimport(actor, 'D:/footage/x.mp4')
@@ -270,6 +320,47 @@ describe('runHybrid: import_media', () => {
       expect(id).toBe(MID)
       expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
       expect(actor.snapshot().media_pool[MID].file_hash_blake3).toBe('realhash-deadbeef')
+    })
+
+    // A second import of a file whose first import is still hashing it waits
+    // for that one: the provisional row it would answer may yet roll back.
+    describe('while an import of the same file is still hashing it', () => {
+      function racing() {
+        const actor = freshActor()
+        const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+        // As the native probe answers: the source's path, a provisional hash.
+        deps._probeMedia.mockImplementation(async (p: string) => JSON.stringify({ ...probedItem(), path_abs: p, file_hash_blake3: 'pending-x' }))
+        let settle!: { resolve: (h: string) => void; reject: (e: Error) => void }
+        deps._hashMediaSource.mockImplementationOnce(() => new Promise<string>((resolve, reject) => { settle = { resolve, reject } }))
+        const first = runHybrid('import_media', { path: 'D:/footage/x.mp4' }, deps)
+        return { actor, deps, first, settle: () => settle }
+      }
+
+      it('shares its failure instead of answering a rolled-back row', async () => {
+        const { actor, deps, first, settle } = racing()
+        await vi.waitFor(() => expect(deps._hashMediaSource).toHaveBeenCalledTimes(1))
+        const second = runHybrid('import_media', { path: 'D:/footage/x.mp4' }, deps)
+        await vi.waitFor(() => expect(deps._probeMedia).toHaveBeenCalledTimes(2))
+        settle().reject(new Error('source disconnected'))
+        await expect(first).rejects.toThrow(/source disconnected/)
+        await expect(second).rejects.toThrow(/source disconnected/)
+        expect(actor.snapshot().media_pool).toEqual({})
+      })
+
+      it('answers its row once that import has settled', async () => {
+        const { actor, deps, first, settle } = racing()
+        await vi.waitFor(() => expect(deps._hashMediaSource).toHaveBeenCalledTimes(1))
+        let secondDone = false
+        const second = runHybrid('import_media', { path: 'D:/footage/x.mp4' }, deps).finally(() => { secondDone = true })
+        await vi.waitFor(() => expect(deps._probeMedia).toHaveBeenCalledTimes(2))
+        await Promise.resolve()
+        expect(secondDone).toBe(false)
+        settle().resolve('realhash-deadbeef')
+        expect(await first).toBe(MID)
+        expect(await second).toBe(MID)
+        expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
+        expect(actor.snapshot().media_pool[MID].file_hash_blake3).toBe('realhash-deadbeef')
+      })
     })
 
     it('ends the import trace as already held, not as a failure', async () => {
