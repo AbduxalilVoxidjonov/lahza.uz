@@ -21,6 +21,16 @@ pub struct SrtParser;
 
 impl TranscriptParser for SrtParser {
     fn parse(&self, raw: &str) -> Result<Transcript, SpeechError> {
+        // A transcriber that heard no speech answers with no cues at all — a
+        // result, like the JSON styles' empty segment list, not a malformed
+        // subtitle (which caption import, sharing the parser, must refuse).
+        if raw.trim().is_empty() {
+            return Ok(Transcript {
+                segments: Vec::new(),
+                language: None,
+                word_timing: WordTiming::None,
+            });
+        }
         let (cues, _simplified) =
             parse_subtitle_cues(raw, Some(SubFormat::Srt)).map_err(SpeechError::Parse)?;
 
@@ -204,6 +214,15 @@ mod tests {
             .parse("not a subtitle at all")
             .expect_err("should fail");
         assert!(matches!(err, SpeechError::Parse(_)));
+    }
+
+    #[test]
+    fn an_empty_body_is_no_speech_not_an_error() {
+        for body in ["", " \n\r\n"] {
+            let t = SrtParser.parse(body).expect("no speech is a result");
+            assert!(t.segments.is_empty());
+            assert_eq!(t.word_timing, WordTiming::None);
+        }
     }
 
     /// Space-less Chinese cue → per-character words, honestly marked

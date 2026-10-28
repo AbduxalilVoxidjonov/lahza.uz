@@ -471,4 +471,46 @@ mod tests {
         assert_eq!(t.segments.len(), 1);
         assert_eq!(*phases.lock().unwrap(), vec![ModelPhase::INFERRING]);
     }
+
+    /// [`PieceEcho`], but the second piece hears no speech: an SRT server
+    /// answers it with an empty body.
+    struct SilentSecondPiece(PieceEcho);
+
+    #[async_trait]
+    impl Transcriber for SilentSecondPiece {
+        async fn transcribe(&self, req: TranscribeRequest) -> Result<RawTranscript, SpeechError> {
+            if self.0 .0.lock().unwrap().len() == 1 {
+                self.0 .0.lock().unwrap().push(0);
+                return Ok(RawTranscript::Srt(String::new()));
+            }
+            self.0.transcribe(req).await
+        }
+    }
+
+    #[tokio::test]
+    async fn a_silent_piece_does_not_stop_the_pieces_after_it() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("long.wav");
+        tokio::fs::write(
+            &path,
+            wav_of_pcm(&pcm(1300.0, &[(598.0, 400), (1199.0, 400)])),
+        )
+        .await
+        .unwrap();
+        let echo = SilentSecondPiece(PieceEcho(Mutex::new(Vec::new())));
+        let t = transcribe_network(
+            &echo,
+            TranscribeRequest {
+                audio_path: path,
+                language: None,
+                want_word_timing: false,
+            },
+            &|_| {},
+        )
+        .await
+        .unwrap();
+        assert_eq!(echo.0 .0.lock().unwrap().len(), 3, "every piece was sent");
+        assert_eq!(t.segments.len(), 2, "the silent piece has no say");
+        assert!(t.segments[1].t_start_us > 1_190_000_000);
+    }
 }
