@@ -102,6 +102,58 @@ Lite rejimda qoladi; bu model montaj buyruqlari uchun ishlatiladi, highlight
 uchun emas. Kattaroq model, boshqa prompt yoki o'zbekcha prompt R0 baholashida
 (UzHighlight-Eval) solishtiriladi.
 
+## Windows CPU (o'lchov 2026-10-28)
+
+Mashina: Intel Core i7-13620H (6P+4E yadro, 16 oqim), 16 GB RAM, Intel UHD iGPU
+(NVIDIA yo'q), Windows 11. **Batareyada**, "Balanced" quvvat sxemasi — tarmoqqa
+ulanganda raqamlar yaxshiroq bo'lishi mumkin, bu tekshirilmadi. Runtime: ilova bilan
+keladigan llama.cpp b11669 CPU yig'masi (`llama-server.exe`, Clang 20, ggml-cpu
+variantlari DLL sifatida). Model: yuqoridagi Qwen3-4B Q4_K_M.
+
+Flaglar engine bilan bir xil (`core/llama_server.py`): `-c 16384 -ngl 999 --parallel 1`
+(montaj rejasi); highlight — `-c 16384 --parallel 2` (2×8192 slot), `--reasoning-budget`
+yo'q, so'rovda `enable_thinking=false`, `max_tokens=1536`, DRY 0.8. `-t` berilmaydi:
+llama.cpp 10 oqim tanlaydi. Sinov uchun `-t 6` (faqat P-yadrolar) sekinroq chiqdi:
+50 / 5.4 tok/s.
+
+| O'lchov | Natija |
+|---|---|
+| Sovuq yuklash (`/health` 200 gacha), 3 marta | 7.4 / 6.9 / 5.4 s, median 6.9 s |
+| RSS, `-c 16384` (bo'sh / cho'qqi) | ~6.3–6.4 GB / 7.0 GB |
+| Prompt qayta ishlash, 3091 token, 3 marta | 66.7 / 67.9 / 66.2 tok/s, median 66.7 |
+| Generatsiya, 3k kontekstdan keyin 256 token | 6.7 / 6.5 / 6.4 tok/s, median 6.5 |
+| Qisqa kontekst (319 token prompt, 128 token) | 80.6 / 10.0 tok/s, 1 marta |
+| AI montaj rejasi, `planner.plan` to'liq (server ishga tushishi bilan), 7 so'rov | 36.0–43.0 s, median 37.0 s |
+| — shundan: server yuklash / prompt (~1890 token, ~73 tok/s) / javob (27–74 token, ~8 tok/s) | 4.3–5.7 / ~26 / 3–9 s |
+| LLM highlight, 30.6 daq transkript (136 gap, 5 oyna) | 1023 s (~17 daq): yuklash 7 s + map 1014 s |
+
+Montaj rejasi (3 klipli 24 s timeline, captionlar yoqilgan, 72 px): beshala o'zbekcha
+promptda reja to'g'ri chiqdi. "Ranglarni iliqroq qil" (3 marta) → `set_color: warm`;
+"Subtitrlarni kattaroq qil va 2-klipda 1 soniya stop-kadr qo'y" → `set_captions 80 px`
++ `freeze_clip clip2, 1000 ms` (stop-kadr joyi promptda yo'q, model 1000 ms ni o'zi
+tanlagan); "Reels formatiga o'tkaz" → `instagram_reels`; "Subtitrlarni o'chir" →
+`enabled: false`; "Videoni oq-qora qil va 3-soniyada 2 soniya 'Salom' yozuvi" →
+`set_color: bw` + `add_caption 3000–5000 ms`. Besh prompt umumiy aniqlik o'lchovi emas.
+
+LLM highlight bu safar bo'sh emas: 20 nomzod, yakuniy 10 klip. Lekin sifat past:
+ballar har oynada mexanik 9/8/7/6 kamayadi, `turi` faqat `kulgili`/`savol_javob`
+(mavzuga mos bo'lmagan "kulgili"), sarlavhalar takrorlanadi ("Yil boshida ishga
+kirish" ×4), nomzodlar bir-biriga yopishib ketadi (127–130, 128–131), ikkita yakuniy
+klip vaqt bo'yicha qisman ustma-ust (415–461 va 446–498 s). Har oyna 1009–1310 chiqish
+tokeni yozadi; 2 slot parallel ishlaganda bir slot tezligi 2.8–5.8 tok/s ga tushadi.
+
+Xulosa:
+
+* Montaj rejasi — interaktiv chegarada: ~37 s kutish, 90 s client timeout'iga zaxira bor.
+  Vaqtning ~70% i ~1.9k tokenli system prompt; har so'rovda server qayta yuklanadi
+  (~5 s). Prompt keshli doimiy server yoki qisqaroq prompt eng katta yutuq beradi.
+  Sekinroq CPU'da 90 s chegarasi xavfli bo'lishi mumkin (o'lchanmadi).
+* LLM highlight bu CPU'da amaliy emas: 30 daq video uchun ~17 daq (≈ 10 daq video uchun
+  ~5.5 daq, Mac'dagi 43 s ga qarshi), sifat ham Lite'dan yaxshiroqligi isbotlanmagan.
+  Windows CPU'da Lite standarti to'g'ri.
+* O'lchanmadi: tarmoq quvvatida, iGPU (Vulkan/SYCL) bilan, boshqa kvantlash/kontekst
+  o'lchamlarida. Skriptlar va xom JSON'lar repoga kirmagan (sessiya scratch papkasi).
+
 Testlar va haqiqiy inferens artefaktlari `build/local-llm/`da saqlanadi; ular
 Git'ga kirmaydi. Bu holat uzluksiz playback, ASR fine-tuning yoki to'liq desktop
 click-through sinovi bajarilganini bildirmaydi.
