@@ -31,6 +31,17 @@ describe('mapChangeEvent', () => {
 })
 
 describe('createTsActorHost — persistence-route integration', () => {
+  it('keeps the renderer import response as a media id', async () => {
+    const { deps } = makeInMemoryDeps()
+    const id = '00000000-0000-0000-0000-0000000000aa'
+    deps.compute.probeMedia = async () => JSON.stringify({ ...mediaItemTemplate(id, 'Video', 4_000_000), path_abs: 'C:/clip.mp4' })
+    const host = createTsActorHost(deps)
+    try {
+      expect(await host.handleInvoke('import_media', { path: 'C:/clip.mp4' })).toBe(id)
+      expect(host.actor.snapshot().media_pool[id].file_hash_blake3).toBe('h')
+    } finally { host.stop() }
+  })
+
   function makeInMemoryDeps() {
     // In-memory filesystem: path → content string.
     const vfs: Record<string, string> = {}

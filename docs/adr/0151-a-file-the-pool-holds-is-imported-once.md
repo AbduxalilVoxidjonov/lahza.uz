@@ -71,3 +71,16 @@ Bytes the pool holds under any path answer the item that holds them, so a
 deliberate second copy of a file is not a second item. A source whose size
 matches a pooled item appears on the timeline only after it is hashed. Removing a pool item still never
 deletes its file, so a file recorded in place is as safe as a copy.
+
+## Implementation ownership
+
+`mediaImport.ensureImported` owns path matching, content checks, in-flight
+coordination, session validation and import completion. It reports added,
+reused or relinked explicitly; its outcome also preserves whether the pool held
+the item at call entry and which other items hold the same content. MCP shapes
+that outcome into the existing record; renderer IPC keeps returning the media
+id. A result does not promise that background derivatives or copying finished.
+
+In-flight coordination uses the actor's stable snapshot function, shared by
+agent-scoped dispatch adapters. Joining another import performs no writes under
+the joining caller. Media resource reads remain independent and read-only.

@@ -1,11 +1,10 @@
-import type { HybridDeps } from './hybrids'
-import { captureImportSession } from './hybrids'
+import { captureImportSession, type MediaImportDeps } from './mediaImport'
 
 /** Resume the durable half of imports interrupted between probe, hash and copy.
  * Generated Cache/ sources are already workspace-owned and must not be copied
  * into Media/. Work is sequential; a large reopen cannot fan out hash readers. */
 export async function recoverInterruptedImports(
-  deps: HybridDeps,
+  deps: MediaImportDeps,
   report: (mediaId: string, error: unknown) => void,
 ): Promise<void> {
   const dir = deps.workspaceDir()

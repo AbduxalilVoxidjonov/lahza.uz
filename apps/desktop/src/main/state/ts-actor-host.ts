@@ -1,3 +1,4 @@
+import type { ImportOutcome } from './mediaImport'
 // apps/desktop/src/main/state/ts-actor-host.ts
 import { createActor, type ActorHandle, type ChangeEvent } from './actor'
 import type { EntityRef } from './history'
@@ -792,7 +793,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
       case 'hybrid': {
         deps.exportJobs?.assertWritable()
         const hybridResult = await runHybrid(route.tool, args, hybridDeps)
-        return hybridResult
+        return route.tool === 'import_media' ? (hybridResult as ImportOutcome).mediaId : hybridResult
       }
       case 'motif':
         return runMotif(route.tool, args)

@@ -1,3 +1,4 @@
+import type { ImportOutcome } from '../state/mediaImport'
 import { describe, it, expect } from 'vitest'
 import { seededGen } from '../state/ids'
 import { blankProject, type MediaItem, type Project } from '../state/model'
@@ -14,12 +15,12 @@ function pool(...items: MediaItem[]): Project {
 }
 const item = (id: string, hash: string, path_abs = `C:/proj/Media/${id}.mp4`): MediaItem =>
   ({ ...mediaItemTemplate(id, 'Video', 4_000_000), file_hash_blake3: hash, path_abs })
-const record = (before: Project, after: Project, id: string) =>
-  shapeHybridResult('import_media', id, after, before).structuredContent as Record<string, unknown>
+const record = (after: Project, outcome: ImportOutcome) =>
+  shapeHybridResult('import_media', outcome, after).structuredContent as Record<string, unknown>
 
 describe('shapeHybridResult: import_media', () => {
   it('says nothing more for a new file with content of its own', () => {
-    const r = record(pool(), pool(item(A, 'h1')), A)
+    const r = record(pool(item(A, 'h1')), { mediaId: A, disposition: 'added', existing: false, sameContentAs: [] })
     expect(r.media_id).toBe(A)
     expect(r).not.toHaveProperty('existing')
     expect(r).not.toHaveProperty('same_content_as')
@@ -27,12 +28,11 @@ describe('shapeHybridResult: import_media', () => {
 
   it('marks an item the pool held before the call as existing', () => {
     const held = pool(item(A, 'h1'))
-    expect(record(held, held, A).existing).toBe(true)
+    expect(record(held, { mediaId: A, disposition: 'reused', existing: true, sameContentAs: [] }).existing).toBe(true)
   })
 
   it('names the items that already hold the same bytes under another path', () => {
-    const before = pool(item(B, 'h1', 'C:/proj/Media/take.mp4'))
-    const r = record(before, pool(item(B, 'h1', 'C:/proj/Media/take.mp4'), item(A, 'h1')), A)
+    const r = record(pool(item(B, 'h1'), item(A, 'h1')), { mediaId: A, disposition: 'added', existing: false, sameContentAs: [B] })
     expect(r.same_content_as).toEqual([B])
     expect(r).not.toHaveProperty('existing')
   })
