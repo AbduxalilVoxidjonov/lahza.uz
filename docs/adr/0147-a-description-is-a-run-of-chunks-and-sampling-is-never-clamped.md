@@ -75,3 +75,17 @@ cancelled late kept nothing.
 - Resuming needs the same window and the same chunk plan; a changed
   `frames_per_request` re-describes the chunks whose spans no longer line up
   with what finished.
+
+## Implementation ownership
+
+`vlm::runner::DescriptionRunner` owns cache identity, chunk scheduling,
+resumption, per-chunk persistence and the optional summary retry. Its request
+names a resolved source window; its result is a `SceneDescription`, and its
+errors contain no MCP types. The MCP adapter resolves the layer and engine,
+attaches the compute job, and maps the result and errors onto the wire.
+
+The runner uses the existing `SceneDescriber` interface for inference and a
+private frame-sampling seam. Cross-platform tests exercise persistence, resume,
+refresh, cancellation and concurrent chunks through `describe`, using a real
+temporary cache and deterministic frame/model adapters. Transport tests retain
+argument, error and result-shape coverage.

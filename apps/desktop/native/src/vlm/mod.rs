@@ -35,6 +35,7 @@ pub mod error;
 pub mod frame_extract;
 pub mod parser;
 pub mod resolve;
+pub mod runner;
 pub mod sidecar;
 
 // Re-exports the tool + resource layers reach for by the short `vlm::` path.
