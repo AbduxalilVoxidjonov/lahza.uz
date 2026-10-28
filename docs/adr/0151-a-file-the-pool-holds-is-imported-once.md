@@ -34,10 +34,14 @@ imports of files already in the project become the normal path, not a slip.
 - **Anything else is copied into `Media/`, inside the project folder or not.**
   Every pooled file of a project lives under `Media/`, so one place lists the
   project's media and `path_rel` has one shape.
-- **The same bytes under another path are reported, not merged.** The
-  content hash is known only after the row is inserted, and merging then
-  would roll back a row the user has already seen. The MCP record names the
-  other items in `same_content_as`.
+- **The same bytes are matched by their hash, before the insert.** The copy
+  into `Media/` gives its item the copy's path, so the outside file it came
+  from no longer matches by path. When a pool item with a real hash has the
+  source's byte size, the source is hashed before the insert, and the item
+  holding those bytes answers. The import reuses that hash, so a file of a
+  new size is read no more than before. An item whose hash is still pending
+  cannot be matched: two imports of the same bytes racing from two paths land
+  two rows, and the MCP record names the other in `same_content_as`.
 - **The MCP record says what happened.** An answer for an item the pool held
   before the call carries `existing: true`. The UI and MCP share the import
   arm, so both get the check; only MCP reports these fields.
@@ -46,6 +50,7 @@ imports of files already in the project become the normal path, not a slip.
 
 An agent can call `import_media` for any file it is shown and get the id the
 app already uses for it, which is how a mentioned file is tied to the pool.
-Two items with the same bytes can still be made from two different paths,
-and the user decides what to do with them. Removing a pool item still never
+Bytes the pool holds under any path answer the item that holds them, so a
+deliberate second copy of a file is not a second item. A source whose size
+matches a pooled item appears on the timeline only after it is hashed. Removing a pool item still never
 deletes its file, so a file recorded in place is as safe as a copy.

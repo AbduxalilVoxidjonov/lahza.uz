@@ -241,6 +241,37 @@ describe('runHybrid: import_media', () => {
       expect((await reimport(actor, 'C:/shortcut/x.mp4', { realPath })).id).toBe(HELD)
     })
 
+    // The copy into Media/ replaces the item's path: the outside file it came
+    // from is matched by its bytes.
+    it('matches the source of a finished copy by its bytes', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      deps._hashMediaSource.mockResolvedValue('heldhash')
+      expect(await runHybrid('import_media', { path: 'D:/footage/x.mp4' }, deps)).toBe(HELD)
+      expect(Object.keys(actor.snapshot().media_pool)).toEqual([HELD])
+      expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
+      expect(deps._enqueueDerivatives).not.toHaveBeenCalled()
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+    })
+
+    it('imports other bytes of the same size, hashing them once', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const { id, deps } = await reimport(actor, 'D:/footage/x.mp4')
+      expect(id).toBe(MID)
+      expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
+      expect(actor.snapshot().media_pool[MID].file_hash_blake3).toBe('realhash-deadbeef')
+      expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not hash early when no hashed item has the source size', async () => {
+      const actor = freshActor()
+      actor.dispatch('add_media_item', { media: { ...mediaItemTemplate(HELD, 'Video', 4_000_000), path_abs: 'C:/proj/Media/y.mp4', file_hash_blake3: 'pending-y' } })
+      const { id, deps } = await reimport(actor, 'D:/footage/x.mp4')
+      expect(id).toBe(MID)
+      expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
+      expect(actor.snapshot().media_pool[MID].file_hash_blake3).toBe('realhash-deadbeef')
+    })
+
     it('ends the import trace as already held, not as a failure', async () => {
       const actor = holding('C:/proj/Media/x.mp4')
       const emit = vi.fn(), send = vi.fn()

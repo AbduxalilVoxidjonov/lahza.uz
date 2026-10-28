@@ -136,8 +136,9 @@ relocation, but not source replacement or real decode failure (ADR 0107).
 The import's copy of a source into the project's `Media/` folder, after which
 the pool item points at the copy. A source already under `Media/` is recorded
 where it stands; any other source, inside the project folder or not, is
-copied. A file the pool already holds — the same file, however spelled — is
-never imported twice (ADR 0151).
+copied. A file the pool already holds — the same file however spelled, or
+its bytes, such as the source a copy came from — is never imported twice
+(ADR 0151).
 _Avoid_: managed media, consolidate
 
 ## Transitions

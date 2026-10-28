@@ -1,14 +1,16 @@
 // apps/desktop/src/main/state/importSource.ts
 //
-// Where an import's source already stands: the pool item whose file it is, or
-// a place under the project's Media/ folder, where the import copy would have
-// put it. Pure but for the injected realpath; `platform` picks the path rules,
+// Where an import's source already stands: the pool item whose file or bytes
+// it is, or a place under the project's Media/ folder, where the import copy
+// would have put it. Pure but for the injected realpath; `platform` picks the path rules,
 // so a test on Linux can speak Windows paths.
 import path from 'node:path'
 import type { MediaItem } from './model'
 
 /** The folder the import copy writes into (native `jobs/import.rs` MEDIA_DIR). */
 const MEDIA_DIR = 'Media'
+/** The probe's provisional hash (native `media_item_from_metadata`). */
+const PENDING_HASH = 'pending-'
 
 const pathLib = (platform: NodeJS.Platform) => (platform === 'win32' ? path.win32 : path.posix)
 
@@ -28,6 +30,18 @@ export function pooledItemFor(
   const key = pathKey(realPath(source), platform)
   for (const item of Object.values(pool)) if (pathKey(realPath(item.path_abs), platform) === key) return item
   return null
+}
+
+/** Whether a pool item of `size` bytes has its content hash yet, so hashing a
+ *  source of that size could find it. A copy into Media/ replaces the item's
+ *  path, so its bytes are what is left to match the source by. */
+export function hashedItemOfSize(pool: Record<string, MediaItem>, size: number): boolean {
+  return Object.values(pool).some((m) => m.file_size === size && !m.file_hash_blake3.startsWith(PENDING_HASH))
+}
+
+/** The pool item holding these bytes, once both hashes are real. */
+export function pooledItemWithHash(pool: Record<string, MediaItem>, hash: string): MediaItem | null {
+  return Object.values(pool).find((m) => m.file_hash_blake3 === hash) ?? null
 }
 
 /** `source`'s path relative to the project folder when it already sits under

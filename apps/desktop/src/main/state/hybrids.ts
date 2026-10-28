@@ -17,7 +17,7 @@ import { McpArgError, mapCommandError, mcpDef } from './mcp-commands'
 import type { Cue } from './mutations/captions'
 import { scopeComposition } from './mutations/helpers'
 import { parseDiscardSegments } from './mutations/split'
-import { absoluteSource, mediaFolderPath, pooledItemFor } from './importSource'
+import { absoluteSource, hashedItemOfSize, mediaFolderPath, pooledItemFor, pooledItemWithHash } from './importSource'
 import { playsNoSoundError, resolvePauseSubject } from './pauseSubject'
 import { snapFrameRound } from './snap'
 import type { ImportTrace } from '../importDiagnostics'
@@ -830,9 +830,20 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         try { item = JSON.parse(await (trace ? deps.compute.probeMedia(path, trace.id) : deps.compute.probeMedia(path))) as MediaItem }
         catch (e) { throw new Error(`import_media: probing ${path} failed: ${errText(e)}. Nothing was imported`) }
         assertCurrent()
+        const hashSource = () => (trace ? deps.compute.hashMediaSource(path, trace.id) : deps.compute.hashMediaSource(path))
+        // A pooled file copied into Media/ no longer has its source's path, only
+        // its bytes. When an item of the source's size could hold them, the
+        // source is hashed before the insert, not after.
+        let hash: string | null = null
+        if (!pooledItemFor(deps.actor.snapshot().media_pool, path, realPath, platform) && hashedItemOfSize(deps.actor.snapshot().media_pool, item.file_size)) {
+          try { hash = await hashSource() }
+          catch (e) { throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. Nothing was imported`) }
+          assertCurrent()
+        }
         // Checked here, in the same turn as the insert, so two imports of one
         // file racing through their probes still land one row.
-        const held = pooledItemFor(deps.actor.snapshot().media_pool, path, realPath, platform)
+        const pool = deps.actor.snapshot().media_pool
+        const held = pooledItemFor(pool, path, realPath, platform) ?? (hash === null ? null : pooledItemWithHash(pool, hash))
         if (held) { trace?.held(held.id); return held.id }
         const r = deps.actor.dispatch('add_media_item', { media: item })
         if (!r.ok) throw new Error(JSON.stringify(r.error))
@@ -843,20 +854,22 @@ export async function runHybrid(tool: string, args: Record<string, unknown>, dep
         // on the pool item, THEN enqueue derivatives — so every job bakes the final
         // cache key and no derivative ever touches a pending alias (ADR 0007
         // superseded). One extra full read of the source, accepted to start
-        // derivatives promptly instead of waiting for the workspace copy.
-        let hash: string
-        try { hash = await (trace ? deps.compute.hashMediaSource(path, trace.id) : deps.compute.hashMediaSource(path)) }
-        catch (e) {
+        // derivatives promptly instead of waiting for the workspace copy. Skipped
+        // when the source was hashed before the insert.
+        if (hash === null) {
+          try { hash = await hashSource() }
+          catch (e) {
+            assertCurrent()
+            // The row is provisional until its hash lands, so a read that fails
+            // here leaves nothing behind. `force: false`: were a layer already
+            // placed on it, the row stays and the error still names the failure.
+            const rollback = deps.actor.dispatch('remove_media', { media: item.id, force: false })
+            throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. ${rollback.ok
+              ? 'The provisional pool row was rolled back; nothing was imported'
+              : `The provisional pool row ${item.id} could not be rolled back (${mapCommandError(rollback.error).message}); it stays with a pending hash — delete_media removes it`}`)
+          }
           assertCurrent()
-          // The row is provisional until its hash lands, so a read that fails
-          // here leaves nothing behind. `force: false`: were a layer already
-          // placed on it, the row stays and the error still names the failure.
-          const rollback = deps.actor.dispatch('remove_media', { media: item.id, force: false })
-          throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. ${rollback.ok
-            ? 'The provisional pool row was rolled back; nothing was imported'
-            : `The provisional pool row ${item.id} could not be rolled back (${mapCommandError(rollback.error).message}); it stays with a pending hash — delete_media removes it`}`)
         }
-        assertCurrent()
         const hr = deps.actor.dispatch('set_media_hash', { media: item.id, file_hash_blake3: hash })
         // Benign if the media was removed during hashing — nothing left to enqueue.
         if (!hr.ok) { trace?.fail('Media removed during hashing'); return item.id }
