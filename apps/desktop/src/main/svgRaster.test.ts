@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { rasterSize, svgIntrinsicSize } from './svgRaster'
-import { runHybrid, type HybridDeps } from './state/hybrids'
+import { createActor } from './state/actor'
+import { seededGen } from './state/ids'
+import { ensureImported, type MediaImportDeps } from './state/mediaImport'
+import { blankProject } from './state/model'
 
 describe('SVG on import', () => {
   it('reads an SVG\'s own size from width and height, else its viewBox', () => {
@@ -18,15 +21,24 @@ describe('SVG on import', () => {
 
   it('imports the PNG an SVG becomes, and refuses an SVG where nothing can draw it', async () => {
     const probed: string[] = []
-    const deps = {
+    const idGen = seededGen()
+    const actor = createActor({ initial: blankProject(idGen, 'SVG import'), idGen })
+    const unexpected = async (): Promise<never> => { throw new Error('An unsuccessful SVG import must not reach this stage') }
+    const deps: MediaImportDeps = {
       statPath: () => ({ kind: 'file', readable: true }),
-      compute: { probeMedia: async (p: string) => { probed.push(p); throw new Error('stop') } },
+      compute: {
+        probeMedia: async (p: string) => { probed.push(p); throw new Error('stop') },
+        hashMediaSource: unexpected,
+      },
+      enqueueDerivatives: unexpected,
+      enqueueWorkspaceCopy: unexpected,
       workspaceDir: () => null,
-      actor: { snapshot: () => ({}) },
-    } as unknown as HybridDeps
-    await expect(runHybrid('import_media', { path: '/w/brain.SVG' }, deps)).rejects.toThrow(/is an SVG, which this host cannot draw/)
-    await expect(runHybrid('import_media', { path: '/w/brain.svg' }, { ...deps, rasterizeSvg: async () => '/cache/svg-import/k/brain.png' })).rejects.toThrow(/probing \/cache\/svg-import\/k\/brain.png failed/)
+      actor,
+    }
+    await expect(ensureImported('/w/brain.SVG', deps)).rejects.toThrow(/is an SVG, which this host cannot draw/)
+    await expect(ensureImported('/w/brain.svg', { ...deps, rasterizeSvg: async () => '/cache/svg-import/k/brain.png' })).rejects.toThrow(/probing \/cache\/svg-import\/k\/brain.png failed/)
     expect(probed).toEqual(['/cache/svg-import/k/brain.png'])
-    await expect(runHybrid('import_media', { path: '/w/bad.svg' }, { ...deps, rasterizeSvg: async () => { throw new Error('not an SVG this app can draw') } })).rejects.toThrow(/drawing \/w\/bad.svg failed: not an SVG/)
+    await expect(ensureImported('/w/bad.svg', { ...deps, rasterizeSvg: async () => { throw new Error('not an SVG this app can draw') } })).rejects.toThrow(/drawing \/w\/bad.svg failed: not an SVG/)
+    expect(actor.snapshot().media_pool).toEqual({})
   })
 })
