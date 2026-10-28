@@ -191,7 +191,7 @@ jobs:
           cache: pip
           cache-dependency-path: engine/pyproject.toml
       - uses: dtolnay/rust-toolchain@stable # target triple uchun (rustc -vV)
-      - run: pip install -e "engine[dev,desktop]"
+      - run: pip install -e "engine[dev,desktop,youtube]" # youtube: faqat stdlib ro'yxati uchun, sidecar'ga kirmaydi
       - run: pip install --no-deps -r engine/requirements-desktop-nodeps.txt # PyAV'siz (ADR-0015)
       - run: python scripts/build_sidecar.py --clean
       - run: python scripts/build_sidecar.py --verify

@@ -12,7 +12,7 @@ BIN := $(VENV)/bin
 # Models are not included in the application bundle; subsequent inference is offline.
 setup-local:
 	$(PY) -m venv $(VENV)
-	$(BIN)/pip install -e "engine[dev,desktop]"
+	$(BIN)/pip install -e "engine[dev,desktop,youtube]"
 	$(BIN)/pip install --no-deps -r engine/requirements-desktop-nodeps.txt  # PyAV siz (ADR-0015)
 	cd app && npm ci
 	$(BIN)/python scripts/setup_local_render.py --install-deps --stage

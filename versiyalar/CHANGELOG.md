@@ -5,6 +5,9 @@ Eng yangisi tepada. Keyingi reliz o'zgarishlari `## [Kelgusi]` bo'limiga yozilad
 
 ## [Kelgusi]
 
+- **Yangi — YouTube komponentlari ilovaning o'zidan:** Sozlamalar (va import kartasi)dagi tugma yt-dlp, yt-dlp-ejs va Deno'ni bir marta yuklaydi — mahkamlangan versiya, sha256 tekshiruvi, atomik joylash (`media/youtube_components.py`, `/v1/settings/youtube-import:install-components`). Desktop ilovada YouTube importi endi `make setup-youtube`siz ishlaydi; yt-dlp sidecar'ga kirmaydi (ADR-0010).
+- **Tuzatish — Windows:** Claude montaj `claude.cmd` bilan ishlaydi (`--system-prompt-file`); sidecar yangi VC++ runtime'ni o'zi olib keladi (eski `msvcp140` onnxruntime/ctranslate2'ni qulatardi); llama-server/whisper-cli statik CRT bilan yig'iladi.
+
 ## [0.2.4] — 2026-10-26
 
 - **Yangi — Claude montaj (standart o'chiq):** foydalanuvchi kompyuteridagi Claude Code/Desktop topiladi; montaj panelida Lokal/Claude reja tanlovi, Lahza MCP serveri (`lahza-engine mcp`, 13 tool) Claude'ga bir tugma bilan ulanadi. Claude'ga faqat timeline tavsifi va transkript matni boradi (`claude_bridge/`, `/v1/claude/*`, docs/15-claude-montaj.md).

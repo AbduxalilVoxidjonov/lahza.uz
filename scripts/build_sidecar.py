@@ -110,6 +110,32 @@ def vc_runtime_binaries(available: list[str], prefix: Path | None = None,
             for n in VC_RUNTIME_DLLS]
 
 
+def component_stdlib_imports(required: bool = True) -> list[str]:
+    """yt-dlp/yt-dlp-ejs ishlatadigan stdlib modullari (hidden-import).
+
+    Komponent sidecar'dan tashqarida, lekin u muzlatilgan Python'da ishlaydi: unga kerakli stdlib
+    modullari to'plamda bo'lishi shart. Manba AST bo'yicha o'qiladi (import qilinmaydi)."""
+    import ast
+    import importlib.util
+
+    names: set[str] = set()
+    for mod in COMPONENT_MODULES:
+        spec = importlib.util.find_spec(mod)
+        if spec is None or not spec.submodule_search_locations:
+            if not required:
+                return []
+            raise SystemExit(f"{mod} topilmadi: YouTube komponenti uchun stdlib ro'yxati kerak - "
+                             "pip install -e \"engine[youtube]\"")
+        for path in Path(next(iter(spec.submodule_search_locations))).rglob("*.py"):
+            tree = ast.parse(path.read_bytes(), str(path))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    names.update(a.name for a in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                    names.add(node.module)
+    return sorted(n for n in names if n.split(".")[0] in sys.stdlib_module_names)
+
+
 def check_desktop_backends(available: list[str]) -> None:
     missing = REQUIRED_BACKENDS - set(available)
     if missing:
@@ -170,8 +196,11 @@ def prepare_catalog(destination: Path) -> str:
 
 
 # Sidecar'ga hech qachon kerak bo'lmaydigan dasturchi paketlari.
+# yt-dlp ilovaga kirmaydi (ADR-0010): u `<data_dir>/Components` dan yuklanadi va yangilanadi. Ichida
+# bo'lsa muzlatilgan import'chi sys.path'dan oldin turadi - komponent yangilanishi e'tiborsiz qolardi.
+COMPONENT_MODULES = ["yt_dlp", "yt_dlp_ejs"]
 EXCLUDES = ["tkinter", "pytest", "_pytest", "IPython", "matplotlib", "PyInstaller", "mypy", "ruff",
-            *FORBIDDEN_MODULES]
+            *FORBIDDEN_MODULES, *COMPONENT_MODULES]
 
 _MACHINE = {"arm64": "aarch64", "aarch64": "aarch64", "x86_64": "x86_64", "amd64": "x86_64"}
 
@@ -348,7 +377,7 @@ def main(argv: list[str] | None = None) -> int:
     data = check_package_data()
     extra = optional_imports()
     binaries = vc_runtime_binaries(extra) if not a.dry_run else []
-    cmd = pyinstaller_cmd(entry, a.clean, extra, binaries)
+    cmd = pyinstaller_cmd(entry, a.clean, [*extra, *component_stdlib_imports(required=not a.dry_run)], binaries)
     target = BIN_DIR / f"{NAME}-{triple}{ext}"
 
     print(f"triple: {triple} ({source})")

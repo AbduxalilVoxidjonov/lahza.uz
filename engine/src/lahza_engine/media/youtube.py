@@ -71,8 +71,8 @@ class YoutubeError(RuntimeError):
 
 
 MESSAGES: dict[str, str] = {
-    "not_installed": "yt-dlp komponenti o'rnatilmagan. Dasturchi muhitida: "
-                     "`pip install -e \"engine[youtube]\"` (docs/04, YouTube havolasidan import).",
+    "not_installed": "yt-dlp komponenti o'rnatilmagan. Sozlamalar -> YouTube havolasidan import -> "
+                     "\"Komponentlarni o'rnatish\" (dasturchi muhitida: `pip install -e \"engine[youtube]\"`).",
     "network": "Internetga ulanib bo'lmadi. Tarmoqni tekshirib, qayta urinib ko'ring - "
                "yuklangan qism saqlanadi va davom ettiriladi.",
     "private": "Video yopiq (private). Faqat egasi yoki ruxsat berilgan hisob ko'ra oladi - "

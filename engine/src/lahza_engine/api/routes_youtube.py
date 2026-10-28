@@ -5,6 +5,8 @@
 * Har importda `consent: true` majburiy ("menga tegishli yoki ruxsatim bor" + YouTube shartlari).
 * Yuklash `download` vazifasida, yt-dlp esa alohida jarayonda (`media/youtube.py`). Tayyor fayl
   oddiy import kabi `create_episode` + `submit_analysis` ga uzatiladi.
+* Komponentlar (yt-dlp, yt-dlp-ejs, Deno) ilovaga qo'shilmaydi: `:install-components` foydalanuvchi
+  roziligi bilan ularni mahkamlangan versiya va sha256 bo'yicha yuklaydi (`media/youtube_components.py`).
 """
 
 from __future__ import annotations
@@ -21,7 +23,7 @@ from pydantic import BaseModel
 from lahza_engine.api.routes_episodes import create_episode, submit_analysis
 from lahza_engine.api.state import State
 from lahza_engine.core.jobs import Job
-from lahza_engine.media import youtube
+from lahza_engine.media import youtube, youtube_components
 
 SETTING_KEY = "youtube_import"
 _UNSAFE = re.compile(r'[/\\:*?"<>|\x00-\x1f]+')
@@ -39,6 +41,10 @@ class ImportUrlIn(BaseModel):
 
 class YoutubeSettingIn(BaseModel):
     enabled: bool
+
+
+class InstallComponentsIn(BaseModel):
+    consent: bool = False
 
 
 def import_enabled(s: State) -> bool:
@@ -75,7 +81,11 @@ def _download_running(s: State, video_id: str) -> bool:
 
 def register(app: FastAPI, auth: Callable[..., State]) -> None:
     def setting_view(s: State) -> dict[str, Any]:
-        return {"enabled": import_enabled(s), **youtube.status(s.settings.data_dir)}
+        running = next((j for j in s.jobs.list_jobs("install") if j.meta.get("op") == "youtube-components"
+                        and j.status in ("queued", "running")), None)
+        return {"enabled": import_enabled(s), **youtube.status(s.settings.data_dir),
+                **youtube_components.status(s.settings.data_dir),
+                "install_job": running.public() if running else None}
 
     @app.get("/v1/settings/youtube-import")
     def youtube_setting(s: State = Depends(auth)) -> dict[str, Any]:
@@ -85,6 +95,30 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
     def put_youtube_setting(body: YoutubeSettingIn, s: State = Depends(auth)) -> dict[str, Any]:
         set_import_enabled(s, body.enabled)
         return setting_view(s)
+
+    @app.post("/v1/settings/youtube-import:install-components")
+    def install_components(body: InstallComponentsIn, s: State = Depends(auth)) -> dict[str, Any]:
+        if body.consent is not True:
+            raise HTTPException(400, "rozilik kerak: komponentlar internetdan bir marta yuklanadi")
+        if any(j.meta.get("op") == "youtube-components" and j.status in ("queued", "running")
+               for j in s.jobs.list_jobs("install")):
+            raise HTTPException(409, "komponentlar allaqachon o'rnatilmoqda")
+        data_dir = s.settings.data_dir
+
+        def work(job: Job) -> dict[str, Any]:
+            def progress(frac: float, info: dict[str, Any]) -> None:
+                job.meta["download"] = info
+                s.jobs.progress(job, info.get("component") or "verify", frac)
+
+            try:
+                return youtube_components.install(data_dir, consent=True, cancel=job.cancel,
+                                                  progress=progress)
+            except youtube_components.ComponentError as e:
+                job.meta["error_code"] = "component"
+                raise RuntimeError(str(e)) from e
+
+        job = s.jobs.submit("install", work, op="youtube-components")
+        return {"job": job.public()}
 
     @app.post("/v1/media:import-url")
     def import_url(body: ImportUrlIn, s: State = Depends(auth)) -> dict[str, Any]:

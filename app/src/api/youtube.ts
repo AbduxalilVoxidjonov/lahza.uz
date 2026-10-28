@@ -17,6 +17,12 @@ export interface YoutubeImportStatus {
   /** "deno" | "node" | "bun" | null. */
   js_runtime: string | null;
   ffmpeg: boolean;
+  /** yt-dlp, yt-dlp-ejs va Deno mahkamlangan versiyada `Components/` da o'rnatilgan. */
+  components_ready: boolean;
+  /** O'rnatish uchun yuklanadigan hajm (bayt); tayyor bo'lsa 0. */
+  components_download_bytes: number;
+  /** Ketayotgan komponent o'rnatish vazifasi (sahifa qayta ochilsa ham kuzatiladi). */
+  install_job: Job | null;
 }
 
 export interface ImportUrlBody {
@@ -41,6 +47,21 @@ export function useSetYoutubeImport() {
     mutationFn: (enabled: boolean) => put<YoutubeImportStatus>("/v1/settings/youtube-import", { enabled }),
     onSuccess: (data) => qc.setQueryData(KEY, data),
   });
+}
+
+/** Komponentlarni (yt-dlp, yt-dlp-ejs, Deno) foydalanuvchi roziligi bilan bir marta yuklash. */
+export function useInstallYoutubeComponents() {
+  const upsert = useJobs((s) => s.upsert);
+  return useMutation({
+    mutationFn: () => post<{ job: Job }>("/v1/settings/youtube-import:install-components", { consent: true }),
+    onSuccess: (res) => upsert(res.job),
+  });
+}
+
+/** Holatni qayta so'rash (o'rnatish vazifasi tugaganda). */
+export function useRefreshYoutubeImport() {
+  const qc = useQueryClient();
+  return () => qc.invalidateQueries({ queryKey: KEY });
 }
 
 export function useImportUrl() {

@@ -1,6 +1,6 @@
 # ADR-0010: YouTube havolasidan import — yagona foydalanuvchi boshlaydigan tarmoq amali
 
-* Holat: Taklif
+* Holat: Qabul qilindi (amalga oshirilgan; reliz yurist xulosasini kutadi — 5-band)
 * Sana: 2026-10-18
 * TZ bo'limi: [`11-montaj-platformasi.md`](../11-montaj-platformasi.md) 3.2, 12; NFR-01
 
@@ -22,6 +22,8 @@ Bu qarorga ta'sir qiluvchi tekshirilgan faktlar:
 3. **Alohida jarayon.** Yuklovchi alohida jarayonda ishlaydi va unga faqat havola hamda chiqish papkasi beriladi. Tarmoq faqat shu jarayon ichida va amal davomida ishlatiladi.
 4. **Interfeysdagi tavsiya:** avval asl fayl, keyin YouTube Studio yoki Takeout yo'riqnomasi. Havola orqali yuklash — oxirgi variant.
 5. **Yurist sharti.** YT-1 vazifasi yurist xulosasidan oldin relizga kirmaydi (TZ 11, Q2).
+
+Amalga oshirish (2-band): katalog sxemasi o'zgartirilmadi — komponentlar `media/youtube_components.py` da mahkamlangan (versiya, hajm, sha256) va Sozlamalardagi tugma bilan yuklanadi; yangilanish kodni yangilashni talab qiladi.
 
 ## Oqibatlar
 

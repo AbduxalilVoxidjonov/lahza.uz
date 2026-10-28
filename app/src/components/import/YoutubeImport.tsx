@@ -12,6 +12,7 @@ import {
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
 import { ErrorText, ProgressBar, QueryState } from "../ui";
+import { YoutubeComponentsInstall } from "./YoutubeComponentsInstall";
 
 /** YT-1 (ADR-0010): havola -> rozilik oynasi -> alohida jarayonda yuklash -> oddiy tahlil oqimi. */
 export function YoutubeImport({ projectId, focus, lite }: { projectId: string; focus: string; lite: boolean }) {
@@ -52,6 +53,7 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
       {field !== "disabled" && field !== "loading" && <div className="notice">{y.recommend}</div>}
       {field === "notInstalled" && <div className="notice bad" role="alert">{y.notInstalled}</div>}
       {field === "noJs" && <div className="notice warn">{y.noJs}</div>}
+      {st && field !== "disabled" && <YoutubeComponentsInstall st={st} />}
       <div className="row">
         <label className="field" style={{ flex: 1, minWidth: 260 }}>
           {y.url}

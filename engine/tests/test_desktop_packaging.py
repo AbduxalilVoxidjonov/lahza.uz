@@ -146,6 +146,31 @@ def test_windows_vc_runtime_is_app_local(tmp_path):
     assert cmd[-1] == "entry.py"
 
 
+def test_ytdlp_is_component_not_bundled(monkeypatch):
+    """ADR-0010: yt-dlp sidecar'ga kirmaydi (Components'dan yangilanadi), stdlib'i esa kiradi."""
+    cmd = packaging.pyinstaller_cmd(Path("entry.py"), False, [])
+    excluded = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--exclude-module"]
+    assert {"yt_dlp", "yt_dlp_ejs"} <= set(excluded)
+    import importlib.util
+
+    real = importlib.util.find_spec
+    monkeypatch.setattr(importlib.util, "find_spec", lambda n, *a: None if n.startswith("yt_dlp") else real(n, *a))
+    assert packaging.component_stdlib_imports(required=False) == []
+    with pytest.raises(SystemExit, match="engine\\[youtube\\]"):
+        packaging.component_stdlib_imports()
+
+
+def test_ytdlp_stdlib_imports_are_stdlib_only(tmp_path, monkeypatch):
+    pkg = tmp_path / "yt_dlp"
+    pkg.mkdir()
+    (pkg / "__init__.py").write_text("import http.cookiejar, requests\nfrom .utils import x\n"
+                                     "from xml.etree import ElementTree\nimport Cryptodome\n")
+    (tmp_path / "yt_dlp_ejs").mkdir()
+    (tmp_path / "yt_dlp_ejs" / "__init__.py").write_text("import json\n")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    assert packaging.component_stdlib_imports() == ["http.cookiejar", "json", "xml.etree"]
+
+
 def test_desktop_build_rejects_missing_inference_dependencies():
     packaging.check_desktop_backends(sorted(packaging.REQUIRED_BACKENDS))
     with pytest.raises(SystemExit, match="onnxruntime"):

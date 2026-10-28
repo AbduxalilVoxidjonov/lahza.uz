@@ -1,6 +1,7 @@
 import { useSetYoutubeImport, useYoutubeImportStatus } from "../../api/youtube";
 import { youtubeDictionaries } from "../../i18n/youtube";
 import { useSettings } from "../../store/settings";
+import { YoutubeComponentsInstall } from "../import/YoutubeComponentsInstall";
 import { ErrorText, QueryState } from "../ui";
 
 /** YT-1 (ADR-0010): funksiya standart o'chiq - shu yerda yoqiladi; komponentlar holati. */
@@ -25,6 +26,7 @@ export function YoutubeImportPanel() {
           <span className="muted">{y.setHint}</span>
           <span className="muted">{y.setLegal}</span>
           {!st.installed && <div className="notice warn">{y.notInstalled}</div>}
+          <YoutubeComponentsInstall st={st} />
           <table className="table">
             <tbody>
               <tr><th>{y.compYtdlp}</th><td>{yn(st.installed)} {st.version && <span className="mono muted">{st.version}</span>}</td></tr>
