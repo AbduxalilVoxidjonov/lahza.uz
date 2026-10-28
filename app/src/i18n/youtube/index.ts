@@ -29,7 +29,7 @@ export const youtubeUz = {
   updateAvailable: "Yangi versiya bor: {list}", updateNow: "Yangilash ({size})", versions: "O'rnatilgan: {list}",
   installDone: "Komponentlar o'rnatildi.", installFailed: "Komponentlarni o'rnatib bo'lmadi: {error}",
   installHint: "yt-dlp, yt-dlp-ejs va Deno internetdan bir marta yuklanadi (mahkamlangan versiya, sha256 tekshiriladi), keyin yangilanmaguncha internet kerak emas.",
-  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript runtime", compFfmpeg: "FFmpeg",
+  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript muhiti (runtime)", compFfmpeg: "FFmpeg", pathPlaceholder: "/yo'l/video.mp4",
   yes: "bor", no: "yo'q",
 };
 type Messages = { [K in keyof typeof youtubeUz]: string };
@@ -60,7 +60,7 @@ export const youtubeUzCyrl: Messages = {
   updateAvailable: "Янги версия бор: {list}", updateNow: "Янгилаш ({size})", versions: "Ўрнатилган: {list}",
   installDone: "Компонентлар ўрнатилди.", installFailed: "Компонентларни ўрнатиб бўлмади: {error}",
   installHint: "yt-dlp, yt-dlp-ejs ва Deno интернетдан бир марта юкланади (маҳкамланган версия, sha256 текширилади), кейин янгиланмагунча интернет керак эмас.",
-  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript runtime", compFfmpeg: "FFmpeg",
+  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript муҳити (runtime)", compFfmpeg: "FFmpeg", pathPlaceholder: "/йўл/video.mp4",
   yes: "бор", no: "йўқ",
 };
 
@@ -90,7 +90,7 @@ export const youtubeRu: Messages = {
   updateAvailable: "Есть новая версия: {list}", updateNow: "Обновить ({size})", versions: "Установлено: {list}",
   installDone: "Компоненты установлены.", installFailed: "Не удалось установить компоненты: {error}",
   installHint: "yt-dlp, yt-dlp-ejs и Deno загружаются из интернета один раз (зафиксированная версия, проверка sha256); дальше интернет не нужен до обновления.",
-  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript runtime", compFfmpeg: "FFmpeg",
+  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "Среда JavaScript (runtime)", compFfmpeg: "FFmpeg", pathPlaceholder: "/путь/video.mp4",
   yes: "есть", no: "нет",
 };
 
@@ -120,7 +120,7 @@ export const youtubeEn: Messages = {
   updateAvailable: "New version available: {list}", updateNow: "Update ({size})", versions: "Installed: {list}",
   installDone: "Components installed.", installFailed: "Could not install components: {error}",
   installHint: "yt-dlp, yt-dlp-ejs and Deno are downloaded once (pinned versions, sha256 verified); after that no internet is needed until an update.",
-  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript runtime", compFfmpeg: "FFmpeg",
+  compYtdlp: "yt-dlp", compEjs: "yt-dlp-ejs", compJs: "JavaScript runtime", compFfmpeg: "FFmpeg", pathPlaceholder: "/path/video.mp4",
   yes: "yes", no: "no",
 };
 

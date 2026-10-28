@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import type { Job } from "../../api/types";
 import {
   useCheckYoutubeUpdates, useInstallYoutubeComponents, useRefreshYoutubeImport, type YoutubeImportStatus,
 } from "../../api/youtube";
@@ -8,6 +9,12 @@ import { fmtBytes } from "../../lib/youtube-import";
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
 import { ErrorText, ProgressBar } from "../ui";
+
+/** `job.meta.download` (engine: downloaded_bytes/total_bytes) -> "3.0 MB / 44.0 MB". */
+function installedBytes(job: Job | null | undefined): string {
+  const d = (job?.meta["download"] ?? {}) as { downloaded_bytes?: number; total_bytes?: number };
+  return d.total_bytes ? `${fmtBytes(d.downloaded_bytes ?? 0)} / ${fmtBytes(d.total_bytes)}` : "—";
+}
 
 const versionList = (v: Record<string, string>) =>
   Object.entries(v).map(([name, ver]) => `${name} ${ver}`).join(", ");
@@ -55,6 +62,8 @@ export function YoutubeComponentsInstall({ st, updates = false }: { st: YoutubeI
     <>
       <span>{fmt(y.installing, { component: job?.stage ?? "…" })}</span>
       <ProgressBar value={job?.progress ?? 0} label={y.setTitle} />
+      {/* Ulush baytlarda: yt-dlp kichik (~3 MB), Deno katta (~41 MB) - hajm matni harakatni ko'rsatadi. */}
+      <span className="muted mono">{fmt(y.size, { v: installedBytes(job) })}</span>
     </>
   );
   const failed = job?.status === "failed" && (

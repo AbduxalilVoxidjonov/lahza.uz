@@ -89,7 +89,7 @@ function Episodes({ projectId }: { projectId: string }) {
         <div className="stack" role="group" aria-label={y.sourceFile}>
           <div className="row">
             {!isTauri() && (
-              <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder="/yo'l/video.mp4" value={manualPath}
+              <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder={y.pathPlaceholder} value={manualPath}
                      aria-label={y.sourceFile} onChange={(e) => setManualPath(e.target.value)} />
             )}
             <button className="btn primary" type="button" onClick={() => void pick()}
