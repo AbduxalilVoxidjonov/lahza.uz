@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
 import { launchApp, invokeCmd, tmpDir } from './helpers/driver'
 import type { AppSettings } from '../../src/shared/app-settings'
-import { DEFAULT_RESOURCE_POLICY, resolveResourcePolicy } from '../../src/shared/resource-policy'
+import { AUTOMATIC_DISK_RANGE, DEFAULT_RESOURCE_POLICY, resolveResourcePolicy } from '../../src/shared/resource-policy'
 
 const addon = fileURLToPath(new URL('../../native/index.js', import.meta.url))
 
@@ -52,7 +52,11 @@ test('resource intent survives an application restart and defaults use the actua
         arch: process.arch, graphicsVendor: info.gpuDevice?.find(device => device.active)?.vendorId }
     })
     const initial = await invokeCmd<AppSettings>(page, 'app_settings_get')
-    expect(initial.resource_allocation).toEqual(resolveResourcePolicy(DEFAULT_RESOURCE_POLICY, host.memoryMiB, host.cores))
+    // Automatic temporary cache space follows the disk size measured by the app.
+    expect(initial.resource_allocation).toEqual({ ...resolveResourcePolicy(DEFAULT_RESOURCE_POLICY, host.memoryMiB, host.cores),
+      disk_cache_mib: expect.any(Number) })
+    expect(initial.resource_allocation!.disk_cache_mib).toBeGreaterThanOrEqual(AUTOMATIC_DISK_RANGE.min)
+    expect(initial.resource_allocation!.disk_cache_mib).toBeLessThanOrEqual(AUTOMATIC_DISK_RANGE.max)
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: {
       memory_mib: 3072, processing: 'low', disk_cache_mib: 1024, background_playback: true,
     } } })

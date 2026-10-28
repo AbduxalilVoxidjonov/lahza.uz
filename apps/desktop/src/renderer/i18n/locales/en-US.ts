@@ -10,7 +10,7 @@ const enUS = {
     processing_hint: 'Higher settings finish processing sooner but leave less capacity for other apps.',
     low: 'Low resource use', balanced: 'Balanced', high: 'High performance',
     disk: 'Temporary cache space',
-    disk_hint: 'Space for replaceable thumbnails, animation frames, waveforms and audio-effect caches. Original media, models and project files are kept.',
+    disk_hint: 'Space for replaceable thumbnails, animation frames, waveforms and audio-effect caches. Original media, models and project files are kept. By default, 10% of the total size of the workspace\'s disk (4–64 GiB).',
     background: 'Continue background processing during playback',
     background_hint: 'When off, new background media tasks wait until playback stops. Tasks already running finish normally.',
     constrained: 'Memory is under pressure. New processing waits while existing work finishes.',

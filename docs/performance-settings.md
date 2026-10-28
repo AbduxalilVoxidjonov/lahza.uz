@@ -10,8 +10,11 @@ counts and texture slots are not independently editable UI settings.
 | Temporary cache space (0.25–1024 GiB) | Combined allowance for replaceable thumbnails, filmstrip, waveforms, animation frames and audio effects in cache roots visited this session. |
 | Continue background processing during playback | When disabled, new background jobs wait for playback to stop. Running tasks drain safely. |
 
-Defaults use detected RAM and available CPUs on Windows, macOS and Linux.
+Defaults use detected RAM, available CPUs and disk size on Windows, macOS and Linux.
 Automatic memory uses 35% of RAM, rounded to 256 MiB and bounded to 1–32 GiB.
+Automatic temporary cache space uses 10% of the total size of the open
+Workspace's disk (the profile disk before one opens), rounded to 256 MiB and
+bounded to 4–64 GiB; it is re-measured when a Workspace opens (ADR 0150).
 Explicit values persist unchanged. Restore defaults re-enables automatic intent
 and resets legacy preview preferences while keeping saved test evidence, decode
 engine and playback resolution. Failed edits provide Retry; telemetry failure

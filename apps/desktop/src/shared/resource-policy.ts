@@ -4,25 +4,32 @@ export const RESOURCE_CAPACITY_EXCEEDED = 'resource-capacity-exceeded';
 export const isResourceCapacityError = (error: unknown): boolean => String(error).includes(RESOURCE_CAPACITY_EXCEEDED);
 
 export interface ResourcePolicy {
-  version: 1;
+  version: 2;
   memory_mib: number | null;
   processing: 'low' | 'balanced' | 'high';
-  disk_cache_mib: number;
+  /** null follows the size of the Workspace's disk (ADR 0150). */
+  disk_cache_mib: number | null;
   background_playback: boolean;
 }
 export const DEFAULT_RESOURCE_POLICY: Readonly<ResourcePolicy> = Object.freeze({
-  version: 1, memory_mib: null, processing: 'balanced', disk_cache_mib: 2048, background_playback: false,
+  version: 2, memory_mib: null, processing: 'balanced', disk_cache_mib: null, background_playback: false,
 });
 export type ResourcePolicyPatch = Partial<Omit<ResourcePolicy, 'version'>>;
 export const RESOURCE_MEMORY_RANGE = { min: 1024, max: 262144 } as const;
 export const RESOURCE_DISK_RANGE = { min: 256, max: 1048576 } as const;
+/** Automatic temporary cache space: a tenth of the disk's total size, within 4–64 GiB. */
+export const AUTOMATIC_DISK_RANGE = { min: 4096, max: 65536 } as const;
+// Version 1 wrote its fixed 2 GiB default into every saved policy, so that
+// value cannot be told apart from a user's choice; it becomes automatic.
+const LEGACY_DISK_DEFAULT_MIB = 2048;
 const integer = (n: unknown, min: number, max: number): n is number => Number.isSafeInteger(n) && Number(n) >= min && Number(n) <= max;
 export function readResourcePolicy(value: unknown): ResourcePolicy {
   const p = value && typeof value === 'object' && !Array.isArray(value) ? value as Partial<ResourcePolicy> : {};
-  return { version: 1,
+  const disk = integer(p.disk_cache_mib, RESOURCE_DISK_RANGE.min, RESOURCE_DISK_RANGE.max) ? p.disk_cache_mib : null;
+  return { version: 2,
     memory_mib: integer(p.memory_mib, RESOURCE_MEMORY_RANGE.min, RESOURCE_MEMORY_RANGE.max) ? p.memory_mib : null,
     processing: p.processing === 'low' || p.processing === 'high' ? p.processing : 'balanced',
-    disk_cache_mib: integer(p.disk_cache_mib, RESOURCE_DISK_RANGE.min, RESOURCE_DISK_RANGE.max) ? p.disk_cache_mib : 2048,
+    disk_cache_mib: p.version !== 2 && disk === LEGACY_DISK_DEFAULT_MIB ? null : disk,
     background_playback: typeof p.background_playback === 'boolean' ? p.background_playback : false,
   };
 }
@@ -32,12 +39,12 @@ export function patchResourcePolicy(current: ResourcePolicy, patch: unknown): Re
   const p = patch as Record<string, unknown>;
   for (const [key, value] of Object.entries(p)) {
     const valid = key === 'memory_mib' ? value === null || integer(value, RESOURCE_MEMORY_RANGE.min, RESOURCE_MEMORY_RANGE.max)
-      : key === 'disk_cache_mib' ? integer(value, RESOURCE_DISK_RANGE.min, RESOURCE_DISK_RANGE.max)
+      : key === 'disk_cache_mib' ? value === null || integer(value, RESOURCE_DISK_RANGE.min, RESOURCE_DISK_RANGE.max)
       : key === 'processing' ? typeof value === 'string' && ['low', 'balanced', 'high'].includes(value)
       : key === 'background_playback' && typeof value === 'boolean';
     if (!valid) throw new Error(`Invalid resource setting: ${key}`);
   }
-  return readResourcePolicy({ ...current, ...p });
+  return readResourcePolicy({ ...current, ...p, version: 2 });
 }
 /** Internal projection. Never presented as independently editable preferences. */
 export interface ResourceAllocation {
@@ -51,7 +58,12 @@ export interface ResourceAllocation {
   disk_cache_mib: number;
   background_playback: boolean;
 }
-export function resolveResourcePolicy(policy: ResourcePolicy, memoryMiB = 8192, cores = 4): ResourceAllocation {
+/** An unknown disk size resolves to the automatic floor. */
+export function automaticDiskCacheMiB(diskMiB?: number): number {
+  if (diskMiB === undefined || !Number.isFinite(diskMiB)) return AUTOMATIC_DISK_RANGE.min;
+  return Math.max(AUTOMATIC_DISK_RANGE.min, Math.min(AUTOMATIC_DISK_RANGE.max, Math.floor(diskMiB * .1 / 256) * 256));
+}
+export function resolveResourcePolicy(policy: ResourcePolicy, memoryMiB = 8192, cores = 4, diskMiB?: number): ResourceAllocation {
   const memory = policy.memory_mib ?? Math.max(1024, Math.min(32768, Math.floor(memoryMiB * .35 / 256) * 256));
   const fraction = { low: .25, balanced: .5, high: .85 }[policy.processing];
   const cpu = Math.max(1, Math.floor(Math.max(1, cores) * fraction));
@@ -59,7 +71,7 @@ export function resolveResourcePolicy(policy: ResourcePolicy, memoryMiB = 8192, 
     export_mib: Math.max(64, Math.floor(memory * .125)),
     cpu_threads: cpu, task_threads: Math.max(1, Math.min(4, Math.floor(cpu / 2))),
     background_jobs: Math.max(1, Math.min(8, Math.floor(cpu / 2))),
-    disk_cache_mib: policy.disk_cache_mib, background_playback: policy.background_playback });
+    disk_cache_mib: policy.disk_cache_mib ?? automaticDiskCacheMiB(diskMiB), background_playback: policy.background_playback });
 }
 let allocation = resolveResourcePolicy(DEFAULT_RESOURCE_POLICY);
 let managed = false;

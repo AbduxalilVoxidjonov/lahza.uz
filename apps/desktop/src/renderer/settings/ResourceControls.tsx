@@ -36,7 +36,7 @@ export function ResourceControls({ settings, disabled, save }: {
         onValueChange={value => void commit({ processing: value as 'low' | 'balanced' | 'high' })}
         options={(['low', 'balanced', 'high'] as const).map(value => ({ value, label: t('resources.' + value) }))} />
     </div>
-    <ResourceNumber label={t('resources.disk')} hint={t('resources.disk_hint')} value={policy.disk_cache_mib / 1024}
+    <ResourceNumber label={t('resources.disk')} hint={t('resources.disk_hint')} value={allocation.disk_cache_mib / 1024}
       min={.25} max={1024} disabled={disabled} save={value => commit({ disk_cache_mib: Math.round(value * 1024) })} />
     <label className="settings-control-row"><div className="settings-performance-copy">
       <span className="settings-toggle-label">{t('resources.background')}</span>

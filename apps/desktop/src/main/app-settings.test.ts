@@ -84,6 +84,20 @@ describe('app-settings store', () => {
     expect(() => createAppSettingsStore(deps).apply({ skipped_update_version: 6 as never })).toThrow()
     expect(files.get(PATH)).toBe(before)
   })
+  it('re-measures the disk size for automatic temporary cache space on every read', () => {
+    const { fs } = memFs();
+    let disk: number | undefined = 100 * 1024;
+    const s = createAppSettingsStore({ fs, path: PATH, dir: DIR, totalMemoryMiB: 8192, cores: 4, diskMiB: () => disk });
+    expect(s.get().resource_allocation!.disk_cache_mib).toBe(10240);
+    disk = 200 * 1024;
+    expect(s.get().resource_allocation!.disk_cache_mib).toBe(20480);
+    s.apply({ resource_policy: { processing: 'low' } });
+    disk = undefined;
+    expect(s.get().resource_allocation!.disk_cache_mib).toBe(4096);
+    s.apply({ resource_policy: { disk_cache_mib: 1024 } });
+    disk = 200 * 1024;
+    expect(s.get().resource_allocation!.disk_cache_mib).toBe(1024);
+  });
   it('merges resource intent across windows, reprojects on restart and never reinterprets legacy caches', () => {
     const { fs, files } = memFs();
     const a = createAppSettingsStore({ fs, path: PATH, dir: DIR, totalMemoryMiB: 8192, cores: 4 });

@@ -49,7 +49,7 @@ test('resource preferences are understandable, persistent and independent of dec
     await pane.getByLabel('临时缓存空间', { exact: true }).fill('3');
     await pane.getByRole('checkbox', { name: /播放时继续后台处理/ }).check();
     await expect.poll(async () => (await read()).resource_policy).toEqual({
-      version: 1, memory_mib: 4096, processing: 'low', disk_cache_mib: 3072, background_playback: true,
+      version: 2, memory_mib: 4096, processing: 'low', disk_cache_mib: 3072, background_playback: true,
     });
     await page.screenshot({ path: testInfo.outputPath('resource-settings.png'), animations: 'disabled' });
     expect(await pane.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);

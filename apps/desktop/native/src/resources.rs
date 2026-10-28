@@ -29,7 +29,7 @@ impl Default for Limits {
             task_threads: 1,
             background_jobs: 1,
             work_mib: 1024,
-            disk_cache_mib: 2048,
+            disk_cache_mib: 4096,
             background_playback: false,
         }
     }

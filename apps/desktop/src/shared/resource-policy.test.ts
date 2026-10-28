@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_RESOURCE_POLICY, patchResourcePolicy, readResourcePolicy, resolveResourcePolicy } from './resource-policy';
+import { DEFAULT_RESOURCE_POLICY, automaticDiskCacheMiB, patchResourcePolicy, readResourcePolicy, resolveResourcePolicy } from './resource-policy';
 
 describe('application resource intent', () => {
   it('scales processing and memory independently on small and large machines', () => {
@@ -19,6 +19,22 @@ describe('application resource intent', () => {
     expect(readResourcePolicy({ memory_mib: -1, processing: 'high', disk_cache_mib: '2' })).toEqual({
       ...DEFAULT_RESOURCE_POLICY, processing: 'high',
     });
+  });
+  it('sizes automatic temporary cache space from the disk size within 4–64 GiB', () => {
+    expect(automaticDiskCacheMiB(undefined)).toBe(4096);
+    expect(automaticDiskCacheMiB(20 * 1024)).toBe(4096);
+    expect(automaticDiskCacheMiB(100 * 1024)).toBe(10240);
+    expect(automaticDiskCacheMiB(4 * 1024 * 1024)).toBe(65536);
+    expect(resolveResourcePolicy(DEFAULT_RESOURCE_POLICY, 8192, 4, 100 * 1024).disk_cache_mib).toBe(10240);
+    expect(resolveResourcePolicy({ ...DEFAULT_RESOURCE_POLICY, disk_cache_mib: 1024 }, 8192, 4, 100 * 1024).disk_cache_mib).toBe(1024);
+  });
+  it('treats the saved version-1 default as automatic but keeps explicit choices', () => {
+    expect(readResourcePolicy({ version: 1, disk_cache_mib: 2048 }).disk_cache_mib).toBeNull();
+    expect(readResourcePolicy({ version: 1, disk_cache_mib: 3072 }).disk_cache_mib).toBe(3072);
+    expect(readResourcePolicy({ version: 2, disk_cache_mib: 2048 }).disk_cache_mib).toBe(2048);
+    const chosen = patchResourcePolicy(readResourcePolicy({ version: 1, disk_cache_mib: 2048 }), { disk_cache_mib: 2048 });
+    expect(readResourcePolicy(JSON.parse(JSON.stringify(chosen))).disk_cache_mib).toBe(2048);
+    expect(patchResourcePolicy(chosen, { disk_cache_mib: null }).disk_cache_mib).toBeNull();
   });
   it('restores automatic machine defaults without accepting internal allocation fields', () => {
     expect(patchResourcePolicy({ ...DEFAULT_RESOURCE_POLICY, memory_mib: 8192 }, null)).toEqual(DEFAULT_RESOURCE_POLICY);

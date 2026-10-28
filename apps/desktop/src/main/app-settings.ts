@@ -42,15 +42,17 @@ export interface AppSettingsStore {
 
 const clamp = (v: number, lo: number, hi: number): number => Math.min(Math.max(v, lo), hi)
 
-export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: number; fs: AppSettingsFs; path: string; dir: string; onCommitted?: (settings: AppSettings) => void }): AppSettingsStore {
+export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: number; diskMiB?: () => number | undefined; fs: AppSettingsFs; path: string; dir: string; onCommitted?: (settings: AppSettings) => void }): AppSettingsStore {
   const baseline = resolvePerformancePolicy(DEFAULT_PERFORMANCE_POLICY, deps.totalMemoryMiB, null, deps.gpuMemoryMiB)
-  const defaults: AppSettings = { ...APP_SETTINGS_DEFAULTS, resource_policy: { ...DEFAULT_RESOURCE_POLICY },
-    resource_allocation: resolveResourcePolicy(DEFAULT_RESOURCE_POLICY, deps.totalMemoryMiB, deps.cores), performance_budget: baseline.budgets,
+  const defaults: AppSettings = { ...APP_SETTINGS_DEFAULTS, resource_policy: { ...DEFAULT_RESOURCE_POLICY }, performance_budget: baseline.budgets,
     performance_automatic_budget: baseline.automatic, performance: baseline.performance }
+  // The Workspace, and with it the disk, changes while the app runs.
+  const fresh = (): AppSettings => ({ ...defaults,
+    resource_allocation: resolveResourcePolicy(DEFAULT_RESOURCE_POLICY, deps.totalMemoryMiB, deps.cores, deps.diskMiB?.()) })
 
   function project(settings: AppSettings): AppSettings {
     settings.resource_policy = readResourcePolicy(settings.resource_policy)
-    settings.resource_allocation = resolveResourcePolicy(settings.resource_policy, deps.totalMemoryMiB, deps.cores)
+    settings.resource_allocation = resolveResourcePolicy(settings.resource_policy, deps.totalMemoryMiB, deps.cores, deps.diskMiB?.())
     const profile = settings.performance_test_profile
     settings.performance_test_compatible = !!profile && performanceTestMatches(profile, deps)
     settings.performance_automatic_budget = baseline.automatic
@@ -66,15 +68,15 @@ export function createAppSettingsStore(deps: PerformanceEnvironment & { cores?: 
     return settings
   }
   function read(): AppSettings {
-    if (!deps.fs.exists(deps.path)) return { ...defaults }
+    if (!deps.fs.exists(deps.path)) return fresh()
     let body: string
     try { body = deps.fs.readFile(deps.path) }
-    catch (e) { console.warn(`[app-settings] read ${deps.path}:`, e); return { ...defaults } }
-    if (body.trim() === '') return { ...defaults }
+    catch (e) { console.warn(`[app-settings] read ${deps.path}:`, e); return fresh() }
+    if (body.trim() === '') return fresh()
     let parsed: Record<string, unknown>
     try { parsed = JSON.parse(body) as Record<string, unknown> }
-    catch (e) { console.warn(`[app-settings] parse ${deps.path}:`, e); return { ...defaults } }
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...defaults }
+    catch (e) { console.warn(`[app-settings] parse ${deps.path}:`, e); return fresh() }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return fresh()
     // Per-field defaulting (parity with serde #[serde(default = ...)]): a missing
     // or wrong-typed field falls back to its default; unknown keys are ignored.
     const d = APP_SETTINGS_DEFAULTS

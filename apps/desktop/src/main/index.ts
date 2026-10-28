@@ -537,12 +537,18 @@ app.whenReady().then(async () => {
     memory: os.totalmem(), gpu: gpuIdentity, previewGpu: performanceGpu && { name: performanceGpu.name, memory: performanceGpu.dedicatedMemoryMib }, electron: process.versions.electron,
   })).digest('hex')
   let updatePreferenceChanged = () => {}
+  // Automatic temporary cache space follows the size of the open Workspace's
+  // disk, whose Cache/ it governs; before one opens, the profile disk stands in.
+  const diskMiB = (stats: fs.StatsFs) => Math.floor(stats.blocks * stats.bsize / MIB)
+  let cacheDiskMiB: number | undefined
+  try { cacheDiskMiB = diskMiB(fs.statfsSync(app.getPath('userData'))) } catch { /* unknown: automatic floor */ }
   const appSettings = createAppSettingsStore({
     fs: atomicFs,
     path: path.join(app.getPath('userData'), 'app_settings.json'),
     dir: app.getPath('userData'),
     totalMemoryMiB: Math.floor(os.totalmem() / MIB),
     cores: os.availableParallelism(),
+    diskMiB: () => cacheDiskMiB,
     gpuMemoryMiB: performanceGpu?.dedicatedMemoryMib,
     machineId: performanceMachineId, appVersion: app.getVersion(),
     onCommitted: settings => {
@@ -560,6 +566,15 @@ app.whenReady().then(async () => {
   layoutTheme = readLayoutTheme(initialAppSettings.layout_theme)
   hydrateResourceAllocation(initialAppSettings.resource_allocation)
   configureResources(initialAppSettings.resource_allocation!)
+  const measureCacheDisk = (workspace: string) => void fs.promises.statfs(workspace).then(stats => {
+    // A later Workspace measures its own disk; the same disk changes nothing.
+    if (wsCache !== workspace || diskMiB(stats) === cacheDiskMiB) return
+    cacheDiskMiB = diskMiB(stats)
+    const settings = appSettings.get()
+    hydrateResourceAllocation(settings.resource_allocation)
+    configureResources(settings.resource_allocation!)
+    emitToRenderer('app_settings:changed', settings)
+  }).catch(error => console.warn('[resources] disk size unavailable:', error))
   installResourceIpc((status) => recordDiagnostic('resources', JSON.stringify(status)), {
     prepare: owner => motifGpu?.close(owner),
     retire: (owner, id) => motifGpu?.closeExport(owner, id),
@@ -800,6 +815,7 @@ app.whenReady().then(async () => {
   try {
     wsCache = JSON.parse(await backend!.invoke('workspace_dir', '{}')) as string | null
   } catch { /* no workspace at cold boot */ }
+  if (wsCache) measureCacheDisk(wsCache)
 
   // Holds MCP LogBus rows produced before a workspace exists — chiefly the host's
   // `listening` row, emitted at app.whenReady(). See ./deferredLog.ts.
@@ -837,6 +853,7 @@ app.whenReady().then(async () => {
         throw error
       }
       wsCache = p
+      measureCacheDisk(p)
       // Replay AFTER wsCache is set, so every replayed row takes the direct path
       // and cannot re-queue itself, and after the commit resolves, because that
       // is the call that installs this workspace's LogBus.
