@@ -44,8 +44,7 @@ import {
   hydrateDescription,
   isDescribingSpan,
   setDescribeError,
-  summaryForWindow,
-  useClipSummaries,
+  useContentForWindow,
   useDescribeBatch,
   useDescribeError,
   useDescribing,
@@ -361,11 +360,8 @@ function ClipContentDescription({ layer, mediaId, srcInUs, srcOutUs, fpsNum, fps
   onSeek: (tUs: number) => void;
 }) {
   const { t } = useTranslation();
-  const segments = useDescription(mediaId);
-  const summaries = useClipSummaries(mediaId);
+  const { summary, segments: overlapping } = useContentForWindow(mediaId, srcInUs, srcOutUs);
   useEffect(() => { void hydrateDescription(mediaId); }, [mediaId]);
-  const overlapping = segmentsForSpan(segments, srcInUs, srcOutUs);
-  const summary = summaryForWindow(summaries, srcInUs, srcOutUs);
   if (overlapping.length === 0 && summary === null) return null;
   return (
     <section className="shots-clip-content" data-testid="shots-clip-content">

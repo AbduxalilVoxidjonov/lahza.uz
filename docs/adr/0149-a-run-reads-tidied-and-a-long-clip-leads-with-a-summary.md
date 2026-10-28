@@ -88,3 +88,17 @@ given a handful.
   near-identical lines reads as one span. An agent that needs the raw answer
   has none to read; nothing has needed it.
 - A summary that keeps failing is asked for again on each call over the window.
+
+## Read-view ownership
+
+The renderer publishes each cache read as one `DescriptionContent` record per
+source and purpose. Segments and summaries are replaced and invalidated in one
+store update. `contentForWindow` owns presentation selection: half-open segment
+intersection and the existing quarter-second summary edge tolerance. The Shots
+Panel subscribes to that record and renders the resulting summary and details.
+The cache and MCP retain their exact-window summary semantics.
+
+An optimistic segment update withdraws summaries overlapping its window until
+the authoritative read lands; summaries of disjoint windows remain. Search
+indexes only clip-purpose segments. Reading, displaying and indexing content
+never starts inference.

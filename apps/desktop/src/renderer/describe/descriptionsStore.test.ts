@@ -26,10 +26,15 @@ import {
   mergeDescription,
   resyncDescriptionsForView,
   setDescribing,
-  summaryForWindow,
   syncDescriptions,
   useDescriptionsStore,
 } from "./descriptionsStore";
+
+function getDescriptionSegments(mediaId: string, purpose: "clip" | "shot" = "clip") {
+  const state = useDescriptionsStore.getState();
+  const content = (purpose === "clip" ? state.contents : state.shotContents).get(mediaId);
+  return content === undefined ? undefined : content?.segments ?? null;
+}
 
 const CACHE: DescriptionCache = {
   covered_ranges: [[0, 6_000_000]],
@@ -39,7 +44,7 @@ const CACHE: DescriptionCache = {
 };
 
 function held(mediaId: string) {
-  return useDescriptionsStore.getState().segments.get(mediaId);
+  return getDescriptionSegments(mediaId);
 }
 
 describe("descriptionsStore", () => {
@@ -71,32 +76,40 @@ describe("descriptionsStore", () => {
     const summaries = [{ window: [0, 6_000_000] as [number, number], text: "A hallway, then a door." }];
     mocks.getMediaDescription.mockResolvedValue({ ...CACHE, summaries });
     await hydrateDescription("m-1");
-    expect(useDescriptionsStore.getState().summaries.get("m-1")).toEqual(summaries);
+    expect(useDescriptionsStore.getState().contents.get("m-1")?.summaries).toEqual(summaries);
     // A later read without them (the window was refreshed) takes them away.
     mocks.getMediaDescription.mockResolvedValue(CACHE);
     await reloadDescription("m-1");
-    expect(useDescriptionsStore.getState().summaries.has("m-1")).toBe(false);
+    expect(useDescriptionsStore.getState().contents.get("m-1")?.summaries).toEqual([]);
   });
 
-  it("leads with the exact window's summary, else a covering one, never a narrower one", () => {
+  it("publishes replacement segments and summaries in one observable change", async () => {
+    const oldSummary = { window: [0, 6_000_000] as [number, number], text: "Old summary" };
+    mocks.getMediaDescription.mockResolvedValue({ ...CACHE, summaries: [oldSummary] });
+    await hydrateDescription("m-1");
+    const fresh = { ...CACHE, segments: [{ ...CACHE.segments[0]!, text: "new scene" }],
+      summaries: [{ ...oldSummary, text: "New summary" }] };
+    const seen: unknown[] = [];
+    const unsubscribe = useDescriptionsStore.subscribe(s => seen.push(s.contents.get("m-1")));
+    try {
+      mocks.getMediaDescription.mockResolvedValue(fresh);
+      await reloadDescription("m-1");
+      expect(seen).toEqual([{ segments: fresh.segments, summaries: fresh.summaries }]);
+      expect(mocks.describeClip).not.toHaveBeenCalled();
+    } finally { unsubscribe(); }
+  });
+
+  it("an optimistic window update clears only overlapping summaries until the full read lands", async () => {
     const summaries = [
-      { window: [2_000_000, 4_000_000] as [number, number], text: "narrower" },
-      { window: [0, 10_000_000] as [number, number], text: "wider" },
-      { window: [0, 6_000_000] as [number, number], text: "exact" },
+      { window: [0, 6_000_000] as [number, number], text: "Old changed window" },
+      { window: [6_000_000, 8_000_000] as [number, number], text: "Unchanged neighbour" },
     ];
-    expect(summaryForWindow(summaries, 0, 6_000_000)).toBe("exact");
-    expect(summaryForWindow(summaries, 1_000_000, 8_000_000)).toBe("wider");
-    expect(summaryForWindow(summaries.slice(0, 1), 0, 6_000_000)).toBeNull();
-    expect(summaryForWindow([], 0, 6_000_000)).toBeNull();
-  });
-
-  it("matches the run over a clip whose source end is not on a frame", () => {
-    // The tool resolves its window from the frame-snapped timeline span: a
-    // 150.0165 s source on a 30 fps timeline is described over [0, 150 s].
-    const summaries = [{ window: [0, 150_000_000] as [number, number], text: "whole clip" }];
-    expect(summaryForWindow(summaries, 0, 150_016_533)).toBe("whole clip");
-    // A run a second short of the clip still does not speak for it.
-    expect(summaryForWindow(summaries, 0, 151_000_000)).toBeNull();
+    mocks.getMediaDescription.mockResolvedValue({ ...CACHE, summaries });
+    await hydrateDescription("m-1");
+    mergeDescription("m-1", 0, 6_000_000, [{ ...CACHE.segments[0]!, text: "fresh" }]);
+    expect(useDescriptionsStore.getState().contents.get("m-1")).toEqual({
+      segments: [{ ...CACHE.segments[0]!, text: "fresh" }], summaries: [summaries[1]],
+    });
   });
 
   it("does not re-read a source it already has segments for", async () => {
@@ -302,12 +315,12 @@ describe("resyncDescriptionsForView", () => {
     mocks.getMediaDescription.mockImplementation(async (_id, purpose) => purpose === "shot" ? shot : clip);
     await Promise.all([hydrateDescription("m-1"), hydrateDescription("m-1", "shot")]);
     expect(held("m-1")).toEqual(clip.segments);
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toEqual(shot.segments);
+    expect(getDescriptionSegments("m-1", "shot")).toEqual(shot.segments);
     expect(mocks.getMediaDescription).toHaveBeenCalledTimes(2);
     mocks.getMediaDescription.mockResolvedValue(null);
     await resyncDescriptionsForView(new Map([["m-1", "a.mp4"]]));
     expect(held("m-1")).toBeNull();
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toBeNull();
+    expect(getDescriptionSegments("m-1", "shot")).toBeNull();
     expect(mocks.getMediaDescription).toHaveBeenCalledTimes(4);
   });
 
@@ -317,11 +330,11 @@ describe("resyncDescriptionsForView", () => {
     mocks.getMediaDescription.mockResolvedValue(null);
     await syncDescriptions(new Map([["m-1", "b.mp4"]]));
     expect(held("m-1")).toBeNull();
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toBeNull();
+    expect(getDescriptionSegments("m-1", "shot")).toBeNull();
     await hydrateDescription("m-1", "shot");
     await syncDescriptions(new Map());
     expect(held("m-1")).toBeUndefined();
-    expect(useDescriptionsStore.getState().shotSegments.has("m-1")).toBe(false);
+    expect(useDescriptionsStore.getState().shotContents.has("m-1")).toBe(false);
   });
 
   it("does not let an old shot read repopulate the cache after relinking", async () => {
@@ -333,7 +346,7 @@ describe("resyncDescriptionsForView", () => {
     await syncDescriptions(new Map([["m-1", "b.mp4"]]));
     settle(CACHE);
     await pending;
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toBeNull();
+    expect(getDescriptionSegments("m-1", "shot")).toBeNull();
     expect(held("m-1")).toBeNull();
   });
 
@@ -395,6 +408,7 @@ describe("resyncDescriptionsForView", () => {
     const stale: DescriptionCache = {
       covered_ranges: [[0, 6_000_000]],
       segments: [{ t_start_us: 0, t_end_us: 2_000_000, text: "old view", tags: [] }],
+      summaries: [{ window: [0, 6_000_000], text: "Old view summary" }],
     };
     let settle: (c: DescriptionCache) => void = () => {};
     mocks.getMediaDescription.mockReturnValueOnce(
@@ -413,5 +427,6 @@ describe("resyncDescriptionsForView", () => {
     settle(stale);
     await pending;
     expect(held("m-1")).toBeNull();
+    expect(useDescriptionsStore.getState().contents.get("m-1")).toBeNull();
   });
 });

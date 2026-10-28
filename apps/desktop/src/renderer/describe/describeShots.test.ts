@@ -34,6 +34,12 @@ import {
 import { ComputeCancelledError } from "../ipc";
 import { runDescribe } from "./describeRun";
 
+function getDescriptionSegments(mediaId: string, purpose: "clip" | "shot" = "clip") {
+  const state = useDescriptionsStore.getState();
+  const content = (purpose === "clip" ? state.contents : state.shotContents).get(mediaId);
+  return content === undefined ? undefined : content?.segments ?? null;
+}
+
 const SUBJECT = { layerId: "l-1", mediaId: "m-1", clipName: "reel.mp4" };
 
 /// Shot `n`, one second long, on a clip whose source window starts at the
@@ -98,7 +104,7 @@ describe("describeShotRows", () => {
       "no video-understanding backend available",
     );
     // The prose the first run landed stays — a stopped sweep is not a rollback.
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")).toHaveLength(1);
+    expect(getDescriptionSegments("m-1", "shot")).toHaveLength(1);
   });
 
   it("reports progress and clears it when the pass ends", async () => {
@@ -172,16 +178,16 @@ describe("describeOneShot", () => {
 
   it("keeps a shot run from replacing the clip content cache", async () => {
     await runDescribe({ ...SUBJECT, purpose: "clip", srcStartUs: 0, srcEndUs: 1_000_000, window: null, label: "clip" });
-    const clipSegments = useDescriptionsStore.getState().segments.get("m-1");
+    const clipSegments = getDescriptionSegments("m-1");
     mocks.describeClip.mockResolvedValue(answer("a close-up"));
     await describeOneShot(shot(0), SUBJECT);
-    expect(useDescriptionsStore.getState().segments.get("m-1")).toEqual(clipSegments);
+    expect(getDescriptionSegments("m-1")).toEqual(clipSegments);
     expect(mocks.describeClip.mock.calls[1]?.[0].purpose).toBe("shot");
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")?.[0]?.text).toBe("a close-up");
+    expect(getDescriptionSegments("m-1", "shot")?.[0]?.text).toBe("a close-up");
     expect(mocks.getMediaDescription).toHaveBeenLastCalledWith("m-1", "shot");
     mocks.describeClip.mockResolvedValue(answer("new clip content"));
     await runDescribe({ ...SUBJECT, purpose: "clip", srcStartUs: 0, srcEndUs: 1_000_000, window: null, label: "clip" });
-    expect(useDescriptionsStore.getState().shotSegments.get("m-1")?.[0]?.text).toBe("a close-up");
+    expect(getDescriptionSegments("m-1", "shot")?.[0]?.text).toBe("a close-up");
   });
 
   it("a failed clip run does not replace or clear a shot error", async () => {

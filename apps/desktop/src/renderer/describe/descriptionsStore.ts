@@ -20,8 +20,10 @@
 // Shots Panel's buttons — never from a read on this module's path.
 
 import { create } from "zustand";
+import { useMemo } from "react";
+import { contentForWindow, type DescriptionContent } from "./contentView";
 
-import { getMediaDescription, type DescSegment, type DescriptionCache, type RunSummary } from "../ipc";
+import { getMediaDescription, type DescSegment, type DescriptionCache } from "../ipc";
 import { LatestRequestCoordinator } from "../state/latestRequest";
 import type { DescriptionPurpose } from "../../shared/description";
 
@@ -48,12 +50,9 @@ interface DescriptionsState {
   /// nobody has asked yet. Both render as "not described"; the distinction is
   /// what keeps `hydrateDescription` from re-reading a source it has an answer
   /// for.
-  segments: ReadonlyMap<string, readonly DescSegment[] | null>;
+  contents: ReadonlyMap<string, DescriptionContent | null>;
   /// Individual-shot results only; never fall back to clip content.
-  shotSegments: ReadonlyMap<string, readonly DescSegment[] | null>;
-  /// Clip content's run summaries by media id, newest first, published with
-  /// `segments` from the same read. Shots have none.
-  summaries: ReadonlyMap<string, readonly RunSummary[]>;
+  shotContents: ReadonlyMap<string, DescriptionContent | null>;
   /// The window a description run is going against, or null. Read by the rows:
   /// a cell with nothing to show says whether one is on its way.
   ///
@@ -75,9 +74,8 @@ interface DescriptionsState {
 }
 
 const INITIAL: DescriptionsState = {
-  segments: new Map(),
-  shotSegments: new Map(),
-  summaries: new Map(),
+  contents: new Map(),
+  shotContents: new Map(),
   describing: null,
   errors: { clip: "", shot: "" },
   batch: null,
@@ -95,9 +93,9 @@ const shotReads = new LatestRequestCoordinator();
 // change or relink can re-read them without waiting for a panel remount.
 const requestedShots = new Set<string>();
 
-function segmentsForPurpose(purpose: DescriptionPurpose) {
+function contentsForPurpose(purpose: DescriptionPurpose) {
   const state = useDescriptionsStore.getState();
-  return purpose === "shot" ? state.shotSegments : state.segments;
+  return purpose === "shot" ? state.shotContents : state.contents;
 }
 
 function readDescription(mediaId: string, purpose: DescriptionPurpose) {
@@ -120,7 +118,7 @@ let viewGeneration = 0;
 let runGeneration = 0;
 
 /// Sources with a read in the air, and the generation that issued it. The
-/// idempotence guard the rest of this module states over `segments` only closes
+/// idempotence guard the rest of this module states over `contents` only closes
 /// once an answer has landed, so without this a Panel selecting a clip while the
 /// index is sweeping the pool would probe the same source twice.
 ///
@@ -139,29 +137,25 @@ function putReadIfCurrent(
   purpose: DescriptionPurpose = "clip",
 ): void {
   if (generation !== viewGeneration) return;
-  put(mediaId, cache === null ? null : cache.segments, purpose);
-  if (purpose === "clip") {
-    const next = new Map(useDescriptionsStore.getState().summaries);
-    const summaries = cache?.summaries ?? [];
-    if (summaries.length === 0) next.delete(mediaId);
-    else next.set(mediaId, summaries);
-    useDescriptionsStore.setState({ summaries: next });
-  }
+  put(mediaId, cache === null ? null : {
+    segments: cache.segments,
+    summaries: purpose === "clip" ? cache.summaries ?? [] : [],
+  }, purpose);
 }
 
 /// The file each answered source pointed at when it was last looked at.
-/// `segments` is keyed by media id, and a relink keeps the id while changing
+/// `contents` is keyed by media id, and a relink keeps the id while changing
 /// the footage — see `syncDescriptions`, which owns that rule.
 const readAtPath = new Map<string, string>();
 
 function put(
   mediaId: string,
-  value: readonly DescSegment[] | null,
+  value: DescriptionContent | null,
   purpose: DescriptionPurpose = "clip",
 ): void {
-  const next = new Map(segmentsForPurpose(purpose));
+  const next = new Map(contentsForPurpose(purpose));
   next.set(mediaId, value);
-  useDescriptionsStore.setState(purpose === "shot" ? { shotSegments: next } : { segments: next });
+  useDescriptionsStore.setState(purpose === "shot" ? { shotContents: next } : { contents: next });
 }
 
 /// Read one source's cached description, under the view the app's settings name.
@@ -172,7 +166,7 @@ function put(
 /// cost a cache probe and not a model run.
 export async function hydrateDescription(mediaId: string, purpose: DescriptionPurpose = "clip"): Promise<void> {
   if (purpose === "shot") requestedShots.add(mediaId);
-  if (segmentsForPurpose(purpose).has(mediaId)) return;
+  if (contentsForPurpose(purpose).has(mediaId)) return;
   const generation = viewGeneration;
   const readKey = purpose === "clip" ? mediaId : `shot:${mediaId}`;
   if (inFlight.get(readKey) === generation) return;
@@ -222,23 +216,21 @@ export async function syncDescriptions(
     viewGeneration += 1;
     // One new map for the whole batch: each `setState` is a store tick, and
     // the index marks itself dirty on every one of them.
-    const next = new Map(useDescriptionsStore.getState().segments);
-    const nextShots = new Map(useDescriptionsStore.getState().shotSegments);
-    const nextSummaries = new Map(useDescriptionsStore.getState().summaries);
+    const next = new Map(useDescriptionsStore.getState().contents);
+    const nextShots = new Map(useDescriptionsStore.getState().shotContents);
     for (const [id] of stale) {
       next.delete(id);
       nextShots.delete(id);
-      nextSummaries.delete(id);
       readAtPath.delete(id);
       if (!sources.has(id)) requestedShots.delete(id);
     }
-    useDescriptionsStore.setState({ segments: next, shotSegments: nextShots, summaries: nextSummaries });
+    useDescriptionsStore.setState({ contents: next, shotContents: nextShots });
   }
   for (const [id, path] of sources) readAtPath.set(id, path);
   const generation = viewGeneration;
   await Promise.all(
     [...sources.keys()].map(async (mediaId) => {
-      if (useDescriptionsStore.getState().segments.has(mediaId)) return;
+      if (useDescriptionsStore.getState().contents.has(mediaId)) return;
       if (inFlight.get(mediaId) === generation) return;
       inFlight.set(mediaId, generation);
       try {
@@ -270,7 +262,7 @@ export async function syncDescriptions(
 /// on showing the previous view's prose, which is the exact failure
 /// `vlm::cache_key` puts all three in the key to prevent, one layer up.
 ///
-/// Clears the SEGMENTS only. Run state (`describing`, `batch`) is deliberately
+/// Clears the published CONTENT only. Run state (`describing`, `batch`) is deliberately
 /// untouched: with no dialog holding the window, a setting can be changed while
 /// a run is in flight, and dropping the in-flight flag would let the gate go
 /// live and a second model spawn start beside the first. What that run PRODUCES
@@ -285,7 +277,7 @@ export async function resyncDescriptionsForView(
 ): Promise<void> {
   viewGeneration += 1;
   readAtPath.clear();
-  useDescriptionsStore.setState({ segments: new Map(), shotSegments: new Map(), summaries: new Map() });
+  useDescriptionsStore.setState({ contents: new Map(), shotContents: new Map() });
   await syncDescriptions(sources);
 }
 
@@ -325,12 +317,10 @@ export async function reloadDescription(mediaId: string, purpose: DescriptionPur
 ///
 /// WINDOWED, and it has to be: a run against one shot answers for that shot's
 /// span alone, so a whole-map replace would delete the prose of every other shot
-/// of the source — and of every other clip cut from it. The replace-intersecting
-/// rule and the half-open predicate are Rust's `DescriptionCache::merge_window`
-/// and `segments_in`, deliberately: this is an OVERLAY on the same cache, and an
-/// overlay that folded segments differently from the file underneath it would
-/// flicker on the reload that follows. Authority stays on disk; `reloadDescription`
-/// is what publishes it.
+/// of the source — and of every other clip cut from it. This optimistic overlay
+/// replaces intersecting segments and withdraws overlapping summaries. The
+/// authoritative read applies run precedence and clipping, then publishes both
+/// together; `reloadDescription` is what publishes it.
 export function mergeDescription(
   mediaId: string,
   srcStartUs: number,
@@ -345,13 +335,18 @@ export function mergeDescription(
   // the row lands on the right answer rather than on a merge of two.
   if (runGeneration !== viewGeneration) return;
   if (purpose === "shot") requestedShots.add(mediaId);
-  const prior = segmentsForPurpose(purpose).get(mediaId) ?? [];
-  const kept = prior.filter(
+  const prior = contentsForPurpose(purpose).get(mediaId);
+  const kept = (prior?.segments ?? []).filter(
     (s) => !(s.t_start_us < srcEndUs && s.t_end_us > srcStartUs),
   );
   put(
     mediaId,
-    [...kept, ...fresh].sort((a, b) => a.t_start_us - b.t_start_us),
+    {
+      segments: [...kept, ...fresh].sort((a, b) => a.t_start_us - b.t_start_us),
+      // The optimistic answer carries no summary. Never pair new segments
+      // with an old lead over the changed window; reload publishes the full read.
+      summaries: (prior?.summaries ?? []).filter(s => !(s.window[0] < srcEndUs && s.window[1] > srcStartUs)),
+    },
     purpose,
   );
 }
@@ -393,7 +388,7 @@ export function resetDescriptionsStore(): void {
   // air, and restarting the count would let its answer look current again.
   viewGeneration += 1;
   runGeneration = viewGeneration;
-  // `INITIAL.segments` is never mutated — every write above builds a new map —
+  // `INITIAL.contents` is never mutated — every write above builds a new map —
   // so restoring it by reference keeps the selectors from re-rendering on a
   // reset that changed nothing.
   useDescriptionsStore.setState({ ...INITIAL });
@@ -412,42 +407,20 @@ export const useDescription = (
   purpose: DescriptionPurpose = "clip",
 ): readonly DescSegment[] | null =>
   useDescriptionsStore((s) =>
-    mediaId === null ? null : (purpose === "shot" ? s.shotSegments : s.segments).get(mediaId) ?? null,
+    mediaId === null ? null : (purpose === "shot" ? s.shotContents : s.contents).get(mediaId)?.segments ?? null,
   );
 
-const NO_SUMMARIES: readonly RunSummary[] = [];
+/** A stable published record is the subscription; window projection happens
+ * outside the Zustand selector, so derived arrays cannot trigger a render loop. */
+export function useContentForWindow(mediaId: string | null, startUs: number, endUs: number, purpose: DescriptionPurpose = "clip") {
+  const content = useDescriptionsStore(s => mediaId === null ? null :
+    (purpose === "shot" ? s.shotContents : s.contents).get(mediaId));
+  return useMemo(() => contentForWindow(content, startUs, endUs), [content, startUs, endUs]);
+}
 
-/// One source's clip-content summaries, newest first; a stable empty list when
-/// there are none.
-export const useClipSummaries = (mediaId: string | null): readonly RunSummary[] =>
-  useDescriptionsStore((s) => (mediaId === null ? NO_SUMMARIES : s.summaries.get(mediaId) ?? NO_SUMMARIES));
-
-/// How far a run's window edge may fall inside the clip's source range and
-/// still speak for it. `describe_clip` resolves its window from the layer's
-/// TIMELINE span, which is frame-snapped, so its edges can sit a fraction of a
-/// frame inside `[src_in_us, src_out_us]` (a 150.0165 s source on a 30 fps
-/// timeline describes [0, 150.0 s]). A quarter second is several frames at any
-/// rate and far less than any summary is about.
-const SUMMARY_EDGE_SLACK_US = 250_000;
-
-/// The summary a clip's content section leads with: of the runs whose window
-/// covers the clip's `[srcInUs, srcOutUs]` up to the edge slack, the tightest —
-/// the run over the clip itself before a wider clip of the same source, the
-/// newest on a tie — else none: a narrower run's summary does not speak for the
-/// whole clip.
-export function summaryForWindow(
-  summaries: readonly RunSummary[],
-  srcInUs: number,
-  srcOutUs: number,
-): string | null {
-  let best: RunSummary | null = null;
-  for (const s of summaries) {
-    const covers =
-      s.window[0] <= srcInUs + SUMMARY_EDGE_SLACK_US &&
-      s.window[1] >= srcOutUs - SUMMARY_EDGE_SLACK_US;
-    if (covers && (best === null || s.window[1] - s.window[0] < best.window[1] - best.window[0])) best = s;
-  }
-  return best?.text ?? null;
+/** Search indexes clip prose only. Shots never enter its corpus. */
+export function clipDescriptionSegments(): ReadonlyMap<string, readonly DescSegment[] | null> {
+  return new Map([...useDescriptionsStore.getState().contents].map(([id, content]) => [id, content?.segments ?? null]));
 }
 
 export const useDescribing = (): DescribingSpan | null =>

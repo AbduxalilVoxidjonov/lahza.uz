@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { listCommands, subscribeCommandRegistry } from "../commands/registry";
 import {
+  clipDescriptionSegments,
   resyncDescriptionsForView,
   syncDescriptions,
   useDescriptionsStore,
@@ -97,7 +98,7 @@ function rebuildNow(): void {
     // Read, never requested: a rebuild indexes whatever prose the store has
     // already been handed. Opening the palette starts no read at all, let
     // alone a model run.
-    useDescriptionsStore.getState().segments,
+    clipDescriptionSegments(),
   );
   useSearchIndexStore.setState((s) => ({ entries, version: s.version + 1 }));
 }
@@ -139,7 +140,7 @@ export function wireSearchIndex(): () => void {
   // A read landing (or a relink dropping one) changes the corpus exactly as a
   // project edit does, and takes the same debounce.
   const unsubDescriptions = useDescriptionsStore.subscribe((s, prev) => {
-    if (s.segments !== prev.segments) markSearchIndexDirty();
+    if (s.contents !== prev.contents) markSearchIndexDirty();
   });
   const onLocale = () => markSearchIndexDirty();
   i18n.on("languageChanged", onLocale);
