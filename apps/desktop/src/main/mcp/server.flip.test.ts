@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { callClipComputeTool, handleCallTool } from './server'
 import { createActor } from '../state/actor'
+import { createMediaImporter } from '../state/mediaImport'
 import { uuidV7Gen } from '../state/ids'
 import { blankProject } from '../state/model'
 import { mediaItemTemplate } from '../state/mutations/media'
@@ -28,7 +29,7 @@ function tsHostStub() {
     statPath: () => ({ kind: 'file' as const, readable: true }),
     snapshotComposition: () => root(actor.snapshot()),
   }
-  return { actor, mcpCall: (name: string, argsJson: string) => actor.mcpCall(name, argsJson), hybridDeps, handleInvoke: async () => null, start: () => {}, stop: () => {}, beginAgentSessionSlot: () => {} } as any
+  return { actor, mcpCall: (name: string, argsJson: string) => actor.mcpCall(name, argsJson), hybridDeps, mediaImporter: createMediaImporter(hybridDeps), handleInvoke: async () => null, start: () => {}, stop: () => {}, beginAgentSessionSlot: () => {} } as any
 }
 // The catalog a fake advertises is what the host judges "known tool" by, so it
 // is the committed Rust snapshot and not an empty list.

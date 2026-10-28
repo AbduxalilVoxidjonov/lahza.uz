@@ -16,7 +16,7 @@ import { McpArgError, mcpDef } from './mcp-commands'
 import type { Cue } from './mutations/captions'
 import { scopeComposition } from './mutations/helpers'
 import { parseDiscardSegments } from './mutations/split'
-import { ensureImported, type MediaImportDeps } from './mediaImport'
+import type { MediaImportDeps } from './mediaImport'
 import { playsNoSoundError, resolvePauseSubject } from './pauseSubject'
 import { snapFrameRound } from './snap'
 
@@ -740,11 +740,13 @@ export async function removePauses(
 
 /** Run a hybrid tool: Rust compute then TS-actor write.
  *
+ *  `import_media` is not an arm: both hosts call the host's `MediaImporter`
+ *  (`mediaImport.ts`) directly, and each shapes its typed outcome.
+ *
  *  Return-shape contract, and it is the MCP half that constrains it: server.ts
  *  stringifies whatever comes back into one `ToolResult` text block, so an arm
- *  listed in `mcp/mutationTools.ts` `HYBRID_TOOLS` returns an ImportOutcome
- *  (import_media, adapted at IPC/MCP) or a JSON string (apply_subtitles,
- *  synthesize_speech, auto_split_by_shot, remove_pauses).
+ *  listed in `mcp/mutationTools.ts` `HYBRID_TOOLS` returns a JSON string
+ *  (apply_subtitles, synthesize_speech, auto_split_by_shot, remove_pauses).
  *  `drop_shot_markers`, `apply_shot_cuts` and `mark_pauses` have no MCP tool
  *  at all, so they return the object their IPC caller reads directly —
  *  `apply_shot_cuts` a union discriminated by the `mode` it was asked for, since
@@ -764,7 +766,6 @@ export async function removePauses(
  *  Throws on a rejected actor write or an unhandled tool. */
 export async function runHybrid(tool: string, args: Record<string, unknown>, deps: HybridDeps): Promise<unknown> {
   switch (tool) {
-    case 'import_media': return ensureImported(args.path as string, deps)
     case 'apply_subtitles':
       // Reached by the agent's tool and by a Subtitle item dropped on the
       // timeline, which passes the drop time as `t_start_us`.

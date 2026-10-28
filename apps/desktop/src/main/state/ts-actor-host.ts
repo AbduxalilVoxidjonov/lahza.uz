@@ -1,4 +1,3 @@
-import type { ImportOutcome } from './mediaImport'
 // apps/desktop/src/main/state/ts-actor-host.ts
 import { createActor, type ActorHandle, type ChangeEvent } from './actor'
 import type { EntityRef } from './history'
@@ -22,6 +21,7 @@ import type { ProjectVersion, ProjectPublication, PublishedResult } from '../../
 import { REVIEW_CHANGED_EVENT, type ReviewActivityArgs, type ReviewActivityView, type ReviewActionArgs, type ReviewActionResult, type ReviewChangedPayload, type ReviewVersion, type ReviewView, type ReviewViewArgs, type ReviewViewUnchanged } from '../../shared/review'
 import { runHybrid, type ComputeNapi, type HybridDeps } from './hybrids'
 import { recoverInterruptedImports } from './importRecovery'
+import { createMediaImporter, type MediaImporter } from './mediaImport'
 import { MotifCatalog, type Manifest } from '../../shared/motifs/catalog'
 import type { UserMotifStore } from '../motif/store'
 import { runMotifTool, type MotifToolDeps } from '../motif/motifTools'
@@ -197,6 +197,9 @@ export interface TsActorHost {
   /** Hybrid deps (native-compute → TS-write). Exposed so the MCP host's hybrid
    *  branch can `runHybrid(name, args, tsHost.hybridDeps)` (server.ts). */
   hybridDeps: HybridDeps
+  /** The host's one importer: the renderer's and every agent's imports of the
+   *  same file join through it (server.ts passes the agent as `by`). */
+  mediaImporter: MediaImporter
   /** Host-level Motif tool dispatch (catalog read + authoring + install). Both
    *  the renderer `handleInvoke('motif')` and the MCP `route==='motif'` path use it. */
   motifTool: (name: string, args: Record<string, unknown>) => unknown
@@ -379,6 +382,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     rasterizeSvg: deps.rasterizeSvg,
     snapshotComposition: () => rootComposition(actor.snapshot()),
   }
+  const mediaImporter = createMediaImporter(hybridDeps)
 
   // Serialize all cache-root/session changes, including Save As and Close.
   let persistenceTail: Promise<unknown> = Promise.resolve()
@@ -792,8 +796,9 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
       case 'agentSessionBegin': deps.send(AGENT_VIEW_EVENT, { workspace_id: agent.snapshot().workspace_id }); return null
       case 'hybrid': {
         deps.exportJobs?.assertWritable()
-        const hybridResult = await runHybrid(route.tool, args, hybridDeps)
-        return route.tool === 'import_media' ? (hybridResult as ImportOutcome).mediaId : hybridResult
+        // The renderer's import answers the media id alone.
+        if (route.tool === 'import_media') return (await mediaImporter.ensureImported(args.path as string)).mediaId
+        return runHybrid(route.tool, args, hybridDeps)
       }
       case 'motif':
         return runMotif(route.tool, args)
@@ -929,6 +934,7 @@ export function createTsActorHost(deps: TsActorHostDeps): TsActorHost {
     published,
     mcpCall,
     hybridDeps,
+    mediaImporter,
     motifTool: runMotif,
     refreshMotifCatalog,
     start() {

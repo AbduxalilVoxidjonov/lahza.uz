@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs'
 import { buildMcpServer, handleCallTool } from './server'
 import { isToolError, thrownToToolError, toolErrorResult, UnknownToolError } from './toolResult'
 import { createActor } from '../state/actor'
+import { createMediaImporter } from '../state/mediaImport'
 import { uuidV7Gen } from '../state/ids'
 import { blankProject } from '../state/model'
 import { mediaItemTemplate } from '../state/mutations/media'
@@ -46,7 +47,7 @@ function tsHostStub(overrides: { compute?: Record<string, unknown>; motifTool?: 
     snapshotComposition: () => root(actor.snapshot()),
   }
   return {
-    actor, hybridDeps,
+    actor, hybridDeps, mediaImporter: createMediaImporter(hybridDeps),
     mcpCall: (name: string, argsJson: string) => actor.mcpCall(name, argsJson),
     motifTool: overrides.motifTool ?? (() => { throw new Error("unknown draft 'd1'") }),
     handleInvoke: async () => null, start: () => {}, stop: () => {},

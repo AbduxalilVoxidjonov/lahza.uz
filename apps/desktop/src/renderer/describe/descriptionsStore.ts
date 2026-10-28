@@ -89,6 +89,17 @@ export const useDescriptionsStore = create<DescriptionsState>(() => ({
 /// user has navigated away from cannot publish over the newest one.
 const reads = new LatestRequestCoordinator();
 const shotReads = new LatestRequestCoordinator();
+/// A finished run's re-reads, one coordinator per source and purpose. A re-read
+/// is about its own source, not the subject: were it on `reads`, selecting
+/// another clip while it is in the air would drop it, and the summaries the
+/// optimistic merge withdrew would not come back. A newer re-read of the same
+/// source still supersedes an older one.
+const reloads = new Map<string, LatestRequestCoordinator>();
+function reloadsFor(readKey: string): LatestRequestCoordinator {
+  let coordinator = reloads.get(readKey);
+  if (coordinator === undefined) reloads.set(readKey, (coordinator = new LatestRequestCoordinator()));
+  return coordinator;
+}
 // Remember requested shot views even while a read is in flight, so a settings
 // change or relink can re-read them without waiting for a panel remount.
 const requestedShots = new Set<string>();
@@ -295,7 +306,7 @@ export async function reloadDescription(mediaId: string, purpose: DescriptionPur
   if (purpose === "shot") requestedShots.add(mediaId);
   const generation = viewGeneration;
   try {
-    await (purpose === "shot" ? shotReads : reads).run(
+    await reloadsFor(purpose === "clip" ? mediaId : `shot:${mediaId}`).run(
       () => readDescription(mediaId, purpose),
       (cache) => {
         if (cache !== null) putReadIfCurrent(generation, mediaId, cache, purpose);
@@ -381,6 +392,8 @@ export function setDescribeBatch(
 export function resetDescriptionsStore(): void {
   reads.invalidate();
   shotReads.invalidate();
+  for (const coordinator of reloads.values()) coordinator.invalidate();
+  reloads.clear();
   requestedShots.clear();
   inFlight.clear();
   readAtPath.clear();

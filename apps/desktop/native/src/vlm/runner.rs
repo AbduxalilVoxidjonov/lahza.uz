@@ -5,6 +5,7 @@ mod tests;
 use super::{
     self as vlm,
     describer::{SceneDescriber, TimedFrame},
+    description::DescSegment,
     BackendConfig, VlmBackend, VlmError,
 };
 use crate::{
@@ -12,8 +13,9 @@ use crate::{
     compute_jobs::{ComputePhase, JobReporter},
 };
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, OnceLock, Weak},
 };
 
 #[derive(Debug, thiserror::Error)]
@@ -98,14 +100,13 @@ impl DescriptionRunner {
             &language,
             request.purpose,
         );
-        let dest = self.cache.description(&key);
+        let file = DescriptionFile::new(self.cache.description(&key));
 
         // Load the prior runs; a window already covered is answered with NO engine
-        // spawn unless the caller asked for a fresh run.
-        let mut cache: vlm::DescriptionCache = match tokio::fs::read(&dest).await {
-            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
-            Err(_) => vlm::DescriptionCache::default(),
-        };
+        // spawn unless the caller asked for a fresh run. A refresh forgets the
+        // window's run here and on disk with its first finished chunk, so a call
+        // that fails before one keeps the old run.
+        let mut cache = file.read().await;
         let window = request.window;
         if request.refresh {
             cache.discard(window);
@@ -133,7 +134,7 @@ impl DescriptionRunner {
             summary_step = (total, total + 1);
             let run = describe_chunks(
                 job,
-                &dest,
+                &file,
                 &mut cache,
                 ChunkedDescribe {
                     window,
@@ -145,6 +146,7 @@ impl DescriptionRunner {
                     focus,
                     language: language.clone(),
                     extra_steps: u32::from(summarize),
+                    refresh: request.refresh,
                 },
             );
             run.await?;
@@ -152,7 +154,7 @@ impl DescriptionRunner {
         let summary = if summarize {
             summarize_run(
                 job,
-                &dest,
+                &file,
                 &mut cache,
                 SummaryWork {
                     window,
@@ -231,11 +233,69 @@ impl FrameSampler for VideoFrames {
     }
 }
 
+/// One description file, shared by every call over the same source and view.
+/// A write re-reads the file and applies only this call's change, under a
+/// process-wide lock per file: two calls over different windows each persist
+/// their own run, where writing back a copy read at the start would drop the
+/// other's.
+struct DescriptionFile {
+    dest: PathBuf,
+    lock: Arc<tokio::sync::Mutex<()>>,
+}
+
+impl DescriptionFile {
+    fn new(dest: PathBuf) -> Self {
+        let lock = file_lock(&dest);
+        Self { dest, lock }
+    }
+
+    /// The runs the file holds; a missing or unreadable file holds none.
+    async fn read(&self) -> vlm::DescriptionCache {
+        match tokio::fs::read(&self.dest).await {
+            Ok(bytes) => serde_json::from_slice(&bytes).unwrap_or_default(),
+            Err(_) => vlm::DescriptionCache::default(),
+        }
+    }
+
+    /// Apply `change` to what the file holds now and persist it, so a cancel
+    /// or a later failure keeps it. Answers the runs as written, other calls'
+    /// included.
+    async fn update(
+        &self,
+        change: impl FnOnce(&mut vlm::DescriptionCache),
+    ) -> Result<vlm::DescriptionCache, DescriptionError> {
+        let _held = self.lock.lock().await;
+        let mut cache = self.read().await;
+        change(&mut cache);
+        write_description_atomic(&self.dest, &cache)
+            .await
+            .map_err(|e| DescriptionError::Operation(format!("persist description: {e:#}")))?;
+        Ok(cache)
+    }
+}
+
+/// The lock for one description file, alive while any call holds it.
+fn file_lock(dest: &Path) -> Arc<tokio::sync::Mutex<()>> {
+    type Locks = std::sync::Mutex<HashMap<PathBuf, Weak<tokio::sync::Mutex<()>>>>;
+    static LOCKS: OnceLock<Locks> = OnceLock::new();
+    let mut locks = LOCKS
+        .get_or_init(Default::default)
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    locks.retain(|_, lock| lock.strong_count() > 0);
+    if let Some(lock) = locks.get(dest).and_then(Weak::upgrade) {
+        return lock;
+    }
+    let lock = Arc::new(tokio::sync::Mutex::new(()));
+    locks.insert(dest.to_path_buf(), Arc::downgrade(&lock));
+    lock
+}
+
 /// Persist a `DescriptionCache` JSON atomically (temp → promote), mirroring
 /// `write_voiceover_atomic`.
 async fn write_description_atomic(
-    dest: &std::path::Path,
-    cache: &crate::vlm::DescriptionCache,
+    dest: &Path,
+    cache: &vlm::DescriptionCache,
 ) -> Result<(), anyhow::Error> {
     use crate::cache::{cached_ok, discard_temp, promote_temp, temp_path};
     use anyhow::Context;
@@ -270,12 +330,12 @@ const SUMMARY_OUTLINE_CHARS: usize = 3000;
 struct SummaryWork {
     window: [i64; 2],
     sampler: Arc<dyn FrameSampler>,
-    describer: std::sync::Arc<dyn crate::vlm::describer::SceneDescriber>,
+    describer: Arc<dyn SceneDescriber>,
     frames: usize,
     fps: f64,
-    source: std::path::PathBuf,
-    focus: crate::vlm::Focus,
-    language: crate::vlm::Language,
+    source: PathBuf,
+    focus: vlm::Focus,
+    language: vlm::Language,
     step: (u32, u32),
 }
 
@@ -290,12 +350,11 @@ struct SummaryWork {
 /// sub-window answered from a wider one) has no summary of its own.
 async fn summarize_run(
     job: &JobReporter,
-    dest: &std::path::Path,
-    cache: &mut crate::vlm::DescriptionCache,
+    file: &DescriptionFile,
+    cache: &mut vlm::DescriptionCache,
     work: SummaryWork,
 ) -> Result<Option<String>, DescriptionError> {
     use crate::compute_jobs::ModelPhase;
-    use crate::vlm;
 
     let Some(run) = cache.runs.iter().find(|r| r.window == work.window) else {
         return Ok(None);
@@ -352,15 +411,22 @@ async fn summarize_run(
     };
     match attempt.await {
         Ok(summary) => {
-            if let Some(run) = cache.runs.iter_mut().find(|r| r.window == work.window) {
-                run.summary = Some(summary.clone());
-            }
-            persist_description(dest, cache).await?;
+            // Only onto a run still whole: a refresh of the window that began
+            // meanwhile has not earned it.
+            *cache = file
+                .update(|c| {
+                    if let Some(run) = c.runs.iter_mut().find(|r| r.window == work.window) {
+                        if run.is_complete() {
+                            run.summary = Some(summary.clone());
+                        }
+                    }
+                })
+                .await?;
             Ok(Some(summary))
         }
         Err(e) => {
             tracing::warn!(
-                "describe_clip: summary of [{}, {}] failed, answering without one: {}",
+                "description: summary of [{}, {}] failed, answering without one: {}",
                 work.window[0],
                 work.window[1],
                 e
@@ -374,7 +440,7 @@ async fn summarize_run(
 /// per segment, in seconds from the window's start (the frames' clock). Over
 /// [`SUMMARY_OUTLINE_CHARS`], every k-th line is kept so the outline still spans
 /// the whole window.
-fn summary_outline(segments: &[crate::vlm::description::DescSegment], start_us: i64) -> String {
+fn summary_outline(segments: &[vlm::description::DescSegment], start_us: i64) -> String {
     let secs = |us: i64| (us - start_us) as f64 / 1_000_000.0;
     let lines: Vec<String> = segments
         .iter()
@@ -400,19 +466,21 @@ fn summary_outline(segments: &[crate::vlm::description::DescSegment], start_us: 
     out.trim_end().to_string()
 }
 
-/// One `describe_clip` run's work: its window, the chunk plan, and what every
+/// One description run's work: its window, the chunk plan, and what every
 /// chunk request needs.
 struct ChunkedDescribe {
     window: [i64; 2],
     sampler: Arc<dyn FrameSampler>,
-    chunks: Vec<crate::vlm::frame_extract::Chunk>,
-    describer: std::sync::Arc<dyn crate::vlm::describer::SceneDescriber>,
+    chunks: Vec<vlm::frame_extract::Chunk>,
+    describer: Arc<dyn SceneDescriber>,
     concurrency: usize,
-    source: std::path::PathBuf,
-    focus: crate::vlm::Focus,
-    language: crate::vlm::Language,
+    source: PathBuf,
+    focus: vlm::Focus,
+    language: vlm::Language,
     /// Steps after the chunks that the `Inferring` count includes (the summary).
     extra_steps: u32,
+    /// The window's prior run is forgotten on disk with the first chunk persisted.
+    refresh: bool,
 }
 
 /// Describe the run over `work.window` chunk by chunk, persisting after each:
@@ -426,12 +494,11 @@ struct ChunkedDescribe {
 /// `Inferring` counts finished chunks out of the plan's.
 async fn describe_chunks(
     job: &JobReporter,
-    dest: &std::path::Path,
-    cache: &mut crate::vlm::DescriptionCache,
+    file: &DescriptionFile,
+    cache: &mut vlm::DescriptionCache,
     work: ChunkedDescribe,
 ) -> Result<(), DescriptionError> {
     use crate::compute_jobs::ModelPhase;
-    use crate::vlm;
 
     let total_chunks = work.chunks.len() as u32;
     let pending: Vec<vlm::frame_extract::Chunk> = {
@@ -443,6 +510,14 @@ async fn describe_chunks(
     };
     let mut finished = total_chunks - pending.len() as u32;
     let steps = total_chunks + work.extra_steps;
+    let mut discard = work.refresh;
+    let window = work.window;
+    let mut record = |c: &mut vlm::DescriptionCache, chunk: [i64; 2], fresh: Vec<DescSegment>| {
+        if std::mem::take(&mut discard) {
+            c.discard(window);
+        }
+        c.run_for(window).record_chunk(chunk, fresh);
+    };
 
     if work.concurrency <= 1 || pending.len() <= 1 {
         let total_frames: u32 = pending.iter().map(|c| c.anchors.len() as u32).sum();
@@ -482,8 +557,7 @@ async fn describe_chunks(
                 )
                 .await?;
             let fresh = chunk_segments(raw, chunk.window)?;
-            cache.run_for(work.window).record_chunk(chunk.window, fresh);
-            persist_description(dest, cache).await?;
+            *cache = file.update(|c| record(c, chunk.window, fresh)).await?;
             finished += 1;
         }
         return Ok(());
@@ -504,21 +578,19 @@ async fn describe_chunks(
             let (focus, language) = (work.focus, work.language.clone());
             in_flight.spawn(async move {
                 let result = async {
-                    let tmp = tempfile::Builder::new()
-                        .prefix("weftcut-vlm")
-                        .tempdir()
-                        .map_err(vlm::VlmError::Io)?;
+                    let tmp = chunk_dir()?;
                     let frames = sampler
                         .sample(&source, chunk.window[0], tmp.path(), &chunk.anchors, None)
                         .await?;
-                    describer
+                    let raw = describer
                         .describe(vlm::DescribeRequest {
                             frames,
                             focus,
                             language,
                             task: vlm::Task::Timeline,
                         })
-                        .await
+                        .await?;
+                    Ok::<_, DescriptionError>(raw)
                 }
                 .await;
                 (chunk, result)
@@ -530,8 +602,7 @@ async fn describe_chunks(
         let (chunk, result) =
             joined.map_err(|e| DescriptionError::Operation(format!("describe chunk: {e}")))?;
         let fresh = chunk_segments(result?, chunk.window)?;
-        cache.run_for(work.window).record_chunk(chunk.window, fresh);
-        persist_description(dest, cache).await?;
+        *cache = file.update(|c| record(c, chunk.window, fresh)).await?;
         finished += 1;
         job.phase(ComputePhase::Inferring {
             done: Some(finished),
@@ -539,16 +610,6 @@ async fn describe_chunks(
         });
     }
     Ok(())
-}
-
-/// Persist the runs after a chunk, so a cancel or a later failure keeps it.
-async fn persist_description(
-    dest: &std::path::Path,
-    cache: &crate::vlm::DescriptionCache,
-) -> Result<(), DescriptionError> {
-    write_description_atomic(dest, cache)
-        .await
-        .map_err(|e| DescriptionError::Operation(format!("persist description: {e:#}")))
 }
 
 /// A per-chunk frame directory, RAII-cleaned once its request is answered.
@@ -563,11 +624,11 @@ fn chunk_dir() -> Result<tempfile::TempDir, DescriptionError> {
 /// chunk-relative, so they shift by the chunk's start and are held inside the
 /// chunk (a model may run a segment past its last frame).
 fn chunk_segments(
-    raw: crate::vlm::parser::RawDescription,
+    raw: vlm::parser::RawDescription,
     [start, end]: [i64; 2],
-) -> Result<Vec<crate::vlm::description::DescSegment>, DescriptionError> {
-    let mut fresh = crate::vlm::parse_raw(raw)?;
-    crate::vlm::shift_segments(&mut fresh, start);
+) -> Result<Vec<vlm::description::DescSegment>, DescriptionError> {
+    let mut fresh = vlm::parse_raw(raw)?;
+    vlm::shift_segments(&mut fresh, start);
     for s in &mut fresh {
         s.t_start_us = s.t_start_us.clamp(start, end);
         s.t_end_us = s.t_end_us.clamp(s.t_start_us, end);

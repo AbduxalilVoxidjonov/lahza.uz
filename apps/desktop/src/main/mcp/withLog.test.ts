@@ -15,6 +15,7 @@ import { MCP_TOOL_DEFS } from '../state/mcp-commands'
 import { MOTIF_TOOL_DEFS } from './motifToolDefs'
 import { HYBRID_TOOLS, MOTIF_TOOLS } from './mutationTools'
 import { createActor } from '../state/actor'
+import { createMediaImporter } from '../state/mediaImport'
 import { HISTORY_SUMMARY } from '../state/history-labels'
 import { uuidV7Gen } from '../state/ids'
 import { blankProject } from '../state/model'
@@ -76,7 +77,7 @@ function tsHostStub(compute: Record<string, unknown> = {}) {
     snapshotComposition: () => root(actor.snapshot()),
   }
   return {
-    actor, hybridDeps,
+    actor, hybridDeps, mediaImporter: createMediaImporter(hybridDeps),
     mcpCall: (name: string, argsJson: string) => actor.mcpCall(name, argsJson),
     motifTool: () => [],
     beginAgentSessionSlot: () => {},

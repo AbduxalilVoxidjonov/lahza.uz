@@ -112,6 +112,19 @@ describe("descriptionsStore", () => {
     });
   });
 
+  it("a run's re-read still lands when another clip is selected meanwhile", async () => {
+    const summary = { window: [0, 6_000_000] as [number, number], text: "A hallway, then a door." };
+    mergeDescription("m-1", 0, 6_000_000, CACHE.segments);
+    let answer!: (cache: DescriptionCache) => void;
+    mocks.getMediaDescription.mockImplementationOnce(() => new Promise(resolve => { answer = resolve; }));
+    const reload = reloadDescription("m-1");
+    await hydrateDescription("m-2");
+    answer({ ...CACHE, summaries: [summary] });
+    await reload;
+    expect(useDescriptionsStore.getState().contents.get("m-1")?.summaries).toEqual([summary]);
+    expect(held("m-2")).toEqual(CACHE.segments);
+  });
+
   it("does not re-read a source it already has segments for", async () => {
     await hydrateDescription("m-1");
     await hydrateDescription("m-1");

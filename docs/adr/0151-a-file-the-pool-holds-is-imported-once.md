@@ -78,11 +78,12 @@ deletes its file, so a file recorded in place is as safe as a copy.
 coordination, session validation and import completion. It reports added,
 reused or relinked explicitly; its outcome also preserves whether the pool held
 the item at call entry and which other items hold the same content. MCP shapes
-that outcome into the existing record; renderer IPC keeps returning the media
-id. A result does not promise that background derivatives or copying finished.
+that outcome into the existing record, adding `relinked: true` for a relink;
+renderer IPC keeps returning the media id. Neither goes through `runHybrid`:
+both hosts call the importer directly and shape its typed outcome. A result does not promise that background derivatives or copying finished.
 The session is checked again after copy enqueue returns, before reporting
 completion or returning an outcome to either caller.
 
-In-flight coordination uses the actor's stable snapshot function, shared by
-agent-scoped dispatch adapters. Joining another import performs no writes under
-the joining caller. Media resource reads remain independent and read-only.
+The host builds one `MediaImporter` per actor, and it owns the in-flight
+registry; an agent's call passes its actor as `by` rather than a dispatch
+adapter. Joining another import performs no writes under the joining caller. Media resource reads remain independent and read-only.

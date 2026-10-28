@@ -324,3 +324,56 @@ async fn invalid_density_and_oversized_windows_do_no_sampling_or_inference() {
     assert!(frames.0.lock().unwrap().is_empty());
     assert!(engine.calls.lock().unwrap().is_empty());
 }
+
+/// Answers every chunk, holding the second until `release`; says when it got there.
+#[derive(Default)]
+struct Gated {
+    calls: AtomicUsize,
+    second: tokio::sync::Notify,
+    release: tokio::sync::Notify,
+}
+
+#[async_trait::async_trait]
+impl SceneDescriber for Arc<Gated> {
+    async fn describe(&self, _: DescribeRequest) -> Result<RawDescription, VlmError> {
+        if self.calls.fetch_add(1, Ordering::SeqCst) == 1 {
+            self.second.notify_one();
+            self.release.notified().await;
+        }
+        Ok(RawDescription::JsonArray(
+            serde_json::json!([{ "t_start": 0, "t_end": 2, "text": "scene", "tags": [] }])
+                .to_string(),
+        ))
+    }
+}
+
+#[tokio::test]
+async fn concurrent_calls_over_other_windows_of_one_source_keep_each_others_runs() {
+    let dir = tempfile::tempdir().unwrap();
+    let shot = |window| DescriptionRequest {
+        window,
+        purpose: DescriptionPurpose::Shot,
+        ..request()
+    };
+    let gated = Arc::new(Gated::default());
+    let (first, _, first_job) = runner(dir.path(), Box::new(gated.clone()), 1);
+    let (second, _, second_job) = runner(dir.path(), Box::new(script([Reply::Timeline("b")])), 1);
+    // The first call has persisted its first chunk and holds the rest while the
+    // second describes another window of the same source and view.
+    let (a, b) = tokio::join!(first.describe(shot([0, 4_000_000]), &first_job), async {
+        gated.second.notified().await;
+        let b = second
+            .describe(shot([10_000_000, 12_000_000]), &second_job)
+            .await;
+        gated.release.notify_one();
+        b
+    });
+    a.unwrap();
+    b.unwrap();
+    // Both windows answer from the file with no inference.
+    let (reader, _, job) = runner(dir.path(), Box::new(script([])), 1);
+    for window in [[0, 4_000_000], [10_000_000, 12_000_000]] {
+        let held = reader.describe(shot(window), &job).await.unwrap();
+        assert!(!held.segments.is_empty(), "{window:?} lost");
+    }
+}

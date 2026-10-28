@@ -38,7 +38,7 @@ import { NO_PROJECT_OPEN_MESSAGE, noProjectOpenResult, toolErrorResult, thrownTo
 import { toolRecord } from '../state/mcp-results.js'
 import { mcpActor } from '../state/mcp-actor.js'
 import { argProblemMessage } from './argCheck.js'
-import { shapeHybridResult } from './hybridResult.js'
+import { shapeHybridResult, shapeImportResult } from './hybridResult.js'
 import { PROJECT_TOOLS, runProjectTool } from './projectTools.js'
 import { MOTIF_TOOL_DEFS, MOTIF_RESOURCE_DEFS } from './motifToolDefs.js'
 import { HOST_RESOURCE_DEFS, HOST_RESOURCE_TEMPLATES, mediaResourceDefs } from './hostResources.js'
@@ -518,15 +518,19 @@ async function dispatchTool(
       tsHost.exportJobs?.assertWritable()
       const refused = await refuseBadArgs(backend, name, args)
       if (refused) return refused
-      // Native-compute → TS-write. Import outcomes carry their disposition;
-      // the adapter shapes them as the agent's committed media record.
       // Every commit the hybrid makes records as this call's agent: `by` rides
       // each synchronous dispatch, so a second hybrid in flight cannot cross it.
       const by = mcpActor(client)
+      // An import answers its outcome over the committed media record; the
+      // importer is the host's, so it joins imports of the same file in flight.
+      if (name === 'import_media') {
+        const outcome = await tsHost.mediaImporter.ensureImported(args.path as string, { by })
+        return shapeImportResult(outcome, tsHost.actor.snapshot()) as unknown as ServerResult
+      }
+      // Native-compute → TS-write.
       const hybridActor = tsHost.hybridDeps.actor
       const deps = { ...tsHost.hybridDeps, actor: { ...hybridActor, dispatch: (c: string, a: Record<string, unknown>) => hybridActor.dispatch(c, a, by) } }
-      const result = await runHybrid(name, args, deps)
-      return shapeHybridResult(name, result, tsHost.actor.snapshot()) as unknown as ServerResult
+      return shapeHybridResult(await runHybrid(name, args, deps)) as unknown as ServerResult
     }
     if (route === 'motif') {
       // Catalog-read + authoring + install, served in TS. The raw value

@@ -6,6 +6,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { handleCallTool } from './server'
 import { createActor } from '../state/actor'
+import { createMediaImporter } from '../state/mediaImport'
 import { createTsActorHost } from '../state/ts-actor-host'
 import { uuidV7Gen } from '../state/ids'
 import { blankProject } from '../state/model'
@@ -37,7 +38,7 @@ function host() {
     statPath: () => ({ kind: 'file' as const, readable: true }),
     snapshotComposition: () => root(actor.snapshot()),
   }
-  return { actor, mcpCall: (n: string, a: string, c?: string) => actor.mcpCall(n, a, c), hybridDeps, handleInvoke: async () => null, start: () => {}, stop: () => {} } as any
+  return { actor, mcpCall: (n: string, a: string, c?: string) => actor.mcpCall(n, a, c), hybridDeps, mediaImporter: createMediaImporter(hybridDeps), handleInvoke: async () => null, start: () => {}, stop: () => {} } as any
 }
 const lastOp = (ts: any) => { const v = ts.actor.historyView(50); return v.ops[v.ops.length - 1] }
 

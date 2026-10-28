@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { rasterSize, svgIntrinsicSize } from './svgRaster'
 import { createActor } from './state/actor'
 import { seededGen } from './state/ids'
-import { ensureImported, type MediaImportDeps } from './state/mediaImport'
+import { createMediaImporter, type MediaImportDeps } from './state/mediaImport'
 import { blankProject } from './state/model'
 
 describe('SVG on import', () => {
@@ -35,10 +35,10 @@ describe('SVG on import', () => {
       workspaceDir: () => null,
       actor,
     }
-    await expect(ensureImported('/w/brain.SVG', deps)).rejects.toThrow(/is an SVG, which this host cannot draw/)
-    await expect(ensureImported('/w/brain.svg', { ...deps, rasterizeSvg: async () => '/cache/svg-import/k/brain.png' })).rejects.toThrow(/probing \/cache\/svg-import\/k\/brain.png failed/)
+    await expect(createMediaImporter(deps).ensureImported('/w/brain.SVG')).rejects.toThrow(/is an SVG, which this host cannot draw/)
+    await expect(createMediaImporter({ ...deps, rasterizeSvg: async () => '/cache/svg-import/k/brain.png' }).ensureImported('/w/brain.svg')).rejects.toThrow(/probing \/cache\/svg-import\/k\/brain.png failed/)
     expect(probed).toEqual(['/cache/svg-import/k/brain.png'])
-    await expect(ensureImported('/w/bad.svg', { ...deps, rasterizeSvg: async () => { throw new Error('not an SVG this app can draw') } })).rejects.toThrow(/drawing \/w\/bad.svg failed: not an SVG/)
+    await expect(createMediaImporter({ ...deps, rasterizeSvg: async () => { throw new Error('not an SVG this app can draw') } }).ensureImported('/w/bad.svg')).rejects.toThrow(/drawing \/w\/bad.svg failed: not an SVG/)
     expect(actor.snapshot().media_pool).toEqual({})
   })
 })

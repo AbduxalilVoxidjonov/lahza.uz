@@ -84,6 +84,12 @@ names a resolved source window; its result is a `SceneDescription`, and its
 errors contain no MCP types. The MCP adapter resolves the layer and engine,
 attaches the compute job, and maps the result and errors onto the wire.
 
+Calls over the same source and view share one description file. Each write
+re-reads it and applies only that call's change (a finished chunk, a summary, a
+refresh's discard with its first chunk) under a process-wide lock per file, so
+concurrent calls over different windows keep each other's runs. A summary is
+attached only to a run that is still whole when it lands.
+
 The runner uses the existing `SceneDescriber` interface for inference and a
 private frame-sampling seam. Cross-platform tests exercise persistence, resume,
 refresh, cancellation and concurrent chunks through `describe`, using a real

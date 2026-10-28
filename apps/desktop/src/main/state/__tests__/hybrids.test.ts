@@ -92,13 +92,6 @@ function makeDeps(actor: ActorHandle, opts: {
   })
 }
 
-describe('runHybrid: import_media adapter', () => {
-  it('returns the explicit import outcome for the transport adapters', async () => {
-    expect(await runHybrid('import_media', { path: 'C:/x.mp4' }, makeDeps(freshActor())))
-      .toEqual({ mediaId: MID, disposition: 'added', existing: false, sameContentAs: [] })
-  })
-})
-
 describe('runHybrid: unhandled tool', () => {
   it('throws for a tool with no arm', async () => {
     const actor = freshActor()

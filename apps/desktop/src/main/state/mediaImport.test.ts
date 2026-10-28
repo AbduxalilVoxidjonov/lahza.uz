@@ -4,7 +4,8 @@ import { createActor, type ActorHandle } from './actor'
 import { seededGen } from './ids'
 import { blankProject, type MediaItem } from './model'
 import { mediaItemTemplate } from './mutations/media'
-import { ensureImported, type MediaImportDeps, type PathFacts } from './mediaImport'
+import { createMediaImporter, type MediaImportDeps, type MediaImporter, type PathFacts } from './mediaImport'
+import type { Actor } from './history'
 import { root } from './__tests__/fixtures/project'
 import { ImportDiagnostics } from '../importDiagnostics'
 
@@ -57,6 +58,15 @@ function makeDeps(actor: ActorHandle, opts: {
   })
 }
 
+// One importer per deps, as one host builds one: imports through the same deps
+// share its in-flight registry, and a deps field a test swaps is read per call.
+const importers = new WeakMap<MediaImportDeps, MediaImporter>()
+function ensureImported(asked: string, deps: MediaImportDeps, by?: Actor) {
+  let importer = importers.get(deps)
+  if (!importer) importers.set(deps, importer = createMediaImporter(deps))
+  return importer.ensureImported(asked, { by })
+}
+
 // Most regression cases assert the resulting media id and state. Outcome cases
 // below exercise the richer contract directly through the same interface.
 async function importFile(args: { path: string }, deps: MediaImportDeps): Promise<string> {
@@ -93,20 +103,22 @@ describe('ensureImported', () => {
     expect(actor.snapshot().media_pool[MID].path_abs).toBe('D:/backup.mp4')
   })
 
-  it('joins an import across actor adapters without attributing writes to the joining caller', async () => {
+  it('joins an import across callers without attributing writes to the joining caller', async () => {
     const actor = freshActor(), deps = makeDeps(actor)
     deps._probeMedia.mockImplementation(async (path_abs: string) => JSON.stringify({ ...probedItem(), path_abs, file_hash_blake3: 'pending-x' }))
     let finish!: (hash: string) => void
     deps._hashMediaSource.mockImplementation(() => new Promise<string>(resolve => { finish = resolve }))
-    const ownerDispatch = vi.fn(actor.dispatch), joiningDispatch = vi.fn(actor.dispatch)
-    const first = ensureImported('C:/x.mp4', { ...deps, actor: { ...actor, dispatch: ownerDispatch } })
+    const dispatch = vi.spyOn(actor, 'dispatch')
+    const owner: Actor = { kind: 'Agent', client: 'owner' }, joining: Actor = { kind: 'Agent', client: 'joining' }
+    const first = ensureImported('C:/x.mp4', deps, owner)
     await vi.waitFor(() => expect(deps._hashMediaSource).toHaveBeenCalledOnce())
-    const second = ensureImported('C:/x.mp4', { ...deps, actor: { ...actor, dispatch: joiningDispatch } })
+    const second = ensureImported('C:/x.mp4', deps, joining)
     await vi.waitFor(() => expect(deps._probeMedia).toHaveBeenCalledTimes(2))
     finish('hash')
     expect((await first).disposition).toBe('added')
     expect(await second).toMatchObject({ mediaId: MID, disposition: 'reused', existing: true })
-    expect(joiningDispatch).not.toHaveBeenCalled()
+    expect(dispatch.mock.calls.map(c => c[2])).toEqual(dispatch.mock.calls.map(() => owner))
+    expect(dispatch).toHaveBeenCalled()
     expect(deps._hashMediaSource).toHaveBeenCalledOnce()
     expect(deps._enqueueDerivatives).toHaveBeenCalledOnce()
   })
