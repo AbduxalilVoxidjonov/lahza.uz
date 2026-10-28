@@ -148,6 +148,21 @@ Xulosa:
   Vaqtning ~70% i ~1.9k tokenli system prompt; har so'rovda server qayta yuklanadi
   (~5 s). Prompt keshli doimiy server yoki qisqaroq prompt eng katta yutuq beradi.
   Sekinroq CPU'da 90 s chegarasi xavfli bo'lishi mumkin (o'lchanmadi).
+* Issiq server o'lchovi (shu kompyuter, rozetkada, 5 buyruq x 2): birinchi so'rov **~33 s**
+  (yuklash + 1889 token), keyingilari **13–19 s** (1276 token keshdan, ~620 token kontekst +
+  so'rov qayta hisoblanadi); 10/10 reja to'g'ri. llama-server RSS cho'qqisi 5.8 GB.
+  Kontekst 16k → 12k (eng yomon holat ~10k token): 16k da issiq server 16 GB'li noutbukda
+  RAM yetmay qolardi. Sinab rad etilganlar: q8_0 KV + flash attention (0.8 GB tejaydi, lekin
+  CPU'da prompt 1.5x sekin); "context, request" tartibi (issiq so'rov 5–7 s, lekin
+  "subtitr + 2-klipda stop-kadr" buyrug'ida `freeze_clip` har safar tushib qoldi, 8/10).
+* Montaj rejasi issiq serverdan
+  foydalanadi (`core/llama_server.py` `WarmLlamaServer`): birinchi so'rovda ishga tushadi,
+  oxirgi so'rovdan `LAHZA_LLM_IDLE_S` (standart 300 s, `0` — o'chiq) keyin to'xtaydi,
+  model fayli o'zgarsa yoki jarayon o'lsa qayta ishga tushadi, engine to'xtashida
+  (lifespan, majburiy chiqish) yopiladi; Windows'da Job Object orqali engine bilan birga
+  o'ladi. So'rovda `cache_prompt: true`, system prompt + misollar har doim bir xil prefiks
+  (nonce yo'q), shuning uchun ikkinchi so'rovdan faqat kontekst va so'rov hisoblanadi.
+  Bo'sh turgan issiq server highlight `LlamaServer` so'rasa darhol bo'shaydi; `--cache-ram 256`.
 * LLM highlight bu CPU'da amaliy emas: 30 daq video uchun ~17 daq (≈ 10 daq video uchun
   ~5.5 daq, Mac'dagi 43 s ga qarshi), sifat ham Lite'dan yaxshiroqligi isbotlanmagan.
   Windows CPU'da Lite standarti to'g'ri.

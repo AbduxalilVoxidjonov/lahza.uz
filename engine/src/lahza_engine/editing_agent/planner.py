@@ -1,5 +1,6 @@
-"""Bounded local llama.cpp inference. Status never starts or downloads a model."""
+﻿"""Bounded local llama.cpp inference. Status never starts or downloads a model."""
 import json
+import logging
 import threading
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -7,7 +8,7 @@ from urllib.parse import urlsplit
 import httpx
 
 from lahza_engine.config import Settings
-from lahza_engine.core.llama_server import LlamaServer, LlamaServerBusy
+from lahza_engine.core.llama_server import LlamaServer, LlamaServerBusy, WarmLlamaServer
 from lahza_engine.editing_agent.executor import preview, revision, validate_timeline
 from lahza_engine.editing_agent.model import OPERATIONS, EditPlan, PlanIn, PlanOut, Proposal, Status
 from lahza_engine.editing_agent.prompts import SYSTEM_PROMPT, build_prompt
@@ -17,8 +18,19 @@ from lahza_engine.media.tools import find_tool
 from lahza_engine.models.catalog import Task
 from lahza_engine.models.store import ModelStore, sniff_custom_file
 
+log = logging.getLogger(__name__)
+
 INFERENCE_LOCK = threading.Lock()
 CONTEXT_BUDGET = 12_000
+# Eng yomon holat ~10k token: system+misollar ~1.9k, kontekst <= CONTEXT_BUDGET belgi (~5k),
+# so'rov <= 2000 belgi, javob <= 2048. 16k issiq serverda 16 GB'li noutbukda RAM yetmay qolardi
+# (o'lchov: 12k - 5.8 GB cho'qqi). q8_0 KV 0.8 GB tejaydi, lekin CPU'da prompt 1.5x sekin - kerak emas.
+CTX_SIZE = 12288
+# Prefiksni qayta ishlatishga bitta slotning o'z KV keshi yetadi; llama.cpp standarti (RAM'da
+# 8 GiB gacha qo'shimcha prompt keshi) uzoq issiq turadigan server uchun ortiqcha.
+CACHE_RAM_MIB = 256
+# Issiq server: yuklash (~5 s) va system prompt + misollar KV keshi so'rovlar orasida saqlanadi.
+WARM = WarmLlamaServer()
 
 
 class Unavailable(RuntimeError):
@@ -115,24 +127,40 @@ class EditingClient(LlamaServerClient):
         # A configured outbound proxy must never receive local inference traffic.
         self._http = httpx.Client(timeout=httpx.Timeout(timeout_s, connect=5), trust_env=False,
                                   follow_redirects=False)
+        self.last_timings: dict = {}
 
     def complete_json(self, prompt: str, schema: dict, temperature: float = 0.2) -> str:
+        # Prefiks (system prompt + misollar) har so'rovda bayt-bayt bir xil va birinchi turadi:
+        # `cache_prompt` bilan issiq server faqat o'zgaruvchan qismni (kontekst, so'rov) hisoblaydi.
         response = self._http.post(f"{self.base_url}/v1/chat/completions", json={
             "model": self.model_id, "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                                                   {"role": "user", "content": prompt}],
             "temperature": temperature, "max_tokens": 2048,
             "chat_template_kwargs": {"enable_thinking": False},
+            "cache_prompt": True,
             "response_format": {"type": "json_schema", "json_schema": {
                 "name": "edit_plan", "schema": schema, "strict": True}},
         })
         response.raise_for_status()
-        choice = response.json()["choices"][0]
+        data = response.json()
+        timings = data.get("timings") if isinstance(data, dict) else None
+        self.last_timings = timings if isinstance(timings, dict) else {}
+        log.info("Montaj LLM: prompt=%s tok (keshdan %s), %.0f ms; chiqish=%s tok, %.0f ms",
+                 self.last_timings.get("prompt_n"), self.last_timings.get("cache_n"),
+                 self.last_timings.get("prompt_ms") or 0.0, self.last_timings.get("predicted_n"),
+                 self.last_timings.get("predicted_ms") or 0.0)
+        choice = data["choices"][0]
         if choice.get("finish_reason") == "length":
             raise ValueError("Local LLM output exceeded the token budget; request a smaller edit")
         message = choice["message"]
         if message.get("refusal"):
             raise ValueError("Local LLM refused this request")
         return message["content"]
+
+
+def shutdown() -> None:
+    """Issiq serverni yopish (engine to'xtashida `stop_warm_servers` ham shuni qiladi)."""
+    WARM.stop()
 
 
 def plan(body: PlanIn, store: ModelStore, settings: Settings | None = None) -> PlanOut:
@@ -149,12 +177,13 @@ def plan(body: PlanIn, store: ModelStore, settings: Settings | None = None) -> P
             raise Unavailable("Local llama-server runtime unavailable: " + str(exc)) from exc
         context = compact_context(body)
         prompt = build_prompt(body.prompt, context)
-        server = LlamaServer(path, ctx_size=16384, startup_timeout_s=90)
-        entered = False
+        stat = path.stat()
+        # Model fayli almashsa (yo'l, hajm yoki mtime) issiq server qayta ishga tushadi.
+        key = (str(path), stat.st_size, stat.st_mtime_ns, CTX_SIZE)
         try:
-            # __enter__ may fail after launching; explicitly close that partial startup too.
-            with server as url:
-                entered = True
+            # Ishga tushish xatosida (qisman start ham) lease serverni o'zi yopadi.
+            with WARM.lease(key, lambda: LlamaServer(path, ctx_size=CTX_SIZE, startup_timeout_s=90,
+                                                     cache_ram_mib=CACHE_RAM_MIB)) as url:
                 parsed = urlsplit(url)
                 if parsed.scheme != "http" or parsed.hostname != "127.0.0.1":
                     raise Unavailable("Inference endpoint must be HTTP IPv4 loopback")
@@ -167,9 +196,6 @@ def plan(body: PlanIn, store: ModelStore, settings: Settings | None = None) -> P
             raise Busy(str(exc)) from exc
         except (httpx.HTTPError, OSError, TimeoutError, RuntimeError) as exc:
             raise Unavailable("Local LLM inference unavailable: " + str(exc)) from exc
-        finally:
-            if not entered:
-                server.__exit__(None, None, None)
         if not isinstance(raw, str) or len(raw) > 32_000:
             raise ValueError("Local LLM returned invalid or oversized JSON")
         proposal = Proposal.model_validate_json(raw)

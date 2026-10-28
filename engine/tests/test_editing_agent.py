@@ -1,5 +1,7 @@
 """Editing agent contract, isolated executor, and mocked local inference."""
 
+from unittest.mock import Mock
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -99,6 +101,14 @@ def store(tmp_path):
     return store
 
 
+@pytest.fixture(autouse=True)
+def cold_planner():
+    """Issiq server testlar orasida o'tib ketmasin."""
+    planner.shutdown()
+    yield
+    planner.shutdown()
+
+
 @pytest.fixture
 def inference(monkeypatch, store, timeline):
     events = []
@@ -106,13 +116,16 @@ def inference(monkeypatch, store, timeline):
     class Server:
         def __init__(self, *a, **kw):
             events.append("init")
+            self.proc = None
 
         def __enter__(self):
             events.append("enter")
+            self.proc = Mock(**{"poll.return_value": None})
             return "http://127.0.0.1:12345"
 
         def __exit__(self, *a):
             events.append("exit")
+            self.proc = None
 
     monkeypatch.setattr(planner, "LlamaServer", Server)
     monkeypatch.setattr(planner, "find_tool", lambda name: "/local/llama-server")
@@ -132,8 +145,11 @@ def test_planning_context_and_cleanup(store, timeline, inference, monkeypatch):
     result = planner.plan(PlanIn(prompt="film color", timeline=timeline), store)
     assert result.model_id == "test"
     assert result.plan.commands[0].tool == "set_color"
-    assert "close" in inference and "exit" in inference
+    # Muvaffaqiyatli so'rovdan keyin server issiq qoladi; shutdown uni yopadi.
+    assert "close" in inference and "exit" not in inference and planner.WARM.running
     assert not planner.INFERENCE_LOCK.locked()
+    planner.shutdown()
+    assert inference[-1] == "exit" and not planner.WARM.running
 
 
 @pytest.mark.parametrize("raw", ["not json", '{}', '{"unknown":true}',
@@ -142,7 +158,8 @@ def test_malformed_completion(store, timeline, inference, monkeypatch, raw):
     monkeypatch.setattr(planner.EditingClient, "complete_json", lambda *a: raw)
     with pytest.raises(ValueError):
         planner.plan(PlanIn(prompt="change", timeline=timeline), store)
-    assert "close" in inference and "exit" in inference
+    # Yaroqsiz javob server nosozligi emas: issiq server qoladi.
+    assert "close" in inference and "exit" not in inference
     assert not planner.INFERENCE_LOCK.locked()
 
 
@@ -310,6 +327,7 @@ def test_client_request_limits(monkeypatch):
     finally:
         client.close()
     assert captured["max_tokens"] == 2048
+    assert captured["cache_prompt"] is True
     assert captured["chat_template_kwargs"] == {"enable_thinking": False}
     assert captured["response_format"]["json_schema"]["strict"] is True
 
@@ -541,3 +559,76 @@ def test_highlight_shared_llm_slot_maps_to_editing_409(tmp_path, store, timeline
         assert llama_server._LLM_LOCK.locked()
     assert timeline.to_json() == before
     assert not planner.INFERENCE_LOCK.locked()
+
+
+def test_warm_server_reused_between_plans(store, timeline, inference):
+    for _ in range(3):
+        planner.plan(PlanIn(prompt="color", timeline=timeline), store)
+    assert inference.count("init") == 1 and inference.count("enter") == 1
+    assert inference.count("close") == 3 and "exit" not in inference
+
+
+def test_warm_server_restarts_after_death_and_model_change(store, timeline, inference, monkeypatch):
+    servers = []
+    original = planner.LlamaServer
+
+    def factory(*a, **kw):
+        servers.append(original(*a, **kw))
+        return servers[-1]
+    monkeypatch.setattr(planner, "LlamaServer", factory)
+    planner.plan(PlanIn(prompt="color", timeline=timeline), store)
+    servers[0].proc.poll.return_value = 1  # jarayon o'z-o'zidan o'ldi
+    planner.plan(PlanIn(prompt="color", timeline=timeline), store)
+    assert len(servers) == 2 and inference.count("exit") == 1
+    _, path = planner.local_model(store)
+    path.write_bytes(b"GGUFtest-new-model")  # hajm/mtime o'zgardi
+    planner.plan(PlanIn(prompt="color", timeline=timeline), store)
+    assert len(servers) == 3 and inference.count("exit") == 2
+    assert planner.WARM.running
+
+
+def test_warm_server_discarded_after_inference_error(store, timeline, inference, monkeypatch):
+    import httpx
+
+    def fail(*a):
+        raise httpx.ConnectError("server died mid-request")
+    monkeypatch.setattr(planner.EditingClient, "complete_json", fail)
+    with pytest.raises(planner.Unavailable):
+        planner.plan(PlanIn(prompt="color", timeline=timeline), store)
+    assert inference[-1] == "exit" and not planner.WARM.running
+
+
+def test_engine_shutdown_stops_warm_server(tmp_path, store, timeline, inference):
+    app = create_app(Settings(data_dir=tmp_path / "api"), token="test")
+    app.state.lahza.store = store
+    with TestClient(app) as client:
+        client.headers["Authorization"] = "Bearer test"
+        response = client.post("/v1/editing-agent:plan", json={"prompt": "color",
+                                                             "timeline": timeline.to_json()})
+        assert response.status_code == 200
+        assert planner.WARM.running and "exit" not in inference
+    assert inference[-1] == "exit" and not planner.WARM.running
+
+
+def test_idle_timeout_env(store, timeline, inference, monkeypatch):
+    monkeypatch.setenv("LAHZA_LLM_IDLE_S", "0")  # 0 - issiq server o'chiq, avvalgi xatti-harakat
+    planner.plan(PlanIn(prompt="color", timeline=timeline), store)
+    assert inference[-1] == "exit" and not planner.WARM.running
+
+
+def test_prompt_cache_prefix_is_byte_identical(timeline):
+    from lahza_engine.editing_agent.prompts import build_prompt
+    first = build_prompt("Ranglarni iliqroq qil", planner.compact_context(
+        PlanIn(prompt="x", timeline=timeline)))
+    timeline.captions.enabled = not timeline.captions.enabled
+    second = build_prompt("Subtitrlarni o'chir", planner.compact_context(
+        PlanIn(prompt="y", timeline=timeline)))
+    marker = "\nActual request and context:\n"
+    prefix = first[:first.index(marker) + len(marker)]
+    # O'zgaruvchan qism (so'rov, kontekst) faqat keshlanadigan prefiksdan keyin keladi.
+    assert second.startswith(prefix) and first != second
+    assert build_prompt("Subtitrlarni o'chir", planner.compact_context(
+        PlanIn(prompt="y", timeline=timeline))) == second  # deterministik, nonce yo'q
+    assert prefix.count("{") > 10  # misollar prefiks ichida
+    # Tartib ataylab "request, context": "context, request" tezroq (timeline ham keshlanadi), lekin
+    # o'lchovda qo'shma buyruqda freeze_clip'ni har safar tushirib qoldirdi (8/10 vs 10/10).

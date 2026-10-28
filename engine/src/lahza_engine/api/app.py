@@ -51,6 +51,7 @@ from lahza_engine.api import (
 )
 from lahza_engine.api.state import State
 from lahza_engine.config import Settings
+from lahza_engine.core import llama_server
 from lahza_engine.models.hardware import classify, detect
 
 __all__ = ["State", "create_app"]
@@ -103,6 +104,9 @@ def create_app(settings: Settings | None = None, token: str | None = None) -> Fa
             with contextlib.suppress(BaseException):
                 await t
         st.jobs.shutdown()
+        # Montaj rejasining issiq llama-server'i (core/llama_server.py, WarmLlamaServer).
+        with contextlib.suppress(Exception):
+            llama_server.stop_warm_servers()
         for hook in list(getattr(a.state, "shutdown_hooks", [])):
             # To'xtashda bitta ilgak xatosi qolganini to'xtatmasin.
             with contextlib.suppress(Exception):

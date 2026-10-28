@@ -79,6 +79,12 @@ def kill_descendants(sig: int = signal.SIGKILL if hasattr(signal, "SIGKILL") els
 
 
 def _flush_and_exit(code: int) -> None:
+    # Windows'da `kill_descendants` bo'sh: issiq llama-server'ni bevosita o'ldiramiz (modul
+    # yuklanmagan bo'lsa, server ham yo'q - import qilinmaydi).
+    llama = sys.modules.get("lahza_engine.core.llama_server")
+    if llama is not None:
+        with contextlib.suppress(Exception):
+            llama.kill_all()
     kill_descendants()
     for stream in (sys.stdout, sys.stderr):
         with contextlib.suppress(Exception):  # pipe yopiq bo'lishi mumkin
