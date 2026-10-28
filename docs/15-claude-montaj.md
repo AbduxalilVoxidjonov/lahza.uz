@@ -51,7 +51,7 @@ faqat yoqilgan holatda, foydalanuvchi bosganda ishlaydi.
 | CLAUDE.md, skill, plagin, hook'lar o'chiq | `--safe-mode` (auth va model tanlash ishlaydi) |
 | Slash buyruqlar o'chiq | `--disable-slash-commands` |
 | Sessiya diskka yozilmaydi | `--no-session-persistence` |
-| Tizim prompti | `--system-prompt <matn>` |
+| Tizim prompti | `--system-prompt-file <vaqtinchalik fayl>` (Windows `claude.cmd` uzun/ko'p qatorli argumentni kesadi) |
 | Model (ixtiyoriy) | `--model <alias yoki nom>` — `LAHZA_CLAUDE_MODEL` muhit o'zgaruvchisidan |
 | Auth holati (lokal) | `claude auth status --json` → `{loggedIn, …}` |
 | MCP ulash | `claude mcp add --scope user lahza -e K=V … -- <buyruq>` |

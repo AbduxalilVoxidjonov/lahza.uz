@@ -201,6 +201,8 @@ jobs:
           TRIPLE=$(rustc -vV | sed -n 's/^host: //p')
           EXT=""; [[ "$RUNNER_OS" == "Windows" ]] && EXT=".exe"
           "app/src-tauri/binaries/lahza-engine-${TRIPLE}${EXT}" hw
+          # Native backendlar (onnxruntime, ctranslate2) muzlatilgan holda yuklanadimi.
+          "app/src-tauri/binaries/lahza-engine-${TRIPLE}${EXT}" --packaging-check
       - uses: actions/upload-artifact@v4
         with:
           name: sidecar-${{ matrix.os }}

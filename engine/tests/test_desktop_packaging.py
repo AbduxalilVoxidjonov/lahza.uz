@@ -128,6 +128,24 @@ def test_gpl_toc_scan(tmp_path):
             packaging.check_no_gpl_bundle(build)
 
 
+def test_windows_vc_runtime_is_app_local(tmp_path):
+    """Eski tizim msvcp140 onnxruntime/ctranslate2'ni qulatadi: yangi runtime native DLL yoniga."""
+    assert packaging.vc_runtime_binaries(["onnxruntime"], tmp_path, platform="darwin") == []
+    with pytest.raises(SystemExit, match="msvc-runtime"):
+        packaging.vc_runtime_binaries(["onnxruntime"], tmp_path, platform="win32")
+    (tmp_path / "Scripts").mkdir()
+    for name in packaging.VC_RUNTIME_DLLS:  # msvc-runtime: vcruntime140 faqat Scripts'da
+        (tmp_path / ("Scripts" if name.startswith("vcruntime") else ".") / name).write_bytes(b"MZ")
+    pairs = packaging.vc_runtime_binaries(["onnxruntime", "ctranslate2", "fontTools"], tmp_path,
+                                          platform="win32")
+    assert {dest for _, dest in pairs} == {"onnxruntime/capi", "ctranslate2"}
+    assert len(pairs) == 2 * len(packaging.VC_RUNTIME_DLLS)
+    cmd = packaging.pyinstaller_cmd(Path("entry.py"), False, ["onnxruntime"], pairs)
+    added = [cmd[i + 1] for i, arg in enumerate(cmd) if arg == "--add-binary"]
+    assert f"{tmp_path / 'msvcp140.dll'}{os.pathsep}onnxruntime/capi" in added
+    assert cmd[-1] == "entry.py"
+
+
 def test_desktop_build_rejects_missing_inference_dependencies():
     packaging.check_desktop_backends(sorted(packaging.REQUIRED_BACKENDS))
     with pytest.raises(SystemExit, match="onnxruntime"):

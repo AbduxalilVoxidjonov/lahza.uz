@@ -16,6 +16,7 @@ import json
 import os
 import shlex
 import shutil
+import subprocess
 import sys
 import tempfile
 from collections.abc import Mapping
@@ -85,13 +86,18 @@ def _code_actions(cli: str, command: list[str], env: dict[str, str], connect: bo
     return [remove, add] if connected else [add]
 
 
+def _cmdline(args: list[str]) -> str:
+    """Foydalanuvchiga ko'rsatiladigan buyruq: Windows'da cmd qoidalari, boshqa joyda POSIX shell."""
+    return subprocess.list2cmdline(args) if sys.platform == "win32" else shlex.join(args)
+
+
 def run_claude_code(cli: str | None, command: list[str], env: dict[str, str], connect: bool,
                     dry_run: bool, environ: Mapping[str, str] | None = None,
                     runner: proc.Runner | None = None) -> list[str]:
     if not cli:
         raise ClaudeError("claude_not_installed", "Claude Code CLI (`claude`) topilmadi")
     plan = _code_actions(cli, command, env, connect, claude_code_connected(environ))
-    actions = [shlex.join(a) for a in plan]
+    actions = [_cmdline(a) for a in plan]
     if dry_run:
         return actions
     runner = runner or proc.run
@@ -99,7 +105,7 @@ def run_claude_code(cli: str | None, command: list[str], env: dict[str, str], co
         res = runner(args, timeout=30)
         if res.returncode != 0:
             tail = (res.stderr or res.stdout).strip()[-300:]
-            raise ClaudeError("claude_error", f"`{shlex.join(args[1:4])}` xato ({res.returncode}): {tail}")
+            raise ClaudeError("claude_error", f"`{_cmdline(args[1:4])}` xato ({res.returncode}): {tail}")
     return actions
 
 

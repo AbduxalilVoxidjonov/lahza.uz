@@ -25,14 +25,17 @@ function Checkout($section, $dir) {
 # CUDA bo'lsa NVIDIA uchun, aks holda Vulkan (AMD/Intel) yig'masi.
 $Gpu = if ($env:LAHZA_GPU) { $env:LAHZA_GPU } else { "vulkan" }
 $GgmlFlag = if ($Gpu -eq "cuda") { "-DGGML_CUDA=ON" } else { "-DGGML_VULKAN=ON" }
+# Statik CRT (/MT): exe VC++ runtime DLL'lariga bog'lanmaydi - foydalanuvchi kompyuteridagi eski
+# msvcp140.dll (masalan 14.28) llama/ggml ni access violation bilan qulatadi.
+$CrtFlags = @("-DCMAKE_POLICY_DEFAULT_CMP0091=NEW", "-DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded")
 
 $w = Checkout "whisper_cpp" "whisper.cpp"
-cmake -S $w -B "$w\build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF $GgmlFlag
+cmake -S $w -B "$w\build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF $GgmlFlag @CrtFlags
 cmake --build "$w\build" --config Release --target whisper-cli
 Copy-Item "$w\build\bin\Release\whisper-cli.exe" $Out
 
 $l = Checkout "llama_cpp" "llama.cpp"
-cmake -S $l -B "$l\build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF $GgmlFlag
+cmake -S $l -B "$l\build" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DLLAMA_CURL=OFF $GgmlFlag @CrtFlags
 cmake --build "$l\build" --config Release --target llama-server
 Copy-Item "$l\build\bin\Release\llama-server.exe" $Out
 

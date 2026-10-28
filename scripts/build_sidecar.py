@@ -84,6 +84,32 @@ FORBIDDEN_TOC_PATTERNS = [
 ]
 
 
+# Windows: yangi VC++ runtime ilova ichida (app-local). Tizimdagi eski msvcp140 (masalan 14.28)
+# onnxruntime va ctranslate2'ni import paytida access violation bilan qulatadi. DLL'lar native
+# kutubxona yoniga qo'yiladi: Windows ularni System32'dan oldin shu papkadan yuklaydi.
+VC_RUNTIME_DLLS = ["msvcp140.dll", "msvcp140_1.dll", "msvcp140_2.dll", "msvcp140_atomic_wait.dll",
+                   "msvcp140_codecvt_ids.dll", "vcruntime140.dll", "vcruntime140_1.dll", "concrt140.dll"]
+VC_RUNTIME_DIRS = {"onnxruntime": "onnxruntime/capi", "ctranslate2": "ctranslate2"}
+
+
+def vc_runtime_binaries(available: list[str], prefix: Path | None = None,
+                        platform: str = sys.platform) -> list[tuple[Path, str]]:
+    """`--add-binary` juftlari (manba, papka); DLL'lar `msvc-runtime` paketidan.
+
+    Paket ularni sys.prefix va sys.prefix/Scripts ga yozadi (vcruntime140 faqat Scripts'da)."""
+    if platform != "win32":
+        return []
+    prefix = Path(sys.prefix) if prefix is None else prefix
+    found = {n: next((d / n for d in (prefix, prefix / "Scripts") if (d / n).is_file()), None)
+             for n in VC_RUNTIME_DLLS}
+    missing = [n for n, p in found.items() if p is None]
+    if missing:
+        raise SystemExit("VC++ runtime DLL'lari yo'q (" + ", ".join(missing) + "): engine desktop "
+                         "bog'liqliklarini o'rnating (msvc-runtime)")
+    return [(found[n], dest) for mod, dest in VC_RUNTIME_DIRS.items() if mod in available
+            for n in VC_RUNTIME_DLLS]
+
+
 def check_desktop_backends(available: list[str]) -> None:
     missing = REQUIRED_BACKENDS - set(available)
     if missing:
@@ -246,7 +272,8 @@ def check_no_gpl_bundle(build_dir: Path) -> None:
         raise SystemExit("GPL komponent sidecar'ga kirdi (ADR-0015): " + "; ".join(hits))
 
 
-def pyinstaller_cmd(entry: Path, clean: bool, extra_hidden: list[str]) -> list[str]:
+def pyinstaller_cmd(entry: Path, clean: bool, extra_hidden: list[str],
+                    binaries: list[tuple[Path, str]] = ()) -> list[str]:
     cmd = [
         sys.executable, "-m", "PyInstaller", "--onefile", "--noconfirm", "--noupx", "--name", NAME,
         "--distpath", str(WORK / "dist"), "--workpath", str(WORK / "build"), "--specpath", str(WORK),
@@ -262,6 +289,8 @@ def pyinstaller_cmd(entry: Path, clean: bool, extra_hidden: list[str]) -> list[s
         cmd += ["--collect-all", mod]
     for mod in EXCLUDES:
         cmd += ["--exclude-module", mod]
+    for src, dest in binaries:
+        cmd += ["--add-binary", f"{src}{os.pathsep}{dest}"]
     cmd.append(str(entry))
     return cmd
 
@@ -318,7 +347,8 @@ def main(argv: list[str] | None = None) -> int:
     entry = WORK / "lahza_entry.py"
     data = check_package_data()
     extra = optional_imports()
-    cmd = pyinstaller_cmd(entry, a.clean, extra)
+    binaries = vc_runtime_binaries(extra) if not a.dry_run else []
+    cmd = pyinstaller_cmd(entry, a.clean, extra, binaries)
     target = BIN_DIR / f"{NAME}-{triple}{ext}"
 
     print(f"triple: {triple} ({source})")

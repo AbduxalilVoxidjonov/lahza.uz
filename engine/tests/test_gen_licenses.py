@@ -47,8 +47,9 @@ def test_gpl_native_libs_are_known():
 
 def test_texts_deduplicated_and_normalized(tmp_path):
     texts = gen.Texts()
-    (tmp_path / "LICENSE").write_text("MIT  \r\nCopyright\r\n", encoding="utf-8")
-    (tmp_path / "COPYING").write_text("MIT\nCopyright\n", encoding="utf-8")
+    # write_bytes: Windows'da write_text "\n" ni "\r\n" ga aylantiradi
+    (tmp_path / "LICENSE").write_bytes(b"MIT  \r\nCopyright\r\n")
+    (tmp_path / "COPYING").write_bytes(b"MIT\nCopyright\n")
     (tmp_path / "license.js").write_text("code", encoding="utf-8")
     (tmp_path / "README.md").write_text("readme", encoding="utf-8")
     ids = texts.add_dir(tmp_path)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import socket
+import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
@@ -247,7 +248,12 @@ def test_settings_flag_default_off(monkeypatch) -> None:
 # ---- API -----------------------------------------------------------------------------------------
 @pytest.fixture
 def no_network(monkeypatch):
-    def deny(*a, **k):
+    real_connect = socket.socket.connect
+
+    def deny(sock, address, *a, **k):
+        # Windows'da asyncio socketpair'ni 127.0.0.1 orqali yasaydi; tashqi tarmoq taqiqlangan.
+        if isinstance(address, tuple) and address[0] in ("127.0.0.1", "::1"):
+            return real_connect(sock, address, *a, **k)
         raise AssertionError("litsenziya tarmoqqa murojaat qilmasligi kerak (NFR-01)")
 
     monkeypatch.setattr(socket.socket, "connect", deny)
@@ -321,7 +327,8 @@ def test_issue_script_keygen_embed_issue(tmp_path: Path, capsys) -> None:
     out = tmp_path / "k"
     mod.main(["keygen", "--out", str(out), "--embed"])
     priv = out / "license_signing.key"
-    assert (priv.stat().st_mode & 0o777) == 0o600
+    if sys.platform != "win32":  # Windows'da Unix ruxsat bitlari yo'q
+        assert (priv.stat().st_mode & 0o777) == 0o600
     pub = (out / "license_signing.pub").read_text().strip()
     ns: dict = {}
     exec(compile(keys_copy.read_text(), str(keys_copy), "exec"), ns)  # noqa: S102

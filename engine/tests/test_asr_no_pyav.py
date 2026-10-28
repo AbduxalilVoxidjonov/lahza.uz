@@ -4,6 +4,7 @@ from __future__ import annotations
 import importlib.metadata as md
 import importlib.util
 import math
+import os
 import re
 import subprocess
 import sys
@@ -148,17 +149,19 @@ def test_real_faster_whisper_imports_without_pyav(tmp_path):
         "    print('blocked')\n"
     )
     run = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120,
-                         cwd=tmp_path, env={"PYTHONPATH": str(SRC), "PATH": "/usr/bin:/bin"})
+                         cwd=tmp_path, env={"PYTHONPATH": str(SRC), "PATH": "/usr/bin:/bin",
+                              # Windows: SYSTEMROOT'siz asyncio (_overlapped) yuklanmaydi
+                              **({"SYSTEMROOT": os.environ["SYSTEMROOT"]} if sys.platform == "win32" else {})})
     assert run.returncode == 0, run.stderr
     assert run.stdout.strip() == "blocked"
 
 
 def test_engine_never_imports_pyav_directly():
     pat = re.compile(r"^\s*(import av\b|from av\b)", re.M)
-    offenders = [str(p.relative_to(SRC)) for p in SRC.rglob("*.py") if pat.search(p.read_text(encoding="utf-8"))]
+    offenders = [p.relative_to(SRC).as_posix() for p in SRC.rglob("*.py") if pat.search(p.read_text(encoding="utf-8"))]
     assert offenders == []
     direct = re.compile(r"^\s*from faster_whisper import|^\s*import faster_whisper\b", re.M)
-    users = [str(p.relative_to(SRC)) for p in SRC.rglob("*.py")
+    users = [p.relative_to(SRC).as_posix() for p in SRC.rglob("*.py")
              if direct.search(p.read_text(encoding="utf-8"))]
     assert users == ["lahza_engine/asr/fw_compat.py"]  # boshqalar import_faster_whisper() orqali
 

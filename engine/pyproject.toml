@@ -31,9 +31,11 @@ asr-ctranslate2 = ["faster-whisper>=1.0"]
 desktop = [
   "ctranslate2>=4.0,<5", "huggingface-hub>=0.21", "tokenizers>=0.13,<1", "tqdm",
   "onnxruntime>=1.18", "fonttools>=4.50",
+  # Windows: app-local VC++ runtime (scripts/build_sidecar.py); eski tizim runtime'i onnxruntime/ctranslate2'ni qulatadi.
+  "msvc-runtime>=14.40; sys_platform == 'win32'",
 ]
 vad = ["silero-vad>=5.1"]
-onnx = ["onnxruntime>=1.18"]
+onnx = ["onnxruntime>=1.18", "msvc-runtime>=14.40; sys_platform == 'win32'"]
 fonts = ["fonttools>=4.50"]
 diarization = ["pyannote.audio>=4.0"]
 vision = ["mediapipe>=0.10", "opencv-python-headless>=4.9"]

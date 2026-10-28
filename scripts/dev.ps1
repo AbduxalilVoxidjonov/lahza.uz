@@ -25,10 +25,23 @@ function Invoke-Lint {
 
 function Test-Versions { Invoke-Checked { & $Py "$Root\scripts\check_versions.py" } }
 
+# Eski tizim VC++ runtime'i (msvcp140 < 14.40) onnxruntime/ctranslate2'ni import paytida qulatadi.
+# msvc-runtime paketidagi yangi DLL'lar native kutubxonalar yoniga (venv ichida, tizimga tegmaydi).
+function Install-VcRuntime {
+  $Venv = Join-Path $Root "engine\.venv"
+  $Dlls = Get-ChildItem "$Venv\Scripts" -Include "msvcp140*.dll", "vcruntime140*.dll", "concrt140.dll" -File -Recurse -Depth 0
+  if (-not $Dlls) { return }
+  foreach ($dir in "onnxruntime\capi", "ctranslate2") {
+    $dest = Join-Path $Venv "Lib\site-packages\$dir"
+    if (Test-Path $dest) { Copy-Item $Dlls.FullName $dest -Force }
+  }
+}
+
 switch ($Cmd) {
   "setup" {
     Invoke-Checked { python -m venv (Join-Path $Root "engine\.venv") }
     Invoke-Checked { & $Py -m pip install -e "$Root\engine[dev,onnx,fonts]" }
+    Install-VcRuntime
     Push-Location "$Root\app"; try { Invoke-Checked { npm ci } } finally { Pop-Location }
   }
   "test" {
@@ -58,5 +71,5 @@ switch ($Cmd) {
     $env:VITE_ENGINE_URL = "http://127.0.0.1:8765"; $env:VITE_ENGINE_TOKEN = "dev-token"
     Push-Location "$Root\app"; npm run dev; Pop-Location
   }
-  "sidecar" { Invoke-Checked { & $Py "$Root\scripts\build_sidecar.py" } }
+  "sidecar" { Install-VcRuntime; Invoke-Checked { & $Py "$Root\scripts\build_sidecar.py" } }
 }

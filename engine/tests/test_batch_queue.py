@@ -359,7 +359,9 @@ def test_api_queue_restart_recovery(tmp_path: Path, monkeypatch) -> None:
     first_ep = _wait_queue(c, lambda xs: xs[0]["episode_id"] is not None)[0]["episode_id"]
     st.jobs.shutdown()  # jarayon to'xtaydi (lifespan)
     time.sleep(0.1)
-    st.library.close()
+    # Eski oqim hali lib_write qilayotgan bo'lishi mumkin: yozuv o'rtasida yopish Windows'da qulatadi.
+    with st.lib_lock:
+        st.library.close()
     seen = _fake_analyze(monkeypatch)
     app2 = create_app(Settings(data_dir=tmp_path / "data"), token=TOKEN)
     st2 = app2.state.lahza

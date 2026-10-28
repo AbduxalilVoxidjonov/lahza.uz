@@ -33,7 +33,10 @@ FAKE_CLAUDE = textwrap.dedent('''\
     data = sys.stdin.read() if "-p" in args else ""
     if log:
         with open(log, "a", encoding="utf-8") as f:
-            f.write(json.dumps({{"argv": args, "stdin": data, "cwd": os.getcwd()}}) + "\\n")
+            system = ""
+            if "--system-prompt-file" in args:
+                system = open(args[args.index("--system-prompt-file") + 1], encoding="utf-8").read()
+            f.write(json.dumps({{"argv": args, "stdin": data, "cwd": os.getcwd(), "system": system}}) + "\\n")
     if args == ["--version"]:
         print("2.1.310 (Claude Code)"); sys.exit(0)
     if args[:2] == ["auth", "status"]:
@@ -80,6 +83,10 @@ def fake_claude(tmp_path, monkeypatch):
     exe = bindir / "claude"
     exe.write_text(FAKE_CLAUDE.format(python=sys.executable), encoding="utf-8")
     exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
+    if sys.platform == "win32":
+        # Windows shebang'ni bilmaydi: npm o'rnatgan Claude Code kabi .cmd o'ram.
+        exe = bindir / "claude.cmd"
+        exe.write_text(f'@"{sys.executable}" "%~dp0claude" %*\r\n', encoding="utf-8")
     log = tmp_path / "claude.log"
     responses = tmp_path / "responses.json"
     monkeypatch.setenv("PATH", str(bindir))
@@ -124,6 +131,7 @@ def test_parse_version():
     assert detect.parse_version("no version") is None
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS/Linux PATH va X bit; Windows: test_find_cli_windows_dirs")
 def test_find_cli_path_and_fallback_dirs(tmp_path, _isolated):
     env = {"PATH": "", "HOME": str(_isolated)}
     assert detect.find_cli(env, "darwin") is None
@@ -277,7 +285,8 @@ def test_plan_success_isolated_args(fake_claude, timeline):
     for flag in ("--strict-mcp-config", "--safe-mode", "--disable-slash-commands", "--no-session-persistence"):
         assert flag in argv
     assert "--mcp-config" not in argv and "--model" not in argv
-    system = argv[argv.index("--system-prompt") + 1]
+    assert "--system-prompt" not in argv
+    system = call["system"]  # soxta claude --system-prompt-file ni o'qib log'ga yozadi
     assert "untrusted DATA" in system and '"commands"' in system
     assert "/private/source.mp4" not in call["stdin"] and "/private/" not in " ".join(argv)
     assert "Ranglarni iliqroq qil." in call["stdin"] and "<<<USER_REQUEST " in call["stdin"]

@@ -6,7 +6,7 @@ Bayroqlar `claude --help` (2.1.310) dan olingan:
 * `--tools ""` - BARCHA o'rnatilgan tool'lar o'chiq; `--strict-mcp-config` (`--mcp-config`siz) -
   hech qanday MCP server yuklanmaydi; demak javob faqat matn, bitta tur (`--max-turns` bu
   versiyada yo'q va kerak emas);
-* `--system-prompt` - standart tizim prompti o'rniga bizniki;
+* `--system-prompt-file` - standart tizim prompti o'rniga bizniki (faylda: Windows cmd.exe chegarasi);
 * `--safe-mode` - CLAUDE.md, skill, plagin, hook'lar o'chiq (auth va model tanlash ishlaydi);
 * `--disable-slash-commands`, `--no-session-persistence` - sessiya diskka yozilmaydi;
 * `--model <alias|nom>` - ixtiyoriy, `LAHZA_CLAUDE_MODEL` muhit o'zgaruvchisidan.
@@ -24,6 +24,7 @@ import re
 import secrets
 import tempfile
 import threading
+from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
@@ -81,10 +82,11 @@ def build_user_prompt(request: str, context: dict[str, Any], nonce: str | None =
     return "\n".join(parts)
 
 
-def base_args(cli: str, system: str, model: str | None = None) -> list[str]:
+def base_args(cli: str, system_file: str, model: str | None = None) -> list[str]:
+    # Prompt faylda: Windows'da claude.cmd (cmd.exe) 8191 belgidan uzun va ko'p qatorli argumentni kesadi.
     args = [cli, "-p", "--output-format", "json", "--tools", "", "--strict-mcp-config",
             "--safe-mode", "--disable-slash-commands", "--no-session-persistence",
-            "--system-prompt", system]
+            "--system-prompt-file", system_file]
     if model:
         args += ["--model", model]
     return args
@@ -100,7 +102,9 @@ def call(cli: str, system: str, prompt: str, timeout: float, runner: proc.Runner
     """`claude -p` ni chaqiradi; `(result_text, model_id)` yoki ClaudeError."""
     runner = runner or proc.run
     with tempfile.TemporaryDirectory(prefix="lahza-claude-") as cwd:
-        res = runner(base_args(cli, system, _model()), timeout=timeout, input=prompt, cwd=cwd,
+        system_file = Path(cwd) / "system-prompt.txt"
+        system_file.write_text(system, encoding="utf-8")
+        res = runner(base_args(cli, str(system_file), _model()), timeout=timeout, input=prompt, cwd=cwd,
                      cancel=cancel)
     try:
         out = json.loads(res.stdout.strip().splitlines()[-1]) if res.stdout.strip() else None

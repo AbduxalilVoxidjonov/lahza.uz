@@ -92,6 +92,7 @@ def test_label_derived_from_app_identifier():
 
 # ---- macOS plist ------------------------------------------------------------------------------
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS launchd: Unix yo'llari, getuid va ruxsat bitlari")
 def test_plist_generation_parses(tmp_path):
     spec = build_spec(tmp_path / "data", program="/opt/lahza-engine",
                       environ={"LAHZA_BIN_DIR": "/res/bin", "LAHZA_TOKEN": "secret", "HOME": "/h", "LAHZA_CATALOG": ""})
@@ -159,6 +160,7 @@ def test_windows_commands_and_run_key(tmp_path):
 
 # ---- Dry-run ----------------------------------------------------------------------------------
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS launchd: Unix yo'llari, getuid va ruxsat bitlari")
 def test_cli_dry_run_writes_nothing(tmp_path, monkeypatch, capsys):
     from lahza_engine import cli
 
@@ -198,6 +200,7 @@ def test_unsupported_platform(tmp_path):
 
 # ---- O'rnatish / o'chirish (soxta runner) -----------------------------------------------------
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS launchd: Unix yo'llari, getuid va ruxsat bitlari")
 def test_install_and_uninstall_clean_macos(tmp_path):
     home, data = tmp_path / "home", tmp_path / "data"
     exe = tmp_path / "lahza-engine"
@@ -228,6 +231,7 @@ def test_install_and_uninstall_clean_macos(tmp_path):
     assert (data / "Logs" / "engine.log").exists()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="macOS launchd: Unix yo'llari, getuid va ruxsat bitlari")
 def test_install_failure_reported(tmp_path, monkeypatch, capsys):
     exe = tmp_path / "e"
     exe.write_text("")
