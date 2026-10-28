@@ -95,6 +95,8 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
                   : coded ? translate(locale, coded.key, coded.vars) : job.error}
               </span>
               <button className="btn small" type="button" onClick={() => setAsking(true)} disabled={!validUrl}>{y.retry}</button>
+              {/* YouTube o'zgarsa yt-dlp eskiradi - yangilanish ilova relizisiz, Sozlamalarda. */}
+              {view.errorCode !== "network" && <Link className="btn small ghost" to="/settings#set-youtube">{y.checkUpdates}</Link>}
             </div>
           )}
           {job.status === "done" && (

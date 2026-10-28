@@ -356,12 +356,13 @@ def _stub_analysis(monkeypatch: pytest.MonkeyPatch, calls: list[dict[str, Any]])
     monkeypatch.setattr(routes_youtube, "submit_analysis", fake_submit)
 
 
-def test_api_disabled_by_default_and_consent_required(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+def test_api_enabled_by_default_can_be_disabled_and_consent_required(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                       fake_ytdlp: Path) -> None:
     c, _st = make_client(tmp_path, monkeypatch)
     pid = _project(c)
     body = {"project_id": pid, "url": "https://youtu.be/okokokokok1", "consent": True}
-    assert c.get("/v1/settings/youtube-import").json()["enabled"] is False
+    assert c.get("/v1/settings/youtube-import").json()["enabled"] is True  # standart yoqilgan
+    c.put("/v1/settings/youtube-import", json={"enabled": False})
     r = c.post("/v1/media:import-url", json=body)
     assert r.status_code == 403
 

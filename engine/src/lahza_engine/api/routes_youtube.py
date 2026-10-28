@@ -1,6 +1,6 @@
 """YouTube havolasidan import (YT-1, ADR-0010): sozlama, holat va `/v1/media:import-url`.
 
-* Funksiya standart holatda O'CHIQ; yoqilgani `library.db` -> `settings` jadvalida
+* Funksiya standart holatda YOQILGAN (egasi qarori, ADR-0010); o'chirilgani `library.db` -> `settings` jadvalida
   (`youtube_import` kaliti) saqlanadi - sxema o'zgarmaydi.
 * Har importda `consent: true` majburiy ("menga tegishli yoki ruxsatim bor" + YouTube shartlari).
 * Yuklash `download` vazifasida, yt-dlp esa alohida jarayonda (`media/youtube.py`). Tayyor fayl
@@ -45,12 +45,14 @@ class YoutubeSettingIn(BaseModel):
 
 class InstallComponentsIn(BaseModel):
     consent: bool = False
+    # True - PyPI/GitHub'dan oxirgi versiya (ilova relizisiz yangilanish); False - yetishmaganini o'rnatish.
+    update: bool = False
 
 
 def import_enabled(s: State) -> bool:
     rows = s.lib("SELECT value_json FROM settings WHERE key = ?", (SETTING_KEY,))
     if not rows:
-        return False
+        return True  # standart yoqilgan; foydalanuvchi Sozlamalarda o'chirsa - yozuv saqlanadi
     try:
         return json.loads(rows[0]["value_json"]).get("enabled") is True
     except (ValueError, AttributeError):
@@ -112,13 +114,21 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
 
             try:
                 return youtube_components.install(data_dir, consent=True, cancel=job.cancel,
-                                                  progress=progress)
+                                                  progress=progress, update=body.update)
             except youtube_components.ComponentError as e:
                 job.meta["error_code"] = "component"
                 raise RuntimeError(str(e)) from e
 
         job = s.jobs.submit("install", work, op="youtube-components")
         return {"job": job.public()}
+
+    @app.post("/v1/settings/youtube-import:check-updates")
+    def check_component_updates(s: State = Depends(auth)) -> dict[str, Any]:
+        """Tarmoq (PyPI/GitHub metama'lumoti) - faqat foydalanuvchi tugmani bosganda."""
+        try:
+            return youtube_components.check_updates(s.settings.data_dir)
+        except youtube_components.ComponentError as e:
+            raise HTTPException(502, str(e)) from None
 
     @app.post("/v1/media:import-url")
     def import_url(body: ImportUrlIn, s: State = Depends(auth)) -> dict[str, Any]:

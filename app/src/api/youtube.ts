@@ -23,6 +23,16 @@ export interface YoutubeImportStatus {
   components_download_bytes: number;
   /** Ketayotgan komponent o'rnatish vazifasi (sahifa qayta ochilsa ham kuzatiladi). */
   install_job: Job | null;
+  /** `Components/` dagi versiyalar: {"yt-dlp", "yt-dlp-ejs", "deno"}. */
+  component_versions: Record<string, string>;
+}
+
+/** PyPI/GitHub'dagi oxirgi versiyalar bilan solishtirish (`:check-updates`). */
+export interface ComponentUpdates {
+  installed: Record<string, string>;
+  latest: Record<string, string>;
+  update_available: boolean;
+  download_bytes: number;
 }
 
 export interface ImportUrlBody {
@@ -53,8 +63,16 @@ export function useSetYoutubeImport() {
 export function useInstallYoutubeComponents() {
   const upsert = useJobs((s) => s.upsert);
   return useMutation({
-    mutationFn: () => post<{ job: Job }>("/v1/settings/youtube-import:install-components", { consent: true }),
+    mutationFn: (update: boolean = false) =>
+      post<{ job: Job }>("/v1/settings/youtube-import:install-components", { consent: true, update }),
     onSuccess: (res) => upsert(res.job),
+  });
+}
+
+/** Tarmoq faqat shu tugma bosilganda: PyPI va GitHub'dan oxirgi versiyalar. */
+export function useCheckYoutubeUpdates() {
+  return useMutation({
+    mutationFn: () => post<ComponentUpdates>("/v1/settings/youtube-import:check-updates", {}),
   });
 }
 

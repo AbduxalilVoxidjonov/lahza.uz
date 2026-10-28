@@ -5,6 +5,8 @@ Eng yangisi tepada. Keyingi reliz o'zgarishlari `## [Kelgusi]` bo'limiga yozilad
 
 ## [Kelgusi]
 
+- **O'zgarish — YouTube importi standart yoqilgan** (egasi qarori, ADR-0010); har importda rozilik saqlanadi.
+- **Yangi — komponent yangilanishi ilova relizisiz:** Sozlamalarda "Yangilanishni tekshirish" — PyPI/GitHub'dagi oxirgi yt-dlp, yt-dlp-ejs (yt-dlp talab qilgan versiya) va Deno 2.x, e'lon qilingan sha256 bilan; YouTube yuklash yiqilsa import kartasida shu tugmaga havola.
 - **Yangi — YouTube komponentlari ilovaning o'zidan:** Sozlamalar (va import kartasi)dagi tugma yt-dlp, yt-dlp-ejs va Deno'ni bir marta yuklaydi — mahkamlangan versiya, sha256 tekshiruvi, atomik joylash (`media/youtube_components.py`, `/v1/settings/youtube-import:install-components`). Desktop ilovada YouTube importi endi `make setup-youtube`siz ishlaydi; yt-dlp sidecar'ga kirmaydi (ADR-0010).
 - **Tuzatish — Windows:** Claude montaj `claude.cmd` bilan ishlaydi (`--system-prompt-file`); sidecar yangi VC++ runtime'ni o'zi olib keladi (eski `msvcp140` onnxruntime/ctranslate2'ni qulatardi); llama-server/whisper-cli statik CRT bilan yig'iladi.
 

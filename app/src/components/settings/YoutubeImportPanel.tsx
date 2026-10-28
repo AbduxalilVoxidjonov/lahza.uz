@@ -26,7 +26,7 @@ export function YoutubeImportPanel() {
           <span className="muted">{y.setHint}</span>
           <span className="muted">{y.setLegal}</span>
           {!st.installed && <div className="notice warn">{y.notInstalled}</div>}
-          <YoutubeComponentsInstall st={st} />
+          <YoutubeComponentsInstall st={st} updates />
           <table className="table">
             <tbody>
               <tr><th>{y.compYtdlp}</th><td>{yn(st.installed)} {st.version && <span className="mono muted">{st.version}</span>}</td></tr>

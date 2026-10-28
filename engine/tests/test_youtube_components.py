@@ -75,8 +75,9 @@ def test_install_places_pinned_components(tmp_path: Path, served) -> None:
     base = tmp_path / "Components"
     assert youtube.find_ytdlp(youtube.component_paths(tmp_path)) == base / "yt-dlp" / "yt_dlp"
     assert youtube.find_js_runtime(tmp_path) == ("deno", base / "deno" / exe)
-    assert yc.plan(tmp_path) == [] and yc.status(tmp_path) == {"components_ready": True,
-                                                               "components_download_bytes": 0}
+    assert yc.plan(tmp_path) == [] and yc.status(tmp_path) == {
+        "components_ready": True, "components_download_bytes": 0,
+        "component_versions": {"yt_dlp": "1.0", "yt_dlp_ejs": "1.0", "deno": "1.0"}}
     assert not (base / ".downloads").exists()  # arxivlar o'rnatilgandan keyin o'chiriladi
     assert sorted(p.name for p in base.iterdir()) == ["deno", "yt-dlp"]  # .staging-* qolmaydi
     yc.install(tmp_path, consent=True, client=client)
@@ -147,8 +148,8 @@ def test_api_install_components(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     gate = threading.Event()
     calls: list[Path] = []
 
-    def fake_install(data_dir: Path, *, consent: bool, cancel, progress):  # type: ignore[no-untyped-def]
-        assert consent is True
+    def fake_install(data_dir: Path, *, consent: bool, cancel, progress, update):  # type: ignore[no-untyped-def]
+        assert consent is True and update is False
         calls.append(data_dir)
         progress(0.5, {"component": "deno"})
         gate.wait(5)
@@ -163,3 +164,100 @@ def test_api_install_components(tmp_path: Path, monkeypatch: pytest.MonkeyPatch)
     assert done.status == "done" and done.result == {"components": ["deno"]}
     assert calls == [st.settings.data_dir]
     assert c.get("/v1/settings/youtube-import").json()["install_job"] is None
+
+
+# ---- yangilanish: PyPI/GitHub metama'lumoti (soxta javoblar) ---------------------------------
+def _pypi(name: str, version: str, url: str, sha: str = "a" * 64, requires: list[str] | None = None) -> dict:
+    return {"info": {"version": version, "requires_dist": requires or []},
+            "urls": [{"packagetype": "sdist", "filename": f"{name}-{version}.tar.gz", "url": url + ".tar.gz",
+                      "size": 10, "digests": {"sha256": sha}},
+                     {"packagetype": "bdist_wheel", "filename": f"{name}-{version}-py3-none-any.whl",
+                      "url": url, "size": 100, "digests": {"sha256": sha}}]}
+
+
+def _upstream(ytdlp: str = "2099.1.2", ejs: str = "0.9.0", deno: str = "v2.99.0",
+              wheel_host: str = "https://files.pythonhosted.org/p/") -> httpx.Client:
+    triple = yc._DENO_TRIPLE[(sys.platform, yc._arch())]
+    routes = {
+        "https://pypi.org/pypi/yt-dlp/json": _pypi("yt_dlp", ytdlp, wheel_host + "yt.whl"),
+        f"https://pypi.org/pypi/yt-dlp/{ytdlp}/json": _pypi(
+            "yt_dlp", ytdlp, wheel_host + "yt.whl", requires=["requests", f"yt-dlp-ejs=={ejs}; extra == 'default'"]),
+        f"https://pypi.org/pypi/yt-dlp-ejs/{ejs}/json": _pypi("yt_dlp_ejs", ejs, wheel_host + "ejs.whl"),
+        yc.DENO_LATEST: {"tag_name": deno, "assets": [
+            {"name": f"deno-{triple}.zip", "size": 200, "digest": "sha256:" + "b" * 64,
+             "browser_download_url": f"{yc.DENO_DOWNLOAD}{deno}/deno-{triple}.zip"}]},
+    }
+    return httpx.Client(transport=httpx.MockTransport(
+        lambda r: httpx.Response(200, json=routes[str(r.url)]) if str(r.url) in routes else httpx.Response(404)))
+
+
+def test_resolve_latest_uses_upstream_hashes_and_ejs_pin() -> None:
+    latest = {a.name: a for a in yc.resolve_latest(_upstream())}
+    assert latest["yt-dlp"].version == "2099.1.2" and latest["yt-dlp"].url.endswith("yt.whl")
+    assert latest["yt-dlp-ejs"].version == "0.9.0"  # yt-dlp requires_dist talabidan, "eng oxirgi" emas
+    assert latest["deno"].version == "2.99.0" and latest["deno"].sha256 == "b" * 64
+    assert all(a.size > 0 and len(a.sha256) == 64 for a in latest.values())
+
+
+def test_resolve_latest_never_downgrades() -> None:
+    latest = {a.name: a for a in yc.resolve_latest(_upstream(ytdlp="2020.1.1", ejs="0.0.1", deno="v2.0.0"))}
+    assert latest["yt-dlp"] == yc.YTDLP and latest["yt-dlp-ejs"] == yc.EJS
+    assert latest["deno"] == yc.deno_asset()
+
+
+@pytest.mark.parametrize("kw,match", [
+    ({"wheel_host": "https://evil.example/"}, "g'ildiragi topilmadi"),  # faqat files.pythonhosted.org
+    ({"deno": "v3.0.0"}, "kutilmagan versiya"),  # faqat Deno 2.x
+])
+def test_resolve_latest_rejects_untrusted(kw: dict, match: str) -> None:
+    with pytest.raises(yc.ComponentError, match=match):
+        yc.resolve_latest(_upstream(**kw))
+
+
+def test_resolve_latest_network_error_is_explained() -> None:
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(503)))
+    with pytest.raises(yc.ComponentError, match="yangilanish"):
+        yc.resolve_latest(client)
+
+
+def test_update_reinstalls_both_wheels_and_keeps_deno(tmp_path: Path, served,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    bodies, client, calls, _e = served
+    yc.install(tmp_path, consent=True, client=client)
+    url = "https://x/yt_dlp2.whl"
+    bodies[url] = _zip({"yt_dlp/__init__.py": b"# v2", "yt_dlp/version.py": b""})
+    newer = yc.Asset("yt_dlp", "2.0", url, hashlib.sha256(bodies[url]).hexdigest(), len(bodies[url]), "test")
+    assets = [newer, yc.WHEELS[1], next(iter(yc.DENO.values()))]
+    assert [a.name for a in yc.plan(tmp_path, assets=assets)] == ["yt_dlp", "yt_dlp_ejs"]  # bitta papka
+    assert yc.plan(tmp_path, assets=list(yc.WHEELS)) == []  # bir xil versiya - hech narsa
+    calls.clear()
+    monkeypatch.setattr(yc, "resolve_latest", lambda *a, **k: assets)
+    out = yc.install(tmp_path, consent=True, client=client, update=True)
+    assert out["component_versions"]["yt_dlp"] == "2.0" and out["components"] == ["yt_dlp", "yt_dlp_ejs"]
+    assert (tmp_path / "Components" / "yt-dlp" / "yt_dlp" / "__init__.py").read_text() == "# v2"
+    assert not any("deno" in c for c in calls)
+
+
+def test_api_check_updates(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    c, st = make_client(tmp_path, monkeypatch)
+    url = "/v1/settings/youtube-import:check-updates"
+    monkeypatch.setattr(routes_youtube.youtube_components, "check_updates",
+                        lambda d: {"installed": {}, "latest": {"yt-dlp": "2099"}, "update_available": True,
+                                   "download_bytes": 5})
+    assert c.post(url).json()["update_available"] is True
+
+    def boom(_d):  # type: ignore[no-untyped-def]
+        raise yc.ComponentError("yangilanish ma'lumotini olib bo'lmadi: offline")
+
+    monkeypatch.setattr(routes_youtube.youtube_components, "check_updates", boom)
+    r = c.post(url)
+    assert r.status_code == 502 and "offline" in r.json()["detail"]
+    seen: list[bool] = []
+
+    def fake_install(data_dir, *, consent, cancel, progress, update):  # type: ignore[no-untyped-def]
+        seen.append(update)
+        return {"components": []}
+
+    monkeypatch.setattr(routes_youtube.youtube_components, "install", fake_install)
+    job = c.post("/v1/settings/youtube-import:install-components", json={"consent": True, "update": True}).json()
+    assert wait_job(st, job["job"]["id"]).status == "done" and seen == [True]

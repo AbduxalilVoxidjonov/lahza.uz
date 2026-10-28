@@ -1,6 +1,6 @@
 # ADR-0010: YouTube havolasidan import — yagona foydalanuvchi boshlaydigan tarmoq amali
 
-* Holat: Qabul qilindi (amalga oshirilgan; reliz yurist xulosasini kutadi — 5-band)
+* Holat: Qabul qilindi (amalga oshirilgan, standart yoqilgan — 2026-10-28 egasi qarori)
 * Sana: 2026-10-18
 * TZ bo'limi: [`11-montaj-platformasi.md`](../11-montaj-platformasi.md) 3.2, 12; NFR-01
 
@@ -23,7 +23,10 @@ Bu qarorga ta'sir qiluvchi tekshirilgan faktlar:
 4. **Interfeysdagi tavsiya:** avval asl fayl, keyin YouTube Studio yoki Takeout yo'riqnomasi. Havola orqali yuklash — oxirgi variant.
 5. **Yurist sharti.** YT-1 vazifasi yurist xulosasidan oldin relizga kirmaydi (TZ 11, Q2).
 
-Amalga oshirish (2-band): katalog sxemasi o'zgartirilmadi — komponentlar `media/youtube_components.py` da mahkamlangan (versiya, hajm, sha256) va Sozlamalardagi tugma bilan yuklanadi; yangilanish kodni yangilashni talab qiladi.
+Amalga oshirish:
+
+* 1-band o'zgardi (2026-10-28, loyiha egasi qarori): funksiya **standart yoqilgan**, Sozlamalarda o'chiriladi. Har importdagi rozilik (huquq + YouTube shartlari) saqlanadi; 5-band (yurist sharti) relizni to'smaydi.
+* 2-band: boshlang'ich versiyalar `media/youtube_components.py` da mahkamlangan (versiya, hajm, sha256) va Sozlamalardagi tugma bilan yuklanadi. Yangilanish katalog orqali emas, **asl manbalardan**: PyPI JSON API va GitHub releases API e'lon qilgan sha256 bilan (`pip` bilan bir xil ishonch), qat'iy xost/paket ro'yxati, versiya pasaymaydi. Sabab: repozitoriy yopiq va alohida imzolangan manifest uchun server/kalit yo'q; yt-dlp esa YouTube o'zgarishlariga tez-tez moslashadi — yangilanish ilova relizini kutmasligi kerak.
 
 ## Oqibatlar
 

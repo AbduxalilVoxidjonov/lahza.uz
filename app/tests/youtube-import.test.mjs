@@ -67,7 +67,7 @@ test('rozilik: ikkala belgi ham shart; tugma faqat yoqilgan + o\'rnatilgan + to\
 test('youtubeFieldState: maydon har doim ko\'rinadi, o\'chiq/noma\'lum holatda disabled', () => {
   assert.equal(yt.youtubeFieldState(undefined), 'loading');
   assert.equal(yt.youtubeFieldState(null), 'loading');
-  // ADR-0010: standart o'chiq - yt-dlp o'rnatilgan bo'lsa ham maydon disabled.
+  // Sozlamalarda o'chirilgan bo'lsa - yt-dlp o'rnatilgan bo'lsa ham maydon disabled.
   assert.equal(yt.youtubeFieldState({ enabled: false, installed: true, js_runtime: 'deno' }), 'disabled');
   assert.equal(yt.youtubeFieldState({ enabled: false, installed: false, js_runtime: null }), 'disabled');
   assert.equal(yt.youtubeFieldState({ enabled: true, installed: false, js_runtime: 'deno' }), 'notInstalled');

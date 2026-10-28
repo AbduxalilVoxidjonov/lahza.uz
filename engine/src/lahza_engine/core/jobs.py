@@ -105,12 +105,13 @@ class JobManager:
         except Cancelled:
             job.status = "cancelled"
         except Exception as e:  # noqa: BLE001 - xato foydalanuvchiga ko'rsatiladi
-            job.status = "failed"
             job.error = str(e) or type(e).__name__
             # Barqaror kod (`unsupported_codec`, `file_not_found`, `disk_full` ...; core/errors.py):
             # UI tarjima qilingan matnni ko'rsatadi, `error` - batafsil/orqaga moslik uchun.
             annotate_error(job.meta, e)
             job.meta["trace"] = traceback.format_exc(limit=8)
+            # Holat oxirida: "failed" ni ko'rgan o'quvchi (polling, test) error_code'ni ham ko'radi.
+            job.status = "failed"
             # NFR-02: logga faqat turi va joyi; xabar matnida transkript bo'lishi mumkin.
             log.error("vazifa %s (%s) xato bilan tugadi: %s", job.id, job.kind, type(e).__name__)
         self._notify(job)

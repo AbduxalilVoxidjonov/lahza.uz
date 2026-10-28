@@ -101,7 +101,7 @@ export function downloadView(job: { progress: number; meta: Record<string, unkno
 
 /**
  * Import kartasidagi YouTube maydonining holati (maydon har doim ko'rinadi, faqat faolligi o'zgaradi).
- * loading: holat hali kelmagan; disabled: Sozlamalarda o'chiq (standart, ADR-0010);
+ * loading: holat hali kelmagan; disabled: Sozlamalarda o'chirilgan (standart - yoqilgan);
  * notInstalled: yt-dlp yo'q; noJs: ishlaydi, lekin JS runtime yo'q (ogohlantirish); ready: tayyor.
  */
 export type YoutubeFieldState = "loading" | "disabled" | "notInstalled" | "noJs" | "ready";
