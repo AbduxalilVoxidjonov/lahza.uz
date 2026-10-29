@@ -70,3 +70,13 @@ and build-script suites and targeted Electron tests. Those results are not
 represented here as fresh full-suite validation of this final combination.
 Cross-platform validation is performed by the main branch CI. Windows-only PoCs
 and installer packaging were not run locally.
+
+## CI resource contention
+
+Run 40937852368 passed the checks job, all three Rust jobs and 12 of 13 E2E
+legs. The remaining macOS leg reported resource-capacity-exceeded during export
+and Electron shutdown timeouts. Its host had 7 GiB RAM and two parallel test
+workers; the failure diagnostics reported only 148–216 MiB host free memory.
+The CI worker count is now one on every platform, keeping the existing workflow
+file sharding while preventing two export pipelines competing on the same host.
+No product resource policy, assertions, test selection or timeout was weakened.

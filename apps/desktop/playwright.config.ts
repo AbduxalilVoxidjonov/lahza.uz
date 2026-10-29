@@ -78,10 +78,11 @@ export default defineConfig({
     {
       name: 'parallel',
       grepInvert: [/@serial/, ...MATRIX_EXCLUDED],
-      // GPU-less CI legs (Linux/SwiftShader, Windows/WARP) saturate their 4
-      // vCPUs with ONE export pipeline — two workers starve each other past
-      // the export gates' budgets. macOS runners have a real GPU; keep two.
-      workers: process.env.CI ? (process.platform === 'darwin' ? 2 : 1) : '50%',
+      // CI runners fit one export pipeline. The 7 GiB macOS GPU runner also
+      // exhausts host memory with two Electron apps, causing resource-busy
+      // export failures and shutdown timeouts. Keep CI serial within each leg;
+      // the workflow already distributes files across independent runners.
+      workers: process.env.CI ? 1 : '50%',
     },
   ],
 })
