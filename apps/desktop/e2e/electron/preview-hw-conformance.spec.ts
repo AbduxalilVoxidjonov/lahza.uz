@@ -188,7 +188,9 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
       // format, so there is NO native-sw route to wait for (that gate is
       // ProRes-specific); the ffmpeg pin alone routes h264 to FfmpegSource.
       const after = (await invokeCmd(page, 'app_settings_set', {
-        patch: { decode_engine: 'ffmpeg' },
+        // Fidelity needs an interactive slot beside import derivatives even on
+        // a 3-core Mac. Resource-pressure fallback has its own regression gates.
+        patch: { decode_engine: 'ffmpeg', resource_policy: { processing: 'high' } },
       })) as { decode_engine: string }
       expect(after.decode_engine).toBe('ffmpeg')
       toggledOn = true

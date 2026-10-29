@@ -971,7 +971,7 @@ app.whenReady().then(async () => {
   // Machine capability cache (ADR 0030; docs/preview.md §Decode engine) —
   // persists <userData>/decode_capability.json. Keyed by (lane, format class),
   // invalidated per-lane when its envKey changes (SW: ffmpeg version).
-  const { createDecodeCapabilityStore, classKeyOf, resolveHwLane } = await import('./decode-capability.js')
+  const { createDecodeCapabilityStore, classKeyOf, resolveHwLane, coalesceHwLaneResolution } = await import('./decode-capability.js')
   const decodeCapability = createDecodeCapabilityStore({
     fs: atomicFs,
     path: path.join(app.getPath('userData'), 'decode_capability.json'),
@@ -2016,7 +2016,7 @@ app.whenReady().then(async () => {
   // HW lane (Linux SW-only) never reaches a native probe, no platform
   // special-casing.
   const macDecodeProbe = process.platform === 'darwin' ? createMacDecodeProbe() : null
-  ipcMain.handle('decodeCap:probeHw', async (_e, a: { path: string; classKey: string }) => {
+  const resolveHardware = coalesceHwLaneResolution(async a => {
     // Session failure takes precedence even over a positive disk cache from a
     // different format class. Never repeatedly enter a wedged driver lane.
     if (macDecodeProbe?.unavailableReason) {
@@ -2066,6 +2066,7 @@ app.whenReady().then(async () => {
     })
     return { ok: r.ok, reason: r.reason, lane: r.lane, device: r.device, ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}) }
   })
+  ipcMain.handle('decodeCap:probeHw', (_e, a: { path: string; classKey: string }) => resolveHardware(a))
 
   // Native SOFTWARE-decode preview (ProRes/DNxHD/MPEG-2/VC-1 — the
   // WebCodecs-blind-format path). Frames flow out of band on the dedicated

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createDecodeCapabilityStore, parseClassKey, resolveHwLane, HW_LANE_PRIORITY } from './decode-capability'
+import { createDecodeCapabilityStore, parseClassKey, resolveHwLane, coalesceHwLaneResolution, HW_LANE_PRIORITY } from './decode-capability'
 import type { AppSettingsFs } from './app-settings'
 
 function memFs(): AppSettingsFs {
@@ -14,6 +14,31 @@ function memFs(): AppSettingsFs {
 }
 
 describe('decode capability cache', () => {
+  it('shares an in-flight format-class probe across import path swaps', async () => {
+    const verdict = { ok: true, lane: 'videotoolbox' as const, device: null, reason: null }
+    let finish!: (value: typeof verdict) => void
+    const resolve = vi.fn(() => new Promise<typeof verdict>(r => { finish = r }))
+    const probe = coalesceHwLaneResolution(resolve)
+    const a = probe({ path: '/original.mp4', classKey: 'h264::yuv420p:hd' })
+    const b = probe({ path: '/project/copy.mp4', classKey: 'h264::yuv420p:hd' })
+    await Promise.resolve()
+    expect(resolve).toHaveBeenCalledTimes(1)
+    finish(verdict)
+    expect(await a).toEqual(verdict)
+    expect(await b).toEqual(verdict)
+    resolve.mockResolvedValue(verdict)
+    await probe({ path: '/next.mp4', classKey: 'h264::yuv420p:hd' })
+    expect(resolve).toHaveBeenCalledTimes(2)
+  })
+  it('neither retains rejected resolutions nor conflates distinct classes', async () => {
+    const resolve = vi.fn(async () => { throw new Error('IPC failed') })
+    const probe = coalesceHwLaneResolution(resolve)
+    const request = { path: '/original.mp4', classKey: 'h264::yuv420p:hd' }
+    await expect(probe(request)).rejects.toThrow('IPC failed')
+    await expect(probe(request)).rejects.toThrow('IPC failed')
+    await expect(probe({ ...request, classKey: 'hevc::yuv420p10le:hd' })).rejects.toThrow('IPC failed')
+    expect(resolve).toHaveBeenCalledTimes(3)
+  })
   it('preserves native rejection details across cached resolutions', async () => {
     const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
     const probe = vi.fn(() => ({ ok: false, reason: 'open input: permission denied' }))

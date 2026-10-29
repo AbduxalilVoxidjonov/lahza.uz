@@ -395,6 +395,9 @@ answers "did this session's open just fail."
 
 On macOS, a cache miss for the VideoToolbox lane runs its one-frame native
 probe in a disposable Electron utility process (`decode-probe-host.ts`). Main
+coalesces concurrent requests for the same format class, including an import's
+original-to-project-copy source swap, just as the disk capability cache does.
+The in-flight entry is removed on both success and failure. Main
 owns a four-second deadline covering startup, addon loading and decoding. It
 accepts a verdict only after the host exits cleanly. Timeout or IPC/process
 failure triggers forced termination and software fallback, and disables further

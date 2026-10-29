@@ -24,6 +24,10 @@ Microsoft software adapters) can skip an optional variant. Empty/unknown Windows
 inventories and mixed software/physical adapters do not permit a skip. Missing fixtures/components are
 test setup failures. Legacy negative cache entries without a cause are not
 accepted as unavailability evidence; hardware audits use fresh profiles.
+Fidelity gates use the existing high-processing preset so a 3-core Mac retains
+an interactive compute slot beside import derivatives. They still enforce
+normal admission limits and fail on any probe/session error. The isolation and
+resource-pressure gates exercise failure and software recovery separately.
 
 On macOS the VideoToolbox H.264 and HEVC Main10 cells are mandatory, including
 all four H.264 color charts. ProRes is host-dependent. To require additional

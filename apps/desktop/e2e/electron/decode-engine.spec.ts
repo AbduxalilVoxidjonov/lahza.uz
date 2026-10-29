@@ -237,7 +237,7 @@ test.describe('decode-engine resolution (Electron)', () => {
       const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'h264-auto', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
-        patch: { decode_engine: 'auto' },
+        patch: { decode_engine: 'auto', resource_policy: { processing: 'high' } },
       })) as { decode_engine: string }
       expect(after.decode_engine).toBe('auto')
 
@@ -253,7 +253,7 @@ test.describe('decode-engine resolution (Electron)', () => {
       const probe = await waitForBuiltKey(page, layerId, null, 'ffmpeg:original:')
       const live = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
       const expectedLane = live.hwLane ?? (process.platform === 'darwin' ? 'videotoolbox' : process.platform === 'win32' ? 'd3d11va' : 'nvdec')
-        await hardwareEnvironmentGate(app, page, expectedLane, 'h264')
+      await hardwareEnvironmentGate(app, page, expectedLane, 'h264')
       const evidence = await hardwareGate(page, layerId, expectedLane, 'h264')
       expect(probe.sourceKind).toBe('native-gpu')
       expect(probe.builtFromKey!.startsWith('ffmpeg:original:')).toBe(true)

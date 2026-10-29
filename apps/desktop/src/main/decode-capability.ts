@@ -134,6 +134,24 @@ export interface HwLaneResolution {
   diagnostic?: DecodeHardwareDiagnostic
 }
 
+/** The disk cache already treats a format class as one capability. Share its
+ * in-flight resolution too: an import's original and project-local copy can
+ * request the same class concurrently while one disposable host is running.
+ * This is not a result cache; rejection/transient failure can be retried. */
+export function coalesceHwLaneResolution(
+  resolve: (request: { path: string; classKey: string }) => Promise<HwLaneResolution>,
+) {
+  const pending = new Map<string, Promise<HwLaneResolution>>()
+  return (request: { path: string; classKey: string }): Promise<HwLaneResolution> => {
+    const existing = pending.get(request.classKey)
+    if (existing) return existing
+    const result = Promise.resolve().then(() => resolve(request))
+      .finally(() => { pending.delete(request.classKey) })
+    pending.set(request.classKey, result)
+    return result
+  }
+}
+
 /// Advertisement-gated HW-lane resolution (ADR 0030 §Lane advertisement; issue
 /// #5 Block C). PURE apart from its injected collaborators (cache store, per-lane
 /// envKey resolver, DRM-device enumerator, and the one-frame probe), so lane

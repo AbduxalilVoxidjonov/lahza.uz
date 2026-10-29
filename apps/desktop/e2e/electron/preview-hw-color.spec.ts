@@ -154,7 +154,8 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     // Pin the ffmpeg engine BEFORE placing the layer (engine resolution reads
     // decode_engine live at acquire — see preview-sw-conformance.spec.ts).
     const after = (await invokeCmd(page, 'app_settings_set', {
-      patch: { decode_engine: 'ffmpeg' },
+      // Leave interactive capacity beside import derivatives on 3-core Macs.
+      patch: { decode_engine: 'ffmpeg', resource_policy: { processing: 'high' } },
     })) as { decode_engine: string }
     expect(after.decode_engine).toBe('ffmpeg')
     toggledOn = true
