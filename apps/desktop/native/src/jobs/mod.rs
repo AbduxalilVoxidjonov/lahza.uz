@@ -159,13 +159,79 @@ async fn run_derivative(
         };
         timer.start();
         cache.check_active()?;
+        let before = if reads_source(kind) {
+            Some(verify_source(cache, media).await?)
+        } else {
+            None
+        };
         let result = generate.await;
         cache.check_active()?;
-        result
+        // Changed while it was read: the derivative may hold other bytes.
+        match result {
+            Ok(path)
+                if before.is_some()
+                    && crate::io::probe::stat_file(&media.path_abs).ok() != before =>
+            {
+                discard_artifact(&path);
+                anyhow::bail!("{}", source_changed(media))
+            }
+            result => result,
+        }
     })
     .await;
     timer.finish(&result);
     result
+}
+
+/// Whether a job of `kind` reads the source itself. Audio effects bake from
+/// the conform; a waveform reads the conform only when it can reuse it, so it
+/// is held to the source too.
+fn reads_source(kind: JobKind) -> bool {
+    !matches!(kind, JobKind::AudioFx | JobKind::ProxyBypass)
+}
+
+/// Check that `media`'s file holds the bytes its hash records before a
+/// derivative is made from it (ADR 0153). Anything outside the app may
+/// overwrite a source, and a derivative of other bytes would be cached under
+/// that hash. A stat as recorded is enough; otherwise (a project folder copied
+/// without its times, a touch) the bytes are read once. Answers the stat to
+/// compare once the derivative is made.
+async fn verify_source(cache: &CacheLayout, media: &MediaItem) -> anyhow::Result<(u64, u64)> {
+    let stat = crate::io::probe::stat_file(&media.path_abs)?;
+    if stat == (media.file_size, media.file_mtime) || media.file_hash_blake3.starts_with("pending-")
+    {
+        return Ok(stat);
+    }
+    let path = media.path_abs.clone();
+    let worker_cache = cache.clone();
+    let facts = tokio::task::spawn_blocking(move || {
+        crate::io::probe::hash_and_stat_scoped(&path, Some(&worker_cache))
+    })
+    .await??;
+    if facts.blake3_hex != media.file_hash_blake3 {
+        anyhow::bail!("{}", source_changed(media));
+    }
+    Ok((facts.size, facts.mtime_secs))
+}
+
+fn source_changed(media: &MediaItem) -> String {
+    format!(
+        "{} was changed outside WeftCut and no longer holds this media",
+        media.path_abs.display()
+    )
+}
+
+/// Remove a derivative made from bytes the item does not record; it is keyed
+/// by the hash it would wrongly answer for.
+fn discard_artifact(path: &std::path::Path) {
+    let removed = if path.is_dir() {
+        std::fs::remove_dir_all(path)
+    } else {
+        std::fs::remove_file(path)
+    };
+    if let Err(e) = removed {
+        warn!("could not discard {}: {e}", path.display());
+    }
 }
 
 fn cached_derivative(
@@ -1529,5 +1595,104 @@ mod tests {
         // Err only by design: no op lifecycle — a failed background job is a
         // single row, not a Started→Err pair.
         assert_eq!(rows[0].op_state, None::<OpState>);
+    }
+
+    /// A pool item over `path` as the import records it: its size, mtime and hash now.
+    fn recorded(path: std::path::PathBuf) -> MediaItem {
+        let facts = crate::io::probe::hash_and_stat_scoped(&path, None).unwrap();
+        MediaItem {
+            id: crate::state::new_id(),
+            label: None,
+            path_abs: path,
+            path_rel: None,
+            kind: MediaKind::Video,
+            metadata: Default::default(),
+            decode_route: DecodeRoute::Bypass,
+            waveform_path: None,
+            conform_path: None,
+            thumbnails_dir: None,
+            file_hash_blake3: facts.blake3_hex,
+            file_size: facts.size,
+            file_mtime: facts.mtime_secs,
+            imported_at: chrono::Utc::now(),
+        }
+    }
+
+    // ADR 0153: a derivative is cached under the hash the item records, so it
+    // is made only from those bytes.
+    #[tokio::test]
+    async fn a_derivative_is_made_only_from_the_bytes_the_item_records() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let cache = CacheLayout::new(tmp.path().to_path_buf());
+        cache.ensure_dirs().unwrap();
+        let events: Arc<dyn EventSink> = Arc::new(crate::events::VecEventSink::new());
+        let source = tmp.path().join("clip.mp4");
+        std::fs::write(&source, b"recorded bytes").unwrap();
+        let media = recorded(source.clone());
+        let made = |name: &str| {
+            let out = tmp.path().join(name);
+            async move {
+                std::fs::write(&out, b"derivative")?;
+                Ok(out)
+            }
+        };
+
+        // As recorded: made without reading the source.
+        run_derivative(&events, &cache, &media, JobKind::Thumbnails, made("a"))
+            .await
+            .unwrap();
+        // Only the mtime differs, as in a project folder copied without its
+        // times: the bytes are read once and still match.
+        let moved = MediaItem {
+            file_mtime: media.file_mtime + 100,
+            ..media.clone()
+        };
+        run_derivative(&events, &cache, &moved, JobKind::Thumbnails, made("b"))
+            .await
+            .unwrap();
+        // Other bytes of the same size: refused before anything is made.
+        std::fs::write(&source, b"replaced bytes").unwrap();
+        let replaced = MediaItem {
+            file_mtime: media.file_mtime + 100,
+            ..media.clone()
+        };
+        let err = run_derivative(&events, &cache, &replaced, JobKind::Thumbnails, made("c"))
+            .await
+            .unwrap_err();
+        assert!(
+            format!("{err:#}").contains("changed outside WeftCut"),
+            "{err:#}"
+        );
+        assert!(!tmp.path().join("c").exists());
+    }
+
+    #[tokio::test]
+    async fn a_derivative_whose_source_changed_while_it_was_made_is_discarded() {
+        let tmp = tempfile::TempDir::new().unwrap();
+        let cache = CacheLayout::new(tmp.path().to_path_buf());
+        cache.ensure_dirs().unwrap();
+        let events: Arc<dyn EventSink> = Arc::new(crate::events::VecEventSink::new());
+        let source = tmp.path().join("clip.mp4");
+        std::fs::write(&source, b"recorded bytes").unwrap();
+        let media = recorded(source.clone());
+        let out = tmp.path().join("thumbs");
+        let generate = {
+            let (out, source) = (out.clone(), source.clone());
+            async move {
+                std::fs::create_dir_all(&out)?;
+                std::fs::write(out.join("0.jpg"), b"frame")?;
+                // Overwritten while the job reads it.
+                std::fs::write(&source, b"other bytes, another size")?;
+                Ok(out)
+            }
+        };
+        let err = run_derivative(&events, &cache, &media, JobKind::Thumbnails, generate)
+            .await
+            .unwrap_err();
+        assert!(
+            format!("{err:#}").contains("changed outside WeftCut"),
+            "{err:#}"
+        );
+        assert!(!out.exists(), "the derivative of other bytes is removed");
     }
 }
