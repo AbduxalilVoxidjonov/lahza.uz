@@ -2,37 +2,93 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useCancelJob } from "../../api/hooks";
-import { useImportUrl, useYoutubeImportStatus } from "../../api/youtube";
+import { useImportUrl, useResolveUrl, useYoutubeImportStatus } from "../../api/youtube";
 import { translate } from "../../i18n";
 import { fmt, youtubeDictionaries, youtubeErrors } from "../../i18n/youtube";
 import { jobCodedError } from "../../lib/error-codes";
 import {
-  canStart, consentGiven, downloadView, parseYoutubeVideoId, youtubeFieldState, youtubeInputEnabled, type ConsentState,
+  canStart, consentGiven, downloadView, importedVideo, isYtErrorCode, outdatedRuntimes, parseYoutubeSource,
+  youtubeFieldState, youtubeInputEnabled, type ConsentState, type ImportedVideo,
 } from "../../lib/youtube-import";
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
 import { ErrorText, ProgressBar, QueryState } from "../ui";
 import { YoutubeComponentsInstall } from "./YoutubeComponentsInstall";
+import { YoutubePlaylistPicker } from "./YoutubePlaylistPicker";
 
-/** YT-1 (ADR-0010): havola -> rozilik oynasi -> alohida jarayonda yuklash -> oddiy tahlil oqimi. */
-export function YoutubeImport({ projectId, focus, lite }: { projectId: string; focus: string; lite: boolean }) {
+export interface YoutubeImportProps {
+  /** Loyiha id'si yoki uni rozilikdan keyin oladigan funksiya (Boshlash sahifasi: "YouTube" loyihasi). */
+  projectId: string | (() => Promise<string>);
+  focus?: string;
+  lite?: boolean;
+  /** Ixcham ko'rinish (Boshlash sahifasi): uzun tavsiya matni faqat rozilik oynasida. */
+  compact?: boolean;
+  /** Bitta video tugmasi matni (standart: "Yuklab olish va tahlil qilish"). */
+  startLabel?: string;
+  /** Bitta video yuklab bo'lingach (bir marta) - masalan, montaj manbasiga qo'shish. */
+  onImported?: (video: ImportedVideo, projectId: string) => void;
+}
+
+/** YT-1 (ADR-0010): havola -> rozilik oynasi -> alohida jarayonda yuklash -> oddiy tahlil oqimi.
+ * Playlist/kanal havolasi: rozilik -> ro'yxat (`/v1/media:resolve-url`) -> tanlanganlar navbatga.
+ * Loyihalar sahifasida va Boshlash sahifasining 1-qadamida (SourcePicker) ishlatiladi. */
+export function YoutubeImport({
+  projectId, focus = "", lite = false, compact = false, startLabel, onImported,
+}: YoutubeImportProps) {
   const locale = useSettings((s) => s.locale);
   const y = youtubeDictionaries[locale];
   const status = useYoutubeImportStatus();
   const importUrl = useImportUrl();
   const cancel = useCancelJob();
+  const resolve = useResolveUrl();
   const [url, setUrl] = useState("");
+  const [added, setAdded] = useState<number | null>(null);
   const [asking, setAsking] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
+  // Rozilikdan keyin aniqlangan loyiha (funksiya berilgan bo'lsa) va uni olishdagi xato.
+  const [pid, setPid] = useState<string | null>(typeof projectId === "string" ? projectId : null);
+  const [ensuring, setEnsuring] = useState(false);
+  const [projectError, setProjectError] = useState<unknown>(null);
   const job = useJobs((s) => (jobId ? s.jobs[jobId] : undefined));
   const st = status.data;
-  const busy = importUrl.isPending || job?.status === "queued" || job?.status === "running";
-  const validUrl = parseYoutubeVideoId(url) !== null;
+  const busy = ensuring || importUrl.isPending || job?.status === "queued" || job?.status === "running";
+  const source = parseYoutubeSource(url);
+  const validUrl = source !== null;
+  const isList = source !== null && source.kind !== "video";
+  const resolveCode = (resolve.error as { code?: unknown } | null)?.code;
 
-  const start = () => {
+  // Tugagan import natijasi har vazifa uchun bir marta uzatiladi.
+  const reported = useRef<string | null>(null);
+  const imported = importedVideo(job);
+  useEffect(() => {
+    if (!job || !imported || !pid || reported.current === job.id) return;
+    reported.current = job.id;
+    onImported?.(imported, pid);
+  }, [job?.id, imported?.path, pid]);
+
+  const start = async () => {
     setAsking(false);
+    setProjectError(null);
+    let project = typeof projectId === "string" ? projectId : null;
+    if (project === null) {
+      setEnsuring(true);
+      try {
+        project = await (projectId as () => Promise<string>)();
+      } catch (cause) {
+        setProjectError(cause);
+        return;
+      } finally {
+        setEnsuring(false);
+      }
+    }
+    setPid(project);
+    if (isList && source) {
+      setAdded(null);
+      resolve.mutate(source.url);
+      return;
+    }
     importUrl.mutate(
-      { project_id: projectId, url: url.trim(), consent: true, focus: focus || undefined, force_lite: lite },
+      { project_id: project, url: url.trim(), consent: true, focus: focus || undefined, force_lite: lite },
       { onSuccess: (res) => setJobId(res.job.id) },
     );
   };
@@ -50,25 +106,55 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
           <Link className="btn small" to="/settings#set-youtube">{y.enableInSettings}</Link>
         </div>
       )}
-      {field !== "disabled" && field !== "loading" && <div className="notice">{y.recommend}</div>}
+      {!compact && field !== "disabled" && field !== "loading" && <div className="notice">{y.recommend}</div>}
       {field === "notInstalled" && <div className="notice bad" role="alert">{y.notInstalled}</div>}
       {field === "noJs" && <div className="notice warn">{y.noJs}</div>}
+      {st?.js_runtime_outdated?.length ? (
+        <div className="notice warn" role="status">{fmt(y.jsOutdated, { list: outdatedRuntimes(st) })}</div>
+      ) : null}
       {st && field !== "disabled" && <YoutubeComponentsInstall st={st} />}
       <div className="row">
-        <label className="field" style={{ flex: 1, minWidth: 260 }}>
-          {y.url}
+        <label className="field" style={{ flex: 1, minWidth: compact ? 200 : 260 }}>
+          <span className={compact ? "sr-only" : undefined}>{y.url}</span>
           <input className="input" type="url" inputMode="url" placeholder={y.urlPlaceholder} value={url}
                  aria-invalid={url.trim() !== "" && !validUrl} disabled={!youtubeInputEnabled(field)}
                  aria-describedby={field === "disabled" ? "yt-disabled-note" : undefined}
-                 onChange={(e) => setUrl(e.target.value)} />
+                 onChange={(e) => {
+                   setUrl(e.target.value);
+                   resolve.reset();
+                 }} />
         </label>
-        <button className="btn primary" type="button" onClick={() => setAsking(true)}
-                disabled={!canStart({ enabled: !!st?.enabled, installed: !!st?.installed, url, busy })}>
-          {y.start}
-        </button>
+        {isList ? (
+          <button className="btn primary" type="button" onClick={() => setAsking(true)}
+                  disabled={!st?.enabled || !st?.installed || resolve.isPending || ensuring}>
+            {resolve.isPending ? y.resolving : y.openList}
+          </button>
+        ) : (
+          <button className="btn primary" type="button" onClick={() => setAsking(true)}
+                  disabled={!canStart({ enabled: !!st?.enabled, installed: !!st?.installed, url, busy })}>
+            {ensuring ? y.preparing : startLabel ?? y.start}
+          </button>
+        )}
       </div>
       {url.trim() !== "" && !validUrl && <span className="error">{y.urlInvalid}</span>}
-      <ErrorText error={importUrl.error} />
+      {source?.kind === "playlist" && <span className="muted">{y.urlPlaylist}</span>}
+      {source?.kind === "channel" && <span className="muted">{y.urlChannel}</span>}
+      <ErrorText error={projectError ?? importUrl.error} />
+      {isYtErrorCode(resolveCode)
+        ? <span className="error" role="alert">{youtubeErrors[locale][resolveCode]}</span>
+        : <ErrorText error={resolve.error} />}
+      {resolve.data && resolve.data.kind !== "video" && added === null && (
+        resolve.data.entries.length
+          ? (pid && <YoutubePlaylistPicker data={resolve.data} projectId={pid} focus={focus} lite={lite} onDone={setAdded} />)
+          : <span className="muted">{youtubeErrors[locale].empty}</span>
+      )}
+      {added !== null && (
+        <span className="row" role="status">
+          <span className="muted">{fmt(y.addedToQueue, { n: added })}</span>
+          {/* Navbat (BatchQueue) loyiha sahifasida - Boshlash sahifasidan u yerga havola. */}
+          {compact && pid && <Link to={`/projects/${pid}`}>{y.openQueue}</Link>}
+        </span>
+      )}
 
       {job && view && (
         <div className="stack" style={{ gap: 6 }} aria-live="polite">
@@ -101,7 +187,7 @@ export function YoutubeImport({ projectId, focus, lite }: { projectId: string; f
           )}
           {job.status === "done" && (
             <span className="row">
-              <span className="muted">{y.done}</span>
+              <span className="muted">{onImported && imported ? y.doneSource : y.done}</span>
               {view.episodeId && <Link to={`/episodes/${view.episodeId}`}>{y.openEpisode}</Link>}
             </span>
           )}

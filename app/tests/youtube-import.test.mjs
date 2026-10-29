@@ -126,3 +126,88 @@ test('i18n: to\'rt til, bir xil kalitlar, har xato kodi uchun matn', () => {
   assert.match(youtubeDictionaries.uz.recommend, /YouTube Studio/);
   assert.equal(fmt(youtubeDictionaries.en.downloading, { title: 'X' }), 'Downloading: X');
 });
+
+test('parseYoutubeSource: video, playlist va kanal (engine parse_source_url bilan bir xil)', () => {
+  const ch = 'UC' + 'a'.repeat(22);
+  const cases = [
+    [`https://youtu.be/${VID}`, 'video', `https://www.youtube.com/watch?v=${VID}`],
+    [`https://www.youtube.com/watch?v=${VID}&list=PL123`, 'video', `https://www.youtube.com/watch?v=${VID}`],
+    ['https://www.youtube.com/playlist?list=PLabc_DEF-123', 'playlist', 'https://www.youtube.com/playlist?list=PLabc_DEF-123'],
+    ['youtube.com/playlist?si=x&list=OLAK5uy_abc', 'playlist', 'https://www.youtube.com/playlist?list=OLAK5uy_abc'],
+    ['https://www.youtube.com/@Kanal.uz', 'channel', 'https://www.youtube.com/@Kanal.uz/videos'],
+    ['https://m.youtube.com/@kanal/videos', 'channel', 'https://www.youtube.com/@kanal/videos'],
+    [`https://www.youtube.com/channel/${ch}`, 'channel', `https://www.youtube.com/channel/${ch}/videos`],
+    ['https://www.youtube.com/c/OldName/featured', 'channel', 'https://www.youtube.com/c/OldName/videos'],
+    ['https://www.youtube.com/user/someone', 'channel', 'https://www.youtube.com/user/someone/videos'],
+  ];
+  for (const [url, kind, canon] of cases) assert.deepEqual(yt.parseYoutubeSource(url), { kind, url: canon }, url);
+  for (const url of [
+    '', 'https://vimeo.com/playlist?list=PL123', 'https://youtube.com.evil.com/playlist?list=PL123',
+    'https://www.youtube.com/playlist', 'https://www.youtube.com/playlist?list=a',
+    'https://www.youtube.com/playlist?list=PL1&list=PL2', 'https://www.youtube.com/@kanal/shorts',
+    'https://www.youtube.com/channel/UCshort', 'https://youtu.be/playlist?list=PL123',
+    'https://user:pw@www.youtube.com/@kanal', 'https://www.youtube.com:8080/@kanal', 'ftp://www.youtube.com/@kanal',
+    'https://www.youtube.com/feed/subscriptions',
+  ]) assert.equal(yt.parseYoutubeSource(url), null, url);
+});
+
+test('playlist ro\'yxati: tanlov, hammasini tanlash, davomiylik, navbat elementlari', () => {
+  const entries = [
+    { id: 'a', url: 'https://www.youtube.com/watch?v=a', title: 'A', duration_s: 60, skip: null },
+    { id: 'b', url: 'https://www.youtube.com/watch?v=b', title: null, duration_s: 30, skip: null },
+    { id: 'c', url: 'https://www.youtube.com/watch?v=c', title: 'C', duration_s: null, skip: 'private' },
+    { id: 'd', url: 'https://www.youtube.com/watch?v=d', title: 'D', duration_s: 10, skip: 'short' },
+  ];
+  const sel = yt.initialSelection(entries);
+  assert.deepEqual([...sel], ['a', 'b']); // belgilangan (skip) elementlar tanlanmaydi
+  assert.equal(yt.totalDuration(entries, sel), 90);
+  assert.equal(yt.fmtDuration(yt.totalDuration(entries, sel)), '1:30');
+  assert.deepEqual([...yt.toggleAll(entries, sel)], []); // hammasi tanlangan -> tozalash
+  assert.deepEqual([...yt.toggleAll(entries, new Set(['a']))], ['a', 'b']);
+  assert.deepEqual([...yt.toggleOne(entries, sel, 'a')], ['b']);
+  assert.deepEqual([...yt.toggleOne(entries, sel, 'c')], ['a', 'b']); // yopiq video tanlanmaydi
+  assert.deepEqual(yt.queueUrls(entries, new Set(['b', 'a', 'c'])), [
+    { url: 'https://www.youtube.com/watch?v=a', title: 'A' },
+    { url: 'https://www.youtube.com/watch?v=b', title: undefined },
+  ]);
+  assert.deepEqual([...yt.toggleAll([entries[2]], new Set())], []);
+});
+
+test('komponentlar holati: tizimdagi yt-dlp/Deno bilan import ishlaydi - chalkash ko\'rsatilmaydi', () => {
+  const base = { installed: true, version: '2026.10.21', js_runtime: 'deno', components_ready: false,
+    ytdlp_source: 'system', js_runtime_version: '2.9.6', js_runtime_source: 'system', js_runtime_outdated: [] };
+  assert.equal(yt.componentsMode(base), 'system');
+  assert.equal(yt.componentsMode({ ...base, components_ready: true }), 'ready');
+  assert.equal(yt.componentsMode({ ...base, installed: false }), 'missing');
+  assert.equal(yt.componentsMode({ ...base, js_runtime: null }), 'missing');
+  const labels = { system: 'tizim', app: 'ilova' };
+  assert.equal(yt.componentsInUse(base, labels), 'yt-dlp 2026.10.21 (tizim), deno 2.9.6 (tizim)');
+  assert.equal(yt.componentsInUse({ ...base, js_runtime_source: 'components' }, labels),
+    'yt-dlp 2026.10.21 (tizim), deno 2.9.6 (ilova)');
+  assert.equal(yt.outdatedRuntimes({ ...base, js_runtime_outdated: [{ name: 'deno', version: '2.1.4' }, { name: 'node', version: null }] }),
+    'deno 2.1.4, node ?');
+  assert.equal(yt.outdatedRuntimes({ installed: true, version: null, js_runtime: null, components_ready: false }), '');
+  for (const code of ['js_outdated', 'timeout', 'empty']) assert.ok(yt.isYtErrorCode(code), code);
+});
+
+test('boblar: YouTube vaqt havolasi va transkriptdagi so\'z indeksi', () => {
+  assert.equal(yt.youtubeAt(`https://www.youtube.com/watch?v=${VID}`, 125_900), `https://www.youtube.com/watch?v=${VID}&t=125s`);
+  assert.equal(yt.youtubeAt('https://example.com/x', 1000), 'https://example.com/x');
+  const words = [{ start_ms: 0, end_ms: 900 }, { start_ms: 1000, end_ms: 1900 }, { start_ms: 2000, end_ms: 2900 }];
+  assert.equal(yt.wordIndexAt(words, 0), 0);
+  assert.equal(yt.wordIndexAt(words, 1500), 1);
+  assert.equal(yt.wordIndexAt(words, 950), 1);
+  assert.equal(yt.wordIndexAt(words, 99_999), 2);
+  assert.equal(yt.wordIndexAt([], 10), null);
+  assert.equal(yt.wordIndexAt(words, NaN), null);
+});
+
+test('i18n: playlist, komponentlar va boblar matnlari to\'rt tilda', () => {
+  for (const loc of ['uz', 'uz-Cyrl', 'ru', 'en']) {
+    const d = youtubeDictionaries[loc];
+    assert.match(fmt(d.addToQueue, { n: 3 }), /3/);
+    assert.match(fmt(d.systemComponents, { list: 'yt-dlp X' }), /yt-dlp X/);
+    assert.match(fmt(d.jsOutdated, { list: 'deno 2.1' }), /2\.3/);
+    for (const s of ['short', 'live', 'upcoming', 'private', 'unavailable']) assert.ok(d[`skip_${s}`], `${loc}.skip_${s}`);
+  }
+});

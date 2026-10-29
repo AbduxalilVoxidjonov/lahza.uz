@@ -25,7 +25,7 @@ setup-local-llm:
 
 # YT-1 (ADR-0010, ixtiyoriy): yt-dlp + yt-dlp-ejs engine muhitiga (tarmoq - faqat shu buyruqda).
 # YouTube uchun JavaScript runtime ham kerak: Deno >= 2.3 (`brew install deno`) PATH yoki LAHZA_BIN_DIR da.
-# Funksiya standart o'chiq: Sozlamalar -> "YouTube havolasidan import".
+# Faqat dasturchi muhiti uchun: desktop ilova komponentlarni o'zi o'rnatadi (Sozlamalar), funksiya standart yoqilgan.
 setup-youtube:
 	$(BIN)/pip install -e "engine[youtube]"
 
@@ -118,6 +118,7 @@ ci: check-versions check-licenses lint test-offline test-ui build-ui
 
 dev-engine:
 	LAHZA_DEV=1 LAHZA_TOKEN=dev-token LAHZA_CATALOG=$(CURDIR)/catalog/catalog.json \
+		LAHZA_BIN_DIR=$(CURDIR)/app/src-tauri/resources/bin \
 		$(BIN)/python -m lahza_engine serve --port 8765
 
 dev-ui:

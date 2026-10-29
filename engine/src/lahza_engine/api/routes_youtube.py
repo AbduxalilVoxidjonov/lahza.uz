@@ -45,6 +45,11 @@ class ImportUrlIn(BaseModel):
     force_lite: bool = False
 
 
+class ResolveUrlIn(BaseModel):
+    url: str
+    consent: bool = False
+
+
 class YoutubeSettingIn(BaseModel):
     enabled: bool
 
@@ -95,6 +100,43 @@ def _components_installing(s: State) -> bool:
 def _youtube_downloading(s: State) -> bool:
     return any(j.meta.get("op") == "youtube" and j.status in ("queued", "running")
                for j in s.jobs.list_jobs("download"))
+
+
+def check_ready(s: State) -> None:
+    """YouTube importi Sozlamalarda yoqilgan (aks holda 403)."""
+    if not import_enabled(s):
+        raise HTTPException(403, "YouTube havolasidan import o'chiq - Sozlamalarda yoqing")
+
+
+def download_to_episode(s: State, job: Job, url: str, video_id: str, project_id: str, *,
+                        title: str | None = None, episode_id: str | None = None,
+                        ) -> tuple[str, Path, youtube.DownloadResult]:
+    """`download` vazifasi ichida: yuklash -> epizod (yoki mavjud epizod) -> `cache/youtube.json`.
+    Bitta havola importi va partiyaviy navbatning URL elementi uchun umumiy."""
+    def progress(frac: float, info: dict[str, Any]) -> None:
+        job.meta["download"] = {k: info.get(k) for k in ("downloaded_bytes", "total_bytes", "speed", "eta")}
+        s.jobs.progress(job, "download", frac)
+
+    def on_info(info: dict[str, Any]) -> None:
+        if info.get("title"):
+            job.meta["title"] = info["title"]
+
+    try:
+        res = youtube.download(url, downloads_dir(s, video_id), cancel=job.cancel, on_progress=progress,
+                               on_info=on_info, data_dir=s.settings.data_dir,
+                               keep_partial=lambda: s.jobs.closing)
+    except youtube.YoutubeError as e:
+        job.meta["error_code"] = e.code
+        raise
+    rows = s.lib("SELECT project_dir FROM episodes WHERE id = ?", (episode_id,)) if episode_id else []
+    if rows:
+        eid, pdir = str(episode_id), Path(rows[0]["project_dir"])
+    else:
+        # Foydalanuvchi nom bermagan bo'lsa - video sarlavhasi epizod nomi bo'ladi.
+        eid, pdir = create_episode(s, project_id, res.path, title or safe_title(res.title, video_id))
+    youtube.write_source(pdir, url, res)
+    job.meta["episode_id"] = eid
+    return eid, pdir, res
 
 
 def register(app: FastAPI, auth: Callable[..., State]) -> None:
@@ -150,10 +192,28 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
         except youtube_components.ComponentError as e:
             raise HTTPException(502, str(e)) from None
 
+    @app.post("/v1/media:resolve-url")
+    def resolve_url(body: ResolveUrlIn, s: State = Depends(auth)) -> dict[str, Any]:
+        """Havola turi va (playlist/kanal bo'lsa) videolar ro'yxati. Tarmoq - alohida jarayonda."""
+        check_ready(s)
+        if body.consent is not True:
+            raise HTTPException(400, "rozilik kerak: havoladagi videolar sizga tegishli yoki ruxsatingiz"
+                                     " borligini va YouTube shartlari haqidagi ogohlantirishni tasdiqlang")
+        try:
+            src = youtube.parse_source_url(body.url)
+        except youtube.InvalidUrl as e:
+            raise HTTPException(400, f"havola noto'g'ri: {e}") from None
+        if src.kind != "video" and _components_installing(s):
+            raise HTTPException(409, BUSY_INSTALLING)
+        try:
+            return youtube.resolve(src.url, data_dir=s.settings.data_dir)
+        except youtube.YoutubeError as e:
+            status = 409 if e.code in ("not_installed", "js_outdated", "incompatible") else 502
+            raise HTTPException(status, {"code": e.code, "message": str(e)}) from None
+
     @app.post("/v1/media:import-url")
     def import_url(body: ImportUrlIn, s: State = Depends(auth)) -> dict[str, Any]:
-        if not import_enabled(s):
-            raise HTTPException(403, "YouTube havolasidan import o'chiq - Sozlamalarda yoqing")
+        check_ready(s)
         if body.consent is not True:
             raise HTTPException(400, "rozilik kerak: video sizga tegishli yoki ruxsatingiz borligini"
                                      " va YouTube shartlari haqidagi ogohlantirishni tasdiqlang")
@@ -169,29 +229,10 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             raise HTTPException(409, youtube.MESSAGES["not_installed"])
 
         url = youtube.canonical_url(video_id)
-        out_dir = downloads_dir(s, video_id)
         project_id = body.project_id
 
         def work(job: Job) -> dict[str, Any]:
-            def progress(frac: float, info: dict[str, Any]) -> None:
-                job.meta["download"] = {k: info.get(k) for k in
-                                        ("downloaded_bytes", "total_bytes", "speed", "eta")}
-                s.jobs.progress(job, "download", frac)
-
-            def on_info(info: dict[str, Any]) -> None:
-                if info.get("title"):
-                    job.meta["title"] = info["title"]
-
-            try:
-                res = youtube.download(url, out_dir, cancel=job.cancel, on_progress=progress,
-                                       on_info=on_info, data_dir=s.settings.data_dir,
-                                       keep_partial=lambda: s.jobs.closing)
-            except youtube.YoutubeError as e:
-                job.meta["error_code"] = e.code
-                raise
-            title = body.title or safe_title(res.title, video_id)
-            eid, pdir = create_episode(s, project_id, res.path, title)
-            job.meta["episode_id"] = eid
+            eid, pdir, res = download_to_episode(s, job, url, video_id, project_id, title=body.title)
             analysis = submit_analysis(s, eid, project_id, pdir, res.path, body.focus,
                                        body.num_speakers, body.force_lite, source_url=url)
             return {"episode_id": eid, "analysis_job_id": analysis.id, "path": str(res.path),

@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { useCreateClip, useEditWord, useEpisode, useSpeakers, useTranscript } from "../api/hooks";
 import type { Sentence, Speaker } from "../api/types";
@@ -10,6 +10,7 @@ import { WordToken } from "../components/transcript/WordToken";
 import { Empty, ErrorText, fmtTime, QueryState } from "../components/ui";
 import { useT } from "../i18n";
 import { flattenWords, type FlatWord } from "../lib/words";
+import { wordIndexAt } from "../lib/youtube-import";
 
 const NO_SPEAKERS: Speaker[] = [];
 
@@ -40,6 +41,20 @@ export function Transcript() {
   const [query, setQuery] = useState("");
   const [cursor, setCursor] = useState(0);
   const [replacing, setReplacing] = useState(false);
+
+  // `?t=<ms>` (epizod sahifasidagi YouTube boblari): shu vaqtdagi so'zga o'tish, bir marta.
+  const [params] = useSearchParams();
+  const jumpMs = Number(params.get("t") ?? NaN);
+  const [jumped, setJumped] = useState(false);
+  useEffect(() => {
+    if (jumped || !words.length || !Number.isFinite(jumpMs)) return;
+    const idx = wordIndexAt(words, jumpMs);
+    if (idx == null) return;
+    setJumped(true);
+    setFocus(idx);
+    setAnchor(idx);
+    document.getElementById(`w-${idx}`)?.scrollIntoView({ block: "center" });
+  }, [jumped, words, jumpMs]);
 
   const sel = anchor == null || focus == null ? null : ([Math.min(anchor, focus), Math.max(anchor, focus)] as const);
   const selected = sel ? words.slice(sel[0], sel[1] + 1) : [];

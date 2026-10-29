@@ -108,6 +108,18 @@ export interface EpisodeDetail {
   project_dir: string;
   media: MediaInfo | null;
   highlight_mode: HighlightMode | null;
+  /** YouTube'dan import qilingan bo'lsa - manba (YT-1): havola, sarlavha, tavsif, boblar. */
+  source?: EpisodeSource | null;
+}
+
+export interface EpisodeSource {
+  kind: "youtube";
+  url: string;
+  video_id: string;
+  title: string | null;
+  uploader?: string | null;
+  description?: string | null;
+  chapters: { start_ms: number; end_ms: number; title: string }[];
 }
 
 export interface Waveform {
@@ -347,7 +359,11 @@ export interface QueueItem {
   episode_id: string | null;
   path: string;
   title: string | null;
-  options: { focus?: string | null; num_speakers?: number | null; force_lite?: boolean };
+  options: { focus?: string | null; num_speakers?: number | null; force_lite?: boolean; source?: string; video_id?: string };
+  /** Manba: fayl yoki YouTube havolasi (YT-1). Eski engine'da yo'q bo'lishi mumkin. */
+  source?: "file" | "youtube";
+  /** YouTube elementi uchun kanonik havola (`path` bilan bir xil); fayl uchun null. */
+  url?: string | null;
   position: number;
   status: JobStatus;
   progress: number;

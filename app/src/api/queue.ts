@@ -25,7 +25,15 @@ function useQueueAction<V, R>(fn: (v: V) => Promise<R>) {
 }
 
 export const useAddToQueue = () =>
-  useQueueAction((body: { project_id: string; paths: string[]; focus?: string; force_lite?: boolean }) =>
+  useQueueAction((body: {
+    project_id: string;
+    paths?: string[];
+    /** YouTube havolalari (YT-1): `consent: true` bilan. */
+    urls?: { url: string; title?: string }[];
+    consent?: boolean;
+    focus?: string;
+    force_lite?: boolean;
+  }) =>
     post<QueueItem[]>("/v1/queue", body),
   );
 

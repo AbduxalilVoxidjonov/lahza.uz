@@ -18,6 +18,8 @@ import { baseName, hasNativeDialog, pickPaths, VIDEO_EXTS } from "../../lib/dial
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
 import { describeQueueError } from "../../lib/error-codes";
+import { youtubeDictionaries, youtubeErrors } from "../../i18n/youtube";
+import { isYtErrorCode } from "../../lib/youtube-import";
 import { CodedErrorText, ErrorText, isMessageKey, ProgressBar, QueryState } from "../ui";
 
 const BADGE: Record<JobStatus, string> = { queued: "", running: "accent", done: "good", failed: "bad", cancelled: "warn" };
@@ -166,7 +168,10 @@ function QueueRow({
   const t = useT();
   const locale = useSettings((s) => s.locale);
   const b = batchDictionaries[locale];
-  const name = item.title || baseName(item.path);
+  const y = youtubeDictionaries[locale];
+  const isUrl = item.source === "youtube";
+  // URL elementi: nom - playlistdagi sarlavha yoki havolaning o'zi (fayl nomi emas).
+  const name = item.title || (isUrl ? item.path : baseName(item.path));
   const stageKey = `stage.${item.stage ?? ""}`;
   const stage = item.stage ? (isMessageKey(stageKey) ? t(stageKey) : item.stage) : "";
   return (
@@ -174,6 +179,7 @@ function QueueRow({
       <div className="row" style={{ justifyContent: "space-between" }}>
         <span className="row" style={{ gap: 8 }}>
           <span className={`badge ${BADGE[item.status]}`}>{b[item.status]}</span>
+          {isUrl && <span className="badge" title={item.url ?? item.path}>YouTube</span>}
           {item.episode_id && item.status === "done" ? (
             <Link to={`/episodes/${item.episode_id}`} title={b.open}>{name}</Link>
           ) : (
@@ -211,8 +217,14 @@ function QueueRow({
           <ProgressBar value={item.progress} label={name} />
         </div>
       )}
-      {item.status === "failed" && (item.error || item.error_code) && (
+      {item.status === "failed" && isYtErrorCode(item.error_code) && (
+        <span className="error" role="alert">{youtubeErrors[locale][item.error_code]}</span>
+      )}
+      {item.status === "failed" && !isYtErrorCode(item.error_code) && (item.error || item.error_code) && (
         <CodedErrorText view={describeQueueError(item)} />
+      )}
+      {isUrl && item.status === "running" && item.stage === "download" && (
+        <span className="muted mono">{y.url}: {item.url}</span>
       )}
     </li>
   );

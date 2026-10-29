@@ -104,6 +104,7 @@ def submit_analysis(s: State, eid: str, show_id: str, pdir: Path, src: Path,
     from lahza_engine.core.analyze import analyze
     from lahza_engine.core.runner import StageContext
     from lahza_engine.media.probe import fast_hash
+    from lahza_engine.media.youtube import chapter_starts
     from lahza_engine.text.personal_dict import use_dictionary
 
     hotwords, lexicon_map = lexicon_for(s, show_id)
@@ -123,7 +124,9 @@ def submit_analysis(s: State, eid: str, show_id: str, pdir: Path, src: Path,
                 services={"src": str(src), "svc": svc, "focus": focus,
                           "num_speakers": num_speakers, "force_lite": force_lite,
                           "hotwords": hotwords, "lexicon_map": lexicon_map,
-                          "aligner": getattr(svc, "aligner", None)},
+                          "aligner": getattr(svc, "aligner", None),
+                          # YouTube boblari (bo'lsa): Lite highlight'da kichik signal.
+                          "chapters": chapter_starts(pdir)},
                 cancel=job.cancel,
                 on_progress=lambda stage, frac: s.jobs.progress(job, stage, frac),
             )
@@ -223,9 +226,15 @@ def register(app: FastAPI, auth: Callable[..., State]) -> None:
             m = conn.execute("SELECT * FROM media WHERE id = ?", (eid,)).fetchone()
         media = None if m is None else {"duration_ms": m["duration_ms"], "fps": m["fps"],
                                         "width": m["width"], "height": m["height"], "path": m["path"]}
+        from lahza_engine.media.youtube import read_source
+
+        yt = read_source(Path(row["project_dir"]))
+        source = None if yt is None else {k: yt.get(k) for k in
+                                          ("kind", "url", "video_id", "title", "uploader", "description",
+                                           "chapters")}
         return {"id": row["id"], "show_id": row["show_id"], "title": row["title"],
                 "status": row["status"], "project_dir": row["project_dir"], "media": media,
-                "highlight_mode": row["highlight_mode"]}
+                "highlight_mode": row["highlight_mode"], "source": source}
 
     @app.get("/v1/episodes/{eid}/transcript")
     def transcript(eid: str, s: State = Depends(auth)) -> dict[str, Any]:

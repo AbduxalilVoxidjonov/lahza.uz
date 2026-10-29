@@ -10,6 +10,11 @@
 
 Elementni haqiqiy ishga tushirish (`starter`) API qatlamida - mavjud bitta-epizod oqimi
 (`routes_episodes.submit_analysis`) qayta ishlatiladi.
+
+Manba ikki xil: fayl (`path` - fayl yo'li) yoki YouTube havolasi (`options.source == "youtube"`,
+`path` - kanonik havola). URL elementi ikki vazifadan o'tadi: `download` (yuklash + epizod), keyin
+`analyze`; ikkinchisi `attach_job` bilan elementga ulanadi (bekor qilish/progress unga o'tadi).
+Sxema o'zgarmaydi.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ log = logging.getLogger(__name__)
 
 QUEUE_STATUSES = ("queued", "running", "done", "failed", "cancelled")
 FINISHED = ("done", "failed", "cancelled")
+SOURCE_YOUTUBE = "youtube"
 
 
 class QueueConflict(Exception):
@@ -88,9 +94,12 @@ class AnalysisQueue:
             progress = job.progress
         else:
             progress = 0.0
+        options = json.loads(r["options_json"] or "{}")
+        source = SOURCE_YOUTUBE if options.get("source") == SOURCE_YOUTUBE else "file"
         return {
             "id": r["id"], "project_id": r["show_id"], "episode_id": r["episode_id"],
-            "path": r["path"], "title": r["title"], "options": json.loads(r["options_json"] or "{}"),
+            "path": r["path"], "title": r["title"], "options": options,
+            "source": source, "url": r["path"] if source == SOURCE_YOUTUBE else None,
             "position": r["position"], "status": status, "progress": progress,
             "stage": job.stage if job is not None and status == "running" else None,
             "error": r["error"], **self._error_code(r["id"], status, r["error"]),
@@ -124,14 +133,17 @@ class AnalysisQueue:
         return int(row[0]["m"]) + 1
 
     def add(self, project_id: str, paths: list[str], options: dict[str, Any] | None = None,
-            titles: list[str | None] | None = None) -> list[dict[str, Any]]:
-        opts = json.dumps(options or {}, ensure_ascii=False)
+            titles: list[str | None] | None = None,
+            extra: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+        """`extra[i]` - shu elementning qo'shimcha sozlamalari (masalan, URL manbasi)."""
         ids: list[str] = []
         with self._lock:
             pos = self._next_position()
             for i, p in enumerate(paths):
                 iid = uuid.uuid4().hex[:12]
                 title = titles[i] if titles and i < len(titles) else None
+                more = extra[i] if extra and i < len(extra) else {}
+                opts = json.dumps({**(options or {}), **more}, ensure_ascii=False)
                 self.db.lib_write("INSERT INTO analysis_queue(id, show_id, path, title, options_json,"
                                   " position) VALUES (?,?,?,?,?,?)",
                                   (iid, project_id, p, title, opts, pos + i))
@@ -211,6 +223,21 @@ class AnalysisQueue:
                 self.db.lib_write("UPDATE analysis_queue SET position = ? WHERE id = ?", (base + n, iid))
         self._publish()
         return self.list()
+
+    def attach_job(self, item_id: str, job: Job) -> None:
+        """Ishlayotgan elementni keyingi vazifaga o'tkazadi (URL elementi: yuklash -> tahlil).
+        Element bekor qilingan/tugagan bo'lsa - yangi vazifa bekor qilinadi."""
+        with self._lock:
+            rows = self.db.lib("SELECT status FROM analysis_queue WHERE id = ?", (item_id,))
+            if not rows or rows[0]["status"] != "running":
+                self.jobs.cancel(job.id)
+                return
+            self.db.lib_write("UPDATE analysis_queue SET job_id = ?, episode_id = COALESCE(?, episode_id)"
+                              " WHERE id = ?", (job.id, job.meta.get("episode_id"), item_id))
+        self._publish(item_id)
+        if job.status in FINISHED:
+            # Vazifa ulanishdan oldin tugab ulgurgan: o'shanda `_finish` eski job_id bilan mos kelmagan edi.
+            self._on_job(item_id, job)
 
     # ---- bajarish -------------------------------------------------------------------------
     def _pump(self) -> None:

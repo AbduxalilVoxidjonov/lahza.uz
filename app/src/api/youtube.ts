@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useJobs } from "../store/jobs";
 import { get, post, put } from "./client";
-import type { Job } from "./types";
+import { findYoutubeProject, YOUTUBE_PROJECT_NAME, type ResolvedUrl } from "../lib/youtube-import";
+import type { Job, Project } from "./types";
 
 export interface YoutubeImportStatus {
   /** Sozlamalarda yoqilgan (standart: false). */
@@ -25,6 +26,13 @@ export interface YoutubeImportStatus {
   install_job: Job | null;
   /** `Components/` dagi versiyalar: {"yt-dlp", "yt-dlp-ejs", "deno"}. */
   component_versions: Record<string, string>;
+  /** Ishlatilayotgan yt-dlp qayerdan: ilovaning `Components/` papkasi yoki tizim (venv/PATH). */
+  ytdlp_source?: "components" | "system" | null;
+  /** Ishlatilayotgan JS runtime versiyasi va manbasi (yt-dlp talabiga mos birinchisi). */
+  js_runtime_version?: string | null;
+  js_runtime_source?: "components" | "system" | null;
+  /** Topilgan, lekin yt-dlp uchun eski runtime'lar (Deno < 2.3, Node < 22, ...). */
+  js_runtime_outdated?: { name: string; version: string | null }[];
 }
 
 /** PyPI/GitHub'dagi oxirgi versiyalar bilan solishtirish (`:check-updates`). */
@@ -88,10 +96,33 @@ export function useRefreshYoutubeImport() {
   return () => qc.invalidateQueries({ queryKey: KEY });
 }
 
+/** Havola turi va playlist/kanal videolari ro'yxati (tarmoq - engine'da, alohida jarayonda). */
+export function useResolveUrl() {
+  return useMutation({
+    mutationFn: (url: string) => post<ResolvedUrl>("/v1/media:resolve-url", { url, consent: true }),
+  });
+}
+
 export function useImportUrl() {
   const upsert = useJobs((s) => s.upsert);
   return useMutation({
     mutationFn: (body: ImportUrlBody) => post<{ job: Job }>("/v1/media:import-url", body),
     onSuccess: (res) => upsert(res.job),
   });
+}
+
+/**
+ * Boshlash sahifasi: loyiha so'ralmaydi - "YouTube" loyihasi (bo'lsa o'sha, bo'lmasa yaratiladi) id'si.
+ * Loyihalar ro'yxati har safar yangidan olinadi (boshqa oynada yaratilgan bo'lsa ham dublikat bo'lmasin).
+ */
+export function useEnsureYoutubeProject() {
+  const qc = useQueryClient();
+  return async (): Promise<string> => {
+    const list = await qc.fetchQuery({ queryKey: ["projects"], queryFn: () => get<Project[]>("/v1/projects"), staleTime: 0 });
+    const found = findYoutubeProject(list);
+    if (found) return found;
+    const created = await post<Project>("/v1/projects", { name: YOUTUBE_PROJECT_NAME });
+    void qc.invalidateQueries({ queryKey: ["projects"] });
+    return created.id;
+  };
 }

@@ -236,7 +236,7 @@ def stage_highlight(ctx: StageContext) -> dict[str, Any]:
                 client.close()
         mode = "llm"
     clips = find_highlights(ctx.media_id, tr.sentences, rep, settings.highlight, llm_candidates,
-                            svc.llm_model_id)
+                            svc.llm_model_id, chapters=ctx.services.get("chapters") or None)
     db.save_clips(ctx.conn, clips)
     return {"mode": mode, "clips": [c.id for c in clips]}
 
@@ -267,7 +267,9 @@ def analysis_stages(settings: Settings) -> list[StageDef]:
         StageDef("signals", 1, stage_signals),
         StageDef("highlight", 1, stage_highlight, weight=4,
                  model_id=lambda c: None if c.services.get("force_lite") else c.services["svc"].llm_model_id,
-                 params=lambda c: {**h.model_dump(), "focus": c.services.get("focus")}),
+                 params=lambda c: {**h.model_dump(), "focus": c.services.get("focus"),
+                                   # Boblar faqat bo'lsa kalitga qo'shiladi: boshqa epizodlar keshi buzilmaydi.
+                                   **({"chapters": c.services["chapters"]} if c.services.get("chapters") else {})}),
     ]
 
 

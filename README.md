@@ -24,7 +24,7 @@ make build-local   # lokal .app
 make smoke-local VIDEO=/absolute/podcast.mp4
 ```
 
-> **Holat: lokal alfa.** Manba testlari: engine **640 passed, 8 skipped** (paket tekshiruvlari alohida opt-in bajariladi), UI **68 passed**, Adobe plaginlari **26 + 35 passed**; Ruff va UI build o'tadi. Apple Silicon macOS 27+ uchun lokal `.app` yig'ildi. Haqiqiy NavAI small bilan transkripsiya va subtitrli render tekshirildi; o'zbekcha aniqlik hali etalon bilan baholanmagan. Windows o'rnatuvchisi, eski macOS versiyalari, uzoq video chidamliligi va production imzolash hali tugallanmagan. Batafsil: [`docs/local-alpha.md`](docs/local-alpha.md), [`docs/02-yol-xaritasi.md`](docs/02-yol-xaritasi.md).
+> **Holat: lokal alfa.** Manba testlari (2026-10-29, `make ci` offline): engine **1302 passed, 13 skipped** (paket tekshiruvlari alohida opt-in bajariladi), UI **124 passed**, Adobe plaginlari **26 + 35 passed**; Ruff va UI build o'tadi. Apple Silicon macOS 27+ uchun lokal `.app` yig'ildi. Haqiqiy NavAI small bilan transkripsiya va subtitrli render tekshirildi; o'zbekcha aniqlik hali etalon bilan baholanmagan. Windows NSIS o'rnatuvchisi (per-user, adminsiz) yig'ilgan, lekin imzosiz va toza kompyuterda sinalmagan; eski macOS versiyalari, haqiqiy modellar bilan uzoq video chidamliligi va production imzolash hali tugallanmagan. Batafsil: [`docs/local-alpha.md`](docs/local-alpha.md), [`docs/02-yol-xaritasi.md`](docs/02-yol-xaritasi.md).
 >
 > Foydalanuvchi qo'llanmasi: [`docs/qollanma.md`](docs/qollanma.md).
 >

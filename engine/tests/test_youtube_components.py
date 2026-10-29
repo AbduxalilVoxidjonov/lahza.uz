@@ -49,7 +49,7 @@ def served(monkeypatch: pytest.MonkeyPatch):
         "https://x/yt_dlp.whl": _zip({"yt_dlp/__init__.py": b"", "yt_dlp/version.py": b"__version__ = '1.0'\n",
                                       "yt_dlp-1.0.dist-info/LICENSE": b"Unlicense"}),
         "https://x/yt_dlp_ejs.whl": _zip({"yt_dlp_ejs/__init__.py": b""}),
-        "https://x/deno.zip": _zip({exe: b"#!/bin/sh\necho deno 1.0\n"}),
+        "https://x/deno.zip": _zip({exe: b"#!/bin/sh\necho deno 2.9.8\n"}),
     }
     assets = {u: _asset(u.rsplit("/", 1)[1].split(".")[0], u, b) for u, b in bodies.items()}
     wheels = (assets["https://x/yt_dlp.whl"], assets["https://x/yt_dlp_ejs.whl"])
@@ -74,7 +74,10 @@ def test_install_places_pinned_components(tmp_path: Path, served) -> None:
     assert seen == sorted(seen) and seen[-1] == 1.0
     base = tmp_path / "Components"
     assert youtube.find_ytdlp(youtube.component_paths(tmp_path)) == base / "yt-dlp" / "yt_dlp"
-    assert youtube.find_js_runtime(tmp_path) == ("deno", base / "deno" / exe)
+    own = youtube.js_runtimes(tmp_path)[0]
+    assert own.path == base / "deno" / exe and own.bundled
+    if sys.platform != "win32":  # soxta deno - shell skript; versiyasi (2.9.8) yt-dlp talabiga mos
+        assert youtube.find_js_runtime(tmp_path) == ("deno", base / "deno" / exe)
     assert yc.plan(tmp_path) == [] and yc.status(tmp_path) == {
         "components_ready": True, "components_download_bytes": 0,
         "component_versions": {"yt_dlp": "1.0", "yt_dlp_ejs": "1.0", "deno": "1.0"}}

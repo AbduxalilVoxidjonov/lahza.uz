@@ -121,7 +121,7 @@ Bu tamoyilning ikki amaliy natijasi bor:
 
 * **yt-dlp litsenziyasi.** Git repozitoriysi va PyPI paketi Unlicense ostida. Lekin rasmiy PyInstaller exe fayllarida GPLv3+ kod bor ([yt-dlp](https://github.com/yt-dlp/yt-dlp)). Shuning uchun Lahza exe'ni emas, PyPI paketini Python kutubxonasi sifatida ishlatadi (`from yt_dlp import YoutubeDL`, README'dagi "EMBEDDING YT-DLP" bo'limi).
 * **JavaScript runtime talabi.** 2025.11.12 versiyasidan boshlab YouTube'ni to'liq qo'llash uchun `yt-dlp-ejs` va JavaScript runtime kerak. Tavsiya etilgani va standart holatda yoqilgan yagonasi — Deno, kamida 2.3.0 versiya. Runtime bo'lmasa, formatlar tanlovi "keskin cheklanadi" ([issue #15012](https://github.com/yt-dlp/yt-dlp/issues/15012), [EJS wiki](https://github.com/yt-dlp/yt-dlp/wiki/EJS)). Deno MIT litsenziyali ([deno](https://github.com/denoland/deno)).
-* **Natija:** `yt-dlp` + `yt-dlp-ejs` + Deno ilovaga qo'shilmaydi. Ular katalogdan **komponent** sifatida, faqat birinchi YouTube importida va foydalanuvchi roziligi bilan yuklanadi, shuning uchun o'rnatuvchi hajmi oshmaydi.
+* **Natija:** `yt-dlp` + `yt-dlp-ejs` + Deno ilovaga (sidecar'ga) qo'shilmaydi. Ular **komponent** sifatida ilovaning o'zidan — Sozlamalar yoki import kartasidagi tugma bilan, foydalanuvchi roziligi bilan — bir marta yuklanadi: boshlang'ich versiya, hajm va sha256 `media/youtube_components.py` da mahkamlangan, joylash atomik. Shuning uchun o'rnatuvchi hajmi oshmaydi.
 
 **Videoni olish yo'llari, tavsiya tartibida:**
 
@@ -136,7 +136,7 @@ Lahza'da 2- va 3-yo'l uchun ichki yo'riqnoma bo'ladi. Ular orqali olingan fayl 1
 
 **Metama'lumot:** sarlavha va tavsif epizod kartasiga yoziladi. Agar videoda YouTube boblari (chapters) bo'lsa, ular highlight uchun qo'shimcha signal bo'ladi. Subtitr uchun Lahza o'z ASR'idan foydalanadi, chunki karaoke va kesim so'z darajasidagi aniq vaqtni talab qiladi.
 
-**Yangilanish:** YouTube bilan ishlaydigan vosita tez-tez yangilanib turishi kerak. Shuning uchun u ilovaga qotirib qo'yilmaydi. Model katalogidagi mexanizm bilan (imzo, sha256) alohida komponent sifatida yangilanadi ([ADR-0002](adr/0002-oflayn-model-katalogi.md)).
+**Yangilanish:** YouTube bilan ishlaydigan vosita tez-tez yangilanib turishi kerak. Shuning uchun u ilovaga qotirib qo'yilmaydi va ilova relizisiz yangilanadi: Sozlamalardagi "Yangilanishni tekshirish" asl manbalardan (PyPI JSON API, GitHub releases API) oxirgi yt-dlp, yt-dlp-ejs va Deno 2.x ni e'lon qilingan sha256 bilan oladi; qat'iy xost/paket ro'yxati, versiya pasaymaydi. Dastlab rejalangan imzolangan model katalogi ([ADR-0002](adr/0002-oflayn-model-katalogi.md)) orqali yangilash ishlatilmaydi — sababi [ADR-0010](adr/0010-youtube-havola-import.md) "Yangilanish" bo'limida.
 
 ---
 
@@ -716,7 +716,8 @@ Bu JSON namuna, qiymatlari misol uchun berilgan.
 
 | Endpoint | Vazifasi |
 | --- | --- |
-| `POST /v1/ingest:youtube` | Havoladan yuklab olish (rozilik maydoni majburiy) |
+| `POST /v1/media:import-url` | Havoladan yuklab olish (`consent` majburiy) |
+| `GET/PUT /v1/settings/youtube-import`, `POST /v1/settings/youtube-import:install-components`, `:check-updates` | YouTube importini yoqish/o'chirish, komponentlarni o'rnatish va yangilash ([docs/04](04-engine-api.md)) |
 | `POST /v1/collections`, `POST /v1/collections/{id}:analyze` | To'plam yaratish va tahlil |
 | `POST /v1/collections/{id}:montage` | Retsept bo'yicha reja va Timeline |
 | `GET/PATCH /v1/timelines/{id}` | Timeline o'qish va tahrirlash |
@@ -740,13 +741,13 @@ Barchasi mavjud `JobManager` va WebSocket hodisalaridan foydalanadi. Og'ir ishla
 | NFR-M2 | **Preview = eksport.** Bitta kompilyator ishlatiladi; preview va eksport kadrlari orasidagi farq chegarasi M-bosqichda o'lchanadi |
 | NFR-M3 | **Faqat LGPL.** Yangi komponentlar va FFmpeg filtrlari GPL yoki "nonfree" bo'lmasligi kerak ([11.3](#113-komponentlar-va-litsenziyalar)) |
 | NFR-M4 | **Plagin xavfsizligi.** Paketda bajariladigan kod yo'q; sxema, oq ro'yxat, hajm chegarasi, zip-slip himoya |
-| NFR-M5 | **Oflayn.** YouTube yuklab olish va katalogdan tashqari tarmoq so'rovi yo'q (NFR-01) |
+| NFR-M5 | **Oflayn.** YouTube yuklab olish, YouTube komponentlarini o'rnatish/yangilash va katalogdan tashqari tarmoq so'rovi yo'q (NFR-01) |
 | NFR-M6 | **Qaytariladigan tahrir.** Har avtomatik qaror (kesim, effekt, kamera almashuvi) Timeline'da ko'rinadi va bir bosishda bekor qilinadi |
 | NFR-M7 | **Tezlik.** To'plam tahlili va retsept renderi uchun maqsadlar har apparat darajasida R0'da o'lchanib belgilanadi |
 
 ### 11.2 Xavfsizlik
 
-* YouTube yuklovchi alohida jarayonda ishlaydi. Unga faqat havola va chiqish papkasi beriladi. Yangilanishi imzolangan katalog orqali bo'ladi.
+* YouTube yuklovchi alohida jarayonda ishlaydi. Unga faqat havola va chiqish papkasi beriladi. Komponentlari mahkamlangan sha256 bilan o'rnatiladi; yangilanishi asl manbalar (PyPI, GitHub releases) e'lon qilgan sha256 bilan, qat'iy xost/paket ro'yxati va versiya pasaymasligi sharti bilan bo'ladi ([ADR-0010](adr/0010-youtube-havola-import.md)).
 * Plagin manifestlari JSON sxema (pydantic) bilan tekshiriladi. Noma'lum maydon yoki filtr bo'lsa, paket rad etiladi.
 * Lottie fayllari uchun hajm va kadr soni chegarasi qo'yiladi; ichiga joylangan tashqi havolalar (rasm URL) e'tiborsiz qoldiriladi.
 
@@ -813,8 +814,8 @@ Yangi to'plam R0 ma'lumot to'plamlariga qo'shiladi:
 
   Manba: [YouTube Terms of Service](https://www.youtube.com/static?template=terms). Demak, video **o'zingizniki bo'lsa ham**, havola orqali yuklab olish shartlarga zid bo'lishi mumkin.
 * **Qaror ([ADR-0010](adr/0010-youtube-havola-import.md)):**
-  * YT-1 yurist xulosasidan keyin qilinadi (Q2).
-  * Funksiya standart holatda o'chiq va sozlamalardan yoqiladi.
+  * Yurist xulosasi (Q2) ochiq, lekin relizni to'smaydi (2026-10-28, loyiha egasi qarori).
+  * Funksiya standart holatda yoqilgan va sozlamalardan o'chiriladi (2026-10-28, loyiha egasi qarori; avval — standart o'chiq).
   * Har importda foydalanuvchi ikki narsani tasdiqlaydi: "bu video menga tegishli yoki ruxsatim bor" va YouTube shartlari haqidagi ogohlantirish.
   * Interfeysda tavsiya etilgan yo'l — asl fayl yoki YouTube Studio / Takeout ([3.2](#32-youtube-havola)).
   * Lahza boshqa odamlarning videolarini yuklashga mo'ljallangan vosita sifatida reklama qilinmaydi.
@@ -838,7 +839,7 @@ Belgilar [`02-yol-xaritasi.md`](02-yol-xaritasi.md) dagidek: `[x]` — bajarilga
 - [~] TL-2 Render kompilyatori: Timeline → FFmpeg graf; hozirgi klip renderi Timeline orqali ishlaydi (regressiya testlari bilan) — montaj renderi Timeline orqali ishlaydi (`render/montage_render.py`: 2 bosqich, xfade/acrossfade, rang, kartalar, ASS, logo, musiqa + ducking, loudnorm; bitta kadr preview). Qolgani: Reels klip renderi hali eski `RenderJob` (`render/graph.py`) orqali — Timeline'ga keyin o'tadi
 - [x] TL-3 Montaj hisoboti `_edl.json` (N15) — `montage/report.py`, `lahza.edl/1`, `"haqiqiy_kadr": true`; har montaj renderida yoziladi
 - [ ] NLE-1 OTIO orqali `.otio`, `.xml` (FCP7), `.edl`, ixtiyoriy `.fcpxml` eksport (kesim, transform, audio, SRT, `words.json`); Resolve, Premiere va Filmora'da qo'lda ochish matritsasi va "nima o'tmaydi" ro'yxati ([7.1](#71-har-dasturga-nima-beriladi))
-- [~] YT-1 YouTube havoladan import: rozilik oynasi, alohida jarayon, davom ettirish, katalogdan yangilanish ([ADR-0010](adr/0010-youtube-havola-import.md)) — kod bor (standart o'chiq): `media/youtube.py` (yt-dlp kutubxona sifatida alohida jarayonda, mp4 ≤1080p, progress, bekor qilish, `continuedl`, tushunarli xatolar), `POST /v1/media:import-url` (`consent` majburiy), Sozlamalarda yoqish, import joyida "Fayl / YouTube havolasi" va rozilik oynasi (docs/04). Qolgani: **yurist xulosasi (Q2) kutilmoqda** — ungacha relizga kirmaydi; komponentlarni katalogdan yuklash (`Task.tool`, yt-dlp + yt-dlp-ejs + Deno; hozir dasturchi muhitida `make setup-youtube`); partiyaviy navbatga URL elementi; playlist/kanal havolalari
+- [~] YT-1 YouTube havoladan import: rozilik oynasi, alohida jarayon, davom ettirish, ilova relizisiz yangilanish ([ADR-0010](adr/0010-youtube-havola-import.md)) — kod bor, **standart yoqilgan** (2026-10-28, egasi qarori; Sozlamalarda o'chiriladi): `media/youtube.py` (yt-dlp kutubxona sifatida alohida jarayonda, mp4 ≤1080p, avc1 → vp9, progress, bekor qilish, `continuedl`, tushunarli xatolar), `POST /v1/media:import-url` (`consent` har importda majburiy), import kartasida "Fayl / YouTube havolasi" va rozilik oynasi (docs/04). Komponentlar (yt-dlp, yt-dlp-ejs, Deno) ilovaning o'zidan rozilik bilan o'rnatiladi — versiya/hajm/sha256 pin, atomik joylash (`media/youtube_components.py`, `/v1/settings/youtube-import:install-components`) — va "Yangilanishni tekshirish" bilan PyPI/GitHub'dan ilova relizisiz yangilanadi (`:check-updates`); `make setup-youtube` faqat dasturchi muhiti uchun qoldi. Qolgani: yurist xulosasi (Q2) ochiq, lekin relizni to'smaydi; partiyaviy navbatga URL elementi; playlist/kanal havolalari; GE1 dagi 10 ta o'z videoda sinov
 - [ ] CLN-1 Toza nutq: filler va sukutni videodan kesish (N2), har kesim Timeline'da ko'rinadi
 
 **GE1 darvozasi:** M3 klip renderi Timeline'ga o'tgandan keyin barcha mavjud render testlari yashil. 10 ta Reels eksporti DaVinci Resolve, Premiere Pro va Filmora'da xatosiz ochiladi va kesimlari mos keladi. YouTube import 10 ta o'z videoda ishlaydi.
@@ -887,7 +888,7 @@ Belgilar [`02-yol-xaritasi.md`](02-yol-xaritasi.md) dagidek: `[x]` — bajarilga
 | # | Savol | Kim hal qiladi | Qachongacha |
 | --- | --- | --- | --- |
 | Q1 | Veb-servis (SaaS) versiyasi kerakmi? Kerak bo'lsa, u "oflayn" tamoyilga qarshi bo'ladi. Unga alohida TZ yoziladi: server GPU, saqlash va maxfiylik xarajatlari bilan | Mahsulot egasi | v1.0 gacha |
-| Q2 | YouTube import uchun yurist xulosasi va ogohlantirish matni | Yurist | YT-1 dan oldin |
+| Q2 | YouTube import uchun yurist xulosasi va ogohlantirish matni | Yurist | Ochiq; 2026-10-28 dan YT-1 relizini to'smaydi ([ADR-0010](adr/0010-youtube-havola-import.md)) |
 | Q3 | Filmora'ning `.fcpxml` bilan qanday ishlashi, XML eksporti va SDK borligi tasdiqlanmagan ([7](#7-montaj-dasturlari-bilan-koprik-ae-davinci-premiere-filmora)). Sinov Filmora'ning joriy versiyasida o'tkaziladi | Montajchi + QA | NLE-1 |
 | Q4 | Plagin do'koni: tashqi mualliflar, imzo, daromad taqsimoti | Mahsulot egasi | v2.0 |
 | Q5 | `glsl` o'tishlar uchun GPU qatlami (macOS + Windows) | Arxitektor | Pro |

@@ -3,6 +3,8 @@
 Ikki rejim (TZ 7-bo'lim):
 * LLM rejimi - LLM nomzodlari + signal ballari (gibrid "Lahza bali").
 * Lite rejimi (zaxira) - LLM yo'q bo'lsa: faqat signallar, gap chegaralari va jarimalar.
+  YouTube boblari bo'lsa (YT-1) - bob boshlanishi yaqinida boshlanadigan nomzodga kichik bonus
+  (muallif o'zi belgilagan mavzu boshi - mustaqil klip uchun yaxshi chegara). LLM rejimiga ta'sir yo'q.
 """
 
 from __future__ import annotations
@@ -42,6 +44,24 @@ def nms(items: list[Scored], threshold: float, limit: int) -> list[Scored]:
         if len(kept) >= limit:
             break
     return kept
+
+
+# Bob boshidan shuncha ms ichida boshlangan Lite nomzodi bonus oladi (100 ballik shkalada).
+CHAPTER_NEAR_MS = 5_000
+CHAPTER_BONUS = 6.0
+
+
+def _chapter_bonus(span: ClipSpan, chapters: Sequence[int] | None) -> float:
+    """Bob boshiga yaqinlik bonusi: aynan boshida - to'liq, `CHAPTER_NEAR_MS` gacha chiziqli kamayadi.
+    Videoning eng boshidagi bob (0 ms, odatda "Kirish") hisobga olinmaydi."""
+    best = 0.0
+    for ch in chapters or ():
+        if ch <= 0:
+            continue
+        d = abs(span.start_ms - ch)
+        if d <= CHAPTER_NEAR_MS:
+            best = max(best, CHAPTER_BONUS * (1.0 - d / (CHAPTER_NEAR_MS * 2)))
+    return best
 
 
 def _signal_score(span: ClipSpan, signals: SignalReport) -> float:
@@ -90,6 +110,8 @@ def find_highlights(
     cfg: HighlightConfig,
     llm_candidates: Sequence[LlmCandidate] | None = None,
     llm_model_id: str | None = None,
+    *,
+    chapters: Sequence[int] | None = None,
 ) -> list[Clip]:
     if not sentences:
         return []
@@ -112,8 +134,13 @@ def find_highlights(
         for span in lite_candidates(sentences, cfg):
             sig = _signal_score(span, signals)
             pen, reasons = _penalty(span, sentences, cfg)
-            total = sig - 30.0 * pen
-            scored.append(Scored(span, max(0.0, min(100.0, total)), {"signal": sig}, reasons))
+            bonus = _chapter_bonus(span, chapters)
+            parts = {"signal": sig}
+            if bonus:
+                parts["chapter"] = bonus
+                reasons.append("YouTube bobi boshida")
+            total = sig - 30.0 * pen + bonus
+            scored.append(Scored(span, max(0.0, min(100.0, total)), parts, reasons))
 
     best = nms(scored, cfg.nms_iou, cfg.clip_count)
     clips: list[Clip] = []

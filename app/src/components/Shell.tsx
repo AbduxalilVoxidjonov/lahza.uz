@@ -3,9 +3,12 @@ import { NavLink, Outlet } from "react-router-dom";
 import { FirstRunSetup } from "./FirstRunSetup";
 
 import { useT } from "../i18n";
+import { youtubeDictionaries } from "../i18n/youtube";
+import { useSettings } from "../store/settings";
 
 export function Shell() {
   const t = useT();
+  const locale = useSettings((s) => s.locale);
   const link = ({ isActive }: { isActive: boolean }) => `nav-link${isActive ? " active" : ""}`;
   return (
     <div className="shell">
@@ -27,6 +30,10 @@ export function Shell() {
         </div>
         <nav aria-label={t("a11y.nav")} className="stack" style={{ gap: 4 }}>
         <NavLink to="/montages/new" className={link}>{t("quick.start")}</NavLink>
+        {/* YT-1: YouTube havolasi Boshlash sahifasining 1-qadamida; bu havola maydonga fokus beradi. */}
+        <div className="nav-group" style={{ margin: 0 }}>
+          <NavLink to="/montages/new?src=youtube" className={() => "nav-link"}>▶ {youtubeDictionaries[locale].navLink}</NavLink>
+        </div>
         <NavLink to="/montages" end className={link}>{t("nav.montages")}</NavLink>
         <details className="nav-more">
           <summary>{t("quick.library")}</summary>

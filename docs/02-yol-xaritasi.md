@@ -25,9 +25,9 @@ Belgilar:
 
 Har vazifada ID bor (kod va PR'larda shu ID'ga havola qilinadi).
 
-## Hozirgi holat (2026-10-20)
+## Hozirgi holat (2026-10-20; testlar soni 2026-10-29)
 
-Tekshiruv: engine `pytest` — **327 passed, 2 skipped** (libass'siz FFmpeg); `ruff` toza; UI typecheck + build o'tadi; jonli engine'ga qarshi 102 endpoint tekshiruvi o'tdi; montaj uchun jonli 215 tekshiruv o'tdi (6 o'rnatilgan shablon bilan haqiqiy montaj va render, 9:16 / 1:1 / 16:9, audio-video sinxron, `_edl.json` da `"haqiqiy_kadr": true`); brauzerda onboarding, galereya, klip muharriri, transkript, sozlamalar, shablonlar galereyasi va montaj muharriri konsol xatosisiz ishlaydi. Haqiqiy ASR/LLM/ko'rish modellari bilan sinov — R0.
+Tekshiruv (2026-10-29, `make ci` offline rejimida): engine `pytest` — **1302 passed, 13 skipped**; UI testlari — **124 passed**; `ruff` toza; UI typecheck + build o'tadi. 2026-10-20 dagi jonli tekshiruvlar: jonli engine'ga qarshi 102 endpoint tekshiruvi o'tdi; montaj uchun jonli 215 tekshiruv o'tdi (6 o'rnatilgan shablon bilan haqiqiy montaj va render, 9:16 / 1:1 / 16:9, audio-video sinxron, `_edl.json` da `"haqiqiy_kadr": true`); brauzerda onboarding, galereya, klip muharriri, transkript, sozlamalar, shablonlar galereyasi va montaj muharriri konsol xatosisiz ishlaydi. Haqiqiy ASR/LLM/ko'rish modellari bilan sinov — R0.
 
 | Qism | Holat | Qayerda |
 | --- | --- | --- |
@@ -117,7 +117,7 @@ Maqsad: **modellarni sizning podkastlaringizda o'lchab tanlash** va eng xavfli t
 
 ### Ko'rish (TZ 8-bo'lim)
 - [~] R0-VIS-1 BlazeFace ONNX (Windows) va Core ML (Mac) — `reframe/faces.py` ga backend — ONNX backend tayyor (kod tayyor; R0'da model bilan tasdiqlanadi); Core ML — yo'q
-- [ ] R0-VIS-2 LR-ASD ONNX backend; `reframe/speaker_map.py` bilan birlashtirish
+- [~] R0-VIS-2 LR-ASD ONNX backend; `reframe/speaker_map.py` bilan birlashtirish — `reframe/asd.py` (ONNX, MFCC, trek bo'yicha baholash; model yo'q bo'lsa heuristika), `speaker_map.py` ga ulangan, testlar bor (0.2.4). Qolgani: katalogdagi `vision-blazeface-lrasd` hali `candidate` (sha256 noma'lum) — haqiqiy model bilan R0'da tasdiqlanadi
 - [ ] R0-VIS-3 One-Euro va AutoFlip uslubidagi optimal yo'lni Reframe-Eval'da solishtirish; `ReframeConfig` qiymatlari
 
 ### Runtime va qadoqlash
@@ -175,7 +175,7 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 
 ## M3 — Beta (taxmin 6–8 hafta)
 
-- [ ] M3-RF-1 ASD + diarizatsiya birlashmasi bilan aktiv spiker
+- [~] M3-RF-1 ASD + diarizatsiya birlashmasi bilan aktiv spiker — `reframe/active_speaker.py` (gisterezis, past ishonchda keng kadr) eksportga ulangan (`core/export.py`), model yo'q bo'lsa reja avvalgidek (regressiya testi) (0.2.4). Qolgani: haqiqiy LR-ASD va diarizatsiya modellari bilan sinov
 - [~] M3-RF-2 Split va xira fon layoutlarini avtomatik tanlash; minimal ushlab turish vaqti — kod tayyor; R0'da yuz/ASD modeli bilan tasdiqlanadi
 - [x] M3-RF-3 Sahna kesimlari (PySceneDetect) — PySceneDetect o'rniga ffmpeg `scdet` (`media/scenes.py`)
 - [x] M3-RF-4 Qo'lda layout va kalit kadrlar (UI + `reframe_keyframes`)
@@ -184,7 +184,7 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 - [~] M3-SUB-3 Shrift glif testi (ʻ ʼ Ö Ğ Ş Ç Ў Қ Ғ Ҳ) va faqat ochiq litsenziyali shriftlar — glif testi (`subtitle/fonts.py`) bor; `subtitle/fonts/` bo'sh, shriftlar qo'shilmagan
 - [x] M3-SUB-4 Uch imlo rejimi (rasmiy, ASCII, yangi alifbo)
 - [ ] M3-REL-1 Mac: Developer ID, hardened runtime, notarizatsiya, staple; Windows: imzo (CI)
-- [ ] M3-PERF-1 Tezlik maqsadlarini (TZ 2-bo'lim jadvali) har darajada o'lchash va optimallashtirish
+- [~] M3-PERF-1 Tezlik maqsadlarini (TZ 2-bo'lim jadvali) har darajada o'lchash va optimallashtirish — `scripts/bench.py` (`make bench`), natijalar [docs/09](09-test-va-sifat.md#tezlik-olchovi-m3-perf-1); LLM highlight 498 s → 43 s (M3-PERF-2). Qolgani: faqat Standard (M5) darajasi o'lchangan (Windows CPU'da faqat Qwen3-4B planner/highlight — [docs/local-ai-editing.md](local-ai-editing.md)); Standard'da 60 daq ≤ 20 daq maqsadi chegarada, tor joy ASR; align/diarize bosqichlari o'lchanmagan
 - [~] M3-A11Y-1 Klaviatura bilan to'liq boshqarish, kontrast — yorliqlar va a11y atributlari bor; kontrast auditi o'tkazilmagan
 
 **G3 darvozasi:** TZ 15-bo'lim mezonlari bajarilgan; yopiq beta fikrlari yopilgan.
@@ -193,12 +193,12 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 
 ## v1.0 — Reliz (taxmin ~4 hafta)
 
-- [ ] V1-1 Barqarorlik: 4 soatlik video, ketma-ket 20 epizod (chidamlilik testlari)
+- [~] V1-1 Barqarorlik: 4 soatlik video, ketma-ket 20 epizod (chidamlilik testlari) — `engine/tests/stress/` (`make test-stress`) o'tdi; WAV oqimli o'qish bilan 4 soatda RSS 2242 → 210 MB ([docs/09](09-test-va-sifat.md#chidamlilik-natijalari-v1-1)). Qolgani: ASR va LLM soxta — haqiqiy modellar bilan chidamlilik sinovi
 - [ ] V1-2 O'rnatuvchilar: `.dmg` (staple), NSIS; toza VM'da internetsiz o'rnatish + `.lzpack`
-- [ ] V1-3 Oflayn litsenziya kaliti (Ed25519) — agar tijorat bo'lsa (TZ 19-bo'lim)
+- [~] V1-3 Oflayn litsenziya kaliti (Ed25519) — agar tijorat bo'lsa (TZ 19-bo'lim) — `licensing/`, `/v1/license`, `scripts/license_issue.py`, Sozlamalardagi panel; standart o'chiq ([ADR-0016](adr/0016-oflayn-litsenziya-kaliti.md), [qo'llanma](litsenziya-kaliti.md)). Qolgani: tijorat qarori, ishlab chiqarish kalit jufti (`keygen --embed`), tariflar
 - [~] V1-4 Foydalanuvchi qo'llanmasi (o'zbekcha) — `docs/qollanma.md` joriy holat uchun; v1.0 da yakunlanadi
 - [~] V1-5 Litsenziyalar oynasi va `LICENSES-THIRD-PARTY.md` to'liq — `make licenses` 538 komponent, Sozlamalar → Litsenziyalar; qolgani: 182 ta ANIQLANSIN (179 Windows/Linux crate — Windows'da qayta generatsiya), manba taklifi e-pochtasi, PyAV ichidagi GPL libx264/libx265 (R0-LEG-1)
-- [ ] V1-6 Instagram limitlarini qayta tekshirish (`render/platform_limits.json`)
+- [x] V1-6 Instagram limitlarini qayta tekshirish (`render/platform_limits.json`) — 2026-10-26 rasmiy manbalar bo'yicha, har qiymatda manba id va tekshirish sanasi; `test_platform_limits_json.py`
 
 **G4 darvozasi:** reliz tekshiruvi (`docs/10-reliz-va-imzolash.md`) va yurist xulosasi.
 
@@ -206,13 +206,13 @@ Maqsad: `lahza analyze` → `lahza export` ikkala platformada haqiqiy modellar b
 
 ## Pro — relizdan keyin
 
-- [ ] PRO-1 O'z-o'zini yaxshilash: muharrir tuzatishlari (`corrections`) → lug'at → fine-tune paketi
+- [~] PRO-1 O'z-o'zini yaxshilash: muharrir tuzatishlari (`corrections`) → lug'at → fine-tune paketi — shaxsiy lug'at (`text/personal_dict.py`, Whisper hotwords + ASR'dan keyin tuzatish), lug'at UI va fine-tune JSONL manifesti (0.2.4). Qolgani: haqiqiy ASR model bilan sinov; fine-tune'ning o'zi (manifestdan model o'qitish) yo'q
 - [ ] PRO-2 Ikki kamerali yozuv: audio kross-korrelyatsiya bilan sinxron, kamera tanlash — kengaytirilib v1.5 ga ko'chirildi: MC-1 ([`11-montaj-platformasi.md`](11-montaj-platformasi.md#13-yol-xaritasi))
 - [x] PRO-3 "Hook oldinga": eng kuchli jumla klip boshiga 2–4 s — `highlight/hook_front.py`, keshdagi signallar, ~0.5 ms/klip; hostplan va montaj manbasi hook'ni hali hisobga olmaydi
 - [~] PRO-4 Kirill subtitr (lug'atli transliteratsiya) — `text/translit.py` + `text/data/cyrillic.json`; qolgani: lug'atni tilshunos ko'rib chiqishi, muharrir CSS preview'i, `lahza export --script`
 - [x] PRO-5 Partiyaviy ishlov (bir nechta epizod navbatda) — `core/batch.py`, `/v1/queue`, `lahza batch`; kuzatiladigan papka va pauza qilinmagan
-- [ ] PRO-6 Real natijalardan o'rganish: foydalanuvchi ko'rishlar sonini kiritadi → ball vaznlari moslashadi
-- [~] PRO-7 Ixtiyoriy YouTube yuklab olish plagini (alohida ogohlantirish bilan) — M3 ga ko'chirildi: YT-1 ([ADR-0010](adr/0010-youtube-havola-import.md)); kod tayyor (`media/youtube.py`, standart o'chiq), yurist xulosasi (Q2) va katalog komponenti kutilmoqda
+- [x] PRO-6 Real natijalardan o'rganish: foydalanuvchi ko'rishlar sonini kiritadi → ball vaznlari moslashadi — `highlight/learning.py` (ridge + Bayes qisqartirish, min 8 namuna), klip kartasida ko'rishlar maydoni, Sozlamalarda "O'rganish (Pro)" (0.2.4)
+- [~] PRO-7 Ixtiyoriy YouTube yuklab olish plagini (alohida ogohlantirish bilan) — M3 ga ko'chirildi: YT-1 ([ADR-0010](adr/0010-youtube-havola-import.md)); kod tayyor (`media/youtube.py`), standart yoqilgan (2026-10-28, egasi qarori), har importda rozilik; komponentlar (yt-dlp, yt-dlp-ejs, Deno) ilova ichidan rozilik bilan o'rnatiladi va ilova relizisiz yangilanadi (`media/youtube_components.py`). Qolgani [YT-1](11-montaj-platformasi.md#13-yol-xaritasi) da; yurist xulosasi (Q2) ochiq, relizni to'smaydi
 - [ ] PRO-8 Windows on ARM va Linux
 
 ## Kengaytma: Lahza Montaj (qisman amalga oshirildi)
@@ -230,7 +230,7 @@ Lahza paneli Premiere Pro (UXP) va After Effects (CEP + ExtendScript) ichida; de
 - [~] ADB-4 `adobe/shared`: `hostplan.ts` (+ `assertHostPlan`), `EngineClient` (discovery, job polling), Python ↔ TS sxema mosligi testi
 - [~] ADB-5 Premiere UXP paneli: engine holati, tahlil, lahzalar, Reels, montaj, "nima o'tmadi"; `HostAdapter` (`premiere.ts` + `fake.ts`); `.ccx` paketlash
 - [~] ADB-6 After Effects CEP paneli: UI + `host.jsx` (`lahza_buildComp`, undo group, kalit kadrlar, xira fon, split, o'tishlar, karaoke subtitr, musiqa ducking); ES3 va mock AE testlari; dev o'rnatish skriptlari
-- [ ] ADB-7 Mustaqil "Lahza Engine" servisi (macOS LaunchAgent, Windows autostart) va plagin + engine o'rnatuvchisi
+- [~] ADB-7 Mustaqil "Lahza Engine" servisi (macOS LaunchAgent, Windows autostart) va plagin + engine o'rnatuvchisi — `engine/service/` (LaunchAgent plist, Task Scheduler XML), `install-service`/`service-status`, Studio sidecar'i `--discovery` bilan (ikki nusxa ko'tarilmaydi), `scripts/install_adobe_engine.{sh,ps1}` (0.2.4). Qolgani: Windows'da qo'lda sinov ([`12`, 3.3](12-adobe-plaginlar.md#33-mustaqil-lahza-engine-servisi-adb-7))
 - [ ] ADB-8 Qo'lda sinov matritsasi: Premiere 25.6 / 26.x / Beta, AE 25.x / 26.x × macOS / Windows ([`12`, 8-bo'lim](12-adobe-plaginlar.md#8-test-strategiyasi))
 - [ ] ADB-9 Tarqatish: `.zxp` imzo (ZXPSignCmd, `-tsa`), `.ccx`; Marketplace listing (maxfiylik siyosati, shartlar, bog'liqlik tavsifi); Adobe Developer Terms bo'yicha yurist xulosasi
 - [ ] ADB-10 AE'da UXP rasmiy bo'lganda AE panelini UXP'ga ko'chirish (CEP to'xtatilishini kuzatish)

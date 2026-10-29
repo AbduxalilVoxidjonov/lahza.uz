@@ -38,7 +38,7 @@ FAKE_YTDLP = textwrap.dedent('''
     class YoutubeDL:
         def __init__(self, params):
             self.params = params
-            self.out = Path(params["outtmpl"]["default"]).parent
+            self.out = Path(params["outtmpl"]["default"]).parent if "outtmpl" in params else None
 
         def __enter__(self):
             return self
@@ -51,6 +51,8 @@ FAKE_YTDLP = textwrap.dedent('''
                 h(d)
 
         def extract_info(self, url, download=False):
+            if "v=" not in url:
+                return self._listing(url)
             vid = url.split("v=", 1)[1]
             self.out.mkdir(parents=True, exist_ok=True)
             keep = {k: v for k, v in self.params.items() if k not in ("progress_hooks", "logger")}
@@ -66,7 +68,37 @@ FAKE_YTDLP = textwrap.dedent('''
                 raise DownloadError("ERROR: Requested format is not available")
             if vid.startswith("crash"):
                 os._exit(3)
+            if vid.startswith("chap"):
+                return {"id": vid, "title": "Boblar bilan", "duration": 600, "_type": "video",
+                        "description": "Tavsif matni", "uploader": "Kanal",
+                        "chapters": [{"start_time": 0, "end_time": 120, "title": "Kirish"},
+                                     {"start_time": 120.5, "end_time": 600, "title": "Asosiy qism"},
+                                     {"start_time": "x", "title": "buzuq"}]}
             return {"id": vid, "title": "Sarlavha/1: test", "duration": 12, "_type": "video"}
+
+        def _listing(self, url):
+            # Soxta playlist/kanal: `extract_flat` parametri va havola faylga yoziladi.
+            Path(os.environ["LAHZA_FAKE_YT_LOG"]).write_text(json.dumps({"url": url, **{
+                k: v for k, v in self.params.items() if k != "logger"}}))
+            if "PLprivate" in url:
+                raise DownloadError("ERROR: [youtube:tab] PLprivate: This playlist is private")
+            if "PLslow" in url:
+                time.sleep(30)
+            n = 60 if ("PLbig" in url or "/@" in url) else 4
+            entries = [{"_type": "url", "ie_key": "Youtube", "id": f"vid{i:08d}",
+                        "url": f"https://www.youtube.com/watch?v=vid{i:08d}", "title": f"Video {i}",
+                        "duration": 60 + i,
+                        "thumbnails": [{"url": "https://evil.example/x.jpg"},
+                                       {"url": f"https://i.ytimg.com/vi/vid{i:08d}/hq.jpg"}]}
+                       for i in range(n)]
+            if n == 4:
+                entries[1].update(title="[Private video]", duration=None)
+                entries[2].update(url="https://www.youtube.com/shorts/vid00000002")
+                entries[3].update(live_status="is_upcoming")
+                entries.append({"_type": "url", "id": "UCxxxxxxxxxxxxxxxxxxxxxx", "url": "https://www.youtube.com/channel/x"})
+                entries.append(dict(entries[0]))  # takror
+            return {"_type": "playlist", "id": "PL", "title": "Mening playlistim",
+                    "entries": iter(entries[:self.params.get("playlistend") or None])}
 
         def process_ie_result(self, info, download=True):
             vid = info["id"]
@@ -101,6 +133,8 @@ def fake_ytdlp(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     (root / "yt_dlp" / "__init__.py").write_text(FAKE_YTDLP, encoding="utf-8")
     (root / "yt_dlp" / "version.py").write_text("__version__ = '2099.01.01'\n", encoding="utf-8")
     monkeypatch.setenv("LAHZA_YTDLP_PATH", str(root))
+    # Kompyuterdagi haqiqiy deno/node versiyasi testga ta'sir qilmasin (JS tekshiruvi alohida testda).
+    monkeypatch.setattr(youtube, "js_runtimes", lambda _d: [])
     return root
 
 
@@ -384,7 +418,10 @@ def test_child_reports_incompatible_on_lazy_import(monkeypatch: pytest.MonkeyPat
 def test_status_reports_components(tmp_path: Path, fake_ytdlp: Path) -> None:
     st = youtube.status(tmp_path)
     assert st["installed"] is True and st["version"] == "2099.01.01"
-    assert set(st) == {"installed", "version", "ejs", "js_runtime", "ffmpeg"}
+    assert set(st) == {"installed", "version", "ejs", "js_runtime", "ffmpeg", "ytdlp_source",
+                       "js_runtime_version", "js_runtime_source", "js_runtime_outdated"}
+    # LAHZA_YTDLP_PATH (Components/ emas) - tizimdagi komponent.
+    assert st["ytdlp_source"] == "system"
 
 
 # ---- API ------------------------------------------------------------------------------------

@@ -6,6 +6,7 @@ import type { Clip, ClipKind, ClipStatus } from "../api/types";
 import { CLIP_KINDS, CLIP_STATUSES } from "../components/ClipBadges";
 import { ClipCard } from "../components/gallery/ClipCard";
 import { ReanalyzePanel } from "../components/gallery/ReanalyzePanel";
+import { YoutubeSource } from "../components/import/YoutubeSource";
 import { NoSubsWarning } from "../components/NoSubsWarning";
 import { Empty, ErrorText, JobLine, QueryState } from "../components/ui";
 import { useT } from "../i18n";
@@ -85,6 +86,8 @@ export function Episode() {
       </div>
 
       {llmUpgrade && <div className="card notice" role="note">{t("gal.llmAvailable")}</div>}
+
+      {episode.data?.source && <YoutubeSource episodeId={episodeId} source={episode.data.source} />}
 
       {job && (
         <div className="card">

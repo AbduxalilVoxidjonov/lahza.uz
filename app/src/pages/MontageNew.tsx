@@ -74,6 +74,11 @@ export function MontageNew() {
     if (choosingFormat) formatRef.current?.focus();
   }, [choosingFormat]);
   const set = (p: Partial<Form>) => setForm((f) => ({ ...f, ...p }));
+  // Chap menyudagi "YouTube havolasi" (`?src=youtube`): 1-qadamga qaytamiz, maydon fokuslanadi.
+  const srcParam = params.get("src");
+  useEffect(() => {
+    if (srcParam === "youtube") setStep(1);
+  }, [srcParam, params]);
 
   const tpl: Template | undefined = templateId
     ? templates.data?.find((x) => x.id === templateId)
@@ -129,9 +134,12 @@ export function MontageNew() {
         <li>{t("quick.export")}</li>
       </ol>
       <Section title={t("quick.upload")}>
-        {!choosingFormat ? <SourcePicker picked={sources} onAdd={addSources}
-                      onRemoveKey={(k) => setSources((old) => old.filter((x) => x.key !== k))} />
-          : <div className="row"><span className="badge good" role="status">✓ {t("quick.selected")}</span>
+        {/* 2-qadamda ham yashirin holda o'rnatilgan qoladi: YouTube yuklashi davom etsa, tugagach manba qo'shiladi. */}
+        <div hidden={choosingFormat}>
+          <SourcePicker picked={sources} onAdd={addSources}
+                        onRemoveKey={(k) => setSources((old) => old.filter((x) => x.key !== k))} />
+        </div>
+        {choosingFormat && <div className="row"><span className="badge good" role="status">✓ {t("quick.selected")}</span>
             <button type="button" className="btn" onClick={() => setStep(1)}>{t("quick.changeVideo")}</button></div>}
         <SelectedSources items={sources} onChange={setSources} />
         {!choosingFormat && sources.length > 0 && <button type="button" className="btn primary" onClick={() => setStep(2)}>{t("quick.next")}</button>}

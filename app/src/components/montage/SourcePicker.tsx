@@ -1,13 +1,18 @@
 // Montaj uchun videolarni tanlash: fayllar, loyiha kliplari yoki butun epizod.
-import { memo, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { useClips, useEpisodes, useObjectUrl, usePreviewFrame, useProjects } from "../../api/hooks";
 import type { Clip, MontageSource } from "../../api/types";
+import { useEnsureYoutubeProject } from "../../api/youtube";
 import { useT } from "../../i18n";
+import { youtubeDictionaries } from "../../i18n/youtube";
 import { baseName, hasNativeDialog, pickPaths, VIDEO_EXTS } from "../../lib/dialog";
 import { useInView } from "../../lib/useInView";
 import { outDuration } from "../../lib/words";
+import { importedToSource } from "../../lib/youtube-import";
 import { useSettings } from "../../store/settings";
+import { YoutubeImport } from "../import/YoutubeImport";
 import { Empty, fmtTime, QueryState } from "../ui";
 
 export interface PickedSource {
@@ -43,9 +48,59 @@ export function SourcePicker({ picked, onAdd, onRemoveKey }: {
         ))}
       </div>
       </details>
-      {mode === "files" && <FilesPicker onAdd={onAdd} />}
+      {mode === "files" && (
+        // Fayl va YouTube havolasi teng darajada, yonma-yon (tor ekranda - ustma-ust), "yoki" bilan.
+        <div className="source-choices">
+          <FilesPicker onAdd={onAdd} />
+          <OrSeparator />
+          <YoutubePicker onAdd={onAdd} />
+        </div>
+      )}
       {mode !== "files" && <ProjectPicker mode={mode} picked={picked} onAdd={onAdd} onRemoveKey={onRemoveKey} />}
     </div>
+  );
+}
+
+function OrSeparator() {
+  const locale = useSettings((s) => s.locale);
+  const or = youtubeDictionaries[locale].or;
+  return (
+    <div className="source-or muted" role="separator" aria-label={or}>
+      <span>{or}</span>
+    </div>
+  );
+}
+
+/**
+ * YT-1 Boshlash sahifasida: havola -> rozilik -> "YouTube" loyihasiga yuklash -> fayl montaj manbasiga
+ * avtomatik qo'shiladi (loyiha so'ralmaydi). `?src=youtube` (chap menyu) bo'lsa maydonga fokus.
+ */
+function YoutubePicker({ onAdd }: { onAdd: (items: PickedSource[]) => void }) {
+  const locale = useSettings((s) => s.locale);
+  const y = youtubeDictionaries[locale];
+  const ensureProject = useEnsureYoutubeProject();
+  const [params] = useSearchParams();
+  const wantFocus = params.get("src") === "youtube";
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!wantFocus) return;
+    // Ota (MontageNew) 1-qadamga qaytgach - keyingi kadrda ko'rinadi.
+    const id = requestAnimationFrame(() => {
+      ref.current?.scrollIntoView({ block: "nearest" });
+      ref.current?.querySelector<HTMLInputElement>("input[type=url]")?.focus();
+    });
+    return () => cancelAnimationFrame(id);
+  }, [wantFocus, params]);
+  return (
+    <section ref={ref} className="upload-start youtube-start stack" id="youtube" aria-labelledby="yt-start-title">
+      <span className="upload-symbol" aria-hidden="true">▶</span>
+      <h3 id="yt-start-title" style={{ margin: 0 }}>{y.sourceUrl}</h3>
+      <span className="muted">{y.blockHint}</span>
+      <div className="youtube-start-body">
+        <YoutubeImport projectId={ensureProject} compact startLabel={y.add}
+                       onImported={(v, projectId) => onAdd([importedToSource(v, projectId)])} />
+      </div>
+    </section>
   );
 }
 

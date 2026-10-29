@@ -5,7 +5,7 @@ import {
   useCheckYoutubeUpdates, useInstallYoutubeComponents, useRefreshYoutubeImport, type YoutubeImportStatus,
 } from "../../api/youtube";
 import { fmt, youtubeDictionaries } from "../../i18n/youtube";
-import { fmtBytes } from "../../lib/youtube-import";
+import { componentsInUse, componentsMode, fmtBytes } from "../../lib/youtube-import";
 import { useJobs } from "../../store/jobs";
 import { useSettings } from "../../store/settings";
 import { ErrorText, ProgressBar } from "../ui";
@@ -92,6 +92,24 @@ export function YoutubeComponentsInstall({ st, updates = false }: { st: YoutubeI
         </div>
         {failed}
         <ErrorText error={check.error ?? install.error} />
+      </div>
+    );
+  }
+  // Tizimdagi (venv/PATH) yt-dlp va JS runtime bilan import ishlaydi: `components_ready=false` xato emas -
+  // qaysi nusxa ishlatilayotgani ko'rsatiladi, ilovaning o'z komponentlarini o'rnatish esa ixtiyoriy.
+  if (componentsMode(st) === "system" && !running) {
+    return (
+      <div className="stack" style={{ gap: 6 }} aria-live="polite">
+        <div className="notice" role="status">
+          {fmt(y.systemComponents, { list: componentsInUse(st, { system: y.srcSystem, app: y.srcApp }) })}
+        </div>
+        {updates && (
+          <button className="btn small" type="button" style={{ alignSelf: "flex-start" }} onClick={() => start(false)}>
+            {fmt(y.installOwn, { size: fmtBytes(st.components_download_bytes) })}
+          </button>
+        )}
+        {failed}
+        <ErrorText error={install.error} />
       </div>
     );
   }
