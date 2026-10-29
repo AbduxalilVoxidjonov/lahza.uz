@@ -199,9 +199,10 @@ to `launchApp` twice, as dock-workspace's restart test does). Set
 - **`serial`** — the specs whose titles carry the `@serial` tag: GPU/HW-lane,
   perf-measurement, and determinism-capture gates that must own the machine.
   Runs FIRST, alone, with `workers: 1`, while the machine is quiet.
-- **`parallel`** — everything else. `workers` is `2` on the macOS CI leg, `1` on
-  the GPU-less ones (one export pipeline saturates their vCPUs, so a second
-  worker starves both into the export timeout) and `50%` of cores locally.
+- **`parallel`** — everything else. `workers` is `1` on every CI leg and `50%`
+  of cores locally. A second export pipeline saturates GPU-less runners' vCPUs
+  and can exhaust the 7 GiB macOS runner's memory, causing export admission
+  failures and Electron shutdown timeouts.
 
 The package script goes through `scripts/run-e2e.mjs` because Playwright runs
 independent projects concurrently by default. Unscoped runs are split into two
@@ -214,7 +215,7 @@ tolerate running alongside other app instances.
 
 ### How CI spreads one run across runners
 
-Because the GPU-less legs cannot use a second worker, electron-ci buys its
+Because CI legs cannot reliably fit a second export worker, electron-ci buys its
 parallelism across machines instead: each OS runs the suite as several
 concurrent **legs**, named by position — `e2e-1` … `e2e-N`. How many is per OS
 (`LEGS` in `slices.mjs`: five on Windows and Linux, three on macOS) and is set by
@@ -226,7 +227,7 @@ spec file from `e2e/timings.json` — summed test time per OS, measured from a
 green run — and places each on the lightest leg so far, heaviest first, per OS:
 a spec that is 2 min on Linux is often 1 min on macOS, so the macOS pack is a
 different pack. Summed test time is leg wall clock here: on every measured leg,
-macOS with `workers: 2` included, no two tests ever overlapped (run
+including macOS when it used `workers: 2`, no two tests ever overlapped (run
 40287526652, 38.0 min of tests in a 38.7 min leg), so the sums add directly to
 the extras below. The leg then restricts its parallel project to that set
 (`WEFTCUT_E2E_ONLY`); there is no catch-all and no ignore list. A spec the

@@ -228,7 +228,7 @@ export function osLabelFor(platform = process.platform) {
 /// A spec's cost on one OS in seconds of leg wall clock: the snapshot's summed
 /// test time, or the default for a spec the snapshot has not measured. Summed
 /// test time IS wall clock here, on every OS: the measured legs never ran two
-/// tests at once — not even macOS, whose parallel project declares two workers
+/// tests at once — not even macOS, which then declared two workers
 /// (run 40287526652: 38.0 min of test time in a 38.7 min leg, zero overlap). So
 /// the extras' wall clocks add to it directly.
 export function specSeconds(file, os, snapshot) {

@@ -357,8 +357,7 @@ test('the snapshot script measures the extras by the steps the workflow actually
 test('the parallel project runs one test at a time where the pack assumes it', () => {
   // The pack treats summed test time as leg wall clock (slices.mjs
   // §specSeconds). That held on every measured leg, but it is only guaranteed
-  // where the config says one worker; macOS declares two and measured no
-  // overlap anyway. If that line changes, re-measure before trusting the pack.
+  // where the config says one worker. Enforce that on every CI platform.
   const config = readFileSync(PLAYWRIGHT_CONFIG, 'utf8')
-  assert.match(config, /workers: process\.env\.CI \? \(process\.platform === 'darwin' \? 2 : 1\) : '50%'/)
+  assert.match(config, /workers: process\.env\.CI \? 1 : '50%'/)
 })
