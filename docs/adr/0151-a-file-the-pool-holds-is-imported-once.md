@@ -52,11 +52,18 @@ imports of files already in the project become the normal path, not a slip.
   new size is read no more than before. An item whose hash is still pending
   cannot be matched: two imports of the same bytes racing from two paths land
   two rows, and the MCP record names the other in `same_content_as`.
-- **Found bytes relink an item whose file is gone.** When the item holding
-  the bytes has lost its own file (its `Media/` copy deleted, its drive
-  offline), the import points that item at the source, copies it into
-  `Media/` as any import's source is, and regenerates its derivatives. The
-  item keeps its id and its layers play again. After awaiting derivative enqueue,
+- **An item holds its bytes only while its own file does.** The hash an
+  item records was read once, at import. Before an item recording the
+  source's bytes is answered, its own file is read again, unless it is the
+  source itself (amended by ADR 0153). Of several items recording the bytes,
+  one whose file still holds them answers.
+- **Found bytes relink an item whose file no longer holds them.** When no
+  item recording the bytes still holds them (its `Media/` copy deleted or
+  overwritten, its drive offline), the import points the first at the
+  source, copies it into `Media/` as any import's source is, and regenerates
+  its derivatives. The item keeps its id and its layers play the bytes they
+  were placed with again; whatever now sits at its old path is another file.
+  Two imports racing to the same relink perform it once. After awaiting derivative enqueue,
   the import checks its project generation before queuing the copy, including
   when the same project has been closed and reopened.
 - **The MCP record says what happened.** An answer for an item the pool held
@@ -74,8 +81,12 @@ deletes its file, so a file recorded in place is as safe as a copy.
 
 ## Implementation ownership
 
-`mediaImport.ensureImported` owns path matching, content checks, in-flight
-coordination, session validation and import completion. It reports added,
+`importSource.nextImportStep` is the one decision: from the pool and the facts
+read so far it answers join, hash, verify, reuse, relink or add.
+`mediaImport.ensureImported` gathers those facts, asks again after every await,
+and owns in-flight coordination, session validation and import completion.
+`mediaImport.model.test.ts` checks the contract against a model file system
+under random overwrites, deletions and imports. It reports added,
 reused or relinked explicitly; its outcome also preserves whether the pool held
 the item at call entry and which other items hold the same content. MCP shapes
 that outcome into the existing record, adding `relinked: true` for a relink;

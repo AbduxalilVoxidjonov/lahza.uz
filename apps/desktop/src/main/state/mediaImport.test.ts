@@ -327,9 +327,43 @@ describe('ensureImported', () => {
       deps._hashMediaSource.mockResolvedValue('heldhash')
       expect(await importFile({ path: 'D:/footage/x.mp4' }, deps)).toBe(HELD)
       expect(Object.keys(actor.snapshot().media_pool)).toEqual([HELD])
-      expect(deps._hashMediaSource).toHaveBeenCalledTimes(1)
+      // The source, then the copy: the copy's bytes are read, not assumed.
+      expect(deps._hashMediaSource.mock.calls.map(c => c[0])).toEqual(['D:/footage/x.mp4', 'C:/proj/Media/x.mp4'])
       expect(deps._enqueueDerivatives).not.toHaveBeenCalled()
       expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+    })
+
+    // The held item's file is still there, but something outside the app
+    // wrote other bytes over it: the backup holding its bytes is relinked.
+    it('relinks an item whose own file was overwritten to the backup holding its bytes', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      deps._hashMediaSource.mockImplementation(async (p: string) => (p === 'C:/proj/Media/x.mp4' ? 'otherhash' : 'heldhash'))
+      expect(await ensureImported('D:/backup/x.mp4', deps)).toEqual({ mediaId: HELD, disposition: 'relinked', existing: true, sameContentAs: [] })
+      expect(actor.snapshot().media_pool[HELD]).toMatchObject({ path_abs: 'D:/backup/x.mp4', file_hash_blake3: 'heldhash' })
+      expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledWith(HELD, 'D:/backup/x.mp4')
+    })
+
+    it('reuses whichever item of the bytes still holds them', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const OTHER = '00000000-0000-0000-0000-0000000000cc'
+      actor.dispatch('add_media_item', { media: { ...mediaItemTemplate(OTHER, 'Video', 4_000_000), path_abs: 'C:/proj/Media/x-2.mp4', file_hash_blake3: 'heldhash' } })
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      deps._hashMediaSource.mockImplementation(async (p: string) => (p === 'C:/proj/Media/x.mp4' ? 'otherhash' : 'heldhash'))
+      expect(await importFile({ path: 'D:/backup/x.mp4' }, deps)).toBe(OTHER)
+      expect(actor.snapshot().media_pool[HELD].path_abs).toBe('C:/proj/Media/x.mp4')
+      expect(deps._enqueueWorkspaceCopy).not.toHaveBeenCalled()
+    })
+
+    it('relinks once when two imports of the backup race through their reads', async () => {
+      const actor = holding('C:/proj/Media/x.mp4')
+      const deps = makeDeps(actor, { workspaceDir: 'C:/proj' })
+      deps._hashMediaSource.mockImplementation(async (p: string) => (p === 'C:/proj/Media/x.mp4' ? 'otherhash' : 'heldhash'))
+      const [a, b] = await Promise.all([ensureImported('D:/backup/x.mp4', deps), ensureImported('D:/backup/x.mp4', deps)])
+      expect([a.disposition, b.disposition].sort()).toEqual(['relinked', 'reused'])
+      expect(a.mediaId).toBe(HELD)
+      expect(b.mediaId).toBe(HELD)
+      expect(deps._enqueueWorkspaceCopy).toHaveBeenCalledOnce()
     })
 
     // The held item's own file is gone (its Media/ copy deleted, its drive

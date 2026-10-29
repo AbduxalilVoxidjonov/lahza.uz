@@ -5,7 +5,7 @@ import type { Actor } from './history'
 import type { MediaItem } from './model'
 import { McpArgError, mapCommandError } from './mcp-commands'
 import type { ImportTrace } from '../importDiagnostics'
-import { absoluteSource, hashedItemOfSize, mediaFolderPath, pooledItemFor, pooledItemWithHash, spelledKey, type FileKey } from './importSource'
+import { absoluteSource, mediaFolderPath, nextImportStep, spelledKey, type FileKey, type Holding } from './importSource'
 
 export type MediaImportDeps = {
   beginImport?: () => ImportTrace
@@ -123,49 +123,45 @@ async function ensureImported(asked: string, deps: MediaImportDeps, write: Write
     catch (e) { throw new Error(`import_media: probing ${path} failed: ${errText(e)}. Nothing was imported`) }
     assertCurrent()
     const hashSource = () => (trace ? deps.compute.hashMediaSource(path, trace.id) : deps.compute.hashMediaSource(path))
-    // Only an import still in flight may be joined by file identity alone.
-    // A settled item's file can have been overwritten, even with the same
-    // size and second-resolution mtime, so its bytes must be checked below.
-    const sameFile = pooledItemFor(deps.actor.snapshot().media_pool, path, fileKey, item)
-    const importing = sameFile && inFlight.get(sameFile.id)
-    if (importing) {
-      await importing
-      assertCurrent()
-      trace?.held(sameFile.id)
-      return outcome(sameFile.id, 'reused')
-    }
-    // A pooled file copied into Media/ no longer has its source's path, only
-    // its bytes. When an item of the source's size could hold them, the
-    // source is hashed before the insert, not after.
-    let hash: string | null = null
-    if (hashedItemOfSize(deps.actor.snapshot().media_pool, item.file_size)) {
-      try { hash = await hashSource() }
-      catch (e) { throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. Nothing was imported`) }
-      assertCurrent()
-    }
-    // Checked here, in the same turn as the insert, so two imports of one
-    // file racing through their probes still land one row.
-    const pool = deps.actor.snapshot().media_pool
-    const pendingFile = pooledItemFor(pool, path, fileKey, item)
-    const held = pendingFile && inFlight.has(pendingFile.id)
-      ? pendingFile : hash === null ? null : pooledItemWithHash(pool, hash)
     const workspaceDir = deps.workspaceDir()
     const inMedia = workspaceDir ? mediaFolderPath(workspaceDir, path, realPath, fileKey, platform) : null
-    if (held) {
-      let disposition: ImportOutcome['disposition'] = 'reused'
-      // A row still importing is not held yet: its hash read may fail and
-      // roll it back, so this import answers what that one does.
-      const importing = inFlight.get(held.id)
-      if (importing) await importing
-      // The same bytes found while the held item's own file is gone (a
-      // deleted Media/ copy, a drive offline): the item is relinked to them.
-      else if (!usableFile(deps.statPath(held.path_abs))) {
-        await relink(held, item, path, workspaceDir, inMedia, assertCurrent, write, deps)
-        disposition = 'relinked'
+    // Every await below is followed by a fresh decision over the pool as it
+    // is then, so the final one runs in the same turn as its write: two
+    // imports racing through their reads still land one row, one relink.
+    let hash: string | null = null
+    const holdings = new Map<string, Holding>()
+    for (;;) {
+      const step = nextImportStep({
+        pool: deps.actor.snapshot().media_pool, source: path, found: item, fileKey, hash,
+        inFlight: id => inFlight.has(id), holding: m => holdings.get(holdingKey(m)),
+      })
+      if (step.kind === 'add') break
+      if (step.kind === 'hash') {
+        try { hash = await hashSource() }
+        catch (e) { throw new Error(`import_media: reading ${path} for its content hash failed: ${errText(e)}. Nothing was imported`) }
+      } else if (step.kind === 'verify') {
+        holdings.set(holdingKey(step.item), await holdingOf(step.item, deps))
+      } else if (step.kind === 'join') {
+        // Not held yet: its hash read may fail and roll it back, so this
+        // import answers what that one does.
+        await inFlight.get(step.id)
+        assertCurrent()
+        trace?.held(step.id)
+        return outcome(step.id, 'reused')
+      } else if (step.kind === 'reuse') {
+        trace?.held(step.id)
+        return outcome(step.id, 'reused')
+      } else {
+        const held = deps.actor.snapshot().media_pool[step.id]
+        const relinked = relink(held, item, path, workspaceDir, inMedia, assertCurrent, write, deps).then(() => held.id)
+        inFlight.set(held.id, relinked)
+        try { await relinked }
+        finally { inFlight.delete(held.id) }
+        assertCurrent()
+        trace?.held(held.id)
+        return outcome(held.id, 'relinked')
       }
       assertCurrent()
-      trace?.held(held.id)
-      return outcome(held.id, disposition)
     }
     const r = write('add_media_item', { media: item })
     if (!r.ok) throw new Error(JSON.stringify(r.error))
@@ -181,13 +177,25 @@ async function ensureImported(asked: string, deps: MediaImportDeps, write: Write
   } catch (error) { trace?.fail(error); throw error }
 }
 
-function usableFile(facts: PathFacts | null): boolean {
-  return facts?.kind === 'file' && facts.readable
+/** A Holding read stands for the item as it was read: moved or rehashed, it
+ *  is read again. */
+const holdingKey = (m: MediaItem) => `${m.id}\n${m.path_abs}\n${m.file_hash_blake3}`
+
+/** Read whether `item`'s own file still holds the bytes it records. A file the
+ *  stat or the read cannot reach is gone, as far as this import can tell.
+ *  Neither a file number nor size and second-resolution mtime survive every
+ *  overwrite, so the bytes themselves are read. */
+async function holdingOf(item: MediaItem, deps: MediaImportDeps): Promise<Holding> {
+  const facts = deps.statPath(item.path_abs)
+  if (facts?.kind !== 'file' || !facts.readable) return 'gone'
+  try { return (await deps.compute.hashMediaSource(item.path_abs)) === item.file_hash_blake3 ? 'holds' : 'replaced' }
+  catch { return 'gone' }
 }
 
-/** Point `held`, whose own file is gone, at `path`, a file `found` by its probe
- *  to hold the same bytes: recorded in place under Media/, else copied in as an
- *  import's source is. Its derivatives regenerate whatever left with the file. */
+/** Point `held`, whose own file no longer holds its bytes (gone or
+ *  overwritten), at `path`, a file `found` by its probe to hold them: recorded
+ *  in place under Media/, else copied in as an import's source is. Its
+ *  derivatives regenerate whatever left with the file. */
 async function relink(
   held: MediaItem, found: MediaItem, path: string, workspaceDir: string | null, inMedia: string | null,
   assertCurrent: () => void, write: Write, deps: MediaImportDeps,

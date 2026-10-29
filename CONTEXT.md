@@ -138,7 +138,9 @@ the pool item points at the copy. A source already under `Media/` is recorded
 where it stands; any other source, inside the project folder or not, is
 copied. A file the pool already holds — the same file however spelled, or
 its bytes, such as the source a copy came from — is never imported twice
-(ADR 0151).
+(ADR 0151). An item holds its bytes only while its own file does: one whose
+file was deleted or overwritten is relinked to a source found holding them
+(ADR 0153).
 _Avoid_: managed media, consolidate
 
 ## Transitions
