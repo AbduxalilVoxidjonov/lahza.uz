@@ -1,8 +1,13 @@
 // The singleflight key: the same source span under the same answer-changing
 // args is one job, whichever layer carries it; anything that changes the
 // answer is another.
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
-import { clipJobSpec } from './clipJob'
+import { ARG_ROLES, clipJobSpec } from './clipJob'
+
+const catalog = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 'utf8')) as {
+  tools: { name: string; inputSchema: { properties?: Record<string, unknown> } }[]
+}
 
 const HASH = 'a'.repeat(64)
 const media = (over: Record<string, unknown> = {}) => ({ id: 'm1', file_hash_blake3: HASH, ...over })
@@ -49,6 +54,19 @@ describe('clipJobSpec', () => {
     for (const args of [{ fps: 2 }, { focus: 'shot-type' }, { vlm_config: { qwen3_vl: { model: 'x' } } }]) {
       expect(key(args, 'describe_clip'), JSON.stringify(args)).not.toBe(key({}, 'describe_clip'))
     }
+  })
+
+  // A new arg is either part of the question or not; nothing decides that
+  // for it, so an unclassified one fails here before it can join a job.
+  it.each(Object.keys(ARG_ROLES))('classifies every arg %s advertises', (tool) => {
+    const advertised = Object.keys(catalog.tools.find(t => t.name === tool)!.inputSchema.properties ?? {})
+    expect(advertised.filter(k => !(k in ARG_ROLES[tool as keyof typeof ARG_ROLES]))).toEqual([])
+  })
+
+  it('never joins a refresh to a run that may answer from before it', () => {
+    const plain = key({}, 'describe_clip')
+    expect(key({ refresh: false }, 'describe_clip')).toBe(plain)
+    expect(key({ refresh: true }, 'describe_clip')).not.toBe(plain)
   })
 
   it('ignores args that do not change the answer', () => {
