@@ -5,6 +5,7 @@ Eng yangisi tepada. Keyingi reliz o'zgarishlari `## [Kelgusi]` bo'limiga yozilad
 
 ## [Kelgusi]
 
+- **Tuzatish — ilova yopilishida yetim engine:** engine qulab, qayta ishga tushirish kutayotgan paytda ilova yopilsa, yangi engine yopilgandan keyin ko'tarilib qolishi mumkin edi; endi kutishdan keyin va spawn'dan so'ng `kill` holati tekshiriladi (`app/src-tauri/src/engine.rs`). Windows'da 30 marta oddiy yopish, 9 marta AI montaj/issiq llama-server paytida yopish va 3 marta majburiy o'ldirish sinaldi — hech qaysida jarayon qolmadi.
 - **Tuzatish — Windows desktop: engine ishga tushmasdi.** `--watch-stdin` (Tauri doim beradi) Windows'da sinxron stdin pipe'ni bloklab o'qirdi va meros handle'li bola jarayonlar (ffmpeg, subprocess) CRT ishga tushishida osilib qolardi; endi `PeekNamedPipe` bilan so'raladi (`core/lifecycle.py`).
 - **Yangi — Windows MSVC relizi adminsiz:** xwin (MSVC CRT/SDK) + rust-lld + clang-cl, `+crt-static` - `lahza-studio.exe` VC++ runtime'ga bog'lanmaydi; NSIS per-user o'rnatuvchi WebView2 offline o'rnatuvchisi bilan (`tauri.conf.json`). `scripts/stage_windows_dlls.py` har exe/dll importini tekshiradi va yetishmagan VC++ runtime DLL'larini `resources/bin` ga qo'yadi.
 - **Yangi — Windows uchun LGPL FFmpeg 7.1.1:** `scripts/build_runtimes.ps1 -FFmpegOnly` portativ MSYS2 (UCRT64) bilan dav1d 1.5.4 (statik), libass, Media Foundation/AMF/VPL; GPL DLL darvozasi, litsenziya matnlari `bin/licenses/local-render/`. 455 MB GPL sinov yig'masi o'rniga 37.6 MB.

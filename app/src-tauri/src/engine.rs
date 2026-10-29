@@ -111,6 +111,15 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
 
     let (mut rx, child) = cmd.spawn().map_err(|e| e.to_string())?;
     *state.child.lock().map_err(|e| e.to_string())? = Some(child);
+    // Qayta ishga tushirish `kill` bilan poygalashsa (kill bolani olib bo'lgach yangisi yozildi) -
+    // yangi engine'ni darhol to'xtatamiz, aks holda u ilovadan keyin yetim qoladi.
+    if stopping(&state) {
+        let child = state.child.lock().ok().and_then(|mut c| c.take());
+        if let Some(child) = child {
+            stop_child(child, Duration::ZERO);
+        }
+        return Err("ilova yopilmoqda".to_string());
+    }
 
     let handle = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -153,6 +162,10 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
                         .unwrap_or(MAX_RESTARTS + 1);
                     if attempt <= MAX_RESTARTS {
                         tokio::time::sleep(Duration::from_secs(attempt as u64)).await;
+                        // Kutish paytida ilova yopila boshlagan bo'lishi mumkin.
+                        if stopping(&st) {
+                            break;
+                        }
                         if let Err(e) = spawn(&handle) {
                             eprintln!("[engine] qayta ishga tushmadi: {e}");
                         }
@@ -164,6 +177,11 @@ pub fn spawn(app: &AppHandle) -> Result<(), String> {
         }
     });
     Ok(())
+}
+
+/// `kill` chaqirilganmi (qayta ishga tushirish taqiqlangan).
+fn stopping(state: &EngineState) -> bool {
+    state.restarts.lock().map(|r| *r > MAX_RESTARTS).unwrap_or(true)
 }
 
 pub fn kill(app: &AppHandle) {
@@ -287,6 +305,16 @@ mod tests {
             DEV_CORS_ORIGINS.split(',').collect::<Vec<_>>(),
             ["http://127.0.0.1:1420", "http://localhost:1420"]
         );
+    }
+
+    #[test]
+    fn stopping_after_kill_blocks_restart() {
+        let state = EngineState::new();
+        assert!(!stopping(&state));
+        *state.restarts.lock().unwrap() = MAX_RESTARTS;
+        assert!(!stopping(&state));
+        *state.restarts.lock().unwrap() = MAX_RESTARTS + 1;
+        assert!(stopping(&state));
     }
 
     #[test]
