@@ -14,6 +14,20 @@ function memFs(): AppSettingsFs {
 }
 
 describe('decode capability cache', () => {
+  it('session failure overrides cached positives even when it occurs during environment lookup', async () => {
+    const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
+    s.put('videotoolbox', 'h264::yuv420p:hd', 'gpu', true)
+    let failure: string | null = null
+    const probe = vi.fn(() => ({ ok: true, reason: null }))
+    const result = await resolveHwLane({
+      lanes: ['videotoolbox'], store: s, classKey: 'h264::yuv420p:hd',
+      envKey: async () => { failure = 'timeout'; return 'gpu' }, devices: () => [null],
+      unavailableReason: () => failure, probe,
+    })
+    expect(result).toMatchObject({ ok: false, lane: null, reason: 'timeout' })
+    expect(probe).not.toHaveBeenCalled()
+    expect(s.get('videotoolbox', 'h264::yuv420p:hd', 'gpu')).toBe(true)
+  })
   it('awaits isolated probes and never persists a timeout as unsupported hardware', async () => {
     const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
     const deps = {

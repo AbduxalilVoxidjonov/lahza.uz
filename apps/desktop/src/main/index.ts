@@ -2040,6 +2040,7 @@ app.whenReady().then(async () => {
       classKey: a.classKey,
       envKey: () => hwEnvKey(),
       devices: (lane) => (lane === 'vaapi' ? enumerateDrmRenderNodes() : [null]),
+      unavailableReason: (lane) => lane === 'videotoolbox' ? macDecodeProbe?.unavailableReason ?? null : null,
       probe: (lane, device) => {
         // Each advertised lane routes to its native one-frame probe: d3d11va to
         // previewGpuProbe (Windows), the copy-back lanes — NVDEC/VAAPI (Linux)

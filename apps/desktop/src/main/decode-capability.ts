@@ -144,6 +144,7 @@ export async function resolveHwLane(deps: {
   classKey: string
   envKey: (lane: DecodeLane) => Promise<string>
   devices: (lane: DecodeLane) => readonly (string | null)[]
+  unavailableReason?: (lane: DecodeLane) => string | null
   probe: (lane: DecodeLane, device: string | null) => HwProbeVerdict | Promise<HwProbeVerdict>
 }): Promise<HwLaneResolution> {
   const advertised = HW_LANE_PRIORITY.filter((l) => deps.lanes.includes(l))
@@ -162,6 +163,10 @@ export async function resolveHwLane(deps: {
     const env = await deps.envKey(lane)
     const devices = deps.devices(lane)
     for (const device of devices) {
+      // A concurrent probe may have disabled this lane while envKey awaited
+      // GPU identity. Session failure must override even persisted positives.
+      const unavailable = deps.unavailableReason?.(lane)
+      if (unavailable) { transientReason = unavailable; continue }
       const cached = deps.store.get(lane, deps.classKey, env, device)
       if (cached === true) return { lane, device, ok: true, reason: 'cached' }
       if (cached === false) continue

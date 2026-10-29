@@ -140,7 +140,7 @@ it('recovers from a real child blocked in a synchronous call while the parent st
   })
   try {
     const result = probe.probe(request)
-    await blocked
+    await Promise.race([blocked, result.then(() => { throw new Error('Child exited before entering the blocking call') })])
     expect(await new Promise(resolve => setTimeout(() => resolve('responsive'), 10))).toBe('responsive')
     expect(await result).toMatchObject({ reason: 'timeout', cacheable: false })
     await vi.waitFor(() => expect(release).toHaveBeenCalledTimes(1))
