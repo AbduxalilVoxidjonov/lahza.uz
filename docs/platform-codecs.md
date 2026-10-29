@@ -18,8 +18,10 @@ and a monotonic per-clip hardware-fallback count before and after pixel/SSIM
 sampling. Timeout, crash, IPC/admission failure, unknown rejection and runtime
 fallback fail the gate; a later return to hardware does not erase a fallback.
 Only affirmative unavailability (no advertised/eligible lane, no render device,
-an observed native software frame, or a successful Linux inventory without an
-NVIDIA adapter) can skip an optional variant. Missing fixtures/components are
+an observed native software frame during capability probing, a successful Linux
+inventory without an NVIDIA adapter, or a Windows inventory containing only
+Microsoft software adapters) can skip an optional variant. Empty/unknown Windows
+inventories and mixed software/physical adapters do not permit a skip. Missing fixtures/components are
 test setup failures. Legacy negative cache entries without a cause are not
 accepted as unavailability evidence; hardware audits use fresh profiles.
 

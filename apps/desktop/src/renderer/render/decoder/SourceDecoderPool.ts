@@ -629,6 +629,7 @@ export class SourceDecoderPool {
       const sourceInit: FfmpegSourceInit = {
         layerId: init.layerId,
         mediaId: init.mediaId,
+        ...(init.hardwareEvidenceIdentity ? { hardwareEvidenceIdentity: init.hardwareEvidenceIdentity } : {}),
         sourcePath: init.sourcePath ?? "",
         componentAvailable: init.componentAvailable ?? false,
         // Pool-owned, not caller-supplied: the divisor is an app-level playback

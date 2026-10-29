@@ -17,6 +17,7 @@ import { SourceDecoderPool } from "./SourceDecoderPool";
 import { FfmpegSource, type FfmpegSourceInit } from "./FfmpegSource";
 import { HW_BUDGET_EXCEEDED } from "../../../shared/ipc";
 import type { DecodeTransport } from "./transports/DecodeTransport";
+import { resetFfmpegLaneTrail } from './ffmpegLaneTrail';
 
 function fakeTransport(opts?: { openRejects?: string; disposeWaits?: Promise<void> }) {
   return {
@@ -45,6 +46,25 @@ function ffmpegInit(layerId: string): FfmpegSourceInit {
 }
 
 describe("SourceDecoderPool.acquire engine routing", () => {
+  it('keeps a fallback visible when a clip moves to a synthetic overlap-swap slot', async () => {
+    resetFfmpegLaneTrail();
+    const pool = new SourceDecoderPool({ makeFfmpegSource: init => new FfmpegSource(init, {
+      makeGpu: () => fakeTransport(init.layerId === 'audit' ? { openRejects: HW_BUDGET_EXCEEDED } : undefined),
+      makeSw: () => fakeTransport(),
+      pickLane: async () => ({ lane: 'hardware', hwLane: 'd3d11va', device: null }),
+    }) });
+    try {
+      const first = pool.acquire({ ...ffmpegInit('audit'), engine: 'ffmpeg', proxyAssetUrl: '' }) as FfmpegSource;
+      await first.ensureReady();
+      expect(first.hardwareEvidence().fallbackCount).toBe(1);
+      const swap = pool.acquire({ ...ffmpegInit('audit#swap'), engine: 'ffmpeg', proxyAssetUrl: '',
+        hardwareEvidenceIdentity: { layerId: 'audit', mediaId: 'audit' },
+      } as never) as FfmpegSource;
+      await swap.ensureReady();
+      expect(swap.currentLane()).toBe('hardware');
+      expect(swap.hardwareEvidence().fallbackCount).toBe(1);
+    } finally { pool.dispose(); resetFfmpegLaneTrail(); }
+  });
   it("acquire(engine:'ffmpeg') builds an FfmpegSource decoding sourcePath", () => {
     const pool = new SourceDecoderPool();
     const h = pool.acquire({

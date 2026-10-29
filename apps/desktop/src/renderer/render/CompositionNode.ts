@@ -1279,6 +1279,7 @@ export class CompositionNode {
     const handle = this.host.pool.acquire({
       layerId: swapLayerId,
       mediaId: swapMediaId,
+      hardwareEvidenceIdentity: { layerId: clip.key, mediaId: clip.mediaId },
       sourceColor,
       sourceStartPtsUs,
       engine: rs.engine,
