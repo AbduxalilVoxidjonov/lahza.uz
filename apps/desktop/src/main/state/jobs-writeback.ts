@@ -49,13 +49,26 @@ export interface MediaWorkspacePathsEvent {
  *  The dispatch arg shape is `{ media, paths }` (actor.ts
  *  set_media_workspace_paths arm — `paths` is the 5-field WorkspacePaths).
  *  MediaNotFound is benign (the media may have been removed between import
- *  and copy-completion) — logged, not thrown. */
+ *  and copy-completion) — logged, not thrown. Null: a copy of other bytes
+ *  than the item records, discarded unapplied. */
 export function applyWorkspacePathsEvent(
   actor: Pick<ActorHandle, 'dispatch' | 'snapshot'>,
   payload: MediaWorkspacePathsEvent,
   relocated?: (proof: import('../../shared/media-source-relocated').MediaSourceRelocated) => void,
-): DispatchResult {
+  discard?: (path: string) => void,
+): DispatchResult | null {
   const previous = actor.snapshot().media_pool[payload.media_id];
+  // A copy is the item's file only if it holds the bytes the item records.
+  // The source can be overwritten while its copy waits in the queue; the copy
+  // of those other bytes is discarded, and the item keeps its source path,
+  // which reads as changed (ADR 0153). Its derivatives, layers and cached
+  // answers all name the recorded bytes, so adopting the copy's hash would
+  // silently swap what they describe.
+  if (previous && !previous.file_hash_blake3.startsWith('pending-') && previous.file_hash_blake3 !== payload.file_hash_blake3) {
+    console.warn(`[jobs-writeback] ${payload.media_id}: the source changed before its copy; discarding ${payload.path_abs}`)
+    discard?.(payload.path_abs)
+    return null
+  }
   const r = actor.dispatch('set_media_workspace_paths', {
     media: payload.media_id,
     paths: {

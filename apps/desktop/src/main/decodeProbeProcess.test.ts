@@ -95,18 +95,54 @@ describe('isolated decode probe lifetime', () => {
     expect(f.spawn).not.toHaveBeenCalled()
     f.reserve.mockImplementation(() => f.release)
     const pending = f.probe.probe(request)
-    expect(await f.probe.probe(request)).toMatchObject({ reason: 'probe-busy', cacheable: false })
+    await vi.waitFor(() => expect(f.spawn).toHaveBeenCalledOnce())
     f.child.emit('message', { type: 'result', verdict: { ok: false, reason: 'unsupported' } })
     f.child.emit('exit', 0)
     expect(await pending).toEqual({ ok: false, reason: 'unsupported' })
     expect(f.probe.unavailableReason).toBeNull()
   })
 
+  // First open of an H.264 and an HEVC source at once: one probe running is
+  // no answer about the other format, so the second waits its turn.
+  it('runs a probe asked for during another after it, not as a busy refusal', async () => {
+    const f = fixture()
+    const children = [new Child(), new Child()]
+    f.spawn.mockImplementation(() => children[f.spawn.mock.calls.length - 1])
+    const hevc = { ...request, path: '/fixture-hevc.mp4' }
+    const first = f.probe.probe(request)
+    const second = f.probe.probe(hevc)
+    await vi.waitFor(() => expect(f.spawn).toHaveBeenCalledOnce())
+    children[0].emit('message', { type: 'ready' })
+    children[0].emit('message', { type: 'result', verdict: { ok: true, reason: null } })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(f.spawn).toHaveBeenCalledOnce()
+    children[0].emit('exit', 0)
+    expect(await first).toEqual({ ok: true, reason: null })
+    await vi.waitFor(() => expect(f.spawn).toHaveBeenCalledTimes(2))
+    children[1].emit('message', { type: 'ready' })
+    expect(children[1].postMessage).toHaveBeenCalledWith(hevc)
+    children[1].emit('message', { type: 'result', verdict: { ok: true, reason: null } })
+    children[1].emit('exit', 0)
+    expect(await second).toEqual({ ok: true, reason: null })
+    expect(f.release).toHaveBeenCalledTimes(2)
+  })
+
+  it('answers a waiting probe at once when the one before it disabled probing', async () => {
+    const f = fixture()
+    const first = f.probe.probe(request)
+    const second = f.probe.probe(request)
+    await vi.advanceTimersByTimeAsync(120)
+    expect(await first).toMatchObject({ reason: 'timeout' })
+    // The first child is never reaped; the second caller is still answered.
+    expect(await second).toMatchObject({ ok: false, reason: 'timeout', cacheable: false })
+    expect(f.spawn).toHaveBeenCalledOnce()
+  })
+
   it('waits for temporary import contention before launching one hardware probe', async () => {
     const f = fixture()
     f.reserve.mockImplementationOnce(() => { throw new Error('import owns CPU') })
     const pending = f.probe.probe(request)
-    expect(await f.probe.probe(request)).toMatchObject({ reason: 'probe-busy' })
+    await Promise.resolve()
     expect(f.spawn).not.toHaveBeenCalled()
     await vi.advanceTimersByTimeAsync(50)
     expect(f.spawn).toHaveBeenCalledTimes(1)

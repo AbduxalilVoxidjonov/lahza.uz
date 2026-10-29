@@ -45,7 +45,8 @@ path.
 - **The folder's files change through tools, TASTE.md aside.** `project.json`
   is written only by the app, whose autosave would overwrite an agent's edit.
   The pool records `Media/` files by path, so they are never renamed or
-  moved. `Cache/` is derived data. TASTE.md is the one file an agent edits by
+  moved, and by their bytes, so they are never overwritten (ADR 0153).
+  `Cache/` is derived data. TASTE.md is the one file an agent edits by
   hand (ADR 0126). `project://taste` reports where TASTE.md goes even before
   it exists. The initialize instructions carry the rule in one sentence, and
   the skill carries the long form.

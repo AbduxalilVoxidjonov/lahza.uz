@@ -31,6 +31,7 @@ import { runHybrid } from '../state/hybrids.js'
 import { CLIP_SLICE_TOOLS, resolveClipSliceArgs, resolvePauseComputeArgs, TWO_SLICE_TOOLS, resolveTwoSliceArgs } from '../state/clip-slice-forward.js'
 import { serveProjectResource, buildResourceInjection } from '../state/resource-views.js'
 import type { TsActorHost } from '../state/ts-actor-host.js'
+import type { MediaItem } from '../state/model.js'
 import type { ActorHandle, ChangeEvent } from '../state/actor.js'
 import { mergeMcpCatalog, mergeMcpResources } from './mcpCatalog.js'
 import { MCP_TOOL_DEFS, MCP_TOOLS, McpArgError, mcpDef, type McpErrorCode, type ToolAnnotations } from '../state/mcp-commands.js'
@@ -203,6 +204,10 @@ export async function callClipComputeTool(
     if (merged.fps == null && vlm.fps != null) merged.fps = vlm.fps
     if (merged.focus == null && vlm.focus) merged.focus = vlm.focus
   }
+  if (merged.media && tsHost.sourceFiles) {
+    const unheld = await refuseUnheldSources(tsHost, name, [merged.media])
+    if (unheld) return unheld
+  }
   // The registry holds the model lease for the job's whole native life, not
   // per caller; an unresolved slice runs plain — Rust refuses it at once.
   const spec = COMPUTE_TOOLS.has(name) && tsHost.computeJobs ? clipJobSpec(name as ComputeTool, merged) : null
@@ -297,6 +302,21 @@ function readOnlyTools(backend: Backend): Promise<Set<string>> {
     readOnlySets.set(backend, p)
   }
   return p
+}
+
+/** A tool that reads a pool item's bytes is refused when its file no longer
+ *  holds them: the answer would be cached under the bytes the item records
+ *  (ADR 0153). Null when every source is there and holds them. An item still
+ *  importing, or none at all, is left to the tool. */
+export async function refuseUnheldSources(tsHost: Pick<TsActorHost, 'sourceFiles'>, name: string, sources: unknown[]): Promise<ServerResult | null> {
+  if (!tsHost.sourceFiles) return null
+  for (const media of sources as (MediaItem | null | undefined)[]) {
+    if (!media) continue
+    const state = await tsHost.sourceFiles.settle(media)
+    if (state === 'missing') return toolErrorResult({ code: 'invalid_request', message: `${name}: the source file ${media.path_abs} is missing — import the original file again to restore it` })
+    if (state === 'changed') return toolErrorResult({ code: 'invalid_request', message: `${name}: ${media.path_abs} was changed outside WeftCut and no longer holds this media — import the original file again to restore it, or import the new file as new media` })
+  }
+  return null
 }
 
 /** CallTool routing (tsHost present): mutations → TS actor.mcpCall, hybrid →
@@ -552,12 +572,16 @@ async function dispatchTool(
       // Source analysis deliberately reaches the imported media outside any
       // layer trim; only the actor may supply the trusted media record.
       const media = tsHost.actor.snapshot().media_pool[args.media_id as string] ?? null
+      const unheld = await refuseUnheldSources(tsHost, name, [media])
+      if (unheld) return unheld
       return unwrapToolEnvelope(await backend.mcpCallTool(name, JSON.stringify({ ...args, media })), name)
     }
     if (TWO_SLICE_TOOLS.has(name)) {
       const refused = await refuseBadArgs(backend, name, args)
       if (refused) return refused
       const merged = resolveTwoSliceArgs(args, tsHost.actor.snapshot())
+      const unheld = await refuseUnheldSources(tsHost, name, [(merged.a as { media?: unknown }).media, (merged.b as { media?: unknown }).media])
+      if (unheld) return unheld
       return unwrapToolEnvelope(await backend.mcpCallTool(name, JSON.stringify(merged)), name)
     }
     if (CLIP_SLICE_TOOLS.has(name)) {

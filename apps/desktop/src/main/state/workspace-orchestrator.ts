@@ -12,7 +12,7 @@ import type { ActorHandle } from './actor'
 import { isCommandFailure, ValidationFailure } from './errors'
 import { validate } from './validate'
 import type { IdGen } from './ids'
-import type { Project } from './model'
+import type { MediaItem, Project } from './model'
 import { blankProject, rootComposition } from './model'
 import { loadProjectFromJson, serializeProjectToJson, PROJECT_FILE, preUpgradeBackupFile } from './persistence'
 import { relinkMissingMedia, type RelinkDeps, type RelinkReport } from './relink'
@@ -223,18 +223,31 @@ export interface NewWorkspaceArgs {
  *  project's media-pool values and hand them to the Rust open-time job re-fan-out
  *  (workspace-orchestrator's `enqueueDerivatives?` hook). Fire-and-forget (the
  *  Rust enqueue returns immediately; jobs run on tokio). Injected into the live
- *  OrchestratorDeps by the host. */
+ *  OrchestratorDeps by the host.
+ *
+ *  `held` answers the record to enqueue for an item, or null to keep it out:
+ *  a derivative regenerated from a file that no longer holds the item's bytes
+ *  would be cached under them (ADR 0153). The record is the current one, since
+ *  settling may have confirmed a new mtime, which the job checks the file
+ *  against. Each item goes once it is settled. */
 export function makeEnqueueDerivatives(
   napi: Pick<WorkspaceNapi, 'enqueueJobsForMedia'>,
+  held?: (item: MediaItem) => Promise<MediaItem | null>,
 ): (project: Project) => void {
-  return (project) => {
-    const items = Object.values((serializeProject(project) as { media_pool: Record<string, { file_hash_blake3: string }> }).media_pool)
-      .filter(item => !item.file_hash_blake3.startsWith('pending-'))
+  const enqueue = (items: unknown[]) => {
     try {
       void Promise.resolve(napi.enqueueJobsForMedia(JSON.stringify(items))).catch(error => {
         console.warn('[media] derivative recovery could not start', error)
       })
     } catch (error) { console.warn('[media] derivative recovery could not start', error) }
+  }
+  return (project) => {
+    const serialized = (serializeProject(project) as { media_pool: Record<string, { file_hash_blake3: string }> }).media_pool
+    const ids = Object.keys(serialized).filter(id => !serialized[id].file_hash_blake3.startsWith('pending-'))
+    if (!held) { enqueue(ids.map(id => serialized[id])); return }
+    for (const id of ids) {
+      void held(project.media_pool[id]).then(item => { if (item) enqueue([item]) }, () => {})
+    }
   }
 }
 

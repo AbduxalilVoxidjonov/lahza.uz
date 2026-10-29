@@ -31,9 +31,9 @@ export function spelledKey(realPath: (p: string) => string, platform: NodeJS.Pla
  *  modification time still match the item. File identity alone survives an
  *  overwrite; a changed fingerprint must go through content matching instead.
  *  A pooled file that is gone matches nothing. */
-export function pooledItemFor(
-  pool: Record<string, MediaItem>, source: string, fileKey: FileKey,
-  found: Pick<MediaItem, 'file_size' | 'file_mtime'>,
+function pooledItemFor(
+  pool: Record<string, MediaItem>, source: string,
+  found: Pick<MediaItem, 'file_size' | 'file_mtime'>, fileKey: FileKey,
 ): MediaItem | null {
   const key = fileKey(source)
   if (key === null) return null
@@ -46,13 +46,64 @@ export function pooledItemFor(
 /** Whether a pool item of `size` bytes has its content hash yet, so hashing a
  *  source of that size could find it. A copy into Media/ replaces the item's
  *  path, so its bytes are what is left to match the source by. */
-export function hashedItemOfSize(pool: Record<string, MediaItem>, size: number): boolean {
+function hashedItemOfSize(pool: Record<string, MediaItem>, size: number): boolean {
   return Object.values(pool).some((m) => m.file_size === size && !m.file_hash_blake3.startsWith(PENDING_HASH))
 }
 
-/** The pool item holding these bytes, once both hashes are real. */
-export function pooledItemWithHash(pool: Record<string, MediaItem>, hash: string): MediaItem | null {
-  return Object.values(pool).find((m) => m.file_hash_blake3 === hash) ?? null
+/** Whether a pool item's own file still holds the bytes its hash records. The
+ *  hash was read once, at import; anything outside the app may have deleted
+ *  or overwritten the file since, so only a fresh read can say `holds`. */
+export type Holding = 'holds' | 'gone' | 'replaced'
+
+/** The next thing an import does. `verify` asks for one item's Holding and
+ *  then asks again: every answer is decided from the pool as it is then. */
+export type ImportStep =
+  | { kind: 'join'; id: string }
+  | { kind: 'hash' }
+  | { kind: 'verify'; item: MediaItem }
+  | { kind: 'reuse'; id: string }
+  | { kind: 'relink'; id: string }
+  | { kind: 'add' }
+
+/** The one place an import decides whether the pool already answers it
+ *  (ADR 0151). Pure: the facts read so far come in, and an answer is only
+ *  ever an item whose own file holds the source's bytes.
+ *
+ *  - An import or relink in flight for the source's own file (by identity and
+ *    fingerprint), or for an item of its bytes, is joined: it may yet roll back.
+ *  - Unhashed, the source is hashed when a hashed item of its size exists;
+ *    else nothing in the pool can hold its bytes and it is added.
+ *  - Of the items recording its bytes, one that holds them is reused: the
+ *    source's own file does, having just been read; another's must be read.
+ *  - None holds them (each file gone or overwritten): the first is relinked
+ *    to the source, whose bytes it records. Its layers and derivatives keep
+ *    meaning those bytes; whatever now sits at its old path is another file.
+ *  - No item records them: the source is added. */
+export function nextImportStep(input: {
+  pool: Record<string, MediaItem>
+  source: string
+  found: Pick<MediaItem, 'file_size' | 'file_mtime'>
+  fileKey: FileKey
+  /** The source's content hash; null until read. */
+  hash: string | null
+  inFlight: (id: string) => boolean
+  /** A Holding already read for this item as it stands, else undefined. */
+  holding: (item: MediaItem) => Holding | undefined
+}): ImportStep {
+  const { pool, source, fileKey, hash } = input
+  const sameFile = pooledItemFor(pool, source, input.found, fileKey)
+  if (sameFile && input.inFlight(sameFile.id)) return { kind: 'join', id: sameFile.id }
+  if (hash === null) return hashedItemOfSize(pool, input.found.file_size) ? { kind: 'hash' } : { kind: 'add' }
+  const recorded = Object.values(pool).filter((m) => m.file_hash_blake3 === hash)
+  const busy = recorded.find((m) => input.inFlight(m.id))
+  if (busy) return { kind: 'join', id: busy.id }
+  const sourceKey = fileKey(source)
+  const holdingOf = (m: MediaItem) => (sourceKey !== null && fileKey(m.path_abs) === sourceKey ? 'holds' : input.holding(m))
+  const holds = recorded.find((m) => holdingOf(m) === 'holds')
+  if (holds) return { kind: 'reuse', id: holds.id }
+  const unread = recorded.find((m) => holdingOf(m) === undefined)
+  if (unread) return { kind: 'verify', item: unread }
+  return recorded.length ? { kind: 'relink', id: recorded[0].id } : { kind: 'add' }
 }
 
 /** `source`'s path relative to the project folder when it already sits under

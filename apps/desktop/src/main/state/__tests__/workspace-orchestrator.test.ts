@@ -279,6 +279,24 @@ describe('makeEnqueueDerivatives', () => {
     expect(JSON.parse(calls[0])).toEqual([])
   })
 
+  // A derivative regenerated from a file that no longer holds the item's
+  // bytes would be cached under them.
+  it('enqueues only the items whose file still holds their bytes', async () => {
+    const calls: string[] = []
+    const project = blankProject(seededGen(), 'D')
+    const item = (id: string): MediaItem => ({ id, label: null, path_abs: `/ws/Media/${id}`, path_rel: `Media/${id}`, kind: 'Video',
+      metadata: { duration_us: 1 }, file_hash_blake3: 'h', file_size: 1, file_mtime: 1, imported_at: '2026-01-01T00:00:00Z',
+      decode_route: { route: 'bypass' }, conform_path: null, waveform_path: null, thumbnails_dir: null })
+    const held = '00000000-0000-0000-0000-0000000000aa', changed = '00000000-0000-0000-0000-0000000000bb'
+    project.media_pool = { [held]: item(held), [changed]: item(changed) }
+    // The held item goes as its current record: a read confirmed a new mtime.
+    makeEnqueueDerivatives({ enqueueJobsForMedia: (json) => { calls.push(json) } },
+      async (m) => (m.id === held ? { ...m, file_mtime: 9 } : null))(project)
+    await vi.waitFor(() => expect(calls).toHaveLength(1))
+    await new Promise(resolve => setTimeout(resolve, 0))
+    expect(calls.flatMap(c => (JSON.parse(c) as MediaItem[]).map(m => [m.id, m.file_mtime]))).toEqual([[held, 9]])
+  })
+
   it('openProject runs the injected enqueueDerivatives after replaceState', async () => {
     const fs = memFs({ [`/ws/${PROJECT_FILE}`]: serializeProjectToJson(blankProject(seededGen(), 'Demo')) }); fs.dirs.add('/ws')
     const seen: unknown[] = []

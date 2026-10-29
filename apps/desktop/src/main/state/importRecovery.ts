@@ -1,4 +1,5 @@
 import { captureImportSession, type MediaImportDeps } from './mediaImport'
+import type { MediaItem } from './model'
 
 /** Resume the durable half of imports interrupted between probe, hash and copy.
  * Generated Cache/ sources are already workspace-owned and must not be copied
@@ -6,6 +7,9 @@ import { captureImportSession, type MediaImportDeps } from './mediaImport'
 export async function recoverInterruptedImports(
   deps: MediaImportDeps,
   report: (mediaId: string, error: unknown) => void,
+  /** Whether the item's file still holds its bytes; a copy of other bytes
+   *  would be discarded anyway (ADR 0153). Absent: every file is copied. */
+  holds?: (item: MediaItem) => Promise<boolean>,
 ): Promise<void> {
   const dir = deps.workspaceDir()
   if (!dir) return
@@ -34,6 +38,8 @@ export async function recoverInterruptedImports(
       // A producer may have completed the copy while the hash was running.
       current = deps.actor.snapshot().media_pool[item.id]
       if (current?.path_rel === null && !normalized(current.path_abs).startsWith(cachePrefix)) {
+        if (holds && !(await holds(current))) continue
+        assertCurrent()
         await deps.enqueueWorkspaceCopy(item.id, current.path_abs)
       }
     } catch (error) {

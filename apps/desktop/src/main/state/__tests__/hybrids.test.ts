@@ -1650,8 +1650,9 @@ describe('applyWorkspacePathsEvent', () => {
   });
   it('updates the media item path/rel/hash/size/mtime via the set_media_workspace_paths dispatch', () => {
     const actor = freshActor()
-    // Insert the item first (otherwise MediaNotFound).
-    const r0 = actor.dispatch('add_media_item', { media: probedItem() })
+    // Insert the item first (otherwise MediaNotFound), hashed as the copy's
+    // bytes are: a copy of other bytes is discarded (jobs-writeback.test.ts).
+    const r0 = actor.dispatch('add_media_item', { media: { ...probedItem(), file_hash_blake3: 'deadbeef' } })
     expect(r0.ok).toBe(true)
     const r = applyWorkspacePathsEvent(actor, {
       media_id: MID,
@@ -1661,7 +1662,7 @@ describe('applyWorkspacePathsEvent', () => {
       file_size: 2048,
       file_mtime: 1700000001,
     })
-    expect(r.ok).toBe(true)
+    expect(r?.ok).toBe(true)
     const item = actor.snapshot().media_pool[MID]
     expect([item.path_abs, item.path_rel, item.file_hash_blake3, item.file_size, item.file_mtime])
       .toEqual(['ws/Media/clip.mp4', 'Media/clip.mp4', 'deadbeef', 2048, 1700000001])
@@ -1672,6 +1673,6 @@ describe('applyWorkspacePathsEvent', () => {
     const r = applyWorkspacePathsEvent(actor, {
       media_id: MID, path_abs: 'a', path_rel: 'r', file_hash_blake3: 'h', file_size: 1, file_mtime: 2,
     })
-    expect(r.ok).toBe(false)
+    expect(r?.ok).toBe(false)
   })
 })

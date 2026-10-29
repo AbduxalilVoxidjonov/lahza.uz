@@ -293,3 +293,29 @@ describe('handleCallTool flip routing', () => {
     expect(sent.focus).toBeUndefined()
   })
 })
+
+describe('a source whose file no longer holds its bytes', () => {
+  const host = (state: 'present' | 'missing' | 'changed') => {
+    const ts = tsHostStub()
+    ts.actor.dispatch('add_media', { id: MID, kind: 'Audio', duration_us: 90_000_000 })
+    ts.sourceFiles = { state: () => state, settle: vi.fn(async () => state) }
+    return ts
+  }
+
+  it.each(['changed', 'missing'] as const)('is not read when %s', async (state) => {
+    const ts = host(state)
+    const spy = vi.fn(async (_name: string, _args: string) => '{"ok":true,"result":{"content":[]}}')
+    const result = await handleCallTool(fakeBackend(spy), () => ts, 'analyze_audio', { media_id: MID }) as any
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain(state === 'changed' ? 'changed outside WeftCut' : 'missing')
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('is read when it holds them', async () => {
+    const ts = host('present')
+    const spy = vi.fn(async (_name: string, _args: string) => '{"ok":true,"result":{"content":[]}}')
+    await handleCallTool(fakeBackend(spy), () => ts, 'analyze_audio', { media_id: MID })
+    expect(spy).toHaveBeenCalledOnce()
+    expect(ts.sourceFiles.settle).toHaveBeenCalledOnce()
+  })
+})

@@ -89,8 +89,10 @@ it is the project the user means. Compare it with `project.dir` in
 
 - `project.json` is the app's to write; it autosaves over any edit of yours.
   Read the project through `project://current` or `read_project`.
-- `Media/` holds the project's media. Never rename or move a file there: the
-  pool records it by that path. `Cache/` is derived data; leave it unread.
+- `Media/` holds the project's media. Never rename, move or overwrite a file
+  there: the pool records it by that path and by its bytes, and a file changed
+  there goes unavailable. New media goes under a new name, through
+  `import_media`. `Cache/` is derived data; leave it unread.
 - `TASTE.md` is the one file you edit by hand. `project://taste` names where
   it goes even before it exists. Its tokens reach new layers; call
   `restyle_to_taste` for the layers already placed.

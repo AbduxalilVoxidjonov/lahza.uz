@@ -8,6 +8,7 @@ import { mediaPictureKey, parseMediaRef } from '../../shared/motifs/mediaProp'
 // apps/desktop/src/main/state/summary.ts
 import type { Animated, Composition, Effect, Link, Layer, LayerParams, Marker, MarkerAnchor, MediaItem, Outline, Project, Rational, Rgba, RoleMixSettings, Shadow, TextAlign, TextAnimPreset, Track, TransitionKind, Uuid, VAlign } from './model'
 import type { HistoryStatus } from './history'
+import type { SourceState } from './sourceFiles'
 import { hasSourceWindow } from './mutations/helpers'
 import { snapFrameRound } from './snap'
 import type { DecodeRoute } from '../../shared/decode-route'
@@ -389,6 +390,9 @@ export interface MediaSummary {
   id: string; label: string; path: string; kind: string; duration_us: number | null
   start_pts_us: number | null; container_duration_us: number | null
   width: number | null; height: number | null; size_bytes: number; available: boolean
+  /** The file is there but holds other bytes than the item records; such an
+   *  item is not `available` either (ADR 0153). */
+  changed?: boolean
   content_hash?: string | null
   decode_route: DecodeRoute
   codec: string | null; pix_fmt: string | null; color_matrix: string | null; color_range: string | null
@@ -430,14 +434,18 @@ const ROLE_ORDER = ['dialogue', 'music', 'sfx', 'voiceover'] as const
 const DEFAULT_ROLE: RoleMixSettings = { gain_db: 0, muted: false, solo: false }
 
 /** The read-only IPC view the renderer pulls on project:changed. Pure;
- *  `fileExists` is injected (filesystem fields).
+ *  `fileExists` is injected (filesystem fields), and `sourceState` (a pool
+ *  item's file: sourceFiles.ts), else existence alone.
  *
  *  Every composition is projected, keyed by id; the renderer opens one of them
  *  and export reads the root. The projection of a composition is a pure
  *  function of that composition (plus the media pool and the label lookup for
  *  its Group references), so a one-composition project's root entry is exactly
  *  the timeline the flat summary used to carry. */
-export function buildProjectSummary(p: Project, history: HistoryStatus, fileExists: (absPath: string) => boolean): ProjectSummary {
+export function buildProjectSummary(
+  p: Project, history: HistoryStatus, fileExists: (absPath: string) => boolean,
+  sourceState: (item: MediaItem) => SourceState = (m) => (fileExists(m.path_abs) ? 'present' : 'missing'),
+): ProjectSummary {
   const all = Object.values(p.compositions)
   const track_count = all.reduce((n, c) => n + c.tracks.length, 0)
   const layer_count = all.reduce((n, c) => n + c.tracks.reduce((m, t) => m + t.layers.length, 0), 0)
@@ -463,12 +471,13 @@ export function buildProjectSummary(p: Project, history: HistoryStatus, fileExis
   const media: MediaSummary[] = Object.values(p.media_pool).map((m: MediaItem) => {
     const video = m.metadata.video as Record<string, unknown> | null | undefined
     const audio = m.metadata.audio as Record<string, unknown> | null | undefined
+    const source = sourceState(m)
     return {
       id: m.id, label: mediaLabel(m), path: m.path_abs, kind: m.kind, duration_us: m.metadata.duration_us,
       start_pts_us: m.metadata.start_pts_us ?? null,
       container_duration_us: m.metadata.container_duration_us ?? null,
       width: (video?.width as number | undefined) ?? null, height: (video?.height as number | undefined) ?? null,
-      size_bytes: m.file_size, available: fileExists(m.path_abs),
+      size_bytes: m.file_size, available: source === 'present', ...(source === 'changed' ? { changed: true } : {}),
       content_hash: /^[a-f0-9]{64}$/i.test(m.file_hash_blake3) ? m.file_hash_blake3 : null,
       decode_route: routeForSummary(m.decode_route),
       codec: (video?.codec as string | undefined) ?? null, pix_fmt: (video?.pix_fmt as string | undefined) ?? null,

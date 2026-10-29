@@ -68,3 +68,14 @@ it('keeps the provisional row retryable when its source cannot be hashed', async
   expect(deps.actor.snapshot().media_pool[pending.id].file_hash_blake3).toBe('pending-interrupted')
   expect(enqueue).not.toHaveBeenCalled()
 })
+
+// Its source was overwritten before the copy ran: a copy now would hold other
+// bytes and be discarded, so none is queued.
+it('does not resume the copy of a source that no longer holds the item bytes', async () => {
+  const { deps, pending, copy } = setup()
+  deps.actor.dispatch('set_media_hash', { media: pending.id, file_hash_blake3: 'already-hashed' })
+  const holds = vi.fn(async () => false)
+  await recoverInterruptedImports(deps, vi.fn(), holds)
+  expect(holds).toHaveBeenCalledWith(expect.objectContaining({ id: pending.id }))
+  expect(copy).not.toHaveBeenCalled()
+})

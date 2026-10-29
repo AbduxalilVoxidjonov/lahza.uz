@@ -14,15 +14,31 @@ export interface ClipJobSpec {
   window: { t_start_us: number; t_end_us: number }
 }
 
-/** The args that change a tool's ANSWER, beyond the source span. Everything
- *  else on the call (the layer id, the injected slice) is identity, read
- *  through the source below. `speech_config` / `vlm_config` are in because they
- *  name the model an answer resolves to; they are hashed with the rest, never
- *  kept in the key. */
-const ANSWER_ARGS: Record<ComputeTool, readonly string[]> = {
-  transcribe_clip: ['backend', 'preferred_backend', 'language', 'normalize_audio', 'word_timestamps', 'speech_config'],
-  describe_clip: ['backend', 'preferred_backend', 'language', 'fps', 'focus', 'vlm_config', 'purpose'],
-}
+/** What each arg a clip-compute call may carry is to its job (every advertised
+ *  arg, plus those the host injects; `clipJob.test.ts` holds this to the MCP
+ *  catalog, so a new arg cannot join jobs before it is classified here):
+ *  - `answer`: changes the answer, so it is in the key. `speech_config` /
+ *    `vlm_config` name the model an answer resolves to; they are hashed with
+ *    the rest, never kept in the key.
+ *  - `fresh`: asks for an answer computed by this call, not one an earlier
+ *    call may have left. In the key too: a refresh never joins a plain run.
+ *  - `span`: identity, read through the source below. */
+type ArgRole = 'answer' | 'fresh' | 'span'
+export const ARG_ROLES = {
+  transcribe_clip: {
+    backend: 'answer', preferred_backend: 'answer', language: 'answer', normalize_audio: 'answer',
+    word_timestamps: 'answer', speech_config: 'answer',
+    layer_id: 'span', t_start_us: 'span', t_end_us: 'span',
+  },
+  describe_clip: {
+    backend: 'answer', preferred_backend: 'answer', language: 'answer', fps: 'answer', focus: 'answer',
+    vlm_config: 'answer', purpose: 'answer', refresh: 'fresh',
+    layer_id: 'span', t_start_us: 'span', t_end_us: 'span',
+  },
+} as const satisfies Record<ComputeTool, Record<string, ArgRole>>
+
+/** An omitted arg keys as its default does, so leaving it out joins asking for it. */
+const DEFAULTS: Partial<Record<string, unknown>> = { purpose: 'clip', refresh: false }
 
 /** A finished content hash. Anything else (`pending-…` while the import is
  *  hashing, a fixture's placeholder) is not an identity two items could share. */
@@ -51,7 +67,8 @@ export function clipJobSpec(tool: ComputeTool, args: Record<string, unknown>): C
     tStart - layer.t_start_us, tEnd - layer.t_start_us,
     params.src_in_us ?? null, params.time_map ?? null, params.source_phase ?? null, params.content_window ?? null,
   ]
-  const answer = ANSWER_ARGS[tool].map((k) => [k, args[k] ?? (k === 'purpose' ? 'clip' : null)])
+  const answer = Object.entries(ARG_ROLES[tool]).filter(([, role]) => role !== 'span')
+    .map(([k]) => [k, args[k] ?? DEFAULTS[k] ?? null])
   const key = createHash('sha256').update(JSON.stringify([tool, source, answer])).digest('hex')
   return { tool, key, args, layer_id: layer.id, media_id: media.id, window: { t_start_us: tStart, t_end_us: tEnd } }
 }
