@@ -14,11 +14,19 @@ export async function installResourceDiagnostics(app: ElectronApplication, page:
     const native = process.getBuiltinModule('module').createRequire(addon)(addon)
     const failures: unknown[] = []
     ;(globalThis as any).__e2eResourceFailures = failures
-    for (const channel of ['resources:acquire', 'resources:plan-export', 'backend:invoke', 'backend:invokePublished']) {
+    for (const channel of ['resources:acquire', 'resources:plan-export', 'backend:invoke', 'backend:invokePublished', 'decodeCap:probeHw']) {
       const handler = ipcMain._invokeHandlers.get(channel)
       if (!handler) throw new Error(`Missing E2E admission boundary: ${channel}`)
       ipcMain._invokeHandlers.set(channel, async (event: any, request: any) => {
-        try { return await handler(event, request) }
+        try {
+          const result = await handler(event, request)
+          if (channel === 'decodeCap:probeHw' && result?.reason === 'resource-busy') {
+            failures.push({ at: Date.now(), channel, owner: event.sender.id,
+              request, ledger: JSON.parse(native.resourcesSnapshot()), error: result.reason })
+            if (failures.length > 16) failures.shift()
+          }
+          return result
+        }
         catch (error) {
           if (/resource-capacity-exceeded|Resources are busy|working memory/.test(String(error))) {
             try {

@@ -1,5 +1,6 @@
 import { test, type Page, type ElectronApplication } from '@playwright/test'
 import { verifyHardwareEvidence, hardwareRequired, windowsSoftwareOnly } from '../../lib/hardware-evidence.mjs'
+import { resourceDiagnostics } from './resourceDiagnostics'
 
 /** NVDEC can be compiled into a GPU-less Linux build. A successful device
  * inventory with no NVIDIA adapter is affirmative environmental evidence;
@@ -24,6 +25,11 @@ export async function hardwareEnvironmentGate(app: ElectronApplication, page: Pa
 
 export async function hardwareGate(page: Page, layerId: string, lane: string, codec: string, before?: any) {
   const current = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
+  if (current?.hwDiagnostic?.kind === 'failed') {
+    const resources = await resourceDiagnostics(page)
+    await test.info().attach('hardware-failure-resources', { body: JSON.stringify(resources), contentType: 'application/json' })
+    console.warn('[hardware-gate] failure resources:', JSON.stringify(resources))
+  }
   await test.info().attach(before ? 'hardware-after-sampling' : 'hardware-before-sampling', {
     body: JSON.stringify(current), contentType: 'application/json',
   })

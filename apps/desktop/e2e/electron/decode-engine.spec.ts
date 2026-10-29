@@ -250,13 +250,19 @@ test.describe('decode-engine resolution (Electron)', () => {
       // null), then decide: `native-gpu` proves the HW probe engaged and the
       // cell asserts. Software requires an explicit unavailability diagnostic;
       // probe failures and runtime fallback must not turn into a clean skip.
-      const probe = await waitForBuiltKey(page, layerId, null, 'ffmpeg:original:')
+      await waitForBuiltKey(page, layerId, null, 'ffmpeg:original:')
+      // A source identity exists before the asynchronous isolated probe/open
+      // finishes. Require an actual presented frame before judging the lane.
+      await page.waitForFunction(id => {
+        const p = (window as any).__weftcutTest.activeClipProbe(id)
+        return p?.spriteBound && p.ringSize > 0
+      }, layerId, { timeout: 30_000 })
       const live = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
       const expectedLane = live.hwLane ?? (process.platform === 'darwin' ? 'videotoolbox' : process.platform === 'win32' ? 'd3d11va' : 'nvdec')
       await hardwareEnvironmentGate(app, page, expectedLane, 'h264')
       const evidence = await hardwareGate(page, layerId, expectedLane, 'h264')
-      expect(probe.sourceKind).toBe('native-gpu')
-      expect(probe.builtFromKey!.startsWith('ffmpeg:original:')).toBe(true)
+      expect(evidence.sourceKind).toBe('native-gpu')
+      expect(evidence.builtFromKey!.startsWith('ffmpeg:original:')).toBe(true)
       await hardwareGate(page, layerId, expectedLane, 'h264', evidence)
     } finally {
       await invokeCmd(page, 'app_settings_set', { patch: { decode_engine: 'auto' } }).catch(() => {})
