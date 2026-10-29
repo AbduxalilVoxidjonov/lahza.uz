@@ -56,7 +56,10 @@ test('macOS probe timeout preserves IPC, reaps its host and leaves the capabilit
     await newProject(page, { parentFolder: tmpDir('weftcut-probe-project-'), name: 'Probe recovery',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     const { layerId } = await importAndPlaceMedia(page, { mediaAbsPath: path.resolve('e2e/fixtures/media/test_1080p_30fps_6s.mp4') })
-    await page.waitForFunction(id => (window as any).__weftcutTest.activeClipProbe(id)?.spriteBound, layerId)
+    await page.waitForFunction(id => {
+      try { return (window as any).__weftcutTest.activeClipProbe(id)?.spriteBound }
+      catch { return false } // The React preview bridge is mounted asynchronously.
+    }, layerId)
     const evidence = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
     expect(evidence).toMatchObject({ sourceKind: 'sw', hwLane: null, hwDiagnostic: { kind: 'failed', reason: 'timeout' } })
     // Product recovery remains successful, but the SAME evidence used by the

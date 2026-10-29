@@ -32,6 +32,11 @@ such as `d3d11va-h264` or `videotoolbox-prores`; valid variants are
 does not select which specs run. Unknown names fail configuration validation.
 Product software fallback remains enabled; test strictness does not change
 the editor's recovery behavior.
+Copy-back native sessions also check every received frame against the selected
+hardware surface format before cadence filtering or packing. A CPU frame in a
+hardware session reports `hardware surface lost` and enters the existing
+explicit software-session recovery; it can no longer keep a hardware label
+while silently packing software frames.
 
 ## Encode and decode matrix
 

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { hardwareGate } from './helpers/hardwareGate'
+import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
@@ -248,11 +248,12 @@ test.describe('decode-engine resolution (Electron)', () => {
       await seek(page, SEEK_US)
       // Wait for the resolved ffmpeg-original build on EITHER lane (sourceKind
       // null), then decide: `native-gpu` proves the HW probe engaged and the
-      // cell asserts; anything else means this host advertises no HW decode lane
-      // (e.g. macOS, software-only) and the cell skips rather than failing.
+      // cell asserts. Software requires an explicit unavailability diagnostic;
+      // probe failures and runtime fallback must not turn into a clean skip.
       const probe = await waitForBuiltKey(page, layerId, null, 'ffmpeg:original:')
       const live = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
       const expectedLane = live.hwLane ?? (process.platform === 'darwin' ? 'videotoolbox' : process.platform === 'win32' ? 'd3d11va' : 'nvdec')
+        await hardwareEnvironmentGate(app, page, expectedLane, 'h264')
       const evidence = await hardwareGate(page, layerId, expectedLane, 'h264')
       expect(probe.sourceKind).toBe('native-gpu')
       expect(probe.builtFromKey!.startsWith('ffmpeg:original:')).toBe(true)

@@ -400,7 +400,9 @@ accepts a verdict only after the host exits cleanly. Timeout or IPC/process
 failure triggers forced termination and software fallback, and disables further
 VideoToolbox capability resolution for this app session, including cached
 positives. These transient failures never become persistent negative capability
-entries. Admission/concurrent-probe busy results also fall back without caching
+entries. Before spawning, admission waits up to four seconds for temporary
+import contention to clear, with no reservation or child while waiting. Shutdown
+cancels this wait. Admission/concurrent-probe busy results fall back without caching
 or disabling the lane. The parent reserves one CPU thread and 192 MiB and
 releases them only on the child's exit; after a one-second reap grace the caller
 can continue even if the OS has not yet reaped the host. Outstanding ownership

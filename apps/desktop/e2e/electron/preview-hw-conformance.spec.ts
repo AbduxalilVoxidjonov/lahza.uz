@@ -25,10 +25,10 @@ import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 // PARAMETERIZED BY VARIANT = HW LANE × FIXTURE. One test() per VARIANTS entry;
 // each launches the app with WEFTCUT_FORCE_HW_LANE=<lane>, which pins main's
 // `decodeCap:probeHw` resolver to consider ONLY that HW lane (plus the software
-// fallback). A variant SKIPS CLEANLY when its lane didn't engage on this
-// machine — e.g. when the addon never advertised the lane, the resolver finds
-// no candidate and falls back to software, so `probe.hwLane === null` and the
-// test skips rather than failing.
+// fallback). Only affirmative unavailability may skip an OPTIONAL variant.
+// A timeout/crash/unknown rejection or runtime fallback fails. The macOS
+// H.264/HEVC baseline is mandatory; additional known capabilities can be pinned
+// with WEFTCUT_REQUIRE_HW_VARIANTS. Evidence is checked before AND after SSIM.
 // This lets the ONE spec run correctly on a box that has NVDEC but not VAAPI
 // (or a Mac, which has only videotoolbox) with no per-machine config. The loop
 // body is variant-agnostic — fixture, artifact names, and the forced lane all
@@ -173,7 +173,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
 
     let toggledOn = false
     try {
-      await hardwareEnvironmentGate(page, OUTER_LANE_PIN ?? lane, id.slice(lane.length + 1))
+      await hardwareEnvironmentGate(app, page, OUTER_LANE_PIN ?? lane, id.slice(lane.length + 1))
       await newProject(page, {
         parentFolder: PROJECT_PARENT,
         name: 'preview-hw-' + id + '-' + Date.now(),
@@ -214,8 +214,8 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
 
       // Seek ONCE into the clip; poll read-only until the ring holds the SEEKED
       // frame bound to the sprite. Accept either HW (`native-gpu`) or the
-      // software fallback (`sw`) here — the fallback is the clean-skip case, sorted
-      // out below by inspecting `hwLane`.
+      // software fallback (`sw`) here; the evidence gate below decides whether
+      // it is an allowed environmental skip or a failed hardware test.
       await page.evaluate(
         (us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
         SEEK_US,

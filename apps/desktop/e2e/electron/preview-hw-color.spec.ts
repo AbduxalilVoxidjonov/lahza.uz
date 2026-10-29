@@ -136,15 +136,15 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
   expect(manifest.width).toBe(CANVAS.width) // 1:1 chart→composition mapping
 
   // Pin the resolver to this leg's lane only (+ software fallback). Where the
-  // lane can't engage, the probe below reports hwLane === null and the leg
-  // SKIPS cleanly instead of failing (preview-hw-conformance model).
+  // lane can't engage, the evidence gate distinguishes affirmative absence
+  // from an operational failure. A software frame alone never permits a skip.
   const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: lane } })
   const consoleLines: string[] = []
   page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
   page.on('pageerror', (e) => consoleLines.push(`[pageerror] ${String(e)}`))
   let toggledOn = false
   try {
-    await hardwareEnvironmentGate(page, lane, 'h264')
+    await hardwareEnvironmentGate(app, page, lane, 'h264')
     await newProject(page, {
       parentFolder: PROJECT_PARENT,
       name: `${label}-${Date.now()}`,
@@ -176,8 +176,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     )
 
     // Seek once, then poll read-only until a lane has decoded + bound the
-    // target frame. Accept HW or the software fallback here; the clean-skip
-    // below sorts out WHICH engaged.
+    // target frame. The evidence gate below checks which lane actually engaged.
     await page.evaluate(
       (us) => (window as unknown as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
       SEEK_US,

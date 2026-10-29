@@ -87,16 +87,43 @@ describe('isolated decode probe lifetime', () => {
 
   it('busy admission does not persist or disable hardware for the session', async () => {
     const f = fixture()
-    f.reserve.mockImplementationOnce(() => { throw new Error('capacity') })
-    expect(await f.probe.probe(request)).toMatchObject({ reason: 'resource-busy', cacheable: false })
+    f.reserve.mockImplementation(() => { throw new Error('capacity') })
+    const busy = f.probe.probe(request)
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(await busy).toMatchObject({ reason: 'resource-busy', cacheable: false })
     expect(f.probe.unavailableReason).toBeNull()
     expect(f.spawn).not.toHaveBeenCalled()
+    f.reserve.mockImplementation(() => f.release)
     const pending = f.probe.probe(request)
     expect(await f.probe.probe(request)).toMatchObject({ reason: 'probe-busy', cacheable: false })
     f.child.emit('message', { type: 'result', verdict: { ok: false, reason: 'unsupported' } })
     f.child.emit('exit', 0)
     expect(await pending).toEqual({ ok: false, reason: 'unsupported' })
     expect(f.probe.unavailableReason).toBeNull()
+  })
+
+  it('waits for temporary import contention before launching one hardware probe', async () => {
+    const f = fixture()
+    f.reserve.mockImplementationOnce(() => { throw new Error('import owns CPU') })
+    const pending = f.probe.probe(request)
+    expect(await f.probe.probe(request)).toMatchObject({ reason: 'probe-busy' })
+    expect(f.spawn).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(50)
+    expect(f.spawn).toHaveBeenCalledTimes(1)
+    f.child.emit('message', { type: 'result', verdict: { ok: true, reason: null } })
+    f.child.emit('exit', 0)
+    expect(await pending).toEqual({ ok: true, reason: null })
+  })
+
+  it('shutdown cancels admission waiting without spawning or leaking a timer', async () => {
+    const f = fixture()
+    f.reserve.mockImplementation(() => { throw new Error('busy') })
+    const pending = f.probe.probe(request)
+    f.probe.stop()
+    expect(await pending).toMatchObject({ reason: 'stopped', cacheable: false })
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(f.spawn).not.toHaveBeenCalled()
+    expect(f.reserve).toHaveBeenCalledTimes(1)
   })
 
   it('releases a reservation when spawn throws', async () => {

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { verifyHardwareEvidence, hardwareRequired } from './hardware-evidence.mjs'
+import { verifyHardwareEvidence, hardwareRequired, windowsSoftwareOnly } from './hardware-evidence.mjs'
 const hw = { sourceKind: 'native-gpu', hwLane: 'videotoolbox', hwDiagnostic: null, hwFallbackCount: 0 }
 const sw = { ...hw, sourceKind: 'sw', hwLane: null }
 test('only a named hardware lane with intact history passes', () => {
@@ -12,6 +12,17 @@ test('optional confirmed unavailability skips, while mandatory hardware fails', 
   const absent = { ...sw, hwDiagnostic: { kind: 'unavailable', reason: 'no advertised hardware lane' } }
   assert.equal(verifyHardwareEvidence(absent, 'videotoolbox'), 'no advertised hardware lane')
   assert.throws(() => verifyHardwareEvidence(absent, 'videotoolbox', { required: true }))
+  assert.throws(() => verifyHardwareEvidence({ ...absent, hwFallbackCount: undefined }, 'videotoolbox'))
+})
+
+test('only an affirmative software-only Windows inventory permits an environment skip', () => {
+  const software = { vendorId: 0x1414, deviceId: 0x008c }
+  assert.equal(windowsSoftwareOnly({ gpuDevice: [software] }), true)
+  for (const info of [null, {}, { gpuDevice: [] }, { gpuDevice: [{}] },
+    { gpuDevice: [{ vendorId: 0x1414, deviceId: 0 }] },
+    { gpuDevice: [software, { vendorId: 0x10de, deviceId: 1 }] }]) {
+    assert.equal(windowsSoftwareOnly(info), false)
+  }
 })
 for (const reason of ['timeout', 'probe-exited', 'resource-busy', 'probe-busy', 'probe IPC failed', 'unknown']) {
   test(`${reason} can never become a clean skip`, () => {

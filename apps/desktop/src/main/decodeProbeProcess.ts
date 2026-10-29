@@ -32,7 +32,29 @@ export function createDecodeProbeProcess(deps: Dependencies) {
       if (unavailableReason) return transient(unavailableReason)
       if (active) return transient('probe-busy')
       let release: () => void
-      try { release = deps.reserve() } catch { return transient('resource-busy') }
+      try { release = deps.reserve() } catch {
+        // Import derivatives can occupy the only CPU slot on small machines.
+        // Briefly wait for admission without bypassing the resource authority
+        // or turning temporary contention into a sticky software selection.
+        const admitted = await new Promise<(() => void) | undefined>(resolve => {
+          let retry: ReturnType<typeof setTimeout>
+          const finish = (reservation?: () => void) => {
+            clearTimeout(retry)
+            clearTimeout(deadline)
+            active = undefined
+            resolve(reservation)
+          }
+          const attempt = () => {
+            try { finish(deps.reserve()) } catch { retry = setTimeout(attempt, 50) }
+          }
+          const deadline = setTimeout(() => finish(), 4_000)
+          active = { stop: () => finish() }
+          retry = setTimeout(attempt, 50)
+        })
+        if (!admitted) return transient(unavailableReason ?? 'resource-busy')
+        release = admitted
+        if (unavailableReason) { release(); return transient(unavailableReason) }
+      }
       let child: DecodeProbeChild
       try { child = deps.spawn() } catch {
         release()
