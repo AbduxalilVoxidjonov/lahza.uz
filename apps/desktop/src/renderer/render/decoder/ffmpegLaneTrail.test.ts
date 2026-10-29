@@ -7,11 +7,30 @@ vi.mock("../../ipc", () => ({
   },
 }));
 
-import { noteLaneOpen, resetFfmpegLaneTrail } from "./ffmpegLaneTrail";
+import { noteLaneOpen, resetFfmpegLaneTrail, noteHardwareSelection, noteHardwareFallback, hardwareDecodeEvidence } from "./ffmpegLaneTrail";
 
 const messages = () => bus.rows.map((r) => r.message);
 
 describe("ffmpegLaneTrail.noteLaneOpen", () => {
+  it('retains fallback history across a source reopen and hardware re-promotion', () => {
+    resetFfmpegLaneTrail();
+    noteHardwareSelection('L', 'm');
+    noteHardwareFallback('L', 'm', 'device lost');
+    noteHardwareSelection('L', 'm');
+    expect(hardwareDecodeEvidence('L', 'm')).toEqual({ diagnostic: null, fallbackCount: 1 });
+    expect(hardwareDecodeEvidence('L', 'different-media').fallbackCount).toBe(0);
+  });
+  it('logs the first failed hardware selection and suppresses identical repeats', () => {
+    const diagnostic = { kind: 'failed' as const, reason: 'timeout' };
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      noteHardwareSelection('L', 'm', diagnostic);
+      noteHardwareSelection('L', 'm', diagnostic);
+      expect(messages()).toHaveLength(1);
+      expect(messages()[0]).toContain('timeout');
+      expect(warning).toHaveBeenCalledTimes(1);
+    } finally { warning.mockRestore(); }
+  });
   beforeEach(() => {
     bus.rows.length = 0;
     resetFfmpegLaneTrail();

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createDecodeCapabilityStore, parseClassKey, resolveHwLane, HW_LANE_PRIORITY } from './decode-capability'
+import { createDecodeCapabilityStore, parseClassKey, resolveHwLane, coalesceHwLaneResolution, HW_LANE_PRIORITY } from './decode-capability'
 import type { AppSettingsFs } from './app-settings'
 
 function memFs(): AppSettingsFs {
@@ -14,6 +14,66 @@ function memFs(): AppSettingsFs {
 }
 
 describe('decode capability cache', () => {
+  it('shares an in-flight format-class probe across import path swaps', async () => {
+    const verdict = { ok: true, lane: 'videotoolbox' as const, device: null, reason: null }
+    let finish!: (value: typeof verdict) => void
+    const resolve = vi.fn(() => new Promise<typeof verdict>(r => { finish = r }))
+    const probe = coalesceHwLaneResolution(resolve)
+    const a = probe({ path: '/original.mp4', classKey: 'h264::yuv420p:hd' })
+    const b = probe({ path: '/project/copy.mp4', classKey: 'h264::yuv420p:hd' })
+    await Promise.resolve()
+    expect(resolve).toHaveBeenCalledTimes(1)
+    finish(verdict)
+    expect(await a).toEqual(verdict)
+    expect(await b).toEqual(verdict)
+    resolve.mockResolvedValue(verdict)
+    await probe({ path: '/next.mp4', classKey: 'h264::yuv420p:hd' })
+    expect(resolve).toHaveBeenCalledTimes(2)
+  })
+  it('neither retains rejected resolutions nor conflates distinct classes', async () => {
+    const resolve = vi.fn(async () => { throw new Error('IPC failed') })
+    const probe = coalesceHwLaneResolution(resolve)
+    const request = { path: '/original.mp4', classKey: 'h264::yuv420p:hd' }
+    await expect(probe(request)).rejects.toThrow('IPC failed')
+    await expect(probe(request)).rejects.toThrow('IPC failed')
+    await expect(probe({ ...request, classKey: 'hevc::yuv420p10le:hd' })).rejects.toThrow('IPC failed')
+    expect(resolve).toHaveBeenCalledTimes(3)
+  })
+  it('preserves native rejection details across cached resolutions', async () => {
+    const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
+    const probe = vi.fn(() => ({ ok: false, reason: 'open input: permission denied' }))
+    const deps = { lanes: ['videotoolbox'], store: s, classKey: 'h264::yuv420p:hd', envKey: async () => 'gpu', devices: () => [null], probe }
+    const first = await resolveHwLane(deps)
+    expect(first.diagnostic).toEqual({ kind: 'failed', reason: 'open input: permission denied' })
+    expect((await resolveHwLane(deps)).diagnostic).toEqual(first.diagnostic)
+    expect(probe).toHaveBeenCalledTimes(1)
+  })
+  it('session failure overrides cached positives even when it occurs during environment lookup', async () => {
+    const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
+    s.put('videotoolbox', 'h264::yuv420p:hd', 'gpu', true)
+    let failure: string | null = null
+    const probe = vi.fn(() => ({ ok: true, reason: null }))
+    const result = await resolveHwLane({
+      lanes: ['videotoolbox'], store: s, classKey: 'h264::yuv420p:hd',
+      envKey: async () => { failure = 'timeout'; return 'gpu' }, devices: () => [null],
+      unavailableReason: () => failure, probe,
+    })
+    expect(result).toMatchObject({ ok: false, lane: null, reason: 'timeout' })
+    expect(probe).not.toHaveBeenCalled()
+    expect(s.get('videotoolbox', 'h264::yuv420p:hd', 'gpu')).toBe(true)
+  })
+  it('awaits isolated probes and never persists a timeout as unsupported hardware', async () => {
+    const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
+    const deps = {
+      lanes: ['videotoolbox'], store: s, classKey: 'h264::yuv420p:hd',
+      envKey: async () => 'gpu', devices: () => [null],
+      probe: async () => ({ ok: false, reason: 'timeout', cacheable: false }),
+    }
+    expect(await resolveHwLane(deps)).toMatchObject({ ok: false, lane: null, reason: 'timeout' })
+    expect(s.get('videotoolbox', deps.classKey, 'gpu')).toBeNull()
+    expect(await resolveHwLane({ ...deps, probe: async () => ({ ok: true, reason: null }) })).toMatchObject({ ok: true, lane: 'videotoolbox' })
+    expect(s.get('videotoolbox', deps.classKey, 'gpu')).toBe(true)
+  })
   it('misses, stores, hits', () => {
     const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/decode_capability.json', dir: '/x' })
     expect(s.get('sw', 'prores::yuv422p10le:hd', 'avcodec=61')).toBeNull()
@@ -122,7 +182,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
       lanes: ['software', 'nvdec', 'vaapi'], store: s, classKey: 'k', envKey,
       devices: twoNodeDevices, probe,
     })
-    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'no hw lane passed' })
+    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'no hw lane passed', diagnostic: { kind: 'failed', reason: 'no hw decoder' } })
     expect(s.get('nvdec', 'k', 'gpu:1:2:drv')).toBe(false)
     expect(s.get('vaapi', 'k', 'gpu:1:2:drv', '/dev/dri/renderD128')).toBe(false)
     expect(s.get('vaapi', 'k', 'gpu:1:2:drv', '/dev/dri/renderD129')).toBe(false)
@@ -134,7 +194,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
     const r = await resolveHwLane({
       lanes: ['software'], store: s, classKey: 'k', envKey, devices: twoNodeDevices, probe,
     })
-    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'hw lane unavailable' })
+    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'hw lane unavailable', diagnostic: { kind: 'unavailable', reason: 'no advertised hardware lane' } })
     expect(probe).not.toHaveBeenCalled()
   })
 
@@ -142,7 +202,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
     const s = store()
     const probe = vi.fn(() => ({ ok: true, reason: null }))
     const r = await resolveHwLane({ lanes: [], store: s, classKey: 'k', envKey, devices: twoNodeDevices, probe })
-    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'hw lane unavailable' })
+    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'hw lane unavailable', diagnostic: { kind: 'unavailable', reason: 'no advertised hardware lane' } })
     expect(probe).not.toHaveBeenCalled()
   })
 
@@ -177,7 +237,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
       lanes: ['software', 'vaapi'], store: s, classKey: 'k', envKey,
       devices: () => [], probe, // no render nodes present
     })
-    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'no hw lane passed' })
+    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'no hw lane passed', diagnostic: { kind: 'unavailable', reason: 'vaapi: no render devices' } })
     expect(probe).not.toHaveBeenCalled()
   })
 
@@ -214,7 +274,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
       lanes: ['software', 'videotoolbox'], store: s, classKey: 'h264::yuv420p:uhd', envKey,
       devices: (lane) => (lane === 'vaapi' ? ['/dev/dri/renderD128'] : [null]), probe,
     })
-    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'no hw lane passed' })
+    expect(r).toEqual({ lane: null, device: null, ok: false, reason: 'no hw lane passed', diagnostic: { kind: 'failed', reason: 'no hw surface' } })
     expect(s.get('videotoolbox', 'h264::yuv420p:uhd', 'gpu:1:2:drv')).toBe(false)
   })
 
@@ -244,6 +304,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
     expect(r).toEqual({
       lane: null, device: null, ok: false,
       reason: 'no advertised hw lane is eligible for this format class',
+      diagnostic: { kind: 'unavailable', reason: 'format is outside the hardware lane eligibility list' },
     })
     expect(probe).not.toHaveBeenCalled()
     // Nothing cached either: eligibility is a static gate, not a probe verdict.
@@ -265,6 +326,7 @@ describe('resolveHwLane (advertisement-gated multi-lane HW probe)', () => {
     expect(win).toEqual({
       lane: null, device: null, ok: false,
       reason: 'no advertised hw lane is eligible for this format class',
+      diagnostic: { kind: 'unavailable', reason: 'format is outside the hardware lane eligibility list' },
     })
     expect(probe.mock.calls).toEqual([['videotoolbox', null]]) // d3d11va never probed
   })

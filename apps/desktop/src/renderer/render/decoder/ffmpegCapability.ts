@@ -7,6 +7,7 @@
 import type { FfmpegLane } from "./decodeEngine";
 import { hwEligibleOnAnyLane } from "../../../shared/hwLaneEligibility";
 import { notifyDecodeCapabilityChange } from './capabilityChanges';
+import type { DecodeHardwareDiagnostic } from '../../../shared/decode-hardware-diagnostic';
 
 /// TWIN of main's `classKeyOf` (src/main/decode-capability.ts) — MUST produce a
 /// BYTE-IDENTICAL format string so a renderer-derived key hits the exact cache
@@ -39,10 +40,10 @@ export function hwEligibleCodec(codec: string | null, pixFmt: string | null): bo
 /// native-HW transport dies at runtime (device loss, driver reset, session
 /// crash); gates `pickInitialLane`, so a subsequent `FfmpegSource` open for
 /// this media skips straight to the software lane.
-const hwUnusable = new Set<string>();
+const hwUnusable = new Map<string, string>();
 
-export function markHwUnusable(mediaId: string, _reason: string): void {
-  hwUnusable.add(mediaId);
+export function markHwUnusable(mediaId: string, reason: string): void {
+  hwUnusable.set(mediaId, reason);
 }
 
 /// Sticky per-media "ffmpeg engine terminally failed this session" marker —
@@ -71,6 +72,7 @@ export function isFfmpegUnusable(mediaId: string): boolean {
 /// copy-back lanes — Linux NVDEC/VAAPI, macOS VideoToolbox — ride SwTransport;
 /// Windows d3d11va rides GpuTransport).
 export interface FfmpegLaneResolution {
+  diagnostic?: DecodeHardwareDiagnostic;
   /// Binary lane the FfmpegSource ring/recovery logic keys on.
   lane: FfmpegLane;
   /// The specific advertised HW lane that passed (`nvdec` | `vaapi` |
@@ -105,13 +107,14 @@ export async function pickInitialLane(
   probeFn: (
     path: string,
     classKey: string,
-  ) => Promise<{ ok: boolean; lane?: string | null; device?: string | null }> = (p, k) =>
+  ) => Promise<{ ok: boolean; lane?: string | null; device?: string | null; reason?: string | null; diagnostic?: DecodeHardwareDiagnostic }> = (p, k) =>
     window.api.decodeCap.probeHw(p, k),
   path?: string,
 ): Promise<FfmpegLaneResolution> {
-  if (!input.componentAvailable) return { lane: "software", hwLane: null, device: null }; // caller shouldn't ask, but be safe
-  if (hwUnusable.has(input.mediaId)) return { lane: "software", hwLane: null, device: null };
-  if (!hwEligibleCodec(input.codec, input.pixFmt)) return { lane: "software", hwLane: null, device: null };
+  const software = (diagnostic: DecodeHardwareDiagnostic): FfmpegLaneResolution => ({ lane: 'software', hwLane: null, device: null, diagnostic });
+  if (!input.componentAvailable) return software({ kind: 'failed', reason: 'native decode component unavailable' });
+  if (hwUnusable.has(input.mediaId)) return software({ kind: 'failed', reason: hwUnusable.get(input.mediaId)! });
+  if (!hwEligibleCodec(input.codec, input.pixFmt)) return software({ kind: 'unavailable', reason: 'format is outside the hardware lane eligibility list' });
   // Conditional spread, not `width: input.width` — exactOptionalPropertyTypes
   // rejects assigning `number | null | undefined` to the optional `width?:
   // number | null` field when the key is present with an `undefined` value.
@@ -121,14 +124,16 @@ export async function pickInitialLane(
     ...(input.width !== undefined ? { width: input.width } : {}),
     ...(input.height !== undefined ? { height: input.height } : {}),
   });
-  if (classKey === null || !path) return { lane: "software", hwLane: null, device: null };
+  if (classKey === null || !path) return software({ kind: 'failed', reason: 'hardware probe input is incomplete' });
   try {
     const r = await probeFn(path, classKey);
     return r.ok
       ? { lane: "hardware", hwLane: r.lane ?? null, device: r.device ?? null }
-      : { lane: "software", hwLane: null, device: null };
-  } catch {
-    return { lane: "software", hwLane: null, device: null };
+      : { lane: "software", hwLane: null, device: null,
+          diagnostic: r.diagnostic ?? { kind: 'failed', reason: r.reason ?? 'hardware probe declined without a diagnostic' } };
+  } catch (error) {
+    return { lane: "software", hwLane: null, device: null,
+      diagnostic: { kind: 'failed', reason: `probe IPC failed: ${String(error)}` } };
   }
 }
 

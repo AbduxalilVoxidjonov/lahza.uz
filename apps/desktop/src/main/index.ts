@@ -13,6 +13,7 @@ import { MIB } from '../shared/performance-settings.js'
 import type { PerformanceGpuHardware } from '../shared/performance-budgets.js'
 import { describePerformanceGraphics } from './performanceHardware.js'
 import { createLinuxHardwareDiagnostics } from './hardwareDiagnostics.js'
+import { createMacDecodeProbe } from './macDecodeProbe.js'
 import { Readable } from 'node:stream'
 import { createRequire } from 'node:module'
 import { execFile } from 'node:child_process'
@@ -970,7 +971,7 @@ app.whenReady().then(async () => {
   // Machine capability cache (ADR 0030; docs/preview.md §Decode engine) —
   // persists <userData>/decode_capability.json. Keyed by (lane, format class),
   // invalidated per-lane when its envKey changes (SW: ffmpeg version).
-  const { createDecodeCapabilityStore, classKeyOf, resolveHwLane } = await import('./decode-capability.js')
+  const { createDecodeCapabilityStore, classKeyOf, resolveHwLane, coalesceHwLaneResolution } = await import('./decode-capability.js')
   const decodeCapability = createDecodeCapabilityStore({
     fs: atomicFs,
     path: path.join(app.getPath('userData'), 'decode_capability.json'),
@@ -2014,7 +2015,14 @@ app.whenReady().then(async () => {
   // for VAAPI, and falls back to software when none pass — so a build without a
   // HW lane (Linux SW-only) never reaches a native probe, no platform
   // special-casing.
-  ipcMain.handle('decodeCap:probeHw', async (_e, a: { path: string; classKey: string }) => {
+  const macDecodeProbe = process.platform === 'darwin' ? createMacDecodeProbe() : null
+  const resolveHardware = coalesceHwLaneResolution(async a => {
+    // Session failure takes precedence even over a positive disk cache from a
+    // different format class. Never repeatedly enter a wedged driver lane.
+    if (macDecodeProbe?.unavailableReason) {
+      return { ok: false, lane: null, device: null, reason: macDecodeProbe.unavailableReason,
+        diagnostic: { kind: 'failed', reason: macDecodeProbe.unavailableReason } }
+    }
     // E2E/bench lane pin: the lane-parameterized preview-hw conformance spec
     // sets WEFTCUT_FORCE_HW_LANE so ONE variant tests exactly one HW lane on a
     // multi-lane machine. When set, hide every advertised HW lane except the
@@ -2033,6 +2041,7 @@ app.whenReady().then(async () => {
       classKey: a.classKey,
       envKey: () => hwEnvKey(),
       devices: (lane) => (lane === 'vaapi' ? enumerateDrmRenderNodes() : [null]),
+      unavailableReason: (lane) => lane === 'videotoolbox' ? macDecodeProbe?.unavailableReason ?? null : null,
       probe: (lane, device) => {
         // Each advertised lane routes to its native one-frame probe: d3d11va to
         // previewGpuProbe (Windows), the copy-back lanes — NVDEC/VAAPI (Linux)
@@ -2044,15 +2053,20 @@ app.whenReady().then(async () => {
           const v = ndBackend().previewGpuProbe(a.path, 4000)
           return { ok: v.ok, reason: v.reason ?? null }
         }
-        if (lane === 'nvdec' || lane === 'vaapi' || lane === 'videotoolbox') {
+        if (lane === 'videotoolbox') {
+          return macDecodeProbe?.probe({ path: a.path, lane, device })
+            ?? { ok: false, reason: 'probe unavailable', cacheable: false }
+        }
+        if (lane === 'nvdec' || lane === 'vaapi') {
           const v = ndBackend().previewHwProbe(a.path, lane, device, 4000)
           return { ok: v.ok, reason: v.reason ?? null }
         }
         return { ok: false, reason: 'lane not built' }
       },
     })
-    return { ok: r.ok, reason: r.reason, lane: r.lane, device: r.device }
+    return { ok: r.ok, reason: r.reason, lane: r.lane, device: r.device, ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}) }
   })
+  ipcMain.handle('decodeCap:probeHw', (_e, a: { path: string; classKey: string }) => resolveHardware(a))
 
   // Native SOFTWARE-decode preview (ProRes/DNxHD/MPEG-2/VC-1 — the
   // WebCodecs-blind-format path). Frames flow out of band on the dedicated

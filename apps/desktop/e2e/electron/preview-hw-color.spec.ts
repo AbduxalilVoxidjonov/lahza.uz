@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir, DECODE_ADDON, DECODE_COMPONENT_PRESENT } from './helpers/driver'
+import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 
 // Saturated-chart color gate for the HARDWARE preview lanes — the resident
 // pixel-fidelity gate none of them otherwise has. Four legs per lane, the full
@@ -123,8 +124,8 @@ interface PatchOffender {
 }
 
 async function runChartLeg(label: string, fixture: string, lane: HwLane): Promise<void> {
-  test.skip(!existsSync(fixture), `${label} chart fixture not found at ${fixture} (npm run fixtures)`)
-  test.skip(!existsSync(MANIFEST), `color manifest not found at ${MANIFEST} (npm run fixtures)`)
+  expect(existsSync(fixture), `${label} chart fixture missing: ${fixture}`).toBe(true)
+  expect(existsSync(MANIFEST), `color manifest missing: ${MANIFEST}`).toBe(true)
   test.setTimeout(240_000)
   const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-hw-color-proj-')
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as {
@@ -135,14 +136,15 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
   expect(manifest.width).toBe(CANVAS.width) // 1:1 chart→composition mapping
 
   // Pin the resolver to this leg's lane only (+ software fallback). Where the
-  // lane can't engage, the probe below reports hwLane === null and the leg
-  // SKIPS cleanly instead of failing (preview-hw-conformance model).
+  // lane can't engage, the evidence gate distinguishes affirmative absence
+  // from an operational failure. A software frame alone never permits a skip.
   const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: lane } })
   const consoleLines: string[] = []
   page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
   page.on('pageerror', (e) => consoleLines.push(`[pageerror] ${String(e)}`))
   let toggledOn = false
   try {
+    await hardwareEnvironmentGate(app, page, lane, 'h264')
     await newProject(page, {
       parentFolder: PROJECT_PARENT,
       name: `${label}-${Date.now()}`,
@@ -152,7 +154,8 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     // Pin the ffmpeg engine BEFORE placing the layer (engine resolution reads
     // decode_engine live at acquire — see preview-sw-conformance.spec.ts).
     const after = (await invokeCmd(page, 'app_settings_set', {
-      patch: { decode_engine: 'ffmpeg' },
+      // Leave interactive capacity beside import derivatives on 3-core Macs.
+      patch: { decode_engine: 'ffmpeg', resource_policy: { processing: 'high' } },
     })) as { decode_engine: string }
     expect(after.decode_engine).toBe('ffmpeg')
     toggledOn = true
@@ -174,8 +177,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     )
 
     // Seek once, then poll read-only until a lane has decoded + bound the
-    // target frame. Accept HW or the software fallback here; the clean-skip
-    // below sorts out WHICH engaged.
+    // target frame. The evidence gate below checks which lane actually engaged.
     await page.evaluate(
       (us) => (window as unknown as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
       SEEK_US,
@@ -196,10 +198,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     )
     const probe = (await handle.jsonValue()) as { sourceKind: string; hwLane: string | null }
 
-    test.skip(
-      probe.hwLane !== lane,
-      `${lane} not engaged on this machine (hwLane=${probe.hwLane}, sourceKind=${probe.sourceKind}) — lane unavailable`,
-    )
+    const evidence = await hardwareGate(page, layerId, lane, 'h264')
     expect(probe.sourceKind).toBe('native-gpu')
 
     // Sample every patch center off the LIVE composited canvas (absolute
@@ -228,6 +227,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     // eslint-disable-next-line no-console
     if (errs.length) console.log(`[preview-hw-color] ${label} renderer errors during run:\n` + errs.join('\n'))
     expect(offenders, JSON.stringify(offenders)).toHaveLength(0)
+    await hardwareGate(page, layerId, lane, 'h264', evidence)
   } finally {
     if (toggledOn) {
       await invokeCmd(page, 'app_settings_set', { patch: { decode_engine: 'auto' } }).catch(() => {})
@@ -237,7 +237,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
 }
 
 test.describe('preview hardware-lane saturated-chart color gate (Electron)', () => {
-  test.skip(!COMPONENT_PRESENT, `native-decode component not built (${DECODE_ADDON}) — the app cannot open native GPU sessions`)
+  test.beforeAll(() => { expect(COMPONENT_PRESENT, `native-decode component missing: ${DECODE_ADDON}`).toBe(true) })
 
   for (const lane of LANES) {
     for (const enc of ['709ltd', '601ltd', '709full', '601full'] as const) {

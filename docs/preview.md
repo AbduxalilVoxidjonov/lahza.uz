@@ -393,6 +393,41 @@ against changed. This is distinct from the session's sticky verdict above: the
 cache answers "can this machine decode this format at all," the sticky verdict
 answers "did this session's open just fail."
 
+On macOS, a cache miss for the VideoToolbox lane runs its one-frame native
+probe in a disposable Electron utility process (`decode-probe-host.ts`). Main
+coalesces concurrent requests for the same format class, including an import's
+original-to-project-copy source swap, just as the disk capability cache does.
+The in-flight entry is removed on both success and failure. Main
+owns a four-second deadline covering startup, addon loading and decoding. It
+accepts a verdict only after the host exits cleanly. Timeout or IPC/process
+failure triggers forced termination and software fallback, and disables further
+VideoToolbox capability resolution for this app session, including cached
+positives. These transient failures never become persistent negative capability
+entries. Before spawning, admission waits up to four seconds for temporary
+import contention to clear, with no reservation or child while waiting. Shutdown
+cancels this wait. Admission/concurrent-probe busy results fall back without caching
+or disabling the lane. The parent reserves one CPU thread and 192 MiB and
+releases them only on the child's exit; after a one-second reap grace the caller
+can continue even if the OS has not yet reaped the host. Outstanding ownership
+is retained in that case. Actual preview sessions and export encoders retain
+their existing lifecycle; probe isolation does not recover those sessions.
+
+Regression gates: `decodeProbeProcess.test.ts` exercises lifetime races and a
+real synchronously blocked child; `decode-probe-isolation.spec.ts` exercises the
+Electron IPC path, timeout-to-software recovery and native addon loading on
+macOS. `scripts/smoke-packaged-decode-probe.mjs` verifies the same native loading
+path in the signed application bundle after packaging.
+
+Hardware probe failures carry a structured diagnostic through IPC and initial
+lane selection. Native rejection details are retained alongside negative
+capability cache entries. Initial failed selection emits a diagnostic log;
+the active clip exposes `hwDiagnostic` and `hwFallbackCount` in addition to
+`hwLane`. The count is recorded before asynchronous recovery and survives
+source recreation/re-promotion for the same clip and media. Hardware acceptance
+tests use that evidence both before and after sampling, so a successful
+software fallback cannot be counted as hardware coverage (see
+`platform-codecs.md` for skip/required-variant rules).
+
 ### The Lite engine (`SourceHandle`)
 
 The Lite engine is WebCodecs decoding through the shared refcounted

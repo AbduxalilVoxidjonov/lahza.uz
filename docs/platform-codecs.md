@@ -13,6 +13,40 @@ A hardware pass means the spec asserted engagement of the named lane. A skip
 means no measurement was made. Building an installer does not verify that a
 user can install and launch it.
 
+Hardware preview gates now attach the actual lane, the initial probe diagnostic
+and a monotonic per-clip hardware-fallback count before and after pixel/SSIM
+sampling. Timeout, crash, IPC/admission failure, unknown rejection and runtime
+fallback fail the gate; a later return to hardware does not erase a fallback.
+Only affirmative unavailability (no advertised/eligible lane, no render device,
+an observed native software frame during capability probing, a successful Linux
+inventory without an NVIDIA adapter, or a Windows inventory containing only
+Microsoft software adapters) can skip an optional variant. Empty/unknown Windows
+inventories and mixed software/physical adapters do not permit a skip. Missing fixtures/components are
+test setup failures. Legacy negative cache entries without a cause are not
+accepted as unavailability evidence; hardware audits use fresh profiles.
+Fidelity gates use the existing high-processing preset so a 3-core Mac retains
+an interactive compute slot beside import derivatives. They still enforce
+normal admission limits and fail on any probe/session error. The isolation and
+resource-pressure gates exercise failure and software recovery separately.
+The larger ProRes fixture completes import compute before timeline placement;
+an import that cannot drain fails setup instead of masking a busy probe as
+unsupported hardware. H.264 gates retain overlapping import/source swaps.
+
+On macOS the VideoToolbox H.264 and HEVC Main10 cells are mandatory, including
+all four H.264 color charts. ProRes is host-dependent. To require additional
+known capabilities, set `WEFTCUT_REQUIRE_HW_VARIANTS` to a comma-separated list
+such as `d3d11va-h264` or `videotoolbox-prores`; valid variants are
+`nvdec-h264`, `vaapi-h264`, `d3d11va-h264`, `videotoolbox-h264`,
+`videotoolbox-hevc10`, `videotoolbox-prores`. This strengthens assertions; it
+does not select which specs run. Unknown names fail configuration validation.
+Product software fallback remains enabled; test strictness does not change
+the editor's recovery behavior.
+Copy-back native sessions also check every received frame against the selected
+hardware surface format before cadence filtering or packing. A CPU frame in a
+hardware session reports `hardware surface lost` and enters the existing
+explicit software-session recovery; it can no longer keep a hardware label
+while silently packing software frames.
+
 ## Encode and decode matrix
 
 | Path | Windows | Linux | macOS (Apple Silicon) |

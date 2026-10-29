@@ -386,6 +386,7 @@ export interface DecodeHwProbeResult {
   reason: string | null
   lane: string | null
   device: string | null
+  diagnostic?: import('./decode-hardware-diagnostic').DecodeHardwareDiagnostic
 }
 
 // Data-root migration IPC surface. Types single-sourced in

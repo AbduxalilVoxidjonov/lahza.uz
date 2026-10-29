@@ -3,7 +3,8 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir } from './helpers/driver'
+import { launchApp, newProject, importAndPlaceMedia, placeMediaLayer, invokeCmd, tmpDir } from './helpers/driver'
+import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 
 // Runtime verification for the Standard (ffmpeg) engine's HARDWARE decode
 // lanes — the sibling of preview-sw-conformance.spec.ts, but for the HW paths.
@@ -24,10 +25,10 @@ import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir } from '.
 // PARAMETERIZED BY VARIANT = HW LANE × FIXTURE. One test() per VARIANTS entry;
 // each launches the app with WEFTCUT_FORCE_HW_LANE=<lane>, which pins main's
 // `decodeCap:probeHw` resolver to consider ONLY that HW lane (plus the software
-// fallback). A variant SKIPS CLEANLY when its lane didn't engage on this
-// machine — e.g. when the addon never advertised the lane, the resolver finds
-// no candidate and falls back to software, so `probe.hwLane === null` and the
-// test skips rather than failing.
+// fallback). Only affirmative unavailability may skip an OPTIONAL variant.
+// A timeout/crash/unknown rejection or runtime fallback fails. The macOS
+// H.264/HEVC baseline is mandatory; additional known capabilities can be pinned
+// with WEFTCUT_REQUIRE_HW_VARIANTS. Evidence is checked before AND after SSIM.
 // This lets the ONE spec run correctly on a box that has NVDEC but not VAAPI
 // (or a Mac, which has only videotoolbox) with no per-machine config. The loop
 // body is variant-agnostic — fixture, artifact names, and the forced lane all
@@ -155,7 +156,7 @@ const transportWord = (frameKind: HwVariant['frameKind']) =>
 
 for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
   test(`preview-hw: ffmpeg engine decodes interframe ${codec} on the ${lane} ${transportWord(frameKind)} lane + SSIM (issue #5 Block C3) @serial`, async () => {
-    test.skip(!existsSync(fixture), `${codec} fixture not found at ${fixture} (set WEFTCUT_TEST_MEDIA)`)
+    expect(existsSync(fixture), `${codec} fixture missing: ${fixture}`).toBe(true)
     test.setTimeout(240_000)
     const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-hw-proj-')
     const OUT_DIR = tmpDir('weftcut-e2e-preview-hw-')
@@ -172,6 +173,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
 
     let toggledOn = false
     try {
+      await hardwareEnvironmentGate(app, page, OUTER_LANE_PIN ?? lane, id.slice(lane.length + 1))
       await newProject(page, {
         parentFolder: PROJECT_PARENT,
         name: 'preview-hw-' + id + '-' + Date.now(),
@@ -186,14 +188,31 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
       // format, so there is NO native-sw route to wait for (that gate is
       // ProRes-specific); the ffmpeg pin alone routes h264 to FfmpegSource.
       const after = (await invokeCmd(page, 'app_settings_set', {
-        patch: { decode_engine: 'ffmpeg' },
+        // Fidelity needs an interactive slot beside import derivatives even on
+        // a 3-core Mac. Resource-pressure fallback has its own regression gates.
+        patch: { decode_engine: 'ffmpeg', resource_policy: { processing: 'high' } },
       })) as { decode_engine: string }
       expect(after.decode_engine).toBe('ffmpeg')
       toggledOn = true
 
       // ── Import + place the variant's clip ───────────────────────────────────
-      const { layerId, kind } = await importAndPlaceMedia(page, { mediaAbsPath: fixture })
-      expect(kind).toBe('Video')
+      let layerId: string
+      if (id === 'videotoolbox-prores') {
+        // This large fixture keeps import preparation + a derivative alive
+        // together (both interactive slots on a 3-core Mac). Finish setup
+        // before measuring hardware fidelity; do not retry a software result
+        // or bypass the product's admission authority.
+        const mediaId = await invokeCmd<string>(page, 'import_media', { path: fixture })
+        await expect.poll(async () => {
+          const status = await page.evaluate(() => window.api.resources.status())
+          return status.cpu_threads === 0 && status.waiting === 0
+        }, { timeout: 60_000, message: 'ProRes fixture import must release compute before hardware fidelity sampling' }).toBe(true)
+        ;({ layerId } = await placeMediaLayer(page, { mediaId }))
+      } else {
+        const placed = await importAndPlaceMedia(page, { mediaAbsPath: fixture })
+        expect(placed.kind).toBe('Video')
+        layerId = placed.layerId
+      }
 
       // Ensure the PixiPreview bridge is registered (activeClipProbe throws until
       // it is) before we drive a seek.
@@ -212,8 +231,8 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
 
       // Seek ONCE into the clip; poll read-only until the ring holds the SEEKED
       // frame bound to the sprite. Accept either HW (`native-gpu`) or the
-      // software fallback (`sw`) here — the fallback is the clean-skip case, sorted
-      // out below by inspecting `hwLane`.
+      // software fallback (`sw`) here; the evidence gate below decides whether
+      // it is an allowed environmental skip or a failed hardware test.
       await page.evaluate(
         (us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
         SEEK_US,
@@ -249,14 +268,9 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
         boundFrameKind: string | null
       }
 
-      // ── CLEAN SKIP when the forced lane didn't engage on this machine ───────
-      // A forced-but-unadvertised lane (vaapi where libva can't copy-back, any
-      // Linux/Windows lane on a Mac, videotoolbox anywhere else) leaves the
-      // resolver no candidate → software fallback → probe.hwLane === null → skip.
-      test.skip(
-        probe.hwLane !== lane,
-        `${lane} not engaged on this machine (hwLane=${probe.hwLane}, sourceKind=${probe.sourceKind}) — lane unavailable`,
-      )
+      // Only affirmative unavailability may skip an optional lane. Operational
+      // failures and mandatory hardware cells fail even when software renders.
+      const evidence = await hardwareGate(page, layerId, OUTER_LANE_PIN ?? lane, id.slice(lane.length + 1))
 
       // ── The whole point: the forced HW lane engaged and produced the frame ──
       expect(probe.sourceKind).toBe('native-gpu')
@@ -270,7 +284,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
 
       // ── Rendered preview frame matches an ffmpeg reference (SSIM ≥ the floor) ─
       const ffmpeg = ffmpegBin()
-      test.skip(ffmpeg === null, 'ffmpeg not available on PATH (set FFMPEG) — SSIM skipped; lane-engaged proof stands')
+      expect(ffmpeg, 'ffmpeg is required for hardware SSIM verification').not.toBeNull()
 
       // Capture the LIVE composited preview frame at composition resolution.
       const b64 = (await page.evaluate(
@@ -311,6 +325,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
         best.ssim,
         `SSIM below floor ${ssimFloor}; scores=${JSON.stringify(scores)}`,
       ).toBeGreaterThanOrEqual(ssimFloor)
+      await hardwareGate(page, layerId, OUTER_LANE_PIN ?? lane, id.slice(lane.length + 1), evidence)
 
       // Renderer errors during the run are findings.
       const errs = consoleLines.filter((l) => l.startsWith('[error]') || l.startsWith('[pageerror]'))

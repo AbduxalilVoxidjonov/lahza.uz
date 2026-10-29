@@ -22,6 +22,8 @@ export interface SourceHandleInit {
   /// own. The preview pool keys by `layerId` and ignores it.
   handleKey?: string;
   mediaId: string;
+  /// Stable clip identity when an overlap swap uses synthetic pool keys.
+  hardwareEvidenceIdentity?: { layerId: string; mediaId: string };
   /// `weftcut-media://` URL of the decode target the WebCodecs path opens —
   /// preview's resolved target, or the export master proxy in export mode.
   proxyAssetUrl: string;

@@ -510,6 +510,9 @@ pub struct SwVideoStream {
     /// (`DecodeAccel::Nvdec`/`Vaapi`), else null. Owned here; unref'd on drop.
     /// Must outlive the decoder (which holds a ref via `hw_device_ctx`).
     hw_ctx: *mut ffs::AVBufferRef,
+    /// Runtime evidence: a hardware-selected session must keep producing its
+    /// requested surface. Software fallback belongs to the session owner.
+    expected_hw_format: Option<Pixel>,
 }
 
 // The ffmpeg-next `Input`/`Video` wrappers hold raw pointers and are `!Send`.
@@ -662,6 +665,7 @@ impl SwVideoStream {
             out_format,
             output_cadence: OutputCadence::FULL,
             hw_ctx,
+            expected_hw_format: accel.hw_pix_fmt(),
         })
     }
 
@@ -701,6 +705,14 @@ impl SwVideoStream {
         loop {
             // Drain any already-decoded frame first.
             if self.decoder.receive_frame(&mut self.frame).is_ok() {
+                if let Some(expected) = self.expected_hw_format {
+                    if self.frame.format() != expected {
+                        return Err(format!(
+                            "hardware surface lost: expected {expected:?}, received {:?}",
+                            self.frame.format()
+                        ));
+                    }
+                }
                 let (pts_us, dur_us) = unsafe {
                     let p = self.frame.as_ptr();
                     let pts = if (*p).pts != ffs::AV_NOPTS_VALUE {
@@ -1500,6 +1512,20 @@ mod tests {
             Pixel::YUV420P10LE,
         ] {
             assert!(!is_hw_pix_format(f), "{f:?} wrongly flagged hw");
+        }
+    }
+
+    #[test]
+    fn hardware_session_rejects_software_frames() {
+        let p = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/tiny_h264.mp4");
+        let mut stream = SwVideoStream::open(p).expect("software fixture opens");
+        assert!(stream.next_frame().expect("initial frame").is_some());
+        // Simulate a driver delivering a CPU frame after hardware selection.
+        // Real decoding exercises the production receive/pack path, no GPU needed.
+        stream.expected_hw_format = Some(ffmpeg_next::format::Pixel::VIDEOTOOLBOX);
+        match stream.next_frame() {
+            Err(reason) => assert!(reason.contains("hardware surface lost"), "{reason}"),
+            Ok(_) => panic!("software frame was silently accepted on a hardware session"),
         }
     }
 

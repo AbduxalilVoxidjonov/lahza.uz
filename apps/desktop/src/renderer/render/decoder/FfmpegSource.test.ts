@@ -108,6 +108,8 @@ describe("FfmpegSource — internal HW→SW fallback", () => {
     expect(src.currentLane()).toBe("software");
     expect(src.currentDecodeDevice()).toEqual({ kind: 'software', backend: 'ffmpeg', device: null });
     expect(src.isDowngraded()).toBe(true);
+    expect(src.hardwareEvidence().diagnostic).toEqual({ kind: 'failed', reason: 'gpu-device-lost' });
+    expect(src.hardwareEvidence().fallbackCount).toBeGreaterThan(0);
     expect(onFatal).not.toHaveBeenCalled();      // fully internal — no external signal
     sw.emitFrame(1033);
     expect(src.ring.size()).toBe(2);             // SAME ring kept its earlier frame

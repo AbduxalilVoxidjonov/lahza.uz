@@ -11,6 +11,7 @@
 // capability).
 import type { AppSettingsFs } from './app-settings'
 import { hwEligibleOnLane } from '../shared/hwLaneEligibility'
+import { hardwareProbeDiagnostic, type DecodeHardwareDiagnostic } from '../shared/decode-hardware-diagnostic'
 
 /// The decode lanes the machine cache can hold a verdict for — the software
 /// lane plus each platform's hardware lanes, named exactly as the component
@@ -29,7 +30,7 @@ export const HW_LANE_PRIORITY: readonly DecodeLane[] = ['nvdec', 'vaapi', 'd3d11
 
 interface CacheFile {
   env: Partial<Record<DecodeLane, string>>
-  entries: Partial<Record<DecodeLane, Record<string, { ok: boolean; at: string }>>>
+  entries: Partial<Record<DecodeLane, Record<string, { ok: boolean; at: string; diagnostic?: DecodeHardwareDiagnostic }>>>
 }
 
 const EMPTY: CacheFile = { env: {}, entries: {} }
@@ -44,7 +45,8 @@ function entryKeyOf(classKey: string, device?: string | null): string {
 
 export interface DecodeCapabilityStore {
   get(lane: DecodeLane, classKey: string, envKey: string, device?: string | null): boolean | null
-  put(lane: DecodeLane, classKey: string, envKey: string, ok: boolean, device?: string | null): void
+  getDiagnostic?(lane: DecodeLane, classKey: string, envKey: string, device?: string | null): DecodeHardwareDiagnostic | undefined
+  put(lane: DecodeLane, classKey: string, envKey: string, ok: boolean, device?: string | null, diagnostic?: DecodeHardwareDiagnostic): void
 }
 
 export function createDecodeCapabilityStore(deps: { fs: AppSettingsFs; path: string; dir: string }): DecodeCapabilityStore {
@@ -69,13 +71,17 @@ export function createDecodeCapabilityStore(deps: { fs: AppSettingsFs; path: str
       if (c.env[lane] !== envKey) return null
       return c.entries[lane]?.[entryKeyOf(classKey, device)]?.ok ?? null
     },
-    put(lane, classKey, envKey, ok, device) {
+    getDiagnostic(lane, classKey, envKey, device) {
+      const c = read()
+      return c.env[lane] === envKey ? c.entries[lane]?.[entryKeyOf(classKey, device)]?.diagnostic : undefined
+    },
+    put(lane, classKey, envKey, ok, device, diagnostic) {
       const c = read()
       if (c.env[lane] !== envKey) {
         c.env[lane] = envKey
         c.entries[lane] = {}
       }
-      ;(c.entries[lane] ??= {})[entryKeyOf(classKey, device)] = { ok, at: new Date().toISOString() }
+      ;(c.entries[lane] ??= {})[entryKeyOf(classKey, device)] = { ok, at: new Date().toISOString(), ...(diagnostic ? { diagnostic } : {}) }
       write(c)
     },
   }
@@ -112,6 +118,8 @@ export function parseClassKey(classKey: string): { codec: string; pixFmt: string
 export interface HwProbeVerdict {
   ok: boolean
   reason: string | null
+  /** Timeouts, crashes and admission failures are not machine capabilities. */
+  cacheable?: boolean
 }
 
 /// The chosen HW lane. `lane` is null on software fallback (no advertised HW
@@ -123,6 +131,25 @@ export interface HwLaneResolution {
   device: string | null
   ok: boolean
   reason: string | null
+  diagnostic?: DecodeHardwareDiagnostic
+}
+
+/** The disk cache already treats a format class as one capability. Share its
+ * in-flight resolution too: an import's original and project-local copy can
+ * request the same class concurrently while one disposable host is running.
+ * This is not a result cache; rejection/transient failure can be retried. */
+export function coalesceHwLaneResolution(
+  resolve: (request: { path: string; classKey: string }) => Promise<HwLaneResolution>,
+) {
+  const pending = new Map<string, Promise<HwLaneResolution>>()
+  return (request: { path: string; classKey: string }): Promise<HwLaneResolution> => {
+    const existing = pending.get(request.classKey)
+    if (existing) return existing
+    const result = Promise.resolve().then(() => resolve(request))
+      .finally(() => { pending.delete(request.classKey) })
+    pending.set(request.classKey, result)
+    return result
+  }
 }
 
 /// Advertisement-gated HW-lane resolution (ADR 0030 §Lane advertisement; issue
@@ -142,30 +169,50 @@ export async function resolveHwLane(deps: {
   classKey: string
   envKey: (lane: DecodeLane) => Promise<string>
   devices: (lane: DecodeLane) => readonly (string | null)[]
-  probe: (lane: DecodeLane, device: string | null) => HwProbeVerdict
+  unavailableReason?: (lane: DecodeLane) => string | null
+  probe: (lane: DecodeLane, device: string | null) => HwProbeVerdict | Promise<HwProbeVerdict>
 }): Promise<HwLaneResolution> {
   const advertised = HW_LANE_PRIORITY.filter((l) => deps.lanes.includes(l))
   if (advertised.length === 0) {
-    return { lane: null, device: null, ok: false, reason: 'hw lane unavailable' }
+    return { lane: null, device: null, ok: false, reason: 'hw lane unavailable', diagnostic: { kind: 'unavailable', reason: 'no advertised hardware lane' } }
   }
   const cls = parseClassKey(deps.classKey)
   const candidates = cls === null
     ? advertised
     : advertised.filter((l) => hwEligibleOnLane(l, cls.codec, cls.pixFmt))
   if (candidates.length === 0) {
-    return { lane: null, device: null, ok: false, reason: 'no advertised hw lane is eligible for this format class' }
+    return { lane: null, device: null, ok: false, reason: 'no advertised hw lane is eligible for this format class', diagnostic: { kind: 'unavailable', reason: 'format is outside the hardware lane eligibility list' } }
+  }
+  let transientReason: string | null = null
+  let diagnostic: DecodeHardwareDiagnostic | undefined
+  const remember = (next: DecodeHardwareDiagnostic) => {
+    // One unavailable adapter must not hide a failure on another candidate.
+    if (diagnostic?.kind !== 'failed') diagnostic = next
   }
   for (const lane of candidates) {
     const env = await deps.envKey(lane)
     const devices = deps.devices(lane)
+    if (!devices.length) remember({ kind: 'unavailable', reason: `${lane}: no render devices` })
     for (const device of devices) {
+      // A concurrent probe may have disabled this lane while envKey awaited
+      // GPU identity. Session failure must override even persisted positives.
+      const unavailable = deps.unavailableReason?.(lane)
+      if (unavailable) { transientReason = unavailable; remember(hardwareProbeDiagnostic(unavailable, true)); continue }
       const cached = deps.store.get(lane, deps.classKey, env, device)
       if (cached === true) return { lane, device, ok: true, reason: 'cached' }
-      if (cached === false) continue
-      const v = deps.probe(lane, device)
-      deps.store.put(lane, deps.classKey, env, v.ok, device)
+      if (cached === false) {
+        remember(deps.store.getDiagnostic?.(lane, deps.classKey, env, device)
+          ?? { kind: 'failed', reason: 'cached hardware rejection has no diagnostic; re-probe with a fresh profile' })
+        continue
+      }
+      const v = await deps.probe(lane, device)
+      const failure = v.ok ? undefined : hardwareProbeDiagnostic(v.reason, v.cacheable === false)
+      if (failure) remember(failure)
+      if (v.cacheable !== false) deps.store.put(lane, deps.classKey, env, v.ok, device, failure)
+      else transientReason = v.reason
       if (v.ok) return { lane, device, ok: true, reason: v.reason }
     }
   }
-  return { lane: null, device: null, ok: false, reason: 'no hw lane passed' }
+  return { lane: null, device: null, ok: false, reason: transientReason ?? 'no hw lane passed',
+    diagnostic: diagnostic ?? { kind: 'failed', reason: 'no hardware verdict recorded' } }
 }
