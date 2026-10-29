@@ -1,11 +1,11 @@
 import { test, type Page, type ElectronApplication } from '@playwright/test'
-import { verifyHardwareEvidence, hardwareRequired, windowsSoftwareOnly } from '../../lib/hardware-evidence.mjs'
+import { verifyHardwareEvidence, hardwareRequired, windowsSoftwareOnly, linuxHardwareAbsent } from '../../lib/hardware-evidence.mjs'
 import { resourceDiagnostics } from './resourceDiagnostics'
 
 /** NVDEC can be compiled into a GPU-less Linux build. A successful device
  * inventory with no NVIDIA adapter is affirmative environmental evidence;
  * a missing driver or failed inventory on a GPU host is not. */
-export async function hardwareEnvironmentGate(app: ElectronApplication, page: Page, lane: string, codec: string) {
+export async function hardwareEnvironmentGate(app: ElectronApplication, page: Page, lane: string, codec: string, auto = false) {
   if (process.platform === 'win32' && lane === 'd3d11va') {
     const info = await app.evaluate(async ({ app }) => app.getGPUInfo('basic'))
     await test.info().attach('hardware-inventory', { body: JSON.stringify(info), contentType: 'application/json' })
@@ -16,11 +16,13 @@ export async function hardwareEnvironmentGate(app: ElectronApplication, page: Pa
   }
   if (process.platform !== 'linux' || lane !== 'nvdec') return
   const hardware = (await page.evaluate(() => window.api.performanceResources.info())).hardware
-  if (!hardware || hardware.inventory_reason !== null || hardware.devices.some(d => d.vendor_id === null || d.vendor_id === 0x10de)) return
+  if (!linuxHardwareAbsent(hardware, auto)) return
   await test.info().attach('hardware-inventory', { body: JSON.stringify(hardware), contentType: 'application/json' })
-  if (hardwareRequired(lane, codec, process.platform, process.env.WEFTCUT_REQUIRE_HW_VARIANTS))
+  if (hardwareRequired(lane, codec, process.platform, process.env.WEFTCUT_REQUIRE_HW_VARIANTS)
+      || (auto && hardwareRequired('vaapi', codec, process.platform, process.env.WEFTCUT_REQUIRE_HW_VARIANTS)))
     throw new Error('Required NVDEC hardware missing: inventory contains no NVIDIA adapter')
-  test.skip(true, 'Verified Linux hardware inventory contains no NVIDIA adapter')
+  test.skip(true, auto ? 'Verified Linux inventory contains no NVIDIA adapter or VAAPI render node'
+    : 'Verified Linux hardware inventory contains no NVIDIA adapter')
 }
 
 export async function hardwareGate(page: Page, layerId: string, lane: string, codec: string, before?: any) {

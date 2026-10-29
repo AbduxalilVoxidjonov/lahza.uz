@@ -1,8 +1,17 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { verifyHardwareEvidence, hardwareRequired, windowsSoftwareOnly } from './hardware-evidence.mjs'
+import { verifyHardwareEvidence, hardwareRequired, windowsSoftwareOnly, linuxHardwareAbsent } from './hardware-evidence.mjs'
 const hw = { sourceKind: 'native-gpu', hwLane: 'videotoolbox', hwDiagnostic: null, hwFallbackCount: 0 }
 const sw = { ...hw, sourceKind: 'sw', hwLane: null }
+
+test('auto cannot hide a VAAPI failure behind the absence of NVIDIA', () => {
+  const intel = { inventory_reason: null, devices: [{ vendor_id: 0x8086, render_nodes: ['/dev/dri/renderD128'] }] }
+  assert.equal(linuxHardwareAbsent(intel), true)
+  assert.equal(linuxHardwareAbsent(intel, true), false)
+  assert.equal(linuxHardwareAbsent({ inventory_reason: null, devices: [] }, true), true)
+  assert.equal(linuxHardwareAbsent({ inventory_reason: 'unknown', devices: [] }, true), false)
+  assert.equal(linuxHardwareAbsent({ inventory_reason: null, devices: [{ vendor_id: null }] }), false)
+})
 test('only a named hardware lane with intact history passes', () => {
   assert.equal(verifyHardwareEvidence(hw, 'videotoolbox'), null)
   assert.throws(() => verifyHardwareEvidence(hw, 'nvdec'))

@@ -26,6 +26,12 @@ export function windowsSoftwareOnly(info) {
     && info.gpuDevice.every(d => d.vendorId === 0x1414 && d.deviceId === 0x008c)
 }
 
+export function linuxHardwareAbsent(hardware, auto = false) {
+  return hardware?.inventory_reason === null && Array.isArray(hardware.devices)
+    && hardware.devices.every(d => Number.isInteger(d.vendor_id) && d.vendor_id !== 0x10de
+      && (!auto || (Array.isArray(d.render_nodes) && d.render_nodes.length === 0)))
+}
+
 export function hardwareRequired(lane, codec, platform, requiredVariants = '') {
   const allowed = new Set(['nvdec-h264', 'vaapi-h264', 'd3d11va-h264', 'videotoolbox-h264', 'videotoolbox-hevc10', 'videotoolbox-prores'])
   const selected = requiredVariants.split(',').map(x => x.trim()).filter(Boolean)

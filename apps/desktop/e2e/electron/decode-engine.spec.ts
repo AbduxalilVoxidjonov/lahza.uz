@@ -259,7 +259,7 @@ test.describe('decode-engine resolution (Electron)', () => {
       }, layerId, { timeout: 30_000 })
       const live = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
       const expectedLane = live.hwLane ?? (process.platform === 'darwin' ? 'videotoolbox' : process.platform === 'win32' ? 'd3d11va' : 'nvdec')
-      await hardwareEnvironmentGate(app, page, expectedLane, 'h264')
+      await hardwareEnvironmentGate(app, page, expectedLane, 'h264', true)
       const evidence = await hardwareGate(page, layerId, expectedLane, 'h264')
       expect(evidence.sourceKind).toBe('native-gpu')
       expect(evidence.builtFromKey!.startsWith('ffmpeg:original:')).toBe(true)

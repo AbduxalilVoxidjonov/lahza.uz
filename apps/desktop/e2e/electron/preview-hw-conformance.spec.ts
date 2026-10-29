@@ -3,7 +3,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { existsSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir } from './helpers/driver'
+import { launchApp, newProject, importAndPlaceMedia, placeMediaLayer, invokeCmd, tmpDir } from './helpers/driver'
 import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 
 // Runtime verification for the Standard (ffmpeg) engine's HARDWARE decode
@@ -196,8 +196,23 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
       toggledOn = true
 
       // ── Import + place the variant's clip ───────────────────────────────────
-      const { layerId, kind } = await importAndPlaceMedia(page, { mediaAbsPath: fixture })
-      expect(kind).toBe('Video')
+      let layerId: string
+      if (id === 'videotoolbox-prores') {
+        // This large fixture keeps import preparation + a derivative alive
+        // together (both interactive slots on a 3-core Mac). Finish setup
+        // before measuring hardware fidelity; do not retry a software result
+        // or bypass the product's admission authority.
+        const mediaId = await invokeCmd<string>(page, 'import_media', { path: fixture })
+        await expect.poll(async () => {
+          const status = await page.evaluate(() => window.api.resources.status())
+          return status.cpu_threads === 0 && status.waiting === 0
+        }, { timeout: 60_000, message: 'ProRes fixture import must release compute before hardware fidelity sampling' }).toBe(true)
+        ;({ layerId } = await placeMediaLayer(page, { mediaId }))
+      } else {
+        const placed = await importAndPlaceMedia(page, { mediaAbsPath: fixture })
+        expect(placed.kind).toBe('Video')
+        layerId = placed.layerId
+      }
 
       // Ensure the PixiPreview bridge is registered (activeClipProbe throws until
       // it is) before we drive a seek.

@@ -28,6 +28,9 @@ Fidelity gates use the existing high-processing preset so a 3-core Mac retains
 an interactive compute slot beside import derivatives. They still enforce
 normal admission limits and fail on any probe/session error. The isolation and
 resource-pressure gates exercise failure and software recovery separately.
+The larger ProRes fixture completes import compute before timeline placement;
+an import that cannot drain fails setup instead of masking a busy probe as
+unsupported hardware. H.264 gates retain overlapping import/source swaps.
 
 On macOS the VideoToolbox H.264 and HEVC Main10 cells are mandatory, including
 all four H.264 color charts. ProRes is host-dependent. To require additional
