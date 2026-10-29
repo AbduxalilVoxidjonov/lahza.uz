@@ -14,6 +14,18 @@ function memFs(): AppSettingsFs {
 }
 
 describe('decode capability cache', () => {
+  it('awaits isolated probes and never persists a timeout as unsupported hardware', async () => {
+    const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/c.json', dir: '/x' })
+    const deps = {
+      lanes: ['videotoolbox'], store: s, classKey: 'h264::yuv420p:hd',
+      envKey: async () => 'gpu', devices: () => [null],
+      probe: async () => ({ ok: false, reason: 'timeout', cacheable: false }),
+    }
+    expect(await resolveHwLane(deps)).toMatchObject({ ok: false, lane: null, reason: 'timeout' })
+    expect(s.get('videotoolbox', deps.classKey, 'gpu')).toBeNull()
+    expect(await resolveHwLane({ ...deps, probe: async () => ({ ok: true, reason: null }) })).toMatchObject({ ok: true, lane: 'videotoolbox' })
+    expect(s.get('videotoolbox', deps.classKey, 'gpu')).toBe(true)
+  })
   it('misses, stores, hits', () => {
     const s = createDecodeCapabilityStore({ fs: memFs(), path: '/x/decode_capability.json', dir: '/x' })
     expect(s.get('sw', 'prores::yuv422p10le:hd', 'avcodec=61')).toBeNull()

@@ -112,6 +112,8 @@ export function parseClassKey(classKey: string): { codec: string; pixFmt: string
 export interface HwProbeVerdict {
   ok: boolean
   reason: string | null
+  /** Timeouts, crashes and admission failures are not machine capabilities. */
+  cacheable?: boolean
 }
 
 /// The chosen HW lane. `lane` is null on software fallback (no advertised HW
@@ -142,7 +144,7 @@ export async function resolveHwLane(deps: {
   classKey: string
   envKey: (lane: DecodeLane) => Promise<string>
   devices: (lane: DecodeLane) => readonly (string | null)[]
-  probe: (lane: DecodeLane, device: string | null) => HwProbeVerdict
+  probe: (lane: DecodeLane, device: string | null) => HwProbeVerdict | Promise<HwProbeVerdict>
 }): Promise<HwLaneResolution> {
   const advertised = HW_LANE_PRIORITY.filter((l) => deps.lanes.includes(l))
   if (advertised.length === 0) {
@@ -155,6 +157,7 @@ export async function resolveHwLane(deps: {
   if (candidates.length === 0) {
     return { lane: null, device: null, ok: false, reason: 'no advertised hw lane is eligible for this format class' }
   }
+  let transientReason: string | null = null
   for (const lane of candidates) {
     const env = await deps.envKey(lane)
     const devices = deps.devices(lane)
@@ -162,10 +165,11 @@ export async function resolveHwLane(deps: {
       const cached = deps.store.get(lane, deps.classKey, env, device)
       if (cached === true) return { lane, device, ok: true, reason: 'cached' }
       if (cached === false) continue
-      const v = deps.probe(lane, device)
-      deps.store.put(lane, deps.classKey, env, v.ok, device)
+      const v = await deps.probe(lane, device)
+      if (v.cacheable !== false) deps.store.put(lane, deps.classKey, env, v.ok, device)
+      else transientReason = v.reason
       if (v.ok) return { lane, device, ok: true, reason: v.reason }
     }
   }
-  return { lane: null, device: null, ok: false, reason: 'no hw lane passed' }
+  return { lane: null, device: null, ok: false, reason: transientReason ?? 'no hw lane passed' }
 }

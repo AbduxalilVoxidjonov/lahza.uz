@@ -393,6 +393,26 @@ against changed. This is distinct from the session's sticky verdict above: the
 cache answers "can this machine decode this format at all," the sticky verdict
 answers "did this session's open just fail."
 
+On macOS, a cache miss for the VideoToolbox lane runs its one-frame native
+probe in a disposable Electron utility process (`decode-probe-host.ts`). Main
+owns a four-second deadline covering startup, addon loading and decoding. It
+accepts a verdict only after the host exits cleanly. Timeout or IPC/process
+failure triggers forced termination and software fallback, and disables further
+VideoToolbox capability resolution for this app session, including cached
+positives. These transient failures never become persistent negative capability
+entries. Admission/concurrent-probe busy results also fall back without caching
+or disabling the lane. The parent reserves one CPU thread and 192 MiB and
+releases them only on the child's exit; after a one-second reap grace the caller
+can continue even if the OS has not yet reaped the host. Outstanding ownership
+is retained in that case. Actual preview sessions and export encoders retain
+their existing lifecycle; probe isolation does not recover those sessions.
+
+Regression gates: `decodeProbeProcess.test.ts` exercises lifetime races and a
+real synchronously blocked child; `decode-probe-isolation.spec.ts` exercises the
+Electron IPC path, timeout-to-software recovery and native addon loading on
+macOS. `scripts/smoke-packaged-decode-probe.mjs` verifies the same native loading
+path in the signed application bundle after packaging.
+
 ### The Lite engine (`SourceHandle`)
 
 The Lite engine is WebCodecs decoding through the shared refcounted

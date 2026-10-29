@@ -13,6 +13,7 @@ import { MIB } from '../shared/performance-settings.js'
 import type { PerformanceGpuHardware } from '../shared/performance-budgets.js'
 import { describePerformanceGraphics } from './performanceHardware.js'
 import { createLinuxHardwareDiagnostics } from './hardwareDiagnostics.js'
+import { createMacDecodeProbe } from './macDecodeProbe.js'
 import { Readable } from 'node:stream'
 import { createRequire } from 'node:module'
 import { execFile } from 'node:child_process'
@@ -2014,7 +2015,13 @@ app.whenReady().then(async () => {
   // for VAAPI, and falls back to software when none pass — so a build without a
   // HW lane (Linux SW-only) never reaches a native probe, no platform
   // special-casing.
+  const macDecodeProbe = process.platform === 'darwin' ? createMacDecodeProbe() : null
   ipcMain.handle('decodeCap:probeHw', async (_e, a: { path: string; classKey: string }) => {
+    // Session failure takes precedence even over a positive disk cache from a
+    // different format class. Never repeatedly enter a wedged driver lane.
+    if (macDecodeProbe?.unavailableReason) {
+      return { ok: false, lane: null, device: null, reason: macDecodeProbe.unavailableReason }
+    }
     // E2E/bench lane pin: the lane-parameterized preview-hw conformance spec
     // sets WEFTCUT_FORCE_HW_LANE so ONE variant tests exactly one HW lane on a
     // multi-lane machine. When set, hide every advertised HW lane except the
@@ -2044,7 +2051,11 @@ app.whenReady().then(async () => {
           const v = ndBackend().previewGpuProbe(a.path, 4000)
           return { ok: v.ok, reason: v.reason ?? null }
         }
-        if (lane === 'nvdec' || lane === 'vaapi' || lane === 'videotoolbox') {
+        if (lane === 'videotoolbox') {
+          return macDecodeProbe?.probe({ path: a.path, lane, device })
+            ?? { ok: false, reason: 'probe unavailable', cacheable: false }
+        }
+        if (lane === 'nvdec' || lane === 'vaapi') {
           const v = ndBackend().previewHwProbe(a.path, lane, device, 4000)
           return { ok: v.ok, reason: v.reason ?? null }
         }

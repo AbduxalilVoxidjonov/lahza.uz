@@ -588,6 +588,10 @@ jobs:
         if: (github.event_name != 'workflow_dispatch' || inputs.package) && (matrix.part == 'e2e-2' || matrix.part == 'all')
         run: npm run build && npx electron-builder --publish never
 
+      - name: Verify packaged macOS decode probe
+        if: runner.os == 'macOS' && (github.event_name != 'workflow_dispatch' || inputs.package) && (matrix.part == 'e2e-2' || matrix.part == 'all')
+        run: node scripts/smoke-packaged-decode-probe.mjs
+
       # Packaging is VERIFIED on every push by "Package (unsigned)" above; this
       # step only PERSISTS the resulting installer. Installers are large
       # (~0.4–0.9 GB per OS) and nothing downstream consumes them (the compare
