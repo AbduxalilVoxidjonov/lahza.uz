@@ -54,9 +54,53 @@ depends on.
   snapshot, so an unclassified arg fails CI before it can join a job.
 - **Contracts are tested as properties.** A decision with this many inputs is
   tested against a model of its world, not only against the cases found so
-  far: `mediaImport.model.test.ts` drives imports, overwrites and deletions
-  over a model file system and checks that every answered item's own file
-  holds the source's bytes.
+  far: `mediaImport.model.test.ts` drives imports, overwrites, deletions and
+  queued workspace copies over a model file system and checks that every
+  answered item's own file holds the source's bytes, and that no item's
+  settled hash ever changes.
+
+## Pool files changed outside the app
+
+A live reproduction showed what a stale hash costs. A source renamed over
+right after `import_media` returned, while its copy waited in the queue, was
+copied as it then stood; the write-back adopted the copy's hash, so the item
+silently changed bytes, and a thumbnail job that ran late cached the new
+picture under the old hash.
+
+- **`Media/` is the app's own, and a file there is never rewritten.** Every
+  import copies its source into `Media/` (ADR 0151), so after the copy the
+  only file an item reads is one the app wrote. A source outside the project
+  is read only until its copy lands. An agent working in the project folder
+  already changes its files only through tools (ADR 0152).
+- **A copy is the item's file only if it holds the recorded bytes.** The
+  workspace-copy write-back compares the copy's hash with the item's; a copy
+  of other bytes is deleted and the item keeps its source path.
+- **One stat screens every pool file** (`sourceFiles.ts`). Missing: as before.
+  A different size: `changed`. A different mtime alone, as a project folder
+  copied without its times has: the bytes are read once, in the background
+  and one file at a time; a match records the new mtime, a mismatch is
+  `changed`. No field is added to `project.json`; the item's `file_size` and
+  `file_mtime` are the screen. The summary rebuilds on every publication and
+  when the window regains focus.
+- **`changed` is unavailable, like missing.** The summary carries
+  `available: false, changed: true`; the pool shows a Changed badge that says
+  how to restore it. Nothing is deleted. Importing the original again relinks
+  the item by its bytes (ADR 0151); importing the new file makes a new item.
+  Deliberately swapping the media behind placed clips is a separate command
+  (issue #88).
+- **Every reader of a source's bytes checks first.** MCP tools that read a
+  source (clip compute, `analyze_audio`, `compare_frames`) refuse a changed or
+  missing one. The open-time derivative re-fan-out and import recovery leave
+  such an item out and enqueue its current record. Each native derivative
+  job that reads the source (`jobs::run_derivative`) stats it first, reads its
+  bytes when the stat differs from the record, and stats it again after
+  generating; a source that changed meanwhile has its derivative deleted and
+  nothing committed.
+
+The residual risk is accepted: a file replaced by one of the same size within
+the same second of modification time passes the stat. Only a tool that
+deliberately keeps times can do that, and importing such a file still reads
+its bytes.
 
 ## Consequences
 
