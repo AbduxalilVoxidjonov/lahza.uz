@@ -405,8 +405,11 @@ VideoToolbox capability resolution for this app session, including cached
 positives. These transient failures never become persistent negative capability
 entries. Before spawning, admission waits up to four seconds for temporary
 import contention to clear, with no reservation or child while waiting. Shutdown
-cancels this wait. Admission/concurrent-probe busy results fall back without caching
-or disabling the lane. The parent reserves one CPU thread and 192 MiB and
+cancels this wait. An admission wait that times out falls back without caching
+or disabling the lane. A probe asked for while another runs, such as an H.264
+and an HEVC source first opened together, waits its turn rather than being
+refused (ADR 0153): it waits for the previous caller's answer, not its child's
+exit, so an unreaped host delays no one. The parent reserves one CPU thread and 192 MiB and
 releases them only on the child's exit; after a one-second reap grace the caller
 can continue even if the OS has not yet reaped the host. Outstanding ownership
 is retained in that case. Actual preview sessions and export encoders retain
