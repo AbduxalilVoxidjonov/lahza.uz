@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { applyDerivativesEvent } from '../jobs-writeback'
+import { applyDerivativesEvent, applyWorkspacePathsEvent } from '../jobs-writeback'
 import { createActor, type ActorHandle } from '../actor'
 import { blankProject, type MediaItem, type Project } from '../model'
 import { seededGen } from '../ids'
@@ -61,5 +61,28 @@ describe('applyDerivativesEvent', () => {
     expect(!r.ok && r.error.error).toBe('MediaNotFound')
     expect(warn).toHaveBeenCalled()
     warn.mockRestore()
+  })
+})
+
+describe('applyWorkspacePathsEvent', () => {
+  const copy = (hash: string) => ({ media_id: MID, path_abs: '/ws/Media/clip-2.mp4', path_rel: 'Media/clip-2.mp4',
+    file_hash_blake3: hash, file_size: 10, file_mtime: 5 })
+
+  it('moves the item onto a copy of the bytes it records', () => {
+    const a = actorWithMedia(), relocated = vi.fn(), discard = vi.fn()
+    expect(applyWorkspacePathsEvent(a, { ...copy('x'), file_size: 0 }, relocated, discard)?.ok).toBe(true)
+    expect(a.snapshot().media_pool[MID]).toMatchObject({ path_abs: '/ws/Media/clip-2.mp4', file_hash_blake3: 'x' })
+    expect(relocated).toHaveBeenCalledOnce()
+    expect(discard).not.toHaveBeenCalled()
+  })
+
+  // The source was overwritten while its copy waited in the queue.
+  it('discards a copy of other bytes and keeps what the item records', () => {
+    const a = actorWithMedia(), relocated = vi.fn(), discard = vi.fn()
+    const before = structuredClone(a.snapshot().media_pool[MID])
+    expect(applyWorkspacePathsEvent(a, copy('other'), relocated, discard)).toBeNull()
+    expect(a.snapshot().media_pool[MID]).toEqual(before)
+    expect(discard).toHaveBeenCalledWith('/ws/Media/clip-2.mp4')
+    expect(relocated).not.toHaveBeenCalled()
   })
 })
