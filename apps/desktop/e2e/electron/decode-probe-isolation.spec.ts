@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
 import { launchApp, tmpDir, newProject, importAndPlaceMedia, driveExport } from './helpers/driver'
+import { verifyHardwareEvidence } from '../lib/hardware-evidence.mjs'
 
 test('macOS probe timeout preserves IPC, reaps its host and leaves the capability cache unchanged', async () => {
   test.skip(process.platform !== 'darwin', 'VideoToolbox probe isolation')
@@ -54,7 +55,13 @@ test('macOS probe timeout preserves IPC, reaps its host and leaves the capabilit
     // Exercise the real fallback and a subsequent export in the same session.
     await newProject(page, { parentFolder: tmpDir('weftcut-probe-project-'), name: 'Probe recovery',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
-    await importAndPlaceMedia(page, { mediaAbsPath: path.resolve('e2e/fixtures/media/test_1080p_30fps_6s.mp4') })
+    const { layerId } = await importAndPlaceMedia(page, { mediaAbsPath: path.resolve('e2e/fixtures/media/test_1080p_30fps_6s.mp4') })
+    await page.waitForFunction(id => (window as any).__weftcutTest.activeClipProbe(id)?.spriteBound, layerId)
+    const evidence = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
+    expect(evidence).toMatchObject({ sourceKind: 'sw', hwLane: null, hwDiagnostic: { kind: 'failed', reason: 'timeout' } })
+    // Product recovery remains successful, but the SAME evidence used by the
+    // hardware conformance gates must fail, never skip or claim a HW pass.
+    expect(() => verifyHardwareEvidence(evidence, 'videotoolbox')).toThrow(/Hardware probe\/session failed/)
     const result = await driveExport(page, { outputAbsPath: path.join(tmpDir('weftcut-probe-export-'), 'out.mp4'),
       settings: { hwAccel: 'software', decodeEngine: 'ffmpeg', audio: { include: false } } }, { hook: 'exportTimeline' })
     expect(result.done.ok, result.done.error).toBe(true)

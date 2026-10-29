@@ -46,10 +46,17 @@ describe("hwEligibleCodec (probe-kick union over the per-lane sets)", () => {
 });
 
 describe("pickInitialLane", () => {
+  it('preserves a failed hardware probe instead of silently erasing its cause', async () => {
+    const diagnostic = { kind: 'failed' as const, reason: 'timeout' };
+    const result = await pickInitialLane({ mediaId: 'm', codec: 'h264', pixFmt: 'yuv420p', componentAvailable: true },
+      async () => ({ ok: false, reason: 'timeout', diagnostic }), '/fixture.mp4');
+    expect(result).toMatchObject({ lane: 'software', diagnostic });
+  });
   it("resolves software for an ineligible codec without probing", async () => {
     const probe = vi.fn();
     const res = await pickInitialLane({ mediaId: "m", codec: "mpeg2video", pixFmt: "yuv420p", componentAvailable: true }, probe);
-    expect(res).toEqual({ lane: "software", hwLane: null, device: null });
+    expect(res).toEqual({ lane: "software", hwLane: null, device: null,
+      diagnostic: { kind: 'unavailable', reason: 'format is outside the hardware lane eligibility list' } });
     expect(probe).not.toHaveBeenCalled();
   });
   it("resolves hardware when an eligible codec's probe passes", async () => {
@@ -76,18 +83,18 @@ describe("pickInitialLane", () => {
     markHwUnusable("m", "device-lost");
     const probe = vi.fn(async () => ({ ok: true }));
     expect(await pickInitialLane({ mediaId: "m", codec: "h264", pixFmt: "yuv420p", componentAvailable: true }, probe, "C:/x.mp4"))
-      .toEqual({ lane: "software", hwLane: null, device: null });
+      .toEqual({ lane: "software", hwLane: null, device: null, diagnostic: { kind: 'failed', reason: 'device-lost' } });
   });
   it("resolves software when the component is unavailable", async () => {
     const probe = vi.fn(async () => ({ ok: true }));
     expect(await pickInitialLane({ mediaId: "m", codec: "h264", pixFmt: "yuv420p", componentAvailable: false }, probe, "C:/x.mp4"))
-      .toEqual({ lane: "software", hwLane: null, device: null });
+      .toEqual({ lane: "software", hwLane: null, device: null, diagnostic: { kind: 'failed', reason: 'native decode component unavailable' } });
     expect(probe).not.toHaveBeenCalled();
   });
   it("resolves software when the probe declines (ok:false)", async () => {
     const probe = vi.fn(async () => ({ ok: false }));
     expect(await pickInitialLane({ mediaId: "m", codec: "h264", pixFmt: "yuv420p", componentAvailable: true }, probe, "C:/x.mp4"))
-      .toEqual({ lane: "software", hwLane: null, device: null });
+      .toEqual({ lane: "software", hwLane: null, device: null, diagnostic: { kind: 'failed', reason: 'hardware probe declined without a diagnostic' } });
   });
 });
 

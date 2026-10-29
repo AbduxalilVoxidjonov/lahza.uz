@@ -10,6 +10,29 @@
 // ffmpegCapability.ts — this module only observes.
 import { logEmit, type LogEntryInput } from "../../ipc";
 import type { FfmpegLane } from "./decodeEngine";
+import type { DecodeHardwareDiagnostic } from '../../../shared/decode-hardware-diagnostic';
+
+export interface HardwareEvidence { diagnostic: DecodeHardwareDiagnostic | null; fallbackCount: number }
+const hardwareByClip = new Map<string, HardwareEvidence>();
+export function hardwareDecodeEvidence(layerId: string, mediaId: string): HardwareEvidence {
+  return hardwareByClip.get(clipKey(layerId, mediaId)) ?? { diagnostic: null, fallbackCount: 0 };
+}
+export function noteHardwareSelection(layerId: string, mediaId: string, diagnostic?: DecodeHardwareDiagnostic): void {
+  const prior = hardwareDecodeEvidence(layerId, mediaId);
+  hardwareByClip.set(clipKey(layerId, mediaId), { ...prior, diagnostic: diagnostic ?? null });
+  if (!diagnostic || JSON.stringify(prior.diagnostic) === JSON.stringify(diagnostic)) return;
+  const message = `hardware decode selection: layer ${layerId} media ${mediaId} software (${diagnostic.kind}: ${diagnostic.reason})`;
+  emit(diagnostic.kind === 'failed' ? 'warn' : 'info', message);
+  if (diagnostic.kind === 'failed') console.warn(`[weftcut/decode] ${message}`);
+}
+/** Record BEFORE asynchronous recovery. The count survives source recreation
+ * and re-promotion, so a late hardware frame cannot erase a mid-sample failure. */
+export function noteHardwareFallback(layerId: string, mediaId: string, reason: string): void {
+  const prior = hardwareDecodeEvidence(layerId, mediaId);
+  hardwareByClip.set(clipKey(layerId, mediaId), {
+    diagnostic: { kind: 'failed', reason }, fallbackCount: prior.fallbackCount + 1,
+  });
+}
 
 /// Last lane each clip was seen to open on, keyed by layer AND media. Layer
 /// alone would read a relink/replace as a transition (a new media's first open
@@ -56,4 +79,5 @@ export function noteLaneOpen(o: {
 /// Test/e2e hook: forget session lane history.
 export function resetFfmpegLaneTrail(): void {
   laneByClip.clear();
+  hardwareByClip.clear();
 }

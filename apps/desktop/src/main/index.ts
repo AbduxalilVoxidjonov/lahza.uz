@@ -2020,7 +2020,8 @@ app.whenReady().then(async () => {
     // Session failure takes precedence even over a positive disk cache from a
     // different format class. Never repeatedly enter a wedged driver lane.
     if (macDecodeProbe?.unavailableReason) {
-      return { ok: false, lane: null, device: null, reason: macDecodeProbe.unavailableReason }
+      return { ok: false, lane: null, device: null, reason: macDecodeProbe.unavailableReason,
+        diagnostic: { kind: 'failed', reason: macDecodeProbe.unavailableReason } }
     }
     // E2E/bench lane pin: the lane-parameterized preview-hw conformance spec
     // sets WEFTCUT_FORCE_HW_LANE so ONE variant tests exactly one HW lane on a
@@ -2063,7 +2064,7 @@ app.whenReady().then(async () => {
         return { ok: false, reason: 'lane not built' }
       },
     })
-    return { ok: r.ok, reason: r.reason, lane: r.lane, device: r.device }
+    return { ok: r.ok, reason: r.reason, lane: r.lane, device: r.device, ...(r.diagnostic ? { diagnostic: r.diagnostic } : {}) }
   })
 
   // Native SOFTWARE-decode preview (ProRes/DNxHD/MPEG-2/VC-1 — the

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { hardwareGate } from './helpers/hardwareGate'
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
@@ -250,12 +251,12 @@ test.describe('decode-engine resolution (Electron)', () => {
       // cell asserts; anything else means this host advertises no HW decode lane
       // (e.g. macOS, software-only) and the cell skips rather than failing.
       const probe = await waitForBuiltKey(page, layerId, null, 'ffmpeg:original:')
-      test.skip(
-        probe.sourceKind !== 'native-gpu',
-        `H.264 HW lane not engaged on this host (sourceKind=${probe.sourceKind}) — no advertised HW lane passed its probe`,
-      )
+      const live = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
+      const expectedLane = live.hwLane ?? (process.platform === 'darwin' ? 'videotoolbox' : process.platform === 'win32' ? 'd3d11va' : 'nvdec')
+      const evidence = await hardwareGate(page, layerId, expectedLane, 'h264')
       expect(probe.sourceKind).toBe('native-gpu')
       expect(probe.builtFromKey!.startsWith('ffmpeg:original:')).toBe(true)
+      await hardwareGate(page, layerId, expectedLane, 'h264', evidence)
     } finally {
       await invokeCmd(page, 'app_settings_set', { patch: { decode_engine: 'auto' } }).catch(() => {})
       await app.close()

@@ -23,7 +23,11 @@ try {
       const result = await page.evaluate(() => window.api.decodeCap.probeHw('/nonexistent-probe-fixture.mp4', 'h264::yuv420p:hd'))
       // A native file-open negative proves the module loaded. Startup failure,
       // timeout and absent lane must fail instead of masquerading as fallback.
-      assert.deepEqual(result, { ok: false, lane: null, device: null, reason: 'no hw lane passed' })
+      assert.equal(result.ok, false)
+      assert.equal(result.lane, null)
+      assert.equal(result.reason, 'no hw lane passed')
+      assert.equal(result.diagnostic?.kind, 'failed')
+      assert.ok(result.diagnostic.reason.length > 0)
       const cache = JSON.parse(fs.readFileSync(path.join(profile, 'decode_capability.json'), 'utf8'))
       assert.equal(cache.entries.videotoolbox['h264::yuv420p:hd'].ok, false)
       console.log('Packaged macOS decode probe: native verdict received and host reaped')

@@ -15,7 +15,7 @@ import { pickInitialLane, markHwUnusable } from "./ffmpegCapability";
 import { isResourceCapacityError } from '../../../shared/resource-policy';
 import { isTenBitPixFmt } from "../../../shared/hwLaneEligibility";
 import type { FfmpegLaneResolution } from "./ffmpegCapability";
-import { noteLaneOpen } from "./ffmpegLaneTrail";
+import { noteLaneOpen, noteHardwareSelection, noteHardwareFallback, hardwareDecodeEvidence } from "./ffmpegLaneTrail";
 import {
   HW_BUDGET_EXCEEDED,
   HW_BUDGET_RESERVATION_MISMATCH,
@@ -155,6 +155,7 @@ export class FfmpegSource implements PreviewDecodeSession {
   /// conformance spec reads this (via `ActiveClipProbe.hwLane`) to assert WHICH
   /// HW lane engaged.
   currentHwLane(): string | null { return this.hwPlan?.lane ?? null; }
+  hardwareEvidence() { return hardwareDecodeEvidence(this.layerId, this.mediaId); }
   isDowngraded(): boolean { return this.startedHardware && this.lane === "software"; }
   /// True only for this decode session's transient admission spill. Runtime
   /// device/capability failures remain sticky and must never be recycled by
@@ -242,6 +243,7 @@ export class FfmpegSource implements PreviewDecodeSession {
       );
     if (this._disposed) return;
     this.lane = res.lane;
+    noteHardwareSelection(this.layerId, this.mediaId, res.diagnostic);
     this.hwPlan = res.lane === "hardware" && res.hwLane
       ? { lane: res.hwLane, device: res.device }
       : null;
@@ -306,6 +308,7 @@ export class FfmpegSource implements PreviewDecodeSession {
         }
         if (!budgetExceeded && !reservationMismatch) markHwUnusable(this.mediaId, reason);
         this.budgetSpill = budgetExceeded;
+        noteHardwareFallback(this.layerId, this.mediaId, reason);
         // Console too, matching onTransportError: bench harnesses read the PAGE
         // console, so an OPEN-time fall to software must carry its CAUSE there —
         // a LogBus lane-trail row alone lets a bench DRIFT cell name the fact
@@ -488,6 +491,7 @@ export class FfmpegSource implements PreviewDecodeSession {
   private onTransportError(lane: FfmpegLane, reason: string): void {
     if (this._disposed) return;
     if (lane === "hardware" && this.startedHardware && this.transport) {
+      noteHardwareFallback(this.layerId, this.mediaId, reason);
       // Console too, not just the LogBus lane-trail row: the trail names the
       // transition but bench harnesses read the PAGE console, and a HW lane
       // dying mid-run is the one event whose REASON must survive into a

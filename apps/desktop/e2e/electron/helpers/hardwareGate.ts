@@ -1,0 +1,27 @@
+import { test, type Page } from '@playwright/test'
+import { verifyHardwareEvidence, hardwareRequired } from '../../lib/hardware-evidence.mjs'
+
+/** NVDEC can be compiled into a GPU-less Linux build. A successful device
+ * inventory with no NVIDIA adapter is affirmative environmental evidence;
+ * a missing driver or failed inventory on a GPU host is not. */
+export async function hardwareEnvironmentGate(page: Page, lane: string, codec: string) {
+  if (process.platform !== 'linux' || lane !== 'nvdec') return
+  const hardware = (await page.evaluate(() => window.api.performanceResources.info())).hardware
+  if (!hardware || hardware.inventory_reason !== null || hardware.devices.some(d => d.vendor_id === null || d.vendor_id === 0x10de)) return
+  await test.info().attach('hardware-inventory', { body: JSON.stringify(hardware), contentType: 'application/json' })
+  if (hardwareRequired(lane, codec, process.platform, process.env.WEFTCUT_REQUIRE_HW_VARIANTS))
+    throw new Error('Required NVDEC hardware missing: inventory contains no NVIDIA adapter')
+  test.skip(true, 'Verified Linux hardware inventory contains no NVIDIA adapter')
+}
+
+export async function hardwareGate(page: Page, layerId: string, lane: string, codec: string, before?: any) {
+  const current = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
+  await test.info().attach(before ? 'hardware-after-sampling' : 'hardware-before-sampling', {
+    body: JSON.stringify(current), contentType: 'application/json',
+  })
+  const reason = verifyHardwareEvidence(current, lane, {
+    required: hardwareRequired(lane, codec, process.platform, process.env.WEFTCUT_REQUIRE_HW_VARIANTS), before,
+  })
+  test.skip(reason !== null, reason ?? '')
+  return current
+}

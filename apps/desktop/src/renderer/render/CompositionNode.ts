@@ -197,6 +197,8 @@ export interface ActiveClipProbe {
   /// lane-parameterized preview-hw conformance spec asserts this to prove WHICH
   /// HW lane engaged.
   hwLane: string | null;
+  hwDiagnostic: import('../../shared/decode-hardware-diagnostic').DecodeHardwareDiagnostic | null;
+  hwFallbackCount: number;
   /// The resolver IDENTITY (`${engine}:${source}:${target}`) the active clip's
   /// source was built from — see `ActiveClip.builtFromKey`. Lets the decode-
   /// engine e2e spec assert the resolved ENGINE/SOURCE (the two
@@ -963,6 +965,8 @@ export class CompositionNode {
       boundFrameSourceKey: clip.boundFrameSourceKey,
       boundFrameKind: clip.boundFrameKind,
       hwLane: s instanceof FfmpegSource ? s.currentHwLane() : null,
+      hwDiagnostic: s instanceof FfmpegSource ? s.hardwareEvidence().diagnostic : null,
+      hwFallbackCount: s instanceof FfmpegSource ? s.hardwareEvidence().fallbackCount : 0,
       builtFromKey: clip.builtFromKey,
     };
   }

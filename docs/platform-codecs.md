@@ -13,6 +13,26 @@ A hardware pass means the spec asserted engagement of the named lane. A skip
 means no measurement was made. Building an installer does not verify that a
 user can install and launch it.
 
+Hardware preview gates now attach the actual lane, the initial probe diagnostic
+and a monotonic per-clip hardware-fallback count before and after pixel/SSIM
+sampling. Timeout, crash, IPC/admission failure, unknown rejection and runtime
+fallback fail the gate; a later return to hardware does not erase a fallback.
+Only affirmative unavailability (no advertised/eligible lane, no render device,
+an observed native software frame, or a successful Linux inventory without an
+NVIDIA adapter) can skip an optional variant. Missing fixtures/components are
+test setup failures. Legacy negative cache entries without a cause are not
+accepted as unavailability evidence; hardware audits use fresh profiles.
+
+On macOS the VideoToolbox H.264 and HEVC Main10 cells are mandatory, including
+all four H.264 color charts. ProRes is host-dependent. To require additional
+known capabilities, set `WEFTCUT_REQUIRE_HW_VARIANTS` to a comma-separated list
+such as `d3d11va-h264` or `videotoolbox-prores`; valid variants are
+`nvdec-h264`, `vaapi-h264`, `d3d11va-h264`, `videotoolbox-h264`,
+`videotoolbox-hevc10`, `videotoolbox-prores`. This strengthens assertions; it
+does not select which specs run. Unknown names fail configuration validation.
+Product software fallback remains enabled; test strictness does not change
+the editor's recovery behavior.
+
 ## Encode and decode matrix
 
 | Path | Windows | Linux | macOS (Apple Silicon) |

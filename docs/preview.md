@@ -413,6 +413,16 @@ Electron IPC path, timeout-to-software recovery and native addon loading on
 macOS. `scripts/smoke-packaged-decode-probe.mjs` verifies the same native loading
 path in the signed application bundle after packaging.
 
+Hardware probe failures carry a structured diagnostic through IPC and initial
+lane selection. Native rejection details are retained alongside negative
+capability cache entries. Initial failed selection emits a diagnostic log;
+the active clip exposes `hwDiagnostic` and `hwFallbackCount` in addition to
+`hwLane`. The count is recorded before asynchronous recovery and survives
+source recreation/re-promotion for the same clip and media. Hardware acceptance
+tests use that evidence both before and after sampling, so a successful
+software fallback cannot be counted as hardware coverage (see
+`platform-codecs.md` for skip/required-variant rules).
+
 ### The Lite engine (`SourceHandle`)
 
 The Lite engine is WebCodecs decoding through the shared refcounted
