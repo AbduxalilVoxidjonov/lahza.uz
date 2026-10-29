@@ -274,6 +274,11 @@ describe('buildProjectSummary (mirror commands/mod.rs:322 build_project_summary)
       '00000000-0000-0000-0000-0000000000bb', '00000000-0000-0000-0000-0000000000aa',
     ])
     expect(s.media[0]).toMatchObject({ label: 'clip.bin', kind: 'Audio', available: false, decode_route: { route: 'bypass' } })
+    expect(s.media[0].changed).toBeUndefined()
+    // A file that is there but holds other bytes is unavailable, and says why.
+    const changed = buildProjectSummary(actor.snapshot(), actor.historyStatus(), () => true,
+      (m) => (m.id.endsWith('bb') ? 'changed' : 'present'))
+    expect(changed.media.map((m) => [m.available, m.changed ?? false])).toEqual([[false, true], [true, false]])
     const t0 = s.compositions[s.root_id]!.tracks[0]!
     expect(t0.kind).toBe('Video')
     expect(t0.layers[0]!.kind).toBe('Color')

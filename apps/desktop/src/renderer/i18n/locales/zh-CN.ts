@@ -1019,6 +1019,8 @@ const zhCN: Resources = {
     importing_cancel_hint: "取消复制，保留原文件引用",
     missing: "缺失",
     missing_hint: "源文件未找到：{{path}}",
+    changed: "已改变",
+    changed_hint: "{{path}} 已在 WeftCut 之外被修改，不再是这个素材。重新导入原文件即可恢复。",
     proxy_pending: "准备中…",
     proxy_pending_hint: "正在确认可用的预览来源…",
     optimizing: "后台优化中",

@@ -380,6 +380,9 @@ async function createWindow(): Promise<BrowserWindow> {
   // quits. Wrapped rather than passed by reference so no emitter argument can
   // ever reach the gate.
   win.on('closed', () => quitIfLastUserWindowClosed())
+  // Back from elsewhere, where the user may have changed a pool file: the
+  // summary says so if it did (ADR 0153).
+  win.on('focus', () => tsHost?.refreshSources?.())
 
   // Forward the fullscreen state so the renderer can drop its self-drawn window
   // edge (base.css .app-window-fullscreen) while the window owns the screen.

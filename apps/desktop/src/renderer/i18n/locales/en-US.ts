@@ -1152,6 +1152,8 @@ const enUS = {
     importing_cancel_hint: "Cancel copy and keep the original reference",
     missing: "Missing",
     missing_hint: "Source file not found: {{path}}",
+    changed: "Changed",
+    changed_hint: "{{path}} was changed outside WeftCut and no longer holds this media. Import the original file again to restore it.",
     proxy_pending: "Preparing…",
     proxy_pending_hint: "Preview is being prepared…",
     optimizing: "Optimizing in background",

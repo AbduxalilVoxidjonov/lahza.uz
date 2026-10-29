@@ -691,7 +691,7 @@ export function MediaPool({
                         ? withReason(t("media_pool.optimizing_hint"))
                         : t("media_pool.card_ready_hint")
                       : reason === "missing"
-                        ? t("media_pool.missing_hint", { path: m.path })
+                        ? t(m.changed ? "media_pool.changed_hint" : "media_pool.missing_hint", { path: m.path })
                         : reason === "proxy_pending"
                           ? withReason(
                               t("media_pool.proxy_pending_hint", {
@@ -748,9 +748,9 @@ export function MediaPool({
                     {reason === "missing" && (
                       <span
                         className="media-missing-badge"
-                        title={t("media_pool.missing_hint", { path: m.path })}
+                        title={t(m.changed ? "media_pool.changed_hint" : "media_pool.missing_hint", { path: m.path })}
                       >
-                        {t("media_pool.missing")}
+                        {t(m.changed ? "media_pool.changed" : "media_pool.missing")}
                       </span>
                     )}
                     {reason === "proxy_pending" && (

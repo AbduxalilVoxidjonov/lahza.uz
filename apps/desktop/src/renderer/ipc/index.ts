@@ -275,6 +275,9 @@ export interface MediaSummary {
   /// "missing source" badge; project still opens; layers referencing the
   /// missing item render placeholders.
   available: boolean;
+  /// The file is there but holds other bytes than this item records (changed
+  /// outside WeftCut); `available` is false too, so it is treated as missing.
+  changed?: boolean;
   /// Where preview/export decode from + proxy readiness. See decodeRoute.ts.
   decode_route: DecodeRoute;
   /// Source video codec ("h264"/"hevc"/"prores"/…), null for audio/image.
