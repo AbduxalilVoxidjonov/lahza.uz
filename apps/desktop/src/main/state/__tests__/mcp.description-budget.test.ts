@@ -1,4 +1,5 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // apps/desktop/src/main/state/__tests__/mcp.description-budget.test.ts
 // The context budget of the advertised MCP catalog — the one number an agent
 // pays on every session before it has done anything.
@@ -29,7 +30,7 @@ const rust = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown>, annotations: t.annotations as ToolAnnotations | undefined })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS],
 )
 
 /** Per-tool description ceiling, in characters. */
@@ -79,7 +80,10 @@ const PROPERTY_DESCRIPTION_CAP = 260
 // +1 KB: the project folder as an agent's working directory (ADR 0151, 0152) —
 // `import_media` takes project-relative paths and says when the pool already
 // held the file; `read_project` reads one media item's card.
-const CATALOG_BYTE_BUDGET = 158_000
+// +3 KB: the `lahza_*` tools (docs/mcp.md § Lahza) — seven tools fronting the
+// Lahza sidecar's Uzbek ASR, highlights, placement and Reel export, each
+// description already cut to its return shape.
+const CATALOG_BYTE_BUDGET = 161_000
 
 function compact(v: unknown): string { return JSON.stringify(v) }
 

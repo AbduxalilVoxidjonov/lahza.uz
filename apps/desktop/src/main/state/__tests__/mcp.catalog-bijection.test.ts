@@ -1,9 +1,10 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // apps/desktop/src/main/state/__tests__/mcp.catalog-bijection.test.ts
 // Permanent catalog↔handler bijection gate.
 //
 // Asserts the LIVE merged MCP catalog — mergeMcpCatalog(rust-native snapshot,
-// [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS]), exactly what server.ts advertises via
+// [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS]), exactly what server.ts advertises via
 // ListTools — is a clean, disjoint union where every advertised tool routes to a
 // bucket that actually serves it, and every required scalar is enforced by its parser.
 //
@@ -30,9 +31,10 @@ const rustNames = new Set(rust.tools.map((t) => t.name))
 const tsNames = new Set(MCP_TOOL_DEFS.map((d) => d.name))
 const exportNames = new Set(EXPORT_TOOL_DEFS.map(d => d.name))
 const motifNames = new Set(MOTIF_TOOL_DEFS.map((d) => d.name))
+const lahzaNames = new Set(LAHZA_TOOL_DEFS.map((d) => d.name))
 
 // The catalog the MCP host actually advertises at runtime (server.ts ListTools).
-const merged = mergeMcpCatalog(rust.tools, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS])
+const merged = mergeMcpCatalog(rust.tools, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS])
 const mergedNames = merged.map((t) => t.name)
 
 // ── Assertion 6: structural-field exclusions ─────────────────────────────────
@@ -52,15 +54,16 @@ describe('MCP catalog↔handler bijection (permanent gate)', () => {
     // A name claimed by both the live Rust catalog and a TS table would be silently
     // dropped by mergeMcpCatalog (dedup by name), hiding which engine truly owns it.
     expect([...exportNames].filter(n => rustNames.has(n) || tsNames.has(n) || motifNames.has(n))).toEqual([])
+    expect([...lahzaNames].filter(n => rustNames.has(n) || tsNames.has(n) || motifNames.has(n) || exportNames.has(n))).toEqual([])
     expect([...rustNames].filter((n) => tsNames.has(n))).toEqual([])
     expect([...rustNames].filter((n) => motifNames.has(n))).toEqual([])
     expect([...tsNames].filter((n) => motifNames.has(n))).toEqual([])
   })
 
   it('2. the merged catalog is an exact, duplicate-free union of the three buckets', () => {
-    expect(new Set(mergedNames)).toEqual(new Set([...rustNames, ...tsNames, ...motifNames, ...exportNames]))
+    expect(new Set(mergedNames)).toEqual(new Set([...rustNames, ...tsNames, ...motifNames, ...exportNames, ...lahzaNames]))
     // Disjoint (assertion 1) ⇒ nothing dropped, so the count is the plain sum.
-    expect(mergedNames.length).toBe(rustNames.size + tsNames.size + motifNames.size + exportNames.size)
+    expect(mergedNames.length).toBe(rustNames.size + tsNames.size + motifNames.size + exportNames.size + lahzaNames.size)
     expect(new Set(mergedNames).size).toBe(mergedNames.length) // no duplicate names
   })
 
@@ -71,6 +74,7 @@ describe('MCP catalog↔handler bijection (permanent gate)', () => {
       else if (r === 'hybrid') expect(HYBRID_TOOLS.has(n), n).toBe(true)
       else if (r === 'export') expect(exportNames.has(n), n).toBe(true)
       else if (r === 'motif') expect(motifNames.has(n), n).toBe(true)
+      else if (r === 'lahza') expect(lahzaNames.has(n), n).toBe(true)
       else {
         // route 'rust' = backend-dispatched (present in the live snapshot) OR
         // preview_motif, whose def is TS-sourced but whose execution is the

@@ -1,8 +1,8 @@
 {
   "name": "@weftcut/desktop",
-  "productName": "WeftCut",
+  "productName": "Lahza Studio",
   "version": "0.5.4",
-  "description": "WeftCut video editor desktop app",
+  "description": "Lahza Studio: Uzbek video editor built on WeftCut",
   "homepage": "https://github.com/WeftCut/WeftCut",
   "author": {
     "name": "UncleChair",

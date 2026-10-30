@@ -84,6 +84,17 @@ const api: WeftcutApi = {
       return () => ipcRenderer.removeListener('colorpick:hover', listener)
     },
   },
+  lahza: {
+    status: () => ipcRenderer.invoke('lahza:status'),
+    start: () => ipcRenderer.invoke('lahza:start'),
+    analyze: args => ipcRenderer.invoke('lahza:analyze', args),
+    job: id => ipcRenderer.invoke('lahza:job', { id }),
+    cancelJob: id => ipcRenderer.invoke('lahza:cancelJob', { id }),
+    episodes: () => ipcRenderer.invoke('lahza:episodes'),
+    highlights: episodeId => ipcRenderer.invoke('lahza:highlights', { episode_id: episodeId }),
+    place: (episodeId, clipId) => ipcRenderer.invoke('lahza:place', { episode_id: episodeId, clip_id: clipId }),
+    exportClip: (episodeId, clipId, outDir) => ipcRenderer.invoke('lahza:exportClip', { episode_id: episodeId, clip_id: clipId, out_dir: outDir }),
+  },
   backend: {
     invoke(channel: string, args?: unknown): Promise<unknown> {
       return ipcRenderer.invoke('backend:invoke', { channel, args })

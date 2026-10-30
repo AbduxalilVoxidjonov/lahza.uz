@@ -31,6 +31,7 @@ import { mediaMimeForExt } from './mediaMime.js'
 import { VLM_ENDPOINT_KEY_TAG } from '../shared/vlm-config.js'
 import { registerMotifProtocol } from './motif/protocol.js'
 import { installPerformanceCalibration } from './performanceCalibration.js'
+import { installLahza } from './lahza/install.js'
 import { setRuntimeSource, captureMotifFrameB64, captureMotifTexture, setTextureCaptureEnabled, isMotifContentFailure, setMotifStore, shutdownCaptureHost, invalidateCaptureSurface, controlMotifCapture, captureDiagnostics, resetCaptureFailure } from './motif/capture.js'
 import { setMotifMediaSource } from './motif/mediaProps.js'
 import { rasterizeSvg } from './svgRaster.js'
@@ -49,6 +50,10 @@ import type { SecondaryWinOpts } from './windowConfig.js'
 import { taskbarProgressArgs } from './taskbarProgress.js'
 import { shouldClearApplicationMenu } from './inputPolicy.js'
 import { WINDOWS_APP_USER_MODEL_ID } from './appIdentity.js'
+import { setUiLanguage, tr } from './uiLanguage.js'
+
+/** Whether a Lahza Studio release feed exists for electron-updater to follow. */
+const LAHZA_RELEASE_FEED = false
 import { buildApplicationMenuTemplate, sanitizeMenuProjection } from './appMenu.js'
 import type { MenuProjection } from '../shared/menu.js'
 import { broadcastEvent } from './broadcast.js'
@@ -440,16 +445,17 @@ async function warnIfElevatedWindows(win: BrowserWindow): Promise<void> {
   if (process.env['WEFTCUT_SUPPRESS_ELEVATION_NOTICE']) return
   if (!(await isElevatedWindows())) return
   if (win.isDestroyed()) return
-  const zh = app.getLocale().toLowerCase().startsWith('zh')
   await dialog.showMessageBox(win, {
     type: 'info',
     noLink: true,
     buttons: ['OK'],
-    title: zh ? '正在以管理员身份运行' : 'Running as administrator',
-    message: zh ? '拖放导入已被禁用' : 'Drag-and-drop import is disabled',
-    detail: zh
-      ? 'Windows 会阻止把文件从资源管理器拖放到以管理员身份运行的应用。要启用拖放,请以普通方式(不要"以管理员身份运行")重新启动 WeftCut。你仍可使用"导入媒体…"按钮导入。'
-      : 'Windows blocks dragging files from File Explorer into an app that runs as administrator. To enable drag-and-drop, relaunch WeftCut normally (not "Run as administrator"). You can still import with the "Import media…" button.',
+    title: tr({ uz: 'Administrator sifatida ishlayapti', en: 'Running as administrator', zh: '正在以管理员身份运行' }),
+    message: tr({ uz: "Fayllarni sudrab tashlash o'chirilgan", en: 'Drag-and-drop import is disabled', zh: '拖放导入已被禁用' }),
+    detail: tr({
+      uz: "Windows administrator sifatida ishlayotgan dasturga Explorer'dan fayl sudrab tashlashni bloklaydi. Buni yoqish uchun Lahza Studio'ni oddiy usulda («Administrator sifatida» emas) qayta oching. Hozircha «Media qo'shish…» tugmasidan foydalanishingiz mumkin.",
+      en: 'Windows blocks dragging files from File Explorer into an app that runs as administrator. To enable drag-and-drop, relaunch Lahza Studio normally (not "Run as administrator"). You can still import with the "Import media…" button.',
+      zh: 'Windows 会阻止把文件从资源管理器拖放到以管理员身份运行的应用。要启用拖放,请以普通方式(不要"以管理员身份运行")重新启动 Lahza Studio。你仍可使用"导入媒体…"按钮导入。',
+    }),
   })
 }
 
@@ -556,6 +562,7 @@ app.whenReady().then(async () => {
     gpuMemoryMiB: performanceGpu?.dedicatedMemoryMib,
     machineId: performanceMachineId, appVersion: app.getVersion(),
     onCommitted: settings => {
+      setUiLanguage(settings.language)
       updatePreferenceChanged()
       layoutTheme = readLayoutTheme(settings.layout_theme)
       syncMainWindowMinimumSize()
@@ -567,6 +574,7 @@ app.whenReady().then(async () => {
     },
   })
   const initialAppSettings = appSettings.get()
+  setUiLanguage(initialAppSettings.language)
   layoutTheme = readLayoutTheme(initialAppSettings.layout_theme)
   hydrateResourceAllocation(initialAppSettings.resource_allocation)
   configureResources(initialAppSettings.resource_allocation!)
@@ -619,25 +627,34 @@ app.whenReady().then(async () => {
     },
     join: path.join,
     showUnavailableDialog: (unavailableRoot) => {
-      const zh = app.getLocale().toLowerCase().startsWith('zh')
       const idx = dialog.showMessageBoxSync({
         type: 'error',
         noLink: true,
-        buttons: zh ? ['重新选择…', '退出'] : ['Re-set…', 'Quit'],
+        buttons: tr({ uz: ['Boshqa papka tanlash…', 'Chiqish'], en: ['Re-set…', 'Quit'], zh: ['重新选择…', '退出'] }),
         defaultId: 0,
         cancelId: 1,
-        title: zh ? '数据文件夹不可用' : 'Data folder unavailable',
-        message: zh ? 'WeftCut 无法访问已配置的数据文件夹' : "WeftCut can't reach its data folder",
-        detail: zh
-          ? `路径:\n${unavailableRoot}\n\n该磁盘可能未挂载、被删除或权限被撤销。请重新选择一个位置,或退出。`
-          : `Path:\n${unavailableRoot}\n\nThe drive may be unmounted, deleted, or its permission revoked. Choose a new location, or quit.`,
+        title: tr({ uz: "Ma'lumotlar papkasi topilmadi", en: 'Data folder unavailable', zh: '数据文件夹不可用' }),
+        message: tr({ uz: "Lahza Studio o'z ma'lumotlar papkasini ocholmayapti", en: "Lahza Studio can't reach its data folder", zh: 'Lahza Studio 无法访问已配置的数据文件夹' }),
+        detail: tr({
+          uz: `Manzil:
+${unavailableRoot}
+
+Disk ulanmagan, o'chirilgan yoki ruxsat olib tashlangan bo'lishi mumkin. Boshqa joy tanlang yoki chiqing.`,
+          en: `Path:
+${unavailableRoot}
+
+The drive may be unmounted, deleted, or its permission revoked. Choose a new location, or quit.`,
+          zh: `路径:
+${unavailableRoot}
+
+该磁盘可能未挂载、被删除或权限被撤销。请重新选择一个位置,或退出。`,
+        }),
       })
       return idx === 0 ? 'reset' : 'quit'
     },
     pickDirectory: () => {
-      const zh = app.getLocale().toLowerCase().startsWith('zh')
       const picked = dialog.showOpenDialogSync({
-        title: zh ? '选择数据文件夹' : 'Choose a data folder',
+        title: tr({ uz: "Ma'lumotlar papkasini tanlang", en: 'Choose a data folder', zh: '选择数据文件夹' }),
         properties: ['openDirectory', 'createDirectory'],
       })
       return picked && picked.length > 0 ? picked[0] : null
@@ -1326,7 +1343,10 @@ app.whenReady().then(async () => {
     clear: () => fs.rmSync(resumePath, { force: true }),
   })
   const resumeAfterUpdate = updateResume.take()
-  const updates = createUpdates(app.isPackaged && process.platform !== 'darwin'
+  // Lahza Studio has no release feed of its own yet; the inherited one is
+  // upstream WeftCut's, whose installer would replace this app. Updates stay
+  // disabled until Lahza Studio publishes its own releases.
+  const updates = createUpdates(LAHZA_RELEASE_FEED && app.isPackaged && process.platform !== 'darwin'
     ? electronUpdater.autoUpdater : null, {
     installOnQuit: () => appSettings.get().auto_install_updates_on_quit !== false,
     skippedVersion: () => appSettings.get().skipped_update_version,
@@ -1951,6 +1971,8 @@ app.whenReady().then(async () => {
   // than hanging, but the ack ordering still exists to avoid paying that cost.
   installPreviewGpuIpc(ndBackend, () => mainWindow)
   installPerformanceCalibration(dataRoot.cacheDir)
+  // Lahza engine: lazily started on the panel's or an agent's first call.
+  installLahza(() => tsHost)
   // Complete GPU identity initializes lazily when diagnostics are requested;
   // basic info on macOS can contain only a vendor ID before GPU startup.
   let graphicsInfo: Promise<ReturnType<typeof describePerformanceGraphics> | null> | undefined
@@ -2296,9 +2318,8 @@ app.whenReady().then(async () => {
   // relaunch (does NOT relaunch — the renderer times that via dataRoot:relaunch).
   // On failure: roll back the new root and return the error (data_root unchanged).
   ipcMain.handle('dataRoot:pickAndMigrate', async (): Promise<DataRootMigrateResult> => {
-    const zh = app.getLocale().toLowerCase().startsWith('zh')
     const picked = dialog.showOpenDialogSync(mainWindow!, {
-      title: zh ? '选择新的数据文件夹' : 'Choose a new data folder',
+      title: tr({ uz: "Yangi ma'lumotlar papkasini tanlang", en: 'Choose a new data folder', zh: '选择新的数据文件夹' }),
       properties: ['openDirectory', 'createDirectory'],
     })
     if (!picked || picked.length === 0) return { ok: false, cancelled: true }
@@ -2898,19 +2919,18 @@ function confirmQuit(): Promise<boolean> {
   const computing = computeJobs?.running() ?? 0;
   if (!exporting && computing === 0) return Promise.resolve(true);
   quitPrompt = (async () => {
-    const zh = app.getLocale().startsWith('zh');
     if (exporting) {
       const result = await dialog.showMessageBox({type:'question',
-        message:zh ? '导出尚未完成，是否取消并退出？' : 'An export is unfinished. Cancel it and quit?',
-        detail:zh ? '等待重试的导出也会被丢弃。退出前将等待清理完成。' : 'Pending export results will be discarded. Cleanup must finish before quitting.',
-        buttons:zh ? ['留在应用','取消导出并退出'] : ['Stay','Cancel export and quit'], defaultId:0,cancelId:0});
+        message:tr({ uz:'Eksport hali tugamagan. Uni bekor qilib chiqasizmi?', en:'An export is unfinished. Cancel it and quit?', zh:'导出尚未完成，是否取消并退出？' }),
+        detail:tr({ uz:"Kutilayotgan eksport natijalari o'chiriladi. Chiqishdan oldin tozalash tugashi kerak.", en:'Pending export results will be discarded. Cleanup must finish before quitting.', zh:'等待重试的导出也会被丢弃。退出前将等待清理完成。' }),
+        buttons:tr({ uz:['Qolish','Eksportni bekor qilib chiqish'], en:['Stay','Cancel export and quit'], zh:['留在应用','取消导出并退出'] }), defaultId:0,cancelId:0});
       if (result.response !== 1) return false;
     }
     if (computing > 0) {
       const result = await dialog.showMessageBox({type:'question',
-        message:zh ? '转写或描述仍在进行，是否中止并退出？' : 'A transcription or description is still running. Stop it and quit?',
-        detail:zh ? `将取消 ${computing} 个任务，尚未返回的结果不会保留。` : `${computing} job(s) will be cancelled; results not returned yet are lost.`,
-        buttons:zh ? ['留在应用','中止并退出'] : ['Stay','Stop and quit'], defaultId:0,cancelId:0});
+        message:tr({ uz:"Matnga aylantirish yoki tavsiflash hali davom etyapti. To'xtatib chiqasizmi?", en:'A transcription or description is still running. Stop it and quit?', zh:'转写或描述仍在进行，是否中止并退出？' }),
+        detail:tr({ uz:`${computing} ta vazifa bekor qilinadi; hali tayyor bo'lmagan natijalar saqlanmaydi.`, en:`${computing} job(s) will be cancelled; results not returned yet are lost.`, zh:`将取消 ${computing} 个任务，尚未返回的结果不会保留。` }),
+        buttons:tr({ uz:['Qolish',"To'xtatib chiqish"], en:['Stay','Stop and quit'], zh:['留在应用','中止并退出'] }), defaultId:0,cancelId:0});
       if (result.response !== 1) return false;
     }
     // Native children (ffmpeg, the engines) are reaped per job, not left to

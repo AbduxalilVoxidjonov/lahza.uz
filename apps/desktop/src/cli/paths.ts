@@ -35,10 +35,11 @@ export function shimEnvFromProcess(): ShimEnv {
 /// Last-resort userData guess. Generated configs always carry an explicit
 /// WEFTCUT_USERDATA and the installed shim finds userData as its own
 /// grandparent, so this only serves a hand-invoked shim. Electron derives the
-/// dir from the app name, which is package.json's `productName` ("WeftCut") in
+/// dir from the app name, which is package.json's `productName` ("Lahza Studio") in
 /// dev AND packaged: electron-builder's own productName never reaches the
 /// packaged package.json, so the two modes agree only because the key is set
-/// there. The scoped-name candidate stays for profiles written before it was.
+/// there. The upstream "WeftCut" and scoped-name candidates stay for profiles
+/// written before the Lahza Studio rename.
 export function defaultUserDataDir(se: ShimEnv): string {
   const appData =
     se.platform === 'win32'
@@ -46,7 +47,7 @@ export function defaultUserDataDir(se: ShimEnv): string {
       : se.platform === 'darwin'
         ? path.join(se.homedir, 'Library', 'Application Support')
         : (se.env.XDG_CONFIG_HOME ?? path.join(se.homedir, '.config'))
-  const candidates = [path.join(appData, 'WeftCut'), path.join(appData, '@weftcut', 'desktop')]
+  const candidates = [path.join(appData, 'Lahza Studio'), path.join(appData, 'WeftCut'), path.join(appData, '@weftcut', 'desktop')]
   for (const c of candidates) {
     if (fs.existsSync(path.join(c, 'mcp_auth.json'))) return c
   }

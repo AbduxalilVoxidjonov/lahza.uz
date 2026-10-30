@@ -1935,6 +1935,7 @@ export const MCP_TOOL_DEFS: ReadonlyArray<McpToolDef> = [
       font_size_px: { type: 'number', description: 'Font size, composition px.' },
       color: { ...RGBA_SCHEMA, description: 'Text colour.' },
       outline_width: { type: 'number', description: '0 removes the outline; a positive width (composition px) adds or resizes it.' },
+      y: { type: 'number', description: 'Anchor y, composition px: moves the caption band up or down.' },
       layer_ids: LAYER_IDS_SCHEMA('Only these captions. Omit for every caption in the project.'),
     }, required: [] },
     parseArgs: (a) => {
@@ -1943,8 +1944,9 @@ export const MCP_TOOL_DEFS: ReadonlyArray<McpToolDef> = [
         font_size_px: parseNumOpt(a.font_size_px, 'font_size_px') ?? null,
         color: a.color === undefined || a.color === null ? null : parseRgba(a.color, 'color'),
         outline_width: parseNumOpt(a.outline_width, 'outline_width') ?? null,
+        y: parseNumOpt(a.y, 'y') ?? null,
       }
-      if (Object.values(patch).every((v) => v === null || v === undefined)) throw new McpArgError('patch names no style — send at least one of font_family, font_size_px, color, outline_width; a call that changes nothing would still report success', 'font_family')
+      if (Object.values(patch).every((v) => v === null || v === undefined)) throw new McpArgError('patch names no style — send at least one of font_family, font_size_px, color, outline_width, y; a call that changes nothing would still report success', 'font_family')
       return { op: 'restyle_captions', args: {
         layer_ids: a.layer_ids === undefined || a.layer_ids === null ? null : asNonEmptyArray(a.layer_ids, 'layer_ids', 'omit it to restyle every caption, or name at least one').map((s) => parseUuid(s, 'layer_ids')),
         patch,

@@ -274,11 +274,14 @@ export function createEditingLayout(
   const width = sizeOf(viewport.width) ?? 1_000;
   const height = sizeOf(viewport.height) ?? 720;
   const contextual: PanelId[] = ["attribute", "effect"];
-  const library: PanelId[] = ["media", "transitions"];
+  // Lahza sits beside Media and is the tab a first launch shows: "pick a long
+  // video, get Reels" is the one workflow a beginner arrives for.
+  const library: PanelId[] = ["media", "lahza", "transitions"];
   const placements: PanelPlacements = {
     "quick-actions": { siblings: ["quick-actions"], index: 0 },
     media: { siblings: library, index: 0 },
-    transitions: { siblings: library, index: 1 },
+    lahza: { siblings: library, index: 1 },
+    transitions: { siblings: library, index: 2 },
     preview: { siblings: ["preview"], index: 0 },
     timeline: { siblings: ["timeline"], index: 0 },
     playhead: { siblings: ["playhead"], index: 0 },
@@ -342,7 +345,7 @@ export function createEditingLayout(
                       data: {
                         id: "editing-media",
                         views: library,
-                        activeView: "media",
+                        activeView: "lahza",
                       },
                     },
                     {

@@ -1601,6 +1601,19 @@ describe('dispatch: caption tracks', () => {
     for (const t of root(actor.snapshot()).tracks.filter((t) => t.role === 'Caption')) expect(sizeOf(t)).toBe(54)
   })
 
+  it('restyle_captions y moves every caption band in one entry and keeps x', () => {
+    const { actor } = setupTwoCaptionLanes()
+    const pos = (t: { layers: Array<{ params: unknown }> }) =>
+      (t.layers[0].params as { transform: { position: { x: { value: number }; y: { value: number } } } }).transform.position
+    const before = root(actor.snapshot()).tracks.filter((t) => t.role === 'Caption').map((t) => pos(t).x.value)
+    const lenBefore = actor.historyStatus().len
+    expect(actor.dispatch('restyle_captions', { patch: { y: 700 } }).ok).toBe(true)
+    const caps = root(actor.snapshot()).tracks.filter((t) => t.role === 'Caption')
+    for (const t of caps) expect(pos(t).y.value).toBe(700)
+    expect(caps.map((t) => pos(t).x.value)).toEqual(before)
+    expect(actor.historyStatus().len).toBe(lenBefore + 1)
+  })
+
   it('restyle_captions with no caption tracks records nothing (no-op guard)', () => {
     const { actor } = setup()
     const lenBefore = actor.historyStatus().len

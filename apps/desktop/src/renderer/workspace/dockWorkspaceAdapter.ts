@@ -328,6 +328,11 @@ export class DockWorkspaceAdapter implements DockWorkspaceController {
     const media = this.addPanel("media", {
       initialWidth: Math.round(bodyWidth * 0.22),
     });
+    // Lahza is the active tab of the library group on a first launch (see
+    // `createEditingLayout`).
+    this.addPanel("lahza", {
+      position: { referencePanel: "media", direction: "within" },
+    });
     this.addPanel("transitions", {
       position: { referencePanel: "media", direction: "within" },
       inactive: true,

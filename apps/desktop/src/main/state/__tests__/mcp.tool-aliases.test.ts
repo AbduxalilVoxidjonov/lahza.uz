@@ -1,4 +1,5 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // apps/desktop/src/main/state/__tests__/mcp.tool-aliases.test.ts
 // Gate for the retired-tool-name table (`main/mcp/toolAliases.ts`).
 //
@@ -23,7 +24,7 @@ import { routeMcpTool } from '../../mcp/mutationTools'
 const rust = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 'utf8')) as {
   tools: Array<{ name: string }>
 }
-const advertised = new Set(mergeMcpCatalog(rust.tools, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS]).map((t) => t.name))
+const advertised = new Set(mergeMcpCatalog(rust.tools, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS]).map((t) => t.name))
 const entries = Object.entries(RETIRED_MCP_TOOL_NAMES)
 
 describe('retired MCP tool names', () => {

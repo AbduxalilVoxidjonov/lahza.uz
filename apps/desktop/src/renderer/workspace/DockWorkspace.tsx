@@ -52,6 +52,7 @@ import { AttributePanel } from "../panels/AttributePanel";
 import { CaptionPanel } from "../panels/CaptionPanel";
 import { EffectPanel } from "../panels/EffectPanel";
 import { MarkerPanel } from "../panels/MarkerPanel";
+import { LahzaPanel } from "../panels/LahzaPanel";
 import { PlayheadPanel } from "../panels/PlayheadPanel";
 import {
   QuickActionsPanel,
@@ -420,6 +421,15 @@ function MarkerDockPanel() {
   );
 }
 
+function LahzaDockPanel() {
+  const contracts = useContracts();
+  return (
+    <div className="weft-dock-panel-scroll">
+      <LahzaPanel onMutated={contracts.onMutated} />
+    </div>
+  );
+}
+
 function RoleMixerDockPanel() {
   const contracts = useContracts();
   const runtime = useDockPanelRuntime();
@@ -530,6 +540,7 @@ const PANEL_COMPONENTS: Readonly<Record<PanelKind, () => ReactElement>> = {
   agent: AgentDockPanel,
   history: HistoryDockPanel,
   shots: ShotsDockPanel,
+  lahza: LahzaDockPanel,
 };
 
 export function WeftCutPanelRenderer({

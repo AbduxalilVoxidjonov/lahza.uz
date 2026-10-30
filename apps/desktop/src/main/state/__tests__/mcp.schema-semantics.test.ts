@@ -1,4 +1,5 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // apps/desktop/src/main/state/__tests__/mcp.schema-semantics.test.ts
 // The schema carries the semantics: every property described, a `null` arm
 // only where null means something, `update_layer_params.patch` one variant per
@@ -31,7 +32,7 @@ const rust = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown> })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS],
 )
 
 /** Every (path, property schema) pair under a tool schema, `oneOf` / `anyOf`

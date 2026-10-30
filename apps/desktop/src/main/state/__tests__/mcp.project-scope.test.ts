@@ -1,4 +1,5 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // apps/desktop/src/main/state/__tests__/mcp.project-scope.test.ts
 // With no project open — the start screen, or after the user closed theirs —
 // every MCP tool outside the pinned app-scope list refuses with
@@ -26,7 +27,7 @@ const rust = JSON.parse(RUST_CATALOG) as {
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown>, annotations: t.annotations as ToolAnnotations | undefined })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS],
 )
 const resources = mergeMcpResources(rust.resources as never, HOST_RESOURCE_DEFS as never) as Array<{ uri: string }>
 const backend = { mcpCallTool: async () => { throw new Error('a refused call must not reach the backend') }, mcpReadResource: async () => { throw new Error('a refused read must not reach the backend') }, mcpCatalog: async () => RUST_CATALOG } as any
@@ -36,6 +37,7 @@ const PINNED_APP_SCOPE = [
   'get_export_status', 'cancel_export', 'retry_export', 'ping',
   'list_motifs', 'read_motif', 'open_motif_draft', 'update_motif_files', 'export_motif', 'delete_motif', 'install_motif', 'begin_file_upload', 'write_file_chunk', 'read_file_transfer', 'delete_file_transfer', 'preview_motif',
   'open_project', 'create_project',
+  'lahza_status', 'lahza_analyze_video', 'lahza_get_job', 'lahza_list_highlights', 'lahza_get_transcript', 'lahza_export_reel',
 ]
 
 /** A production-shaped host over an in-memory filesystem: nothing is open. */

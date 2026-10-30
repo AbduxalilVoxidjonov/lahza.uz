@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url'
 import { MCP_TOOL_DEFS } from '../mcp-commands'
 import { EXPORT_TOOL_DEFS } from '../../mcp/exportTools'
 import { MOTIF_TOOL_DEFS, MOTIF_RESOURCE_DEFS } from '../../mcp/motifToolDefs'
+import { LAHZA_TOOL_DEFS } from '../../mcp/lahzaTools'
 import { HOST_RESOURCE_DEFS, HOST_RESOURCE_TEMPLATES } from '../../mcp/hostResources'
 import { parse as parseYaml } from 'yaml'
 import { MAX_ROUNDS, SIGNALS, STAGES } from '../../../shared/harness'
@@ -61,6 +62,7 @@ const toolNames = new Set([
   ...MCP_TOOL_DEFS.map((d) => d.name),
   ...MOTIF_TOOL_DEFS.map((d) => d.name),
   ...EXPORT_TOOL_DEFS.map(d => d.name),
+  ...LAHZA_TOOL_DEFS.map((d) => d.name),
 ])
 const resourceUris = new Set([
   ...rust.resources.map((r) => r.uri),

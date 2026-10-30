@@ -1,6 +1,8 @@
 import { EXPORT_TOOL_DEFS, EXPORT_TOOLS, EXPORT_PRESET_TOOLS, exportSettingsSchema } from "./exportTools";
 import { beatSamples } from "./frameSamples";
 import { runExportPresetTool } from './exportPresetTools';
+import { LAHZA_TOOL_DEFS, LAHZA_TOOLS, runLahzaTool } from './lahzaTools';
+import { LahzaError } from '../lahza/engine';
 import { ExportJobError } from "../exportJobs";
 import { ExportValidationError } from "../../shared/exportValidation";
 import { exportWire } from "../../shared/exportJob";
@@ -291,7 +293,7 @@ function readOnlyTools(backend: Backend): Promise<Set<string>> {
   let p = readOnlySets.get(backend)
   if (!p) {
     const names = (rust: ReadonlyArray<{ name: string; annotations?: ToolAnnotations }>): Set<string> =>
-      new Set(mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS]).filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name))
+      new Set(mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS]).filter((t) => t.annotations?.readOnlyHint === true).map((t) => t.name))
     // A backend that throws synchronously (no catalog method at all, as some
     // test doubles have) is the same case as one whose catalog rejects.
     const attempt = Promise.resolve().then(() => rustCatalog(backend)).then((c) => names(c.tools))
@@ -373,7 +375,7 @@ function noProjectOpen(tsHost: TsActorHost | null): boolean {
 }
 
 async function isKnownTool(backend: Backend, name: string): Promise<boolean> {
-  if (EXPORT_TOOLS.has(name) || MCP_TOOLS.has(name) || HYBRID_TOOLS.has(name) || routeMcpTool(name) === 'motif') return true
+  if (EXPORT_TOOLS.has(name) || LAHZA_TOOLS.has(name) || MCP_TOOLS.has(name) || HYBRID_TOOLS.has(name) || routeMcpTool(name) === 'motif') return true
   return (await rustCatalog(backend)).tools.some((t) => t.name === name)
 }
 
@@ -390,6 +392,17 @@ async function dispatchTool(
   compute: ComputeCaller | undefined,
 ): Promise<ServerResult> {
   const tsHost = getTsHost()
+  if (route === 'lahza') {
+    // The Lahza sidecar's refusals are tool errors with its own code; an
+    // engine that is not installed reads as one too, never as a crash.
+    try {
+      const record = await runLahzaTool(name, args, client)
+      return { content: [{ type: 'text', text: JSON.stringify(record) }], structuredContent: record } as ServerResult
+    } catch (e) {
+      if (e instanceof LahzaError) return toolErrorResult({ code: e.code as never, message: e.message })
+      throw e
+    }
+  }
   if (route === 'export') {
     const definition = EXPORT_TOOL_DEFS.find(d => d.name === name);
     if (!definition) throw new UnknownToolError(name);
@@ -982,7 +995,7 @@ export function buildMcpServer(backend: Backend, opts: McpServerOptions = {}): S
   // tool logged with nothing to remember. See `docs/status-log.md`.
   server.setRequestHandler(ListToolsRequestSchema, track('tools/list', async () => {
     const rust = (await rustCatalog(backend)).tools
-    return { tools: mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS]) } as unknown as ServerResult
+    return { tools: mergeMcpCatalog(rust, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS]) } as unknown as ServerResult
   }, log, clientInfo))
   // A retired tool name is rewritten to the advertised one BEFORE `track`, so
   // the log row, the activity service's read/write split and the dispatcher all

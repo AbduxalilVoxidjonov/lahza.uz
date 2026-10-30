@@ -23,6 +23,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { MCP_TOOL_DEFS } from '../mcp-commands'
 import { MOTIF_TOOL_DEFS, MOTIF_RESOURCE_DEFS } from '../../mcp/motifToolDefs'
+import { LAHZA_TOOL_DEFS } from '../../mcp/lahzaTools'
 import { HOST_RESOURCE_DEFS, HOST_RESOURCE_TEMPLATES } from '../../mcp/hostResources'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..')
@@ -38,6 +39,7 @@ const toolNames = [
   ...rust.tools.map((t) => t.name),
   ...MCP_TOOL_DEFS.map((d) => d.name),
   ...MOTIF_TOOL_DEFS.map((d) => d.name),
+  ...LAHZA_TOOL_DEFS.map((d) => d.name),
 ]
 const resourceUris = [
   ...rust.resources.map((r) => r.uri), ...MOTIF_RESOURCE_DEFS.map((r) => r.uri), ...HOST_RESOURCE_DEFS.map((r) => r.uri),

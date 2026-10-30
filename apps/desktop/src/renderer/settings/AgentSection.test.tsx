@@ -112,7 +112,7 @@ describe("AgentSection", () => {
 
     expect(clipboard.writeText).toHaveBeenCalledWith(
       expect.stringMatching(
-        /Configure the WeftCut MCP server for me[\s\S]*URL: http:\/\/127\.0\.0\.1:4711\/mcp[\s\S]*Bearer secret-token[\s\S]*preserve all other settings/,
+        /Configure the Lahza Studio MCP server for me[\s\S]*URL: http:\/\/127\.0\.0\.1:4711\/mcp[\s\S]*Bearer secret-token[\s\S]*preserve all other settings/,
       ),
     );
   });
@@ -126,7 +126,7 @@ describe("AgentSection", () => {
       await screen.findByRole("button", { name: "Copy setup prompt" }),
     );
     const prompt = clipboard.writeText.mock.calls[0]?.[0] as string;
-    expect(prompt).toContain("Configure the WeftCut MCP server");
+    expect(prompt).toContain("Configure the Lahza Studio MCP server");
     expect(prompt).not.toContain("Skill");
   });
 
@@ -139,7 +139,7 @@ describe("AgentSection", () => {
 
     expect(clipboard.writeText).toHaveBeenCalledWith(
       expect.stringMatching(
-        /请为我配置 WeftCut MCP 服务[\s\S]*Bearer secret-token[\s\S]*保留所有其他设置和 MCP 服务/,
+        /请为我配置 Lahza Studio MCP 服务[\s\S]*Bearer secret-token[\s\S]*保留所有其他设置和 MCP 服务/,
       ),
     );
   });

@@ -420,6 +420,8 @@ export interface WeftcutApi {
     cancel(): Promise<import('./playback-calibration').CalibrationSnapshot>
   }
   colorPick: import('./screenPick').ScreenPickApi
+  /** The Lahza engine (offline Uzbek ASR + highlights), `src/main/lahza`. */
+  lahza: import('./lahza').LahzaApi
   /** The napi/Rust command dispatcher — one controlled channel for the whole
    *  Rust command catalog. */
   backend: {

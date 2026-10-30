@@ -1,4 +1,5 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // Every tool the MCP host advertises has an `agent_panel.tools.<name>` label.
 //
 // The Agent panel names an activity by its history label once the mutation has
@@ -21,7 +22,7 @@ import { mergeMcpCatalog } from '../../mcp/mcpCatalog'
 const rust = JSON.parse(readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 'utf8')) as {
   tools: Array<{ name: string }>
 }
-const merged = mergeMcpCatalog(rust.tools, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS])
+const merged = mergeMcpCatalog(rust.tools, [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS])
 const labels: Record<string, string> = en.agent_panel.tools
 
 describe('agent_panel.tools labels', () => {

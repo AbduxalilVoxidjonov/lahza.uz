@@ -129,6 +129,9 @@ export interface CaptionStylePatch {
   font_size_px?: number | null
   color?: Rgba | null
   outline_width?: number | null
+  /** Anchor y in composition px — the caption band's height, e.g. lifted
+   *  clear of a Reels overlay. A caption on a motion path keeps its path. */
+  y?: number | null
 }
 
 /** add_caption_track — lay the cues onto Caption tracks (one Text layer per
@@ -205,6 +208,9 @@ function restyleTextLayer(tp: TextParams, patch: CaptionStylePatch): void {
   if (patch.font_family !== undefined && patch.font_family !== null) tp.font.family = patch.font_family
   if (patch.font_size_px !== undefined && patch.font_size_px !== null) tp.font.size_px = patch.font_size_px
   if (patch.color !== undefined && patch.color !== null) tp.color = { mode: 'Static', value: patch.color }
+  if (patch.y !== undefined && patch.y !== null && tp.transform.position.mode === 'XY') {
+    tp.transform.position = { ...tp.transform.position, y: { mode: 'Static' as const, value: quantizeParam('y', patch.y) } }
+  }
   if (patch.outline_width !== undefined && patch.outline_width !== null) {
     if (patch.outline_width <= 0) {
       tp.outline = null

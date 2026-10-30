@@ -393,9 +393,9 @@ function fakeDockview(
 }
 
 describe("Dock Panel registry", () => {
-  it("registers exactly the fourteen semantic singleton kinds", () => {
-    expect(PANEL_KINDS).toHaveLength(14);
-    expect(new Set(PANEL_KINDS).size).toBe(14);
+  it("registers exactly the fifteen semantic singleton kinds", () => {
+    expect(PANEL_KINDS).toHaveLength(15);
+    expect(new Set(PANEL_KINDS).size).toBe(15);
     expect(Object.keys(PANEL_REGISTRY)).toEqual([...PANEL_KINDS]);
     expect(EDITING_OPEN_PANEL_KINDS).toEqual([
       "media",
@@ -406,6 +406,7 @@ describe("Dock Panel registry", () => {
       "attribute",
       "effect",
       "playhead",
+      "lahza",
     ]);
     // History pulls the edit stack over its own IPC channel, so it joins the
     // on-demand tool Panels: closed by default, costing nothing until opened.
@@ -441,6 +442,7 @@ describe("DockWorkspaceAdapter", () => {
     expect(adapter.initializeEditingLayout()).toBe(false);
     expect(dock.added.map((panel) => panel.id)).toEqual([
       "media",
+      "lahza",
       "transitions",
       "preview",
       "playhead",

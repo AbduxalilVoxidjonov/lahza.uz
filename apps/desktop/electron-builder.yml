@@ -1,14 +1,14 @@
-appId: dev.weftcut.desktop
-productName: WeftCut
-executableName: WeftCut
+appId: uz.lahza.studio
+productName: Lahza Studio
+executableName: LahzaStudio
 # OS + arch, no version: GitHub's releases/latest/download/<asset> URL then always
 # resolves to the current build, so a download page never embeds a version. An
 # exact build stays addressable through its tag (releases/download/v<version>/
 # <asset>), and electron-updater derives the previous blockmap URL by swapping the
 # version inside that tag segment, so differential Windows updates still work.
-# Expands to WeftCut-win-x64.exe, WeftCut-linux-x86_64.AppImage,
-# WeftCut-linux-amd64.deb and WeftCut-mac-arm64.dmg; release.mjs pins that set.
-artifactName: ${productName}-${os}-${arch}.${ext}
+# Expands to LahzaStudio-win-x64.exe, LahzaStudio-linux-x86_64.AppImage,
+# LahzaStudio-linux-amd64.deb and LahzaStudio-mac-arm64.dmg; release.mjs pins that set.
+artifactName: LahzaStudio-${os}-${arch}.${ext}
 publish:
   provider: github
   owner: WeftCut
@@ -76,6 +76,12 @@ extraResources:
     filter: ["**/*", "!.gitkeep"]
   - from: resources/licenses/GPL-3.0.txt
     to: ffmpeg/LICENSE.txt
+  # Lahza engine sidecar (offline Uzbek ASR + highlights; src/main/lahza),
+  # staged by scripts/stage-lahza-engine.mjs from a Lahza Studio build. Absent
+  # when not staged — the app then reports the Lahza panel as unavailable.
+  - from: resources/lahza/${os}
+    to: lahza
+    filter: ["**/*", "!manifest.json"]
   - from: src/shared/motifs/builtin
     to: motifs/builtin
     filter: ["**/*"]

@@ -62,3 +62,6 @@ src/renderer/eval/evalWasm.generated.ts
 # reports/ = HTML+JSON mutation report; .stryker-tmp/ = per-mutant sandbox.
 reports/
 .stryker-tmp/
+
+# Lahza engine sidecar (staged from a lahza.uz checkout by stage-lahza-engine.mjs; not committed)
+resources/lahza/

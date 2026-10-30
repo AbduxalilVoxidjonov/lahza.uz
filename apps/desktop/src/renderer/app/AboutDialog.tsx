@@ -49,8 +49,8 @@ export function AboutDialog({ onClose }: AboutDialogProps) {
 
   const copyVersionInfo = () => {
     const info = versions
-      ? `WeftCut ${versions.app} | Electron ${versions.electron} | Chrome ${versions.chrome} | ${versions.platform} ${versions.arch}`
-      : "WeftCut";
+      ? `Lahza Studio ${versions.app} | Electron ${versions.electron} | Chrome ${versions.chrome} | ${versions.platform} ${versions.arch}`
+      : "Lahza Studio";
     void navigator.clipboard
       .writeText(info)
       .then(() => setCopied(true))
@@ -71,7 +71,7 @@ export function AboutDialog({ onClose }: AboutDialogProps) {
           <div className="about-hero">
             <img
               className="about-logo"
-              src="./icons/icon.svg"
+              src="./icons/lahza.png"
               alt=""
               aria-hidden
               width={56}

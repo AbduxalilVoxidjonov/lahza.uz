@@ -324,7 +324,7 @@ describe("createEditingLayout", () => {
     // Editor columns: library / Preview / the right column (sizes = widths).
     const [library, preview, right] = kids(editor!);
     expect(library).toMatchObject({ type: "leaf", size: 210 });
-    expect(leaf(library!).views).toEqual(["media", "transitions"]);
+    expect(leaf(library!).views).toEqual(["media", "lahza", "transitions"]);
     expect(preview).toMatchObject({ type: "leaf", size: 507 });
     expect(leaf(preview!).views).toEqual(["preview"]);
 
@@ -348,6 +348,7 @@ describe("createEditingLayout", () => {
     expect(Object.keys(dockview.panels).sort()).toEqual([
       "attribute",
       "effect",
+      "lahza",
       "media",
       "playhead",
       "preview",

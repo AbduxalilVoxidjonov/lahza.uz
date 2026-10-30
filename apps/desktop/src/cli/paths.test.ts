@@ -50,7 +50,7 @@ describe('resolveUserDataDir', () => {
   it('falls back to the platform default when nothing is discoverable', () => {
     const appData = tmpDir()
     const resolved = resolveUserDataDir(se({ env: { APPDATA: appData } }))
-    expect(resolved).toBe(path.join(appData, 'WeftCut'))
+    expect(resolved).toBe(path.join(appData, 'Lahza Studio'))
   })
 
   it('prefers whichever default candidate actually holds mcp_auth.json (dev nested name)', () => {

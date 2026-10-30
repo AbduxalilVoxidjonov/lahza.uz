@@ -24,6 +24,7 @@ export const PANEL_KINDS = [
   "agent",
   "history",
   "shots",
+  "lahza",
 ] as const;
 
 export type PanelKind = (typeof PANEL_KINDS)[number];
@@ -176,6 +177,14 @@ export const PANEL_REGISTRY: Readonly<Record<PanelKind, PanelDefinition>> = {
     titleKey: "dock_workspace.panels.shots",
     ...TOOL_MINIMUM,
     initiallyOpen: false,
+  },
+  // Lahza: long Uzbek video → highlights → Reels. Open by default — it is the
+  // workflow Lahza Studio exists for; opening it starts the sidecar engine.
+  lahza: {
+    kind: "lahza",
+    titleKey: "dock_workspace.panels.lahza",
+    ...TOOL_MINIMUM,
+    initiallyOpen: true,
   },
 };
 

@@ -1,7 +1,8 @@
 import { EXPORT_TOOLS, EXPORT_PRESET_TOOLS } from "./exportTools";
 import { MCP_TOOLS } from '../state/mcp-commands.js'
+import { LAHZA_TOOLS, LAHZA_APP_SCOPE_TOOLS } from './lahzaTools'
 
-export type McpRoute = 'ts' | 'rust' | 'hybrid' | 'motif' | 'export'
+export type McpRoute = 'ts' | 'rust' | 'hybrid' | 'motif' | 'export' | 'lahza'
 
 /** MCP tools served by the native-compute → TS-write hybrid orchestrator.
  *  `auto_split_by_shot` and `remove_pauses` are the hybrids whose DEFS are
@@ -28,7 +29,7 @@ export const MOTIF_TOOLS: ReadonlySet<string> = new Set(['list_motifs', 'read_mo
  *
  *  Liveness, the Motif LIBRARY (its store, not placed layers — `install_motif`
  *  rebinds nothing while no project is open), and the two ways INTO a project. */
-export const APP_SCOPE_TOOLS: ReadonlySet<string> = new Set([...EXPORT_PRESET_TOOLS, 'get_export_status', 'cancel_export', 'retry_export', 'ping', 'list_motifs', 'read_motif', 'open_motif_draft', 'update_motif_files', 'export_motif', 'delete_motif', 'install_motif', 'begin_file_upload', 'write_file_chunk', 'read_file_transfer', 'delete_file_transfer', 'preview_motif', 'open_project', 'create_project'])
+export const APP_SCOPE_TOOLS: ReadonlySet<string> = new Set([...EXPORT_PRESET_TOOLS, 'get_export_status', 'cancel_export', 'retry_export', 'ping', 'list_motifs', 'read_motif', 'open_motif_draft', 'update_motif_files', 'export_motif', 'delete_motif', 'install_motif', 'begin_file_upload', 'write_file_chunk', 'read_file_transfer', 'delete_file_transfer', 'preview_motif', 'open_project', 'create_project', ...LAHZA_APP_SCOPE_TOOLS])
 
 /** `read_project` views the host answers without the actor's project. */
 const APP_SCOPE_VIEWS: ReadonlySet<string> = new Set(['session', 'effects', 'taste'])
@@ -43,10 +44,12 @@ export function servesWithoutProject(name: string, args: Record<string, unknown>
 }
 
 /** Where an MCP tool runs. motif → tsHost.motifTool (then shapeMotifMcpResult);
- *  hybrid → runHybrid; ts → tsHost.actor.mcpCall; rust → backend.
+ *  hybrid → runHybrid; ts → tsHost.actor.mcpCall; lahza → the Lahza sidecar
+ *  (runLahzaTool); rust → backend.
  *  motif-first so install_motif can never both hybrid and motif-route. */
 export function routeMcpTool(name: string): McpRoute {
   if (EXPORT_TOOLS.has(name)) return "export"
+  if (LAHZA_TOOLS.has(name)) return 'lahza'
   if (MOTIF_TOOLS.has(name)) return 'motif'
   if (HYBRID_TOOLS.has(name)) return 'hybrid'
   if (MCP_TOOLS.has(name)) return 'ts'

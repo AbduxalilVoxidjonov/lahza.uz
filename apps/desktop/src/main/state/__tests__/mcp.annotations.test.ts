@@ -1,4 +1,5 @@
 import { EXPORT_TOOL_DEFS } from "../../mcp/exportTools";
+import { LAHZA_TOOL_DEFS } from "../../mcp/lahzaTools";
 // apps/desktop/src/main/state/__tests__/mcp.annotations.test.ts
 // Annotations are the single source of the read/write and destructive split:
 // every def carries `annotations`, `tools/list` emits them, and the activity
@@ -27,7 +28,7 @@ const rust = JSON.parse(RUST_CATALOG) as {
 }
 const merged = mergeMcpCatalog(
   rust.tools.map((t) => ({ name: t.name, description: t.description, inputSchema: (t.inputSchema ?? t.input_schema) as Record<string, unknown>, annotations: t.annotations as ToolAnnotations | undefined })),
-  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS],
+  [...MCP_TOOL_DEFS, ...MOTIF_TOOL_DEFS, ...EXPORT_TOOL_DEFS, ...LAHZA_TOOL_DEFS],
 )
 type Ann = { readOnlyHint?: boolean; destructiveHint?: boolean; idempotentHint?: boolean }
 const ann = (name: string): Ann => {
@@ -61,7 +62,9 @@ describe('the read set', () => {
   const OLD_RULE = /^(get_|list_|read_|ping$|view_|analyze_|describe_|transcribe_|compare_|detect_|extract_|dry_run$|preview_)/
   // Reads whose names the pattern does not match — each one a review
   // decision, listed here so a stray annotation is still caught.
-  const READS_BEYOND_THE_REGEX = ['export_captions', 'check_composition', 'render_frames']
+  const READS_BEYOND_THE_REGEX = ['export_captions', 'check_composition', 'render_frames',
+    // The Lahza sidecar's reads carry the `lahza_` prefix, not a verb.
+    'lahza_status', 'lahza_get_job', 'lahza_list_highlights', 'lahza_get_transcript']
   it('is exactly the set the retired name regex named, plus the reads added since', () => {
     const byAnnotation = merged.filter((t) => (t.annotations as Ann | undefined)?.readOnlyHint === true).map((t) => t.name).sort()
     const byRegex = [...merged.filter((t) => OLD_RULE.test(t.name)).map((t) => t.name), ...READS_BEYOND_THE_REGEX].sort()

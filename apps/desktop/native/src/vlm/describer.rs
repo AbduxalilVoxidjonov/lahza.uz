@@ -104,7 +104,7 @@ pub struct Language {
 /// longer prefix must precede the shorter one it extends, which is why every
 /// Traditional-Chinese spelling sits above bare `zh`.
 ///
-/// Deliberately short: the app ships two locales, and the rest are here because
+/// Deliberately short: the app ships three locales (uz, en, zh), and the rest are here because
 /// the `language` arg is agent-visible and a BYO endpoint may serve any model.
 /// An unrecognized tag is NOT coerced to English — it is passed to the model as
 /// itself, which is the honest answer and the one a reader can diagnose.
@@ -122,6 +122,7 @@ const LANGUAGES: &[(&str, &str, &str)] = &[
     ("de", "de", "German"),
     ("pt", "pt", "Portuguese"),
     ("ru", "ru", "Russian"),
+    ("uz", "uz-Latn", "Uzbek (Latin script)"),
 ];
 
 impl Language {

@@ -501,8 +501,8 @@ describe("DockWorkspace React integration", () => {
     // StrictMode intentionally repeats effect setup, while the WeftCut
     // adapter recognizes the same API and leaves registration idempotent.
     expect(dockHarness.readyCalls).toBe(2);
-    expect(dock.addPanel).toHaveBeenCalledTimes(8);
-    expect(dock.panels.size).toBe(8);
+    expect(dock.addPanel).toHaveBeenCalledTimes(9);
+    expect(dock.panels.size).toBe(9);
     // StrictMode tears the first ready effect down and recreates it. Each API
     // lifetime has exactly one subscription; the first is disposed before the
     // second becomes live.
@@ -1278,7 +1278,7 @@ describe("DockWorkspace React integration", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Reset Workspace" }));
     expect(dock.fromJSON).toHaveBeenCalledOnce();
-    expect(dock.panels.size).toBe(8);
+    expect(dock.panels.size).toBe(9);
     expect(dock.panels.has("role-mixer")).toBe(false);
   });
 });
