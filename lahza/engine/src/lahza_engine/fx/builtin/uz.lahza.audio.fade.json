@@ -1,0 +1,38 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.audio.fade",
+  "version": "1.0.0",
+  "kind": "audio",
+  "name": {
+    "uz": "Ovoz silliq kirishi/chiqishi",
+    "uz-Cyrl": "Овоз силлиқ кириши/чиқиши",
+    "ru": "Плавное появление/затухание звука",
+    "en": "Audio fade"
+  },
+  "description": {
+    "uz": "Element ovozini silliq ochish va yopish",
+    "uz-Cyrl": "Элемент овозини силлиқ очиш ва ёпиш",
+    "ru": "Плавное появление и затухание звука элемента",
+    "en": "Fade the clip audio in and out"
+  },
+  "backend": "audio-graph",
+  "preset": "fade",
+  "params": [
+    {
+      "id": "in_ms",
+      "type": "int",
+      "min": 0,
+      "max": 5000,
+      "default": 300
+    },
+    {
+      "id": "out_ms",
+      "type": "int",
+      "min": 0,
+      "max": 5000,
+      "default": 300
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

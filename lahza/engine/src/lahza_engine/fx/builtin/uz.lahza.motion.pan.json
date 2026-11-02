@@ -1,0 +1,59 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.motion.pan",
+  "version": "1.0.0",
+  "kind": "motion",
+  "name": {
+    "uz": "Panorama",
+    "uz-Cyrl": "Панорама",
+    "ru": "Панорама",
+    "en": "Pan"
+  },
+  "description": {
+    "uz": "Kadr ichida gorizontal yoki vertikal surilish",
+    "uz-Cyrl": "Кадр ичида горизонтал ёки вертикал сурилиш",
+    "ru": "Сдвиг кадра по горизонтали или вертикали",
+    "en": "Move the frame horizontally or vertically"
+  },
+  "backend": "motion-keys",
+  "preset": "pan",
+  "params": [
+    {
+      "id": "yonalish",
+      "type": "enum",
+      "values": [
+        "chapga",
+        "onga",
+        "yuqoriga",
+        "pastga"
+      ],
+      "default": "onga"
+    },
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.8
+    },
+    {
+      "id": "zoom",
+      "type": "float",
+      "min": 1.0,
+      "max": 1.6,
+      "default": 1.15
+    },
+    {
+      "id": "easing",
+      "type": "enum",
+      "values": [
+        "linear",
+        "ease-out",
+        "expo-out"
+      ],
+      "default": "linear"
+    }
+  ],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

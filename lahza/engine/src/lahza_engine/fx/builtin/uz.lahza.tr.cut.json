@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.cut",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Kesim",
+    "uz-Cyrl": "Кесим",
+    "ru": "Склейка",
+    "en": "Cut"
+  },
+  "description": {
+    "uz": "O'tishsiz to'g'ridan-to'g'ri kesim",
+    "uz-Cyrl": "Ўтишсиз тўғридан-тўғри кесим",
+    "ru": "Прямая склейка без перехода",
+    "en": "Straight cut, no transition"
+  },
+  "backend": "xfade",
+  "preset": "cut",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

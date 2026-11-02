@@ -1,0 +1,71 @@
+name: Release
+
+# Qo'lda ishga tushiriladi. Talab: R0-RT-1 (runtime versiyalari) va imzolangan katalog.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versiya (masalan 1.0.0)"
+        required: true
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: macos-14
+          - os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Native runtime'lar
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then brew install libass pkg-config nasm && scripts/build_runtimes.sh;
+          else pwsh scripts/build_runtimes.ps1; fi
+
+      - name: Engine sidecar
+        run: |
+          pip install -e "engine[dev]"
+          python scripts/build_sidecar.py --clean
+
+      - name: Katalog imzosini tekshirish
+        shell: bash
+        env:
+          LAHZA_CATALOG_PUBKEY: ${{ secrets.LAHZA_CATALOG_PUBKEY }}
+        run: |
+          python -c "import os;from lahza_engine.models.catalog import load_catalog,verify;verify(load_catalog('catalog/catalog.json'),os.environ['LAHZA_CATALOG_PUBKEY']);print('ok')"
+
+      - name: Tauri build + imzo + notarizatsiya
+        working-directory: app
+        env:
+          LAHZA_CATALOG_PUBKEY: ${{ secrets.LAHZA_CATALOG_PUBKEY }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          npm ci
+          npm run tauri build
+
+      - name: Staple tekshiruvi (macOS)
+        if: runner.os == 'macOS'
+        run: xcrun stapler validate "app/src-tauri/target/release/bundle/macos/Lahza Studio.app"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lahza-studio-${{ inputs.version }}-${{ matrix.os }}
+          path: |
+            app/src-tauri/target/release/bundle/dmg/*.dmg
+            app/src-tauri/target/release/bundle/nsis/*.exe

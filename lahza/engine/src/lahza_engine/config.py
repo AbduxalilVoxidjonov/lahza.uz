@@ -1,0 +1,118 @@
+"""Sozlamalar.
+
+Qiymatlar ikki turda:
+* TZ'dan olingan talablar (masalan, xavfsiz zona foizlari, 1080x1920) - manba ko'rsatilgan.
+* Boshlang'ich muhandislik qiymatlari - "R0" deb belgilangan; ular R0 benchmarkida
+  (docs/02-yol-xaritasi.md) o'lchanib, yangilanadi. Ularni fakt sifatida talqin qilmang.
+"""
+
+from __future__ import annotations
+
+import os
+import sys
+from pathlib import Path
+
+from pydantic import BaseModel, Field
+
+
+def default_data_dir() -> Path:
+    """Foydalanuvchi ma'lumotlari papkasi (modellar, kutubxona, loglar)."""
+    env = os.environ.get("LAHZA_DATA_DIR")
+    if env:
+        return Path(env)
+    home = Path.home()
+    if sys.platform == "darwin":
+        return home / "Library" / "Application Support" / "Lahza Studio"
+    if sys.platform == "win32":
+        base = os.environ.get("LOCALAPPDATA") or str(home / "AppData" / "Local")
+        return Path(base) / "Lahza Studio"
+    return home / ".local" / "share" / "lahza-studio"
+
+
+class HighlightConfig(BaseModel):
+    min_clip_ms: int = 30_000  # TZ 7-bo'lim: standart 30-60 s
+    max_clip_ms: int = 60_000
+    hard_min_ms: int = 15_000  # TZ: 15-180 s oralig'ida sozlanadi
+    hard_max_ms: int = 180_000
+    clip_count: int = 10
+    pre_roll_ms: int = 150  # TZ: 100-200 ms "nafas"
+    post_roll_ms: int = 300  # TZ: gap oxiri + 300 ms
+    min_pause_before_start_ms: int = 150  # TZ: oldidagi pauza >= 150 ms
+    # R0: LLM oynasi uzunligi va ustma-ustligi R0'da tanlanadi.
+    llm_window_ms: int = 8 * 60_000
+    llm_window_overlap_ms: int = 60_000
+    # M3-PERF-2 (docs/09-test-va-sifat.md, tezlik jadvali): LLM tezligi sozlamalari.
+    llm_max_candidates: int = 4  # bir oynadan ko'pi bilan nomzod (sxema maxItems ham shu)
+    llm_max_tokens: int = 1536  # chiqish tokenlari chegarasi (sxema chegaralari bilan ~900 yetadi)
+    llm_thinking: bool = False  # Qwen3 "o'ylash" rejimi: 4x ko'p token, sifatga foydasi ko'rinmadi
+    llm_dry_multiplier: float = 0.8  # DRY takror jazosi: erkin matn halqalarini to'xtatadi
+    # 2 slot x 8192 = avvalgi 1 x 16384 bilan bir xil KV xotira; 4 slot atigi ~15% tezroq edi.
+    llm_parallel: int = 2  # llama-server slotlari: oynalar parallel yuboriladi
+    llm_slot_ctx: int = 8192  # bitta slot konteksti (8 daq oyna prompti ~2-4k + chiqish)
+    # R0: yakuniy ball vaznlari foydalanuvchi qarorlaridan o'rganiladi.
+    weight_llm: float = 0.7
+    weight_signals: float = 0.3
+    nms_iou: float = 0.3
+
+
+class SubtitleSafeZone(BaseModel):
+    """Conservative Lahza safe guides based on ads guidance, not universal organic rules."""
+
+    top_pct: float = 0.14
+    bottom_pct: float = 0.35
+    side_pct: float = 0.06
+
+
+class RenderConfig(BaseModel):
+    width: int = 1080
+    height: int = 1920
+    video_bitrate_kbps: int = 12_000  # TZ: 8-15 Mbps oralig'ida sozlanadi
+    audio_bitrate_kbps: int = 192
+    audio_rate: int = 48_000
+    fade_ms: int = 150  # TZ: 100-200 ms
+    # TZ 19-bo'lim: standart LUFS maqsadi ANIQLANSIN. None bo'lsa loudnorm qo'llanmaydi.
+    loudnorm_target_lufs: float | None = None
+
+
+class ReframeConfig(BaseModel):
+    analysis_fps: float = 5.0  # TZ 4-bo'lim: 5 fps (sozlanadi)
+    # R0: quyidagilar Reframe-Eval to'plamida tanlanadi.
+    dead_zone: float = 0.06
+    max_speed_per_s: float = 0.35
+    one_euro_min_cutoff: float = 0.3
+    one_euro_beta: float = 0.05
+    cut_threshold: float = 0.25
+    min_layout_hold_ms: int = 2_000
+    face_top_third: bool = True
+    # Aktiv spiker (M3-RF-1: ASD + diarizatsiya). R0: hammasi Reframe-Eval'da tanlanadi.
+    asd_weight: float = 0.6  # R0: yakuniy ball = w*ASD + (1-w)*diarizatsiya mosligi
+    asd_min_score: float = 0.5  # R0: spiker<->trek moslashtirishda hisobga olinadigan ASD bali
+    speaker_switch_margin: float = 0.15  # R0: yangi yuz joriydan shuncha ustun bo'lsa almashadi
+    speaker_switch_confirm_ms: int = 400  # R0: ustunlik shuncha davom etsa almashadi
+    speaker_min_hold_ms: int = 1_500  # R0: almashgandan keyin minimal ushlab turish
+    active_min_confidence: float = 0.35  # R0: nutq bor, eng yaxshi ball shundan past - past ishonch
+    low_confidence_wide_ms: int = 1_000  # R0: past ishonch shuncha davom etsa - keng kadr
+
+
+class Settings(BaseModel):
+    data_dir: Path = Field(default_factory=default_data_dir)
+    highlight: HighlightConfig = Field(default_factory=HighlightConfig)
+    render: RenderConfig = Field(default_factory=RenderConfig)
+    reframe: ReframeConfig = Field(default_factory=ReframeConfig)
+    safe_zone: SubtitleSafeZone = Field(default_factory=SubtitleSafeZone)
+    allow_network: bool = False  # NFR-01: faqat model yuklash/yangilash uchun yoqiladi
+    # V1-3 (TZ 19, ADR-0016): oflayn litsenziya kaliti. Tijorat qarori qabul qilinmaguncha O'CHIQ -
+    # o'chiq bo'lsa hech narsa tekshirilmaydi/bloklanmaydi. Sinash uchun: LAHZA_LICENSING=1.
+    licensing_enabled: bool = Field(default_factory=lambda: os.environ.get("LAHZA_LICENSING") == "1")
+
+    @property
+    def models_dir(self) -> Path:
+        return self.data_dir / "Models"
+
+    @property
+    def library_dir(self) -> Path:
+        return self.data_dir / "Library"
+
+    @property
+    def logs_dir(self) -> Path:
+        return self.data_dir / "Logs"

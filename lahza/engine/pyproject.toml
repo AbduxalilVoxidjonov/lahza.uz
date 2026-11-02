@@ -1,0 +1,78 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lahza-engine"
+version = "0.2.4"
+description = "Lahza Studio engine: oflayn o'zbekcha podkast -> Reels pipeline"
+requires-python = ">=3.11"
+license = { text = "Proprietary" }
+dependencies = [
+  "pydantic>=2.6",
+  "fastapi>=0.110",
+  "uvicorn>=0.29",
+  # /v1/events WebSocket: uvicorn o'zi WS kutubxonasisiz keladi - bo'lmasa WS so'rovi 404 bilan rad etiladi.
+  "websockets>=12",
+  "httpx>=0.27",
+  "numpy>=1.26",
+  "cryptography>=42",
+  "psutil>=5.9",
+]
+
+[project.optional-dependencies]
+# Og'ir ML backendlar ixtiyoriy: ular faqat kerakli platformada o'rnatiladi.
+asr-ctranslate2 = ["faster-whisper>=1.0"]
+# Desktop sidecar to'plami PyAV'siz (ADR-0015): PyPI'dagi `av` g'ildiraklari GPL libx264/libx265 bilan
+# yig'ilgan FFmpeg'ni olib keladi. faster-whisper `av>=11` ni talab qiladi, shuning uchun u shu
+# ekstrada emas: `pip install --no-deps -r engine/requirements-desktop-nodeps.txt` bilan alohida
+# o'rnatiladi, uning qolgan bog'liqliklari (faster-whisper 1.2.1 metadata'si) shu yerda sanaladi.
+# Audio dekodi LGPL FFmpeg orqali (lahza_engine.media.pcm), `av` import qo'riqchisi - asr/fw_compat.py.
+desktop = [
+  "ctranslate2>=4.0,<5", "huggingface-hub>=0.21", "tokenizers>=0.13,<1", "tqdm",
+  "onnxruntime>=1.18", "fonttools>=4.50",
+  # Windows: app-local VC++ runtime (scripts/build_sidecar.py); eski tizim runtime'i onnxruntime/ctranslate2'ni qulatadi.
+  "msvc-runtime>=14.40; sys_platform == 'win32'",
+]
+vad = ["silero-vad>=5.1"]
+onnx = ["onnxruntime>=1.18", "msvc-runtime>=14.40; sys_platform == 'win32'"]
+fonts = ["fonttools>=4.50"]
+diarization = ["pyannote.audio>=4.0"]
+vision = ["mediapipe>=0.10", "opencv-python-headless>=4.9"]
+align = ["torch>=2.3", "torchaudio>=2.3"]
+fast-hash = ["xxhash>=3.4"]
+# YT-1 (ADR-0010): YouTube havolasidan import - faqat dasturchi muhiti uchun; mahsulotda yt-dlp
+# katalogdan komponent sifatida keladi (ilovaga qo'shilmaydi). PyPI paketi - Unlicense, exe EMAS.
+youtube = ["yt-dlp>=2025.11.12", "yt-dlp-ejs"]
+dev = ["pytest>=8", "ruff>=0.5", "mypy>=1.10", "pyinstaller>=6.6"]
+
+[project.scripts]
+lahza = "lahza_engine.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+lahza_engine = ["highlight/prompts/*.txt", "db/*.sql", "render/*.json", "models/*.pub", "subtitle/fonts/*", "fx/builtin/*.json", "templates/builtin/*.json", "stickers/assets/*", "editing_skills/builtin/*.json", "text/data/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+markers = ["ffmpeg: ffmpeg o'rnatilgan bo'lishi kerak bo'lgan testlar", "libass: ffmpeg libass bilan (ass filtri) yig'ilgan bo'lishi kerak bo'lgan testlar"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection namunasi
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+warn_unused_ignores = true

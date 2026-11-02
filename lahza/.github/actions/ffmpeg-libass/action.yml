@@ -1,0 +1,47 @@
+name: FFmpeg (libass bilan)
+description: >
+  Test uchun libass'li FFmpeg o'rnatadi va `ass` filtri borligini tekshiradi.
+  Ubuntu: apt (libass bilan yig'ilgan). Windows: Chocolatey (gyan.dev yig'masi, libass bor).
+  macOS: Homebrew; standart formula libass'siz bo'lsa homebrew-ffmpeg tap'i.
+  Bu faqat CI/dasturchi muhiti uchun - reliz LGPL yig'masi scripts/build_runtimes.* bilan yig'iladi.
+
+runs:
+  using: composite
+  steps:
+    - name: O'rnatish (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y -q --no-install-recommends ffmpeg
+
+    - name: O'rnatish (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: choco install ffmpeg -y --no-progress
+
+    - name: O'rnatish (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: "1"
+        HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      run: |
+        has_ass() { ffmpeg -hide_banner -filters 2>/dev/null | awk '{print $2}' | grep -qx ass; }
+        brew install ffmpeg || true
+        if ! has_ass; then
+          echo "::notice::homebrew/core ffmpeg libass'siz - homebrew-ffmpeg tap'iga o'tilmoqda"
+          brew uninstall --ignore-dependencies ffmpeg || true
+          brew tap homebrew-ffmpeg/ffmpeg
+          brew install homebrew-ffmpeg/ffmpeg/ffmpeg
+        fi
+
+    - name: libass tekshiruvi
+      shell: bash
+      run: |
+        ffmpeg -hide_banner -version | head -n 1
+        if ! ffmpeg -hide_banner -filters 2>/dev/null | awk '{print $2}' | grep -qx ass; then
+          echo "::error::ffmpeg'da 'ass' filtri yo'q (libass'siz yig'ma) - subtitr testlari ishlamaydi"
+          exit 1
+        fi
+        echo "ok: ass filtri bor"

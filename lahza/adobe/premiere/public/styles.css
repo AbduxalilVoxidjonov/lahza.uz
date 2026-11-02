@@ -1,0 +1,78 @@
+/* Lahza paneli - Premiere'ning qorong'i paneliga mos minimal uslub (app/src/styles/app.css tokenlari asosida).
+   UXP CSS qo'llovi cheklangan: grid/color-mix ishlatilmaydi, faqat flex va oddiy xususiyatlar. */
+:root {
+  --bg: #1d1d1d;
+  --panel: #232323;
+  --panel-2: #2c2c2c;
+  --line: #3a3a3a;
+  --text: #e6e6e6;
+  --muted: #9a9a9a;
+  --accent: #ffd400;
+  --accent-ink: #1a1600;
+  --good: #3ecf8e;
+  --warn: #f5a524;
+  --bad: #f05252;
+}
+
+body { margin: 0; background: var(--bg); color: var(--text); font-size: 12px; font-family: -apple-system, "Segoe UI", sans-serif; }
+#root { padding: 8px; }
+.app { display: flex; flex-direction: column; }
+.top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.brand { display: flex; align-items: center; font-weight: 700; font-size: 13px; }
+.brand-mark { width: 14px; height: 14px; border-radius: 4px; background: var(--accent); margin-right: 6px; }
+.tabs { display: flex; }
+.tab { background: transparent; border: none; border-bottom: 2px solid transparent; color: var(--muted); padding: 4px 8px; font-size: 12px; }
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+.stack { display: flex; flex-direction: column; }
+.stack > * { margin-bottom: 8px; }
+.stack-sm { display: flex; flex-direction: column; margin-top: 6px; }
+.stack-sm > * { margin-bottom: 4px; }
+.row { display: flex; flex-direction: row; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+.row > * { margin-right: 6px; }
+.between { justify-content: space-between; }
+.grow { flex: 1; }
+.push { margin-left: auto; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+.card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+h2 { font-size: 11px; margin: 0; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+
+.muted { color: var(--muted); }
+.small { font-size: 11px; }
+.mono { font-family: Menlo, Consolas, monospace; font-size: 11px; }
+.path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.good { color: var(--good); }
+.error { color: var(--bad); }
+
+.btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 5px 10px; font-size: 12px; }
+.btn:disabled { opacity: 0.45; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+.btn.ghost { background: transparent; }
+.btn.small { padding: 2px 8px; font-size: 11px; }
+.btn.good { border-color: var(--good); color: var(--good); }
+.btn.bad { border-color: var(--bad); color: var(--bad); }
+
+.field { display: flex; flex-direction: column; color: var(--muted); font-size: 11px; }
+.input, .select { background: var(--bg); color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 3px 6px; font-size: 12px; }
+
+.badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 11px; border: 1px solid var(--line); color: var(--muted); }
+.badge.good { color: var(--good); border-color: var(--good); }
+.badge.warn { color: var(--warn); border-color: var(--warn); }
+.badge.bad { color: var(--bad); border-color: var(--bad); }
+
+.progress { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
+.progress > div { height: 4px; background: var(--accent); }
+
+ul { list-style: none; margin: 0; padding: 0; }
+.clip { border-top: 1px solid var(--line); padding: 6px 0; }
+.clip.rejected { opacity: 0.45; }
+.score { color: var(--accent); font-weight: 700; font-size: 15px; min-width: 26px; }
+.clip-title { font-weight: 600; }
+.tpl { display: flex; align-items: center; padding: 4px; border-radius: 4px; }
+.tpl > * { margin-right: 6px; }
+.tpl.active { background: var(--panel-2); }
+.paths li { padding: 2px 0; }
+.result { border-top: 1px solid var(--line); padding-top: 6px; }
+.warn-list li { color: var(--warn); padding: 2px 0; font-size: 11px; }
+.warn-list li:before { content: "• "; }

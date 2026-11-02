@@ -1,0 +1,23 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.tr.dissolve",
+  "version": "1.0.0",
+  "kind": "transition",
+  "name": {
+    "uz": "Eritish",
+    "uz-Cyrl": "Эритиш",
+    "ru": "Растворение",
+    "en": "Dissolve"
+  },
+  "description": {
+    "uz": "Kadrlar donador eriydi",
+    "uz-Cyrl": "Кадрлар донадор эрийди",
+    "ru": "Зернистое растворение",
+    "en": "Grainy dissolve"
+  },
+  "backend": "xfade",
+  "preset": "dissolve",
+  "params": [],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

@@ -1,0 +1,48 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.motion.punch-in",
+  "version": "1.0.0",
+  "kind": "motion",
+  "name": {
+    "uz": "Punch-in",
+    "uz-Cyrl": "Панч-ин",
+    "ru": "Наезд",
+    "en": "Punch-in"
+  },
+  "description": {
+    "uz": "Kalit so'zda kadrga keskin yaqinlashish",
+    "uz-Cyrl": "Калит сўзда кадрга кескин яқинлашиш",
+    "ru": "Резкое приближение на ключевом слове",
+    "en": "Quick zoom on a key moment"
+  },
+  "backend": "motion-keys",
+  "preset": "punch-in",
+  "params": [
+    {
+      "id": "zoom",
+      "type": "float",
+      "min": 1.0,
+      "max": 2.0,
+      "default": 1.25
+    },
+    {
+      "id": "kirish_ms",
+      "type": "int",
+      "min": 0,
+      "max": 1000,
+      "default": 120
+    },
+    {
+      "id": "easing",
+      "type": "enum",
+      "values": [
+        "linear",
+        "ease-out",
+        "expo-out"
+      ],
+      "default": "ease-out"
+    }
+  ],
+  "default_trigger": "on_emphasis",
+  "license": "Lahza"
+}

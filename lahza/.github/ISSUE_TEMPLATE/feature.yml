@@ -1,0 +1,34 @@
+name: Taklif
+description: Yangi imkoniyat yoki yaxshilash
+title: "[Taklif] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Muammo
+      description: Qaysi vaziyatda nima noqulay? (Masalan, "har klipda heshteglarni qo'lda yozaman".)
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Taklif
+      description: Qanday ishlashi kerak deb o'ylaysiz.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Muqobil yo'llar
+  - type: input
+    id: roadmap
+    attributes:
+      label: Yo'l xaritasidagi ID (bo'lsa)
+      description: docs/02-yol-xaritasi.md dan, masalan M3-RF-4.
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Cheklovlar
+      options:
+        - label: Taklif internet talab qilmaydi (to'liq oflayn ishlash - NFR-01). Talab qilsa - sababini yozdim.

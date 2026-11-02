@@ -1,0 +1,69 @@
+# Native runtime'lar versiyalari (R0-RT-1 da mahkamlanadi).
+# `ref` bo'sh bo'lsa build skriptlari ishlamaydi - versiya taxmin qilinmaydi.
+
+[whisper_cpp]
+repo = "https://github.com/ggml-org/whisper.cpp"
+ref = ""          # ANIQLANSIN: git tag yoki commit
+targets = ["whisper-cli"]
+
+[llama_cpp]
+repo = "https://github.com/ggml-org/llama.cpp"
+ref = ""          # ANIQLANSIN
+targets = ["llama-server"]
+
+[dav1d]
+# AV1 dasturiy dekoderi (BSD-2-Clause, GPL emas). Statik yig'iladi va libavcodec ichiga bog'lanadi,
+# shuning uchun alohida dylib/dll yo'q. Yuklama SHA-256 bilan tekshiriladi (upstream .sha256 bilan bir xil).
+# macOS lokal yig'ma: scripts/setup_local_render.py (DAV1D_VERSION/DAV1D_SHA256 - shu qiymatlar bilan bir xil bo'lsin).
+version = "1.5.4"
+url = "https://downloads.videolan.org/pub/videolan/dav1d/1.5.4/dav1d-1.5.4.tar.xz"
+sha256 = "686616b7c69eb88d44459391ab25cac13b6647a3b288835c5784e71c1514a5c5"
+license = "BSD-2-Clause"
+meson_options = [
+  "--buildtype=release", "--default-library=static", "--libdir=lib",
+  "-Denable_tools=false", "-Denable_tests=false", "-Denable_examples=false",
+]
+
+[ffmpeg]
+repo = "https://git.ffmpeg.org/ffmpeg.git"
+ref = ""          # ANIQLANSIN
+# LGPL yig'ma: --enable-gpl va --enable-nonfree QO'SHILMAYDI (standart o'chiq), libx264/libx265 YO'Q (ADR-0004).
+# Bayroqlar mahkamlangan versiya bilan R0-RT-1 da tekshiriladi.
+configure_common = [
+  "--enable-shared", "--disable-static",
+  "--disable-doc", "--disable-debug",
+  "--enable-libass", "--enable-libfreetype", "--enable-libharfbuzz", "--enable-libfribidi",
+  "--enable-libdav1d",  # [dav1d] dan statik; AV1 dekodlash (ichki `av1` faqat apparat bilan ishlaydi)
+]
+configure_macos = ["--enable-videotoolbox", "--enable-audiotoolbox"]
+configure_windows = ["--enable-mediafoundation", "--enable-amf", "--enable-libvpl"]
+
+[msys2]
+# Windows: FFmpeg shu muhitda yig'iladi (scripts/build_runtimes.ps1). Portativ base arxiv - admin huquqi
+# kerak emas, ilova bilan berilmaydi (faqat yig'ish vositasi). Paketlar MSYS2'da "rolling": aniq
+# versiyalar har yig'mada bin/licenses/local-render/manifest.json ga yoziladi.
+version = "20260927"
+url = "https://github.com/msys2/msys2-installer/releases/download/2026-09-27/msys2-base-x86_64-20260927.sfx.exe"
+sha256 = "ad336cccfda47758b5e15cda993fbba421115cb0b126697daef1ee4dfe37209f"
+msystem = "UCRT64"
+packages = [
+  "make", "diffutils",
+  "mingw-w64-ucrt-x86_64-gcc", "mingw-w64-ucrt-x86_64-nasm", "mingw-w64-ucrt-x86_64-pkgconf",
+  "mingw-w64-ucrt-x86_64-meson", "mingw-w64-ucrt-x86_64-ninja",
+  "mingw-w64-ucrt-x86_64-libass", "mingw-w64-ucrt-x86_64-freetype", "mingw-w64-ucrt-x86_64-harfbuzz",
+  "mingw-w64-ucrt-x86_64-fribidi", "mingw-w64-ucrt-x86_64-zlib",
+  "mingw-w64-ucrt-x86_64-amf-headers", "mingw-w64-ucrt-x86_64-libvpl",
+]
+# FFmpeg configure'ga Windows'da qo'shimcha (runtimes.toml [ffmpeg] bayroqlaridan tashqari):
+# avtoaniqlash o'chiq - yig'ma muhitidagi tasodifiy kutubxonalar (iconv, lzma, sdl2...) kirib qolmaydi.
+ffmpeg_extra = [
+  "--disable-autodetect", "--disable-gpl", "--disable-nonfree", "--disable-version3",
+  "--disable-ffplay", "--enable-zlib", "--enable-d3d11va", "--enable-dxva2",
+  "--target-os=mingw32", "--arch=x86_64",
+]
+# DLL'ning o'z litsenziyasi (MSYS2 paket litsenziyasi paketdagi boshqa fayllarni ham qamraydi):
+# libintl-8.dll - gettext'ning intl/ kutubxonasi LGPL-2.1+; paketdagi GPL-3.0 qismi gettext vositalari
+# (envsubst va h.k.), ular ilovaga kirmaydi. libintl glib2 orqali harfbuzz'dan keladi.
+dll_license_overrides = ["libintl-8.dll=LGPL-2.1-or-later"]
+# MSYS2 paketida litsenziya matni yo'q bo'lsa, upstream'dan (shu versiya tegi) olinadi.
+license_urls = ["libass=https://raw.githubusercontent.com/libass/libass/{version}/COPYING"]

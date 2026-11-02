@@ -1,0 +1,25 @@
+{
+  "schema": "lahza.skill/1",
+  "id": "caption-freeze",
+  "name": "Caption and pause",
+  "version": "1.0.0",
+  "description": "Show your title for two seconds and hold the first frame for 800 ms. Audio continues.",
+  "permissions": [
+    "timeline.modify"
+  ],
+  "actions": [
+    {
+      "at_ms": 0,
+      "duration_ms": 2000,
+      "type": "caption",
+      "text": "{title}",
+      "position": "middle",
+      "animation": "fade"
+    },
+    {
+      "at_ms": 0,
+      "duration_ms": 800,
+      "type": "freeze"
+    }
+  ]
+}
