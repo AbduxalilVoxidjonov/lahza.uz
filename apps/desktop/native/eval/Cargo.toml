@@ -1,5 +1,5 @@
 [package]
-name = "weftcut-eval"
+name = "lahza-eval"
 version = "0.0.0"
 license = "MIT"
 edition = "2021"

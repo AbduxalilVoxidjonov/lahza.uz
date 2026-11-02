@@ -34,7 +34,7 @@ async function cover(page: Page) {
 
 test('Motif cover pixels survive restart without opening a capture window, and asset edits invalidate them', async () => {
   test.setTimeout(120_000)
-  const profile = tmpDir('weftcut-cover-profile-')
+  const profile = tmpDir('lahza-cover-profile-')
   const directory = seed(profile)
   const first = await launchApp({ userDataDir: profile })
   try {
@@ -59,11 +59,11 @@ test('Motif cover pixels survive restart without opening a capture window, and a
 
 test('Motif picker offers per-card export and protected contextual deletion', async ({}, testInfo) => {
   test.setTimeout(120_000)
-  const profile = tmpDir('weftcut-library-profile-')
+  const profile = tmpDir('lahza-library-profile-')
   const directory = seed(profile)
   const { app, page } = await launchApp({ userDataDir: profile })
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-library-project-'), name: 'Library', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-library-project-'), name: 'Library', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await page.getByRole('menuitem', { name: 'Insert', exact: true }).click()
     await page.getByRole('menuitem', { name: 'Motifs…', exact: true }).click()
     const picker = page.getByRole('dialog', { name: 'Motifs', exact: true })

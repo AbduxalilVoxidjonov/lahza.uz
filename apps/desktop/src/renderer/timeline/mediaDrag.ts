@@ -16,7 +16,7 @@ import {
 } from "./placement";
 import { snapDragDeltaToTimelineBoundary } from "./snapping";
 
-export const MEDIA_DRAG_TYPE = "application/x-weftcut-media";
+export const MEDIA_DRAG_TYPE = "application/x-lahza-media";
 
 // Keep the pointer inside the ghost instead of pinning it to the left edge.
 // This leaves the clip's start, the content immediately before it, and the

@@ -58,8 +58,8 @@ that have to ride particular legs.
   most 1.5× the lightest by the snapshot) and bounded drift (at most ten
   specs unmeasured or stale). When balance or drift fires, the fix is the
   refresh command.
-- **`WEFTCUT_E2E_IGNORE` is removed.** Every leg is an explicit
-  `WEFTCUT_E2E_ONLY` set; there is no catch-all.
+- **`LAHZA_E2E_IGNORE` is removed.** Every leg is an explicit
+  `LAHZA_E2E_ONLY` set; there is no catch-all.
 
 ## Consequences
 

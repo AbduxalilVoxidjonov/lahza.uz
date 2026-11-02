@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sharedTexture, type BrowserWindow, type ColorSpace } from 'electron';
-import type { NativeDecode } from '@weftcut/native-decode';
+import type { NativeDecode } from '@lahza/native-decode';
 import { MIB, hydratePerformanceSettings } from '../shared/performance-settings';
 import { gpuBufferBudget } from './gpuBufferBudget';
 import { closePreviewGpu, openPreviewGpu } from './previewGpu';

@@ -414,7 +414,7 @@ export class PreviewAudioEngine {
   private fail(generation: number, error: unknown): void {
     if (!this.current(generation)) return;
     const detail = audioErrorDetail(error);
-    console.error(`[weftcut/audio] playback failed: ${detail}`);
+    console.error(`[lahza/audio] playback failed: ${detail}`);
     if (this.graph.ctx.state === "running") this.clock.tick();
     this.invalidate();
     // A failed header/read must be retriable, not a permanently rejected

@@ -6,11 +6,11 @@ import { analyze } from '../lib/analyze.mjs'
 import { launchApp, newProject, driveExport, tmpDir, exportSsimFloor } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const SOURCE = path.resolve(MEDIA_DIR, 'test_1080p_30fps_6s.mp4')
 
 test('H.264 import -> export stays frame-aligned with low loss (Electron)', async ({}, testInfo) => {
-  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
   // Cost bound only — driveExport's stall probe is the failure detector, and
   // this timeout must never preempt it. A wedge at the END of the export
   // (finalizing) gets a 180 s stall budget, and on the Windows leg the export
@@ -18,8 +18,8 @@ test('H.264 import -> export stays frame-aligned with low loss (Electron)', asyn
   // after it), so 330 s is the floor; the rest is headroom for the 1.9x
   // run-to-run drift. See e2e/README.md §Per-test timeout budgets.
   test.setTimeout(420000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-proj-')
-  const OUTPUT = path.join(tmpDir('weftcut-e2e-out-'), 'out.mp4')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-proj-')
+  const OUTPUT = path.join(tmpDir('lahza-e2e-out-'), 'out.mp4')
 
   const { app, page } = await launchApp()
   try {
@@ -34,10 +34,10 @@ test('H.264 import -> export stays frame-aligned with low loss (Electron)', asyn
     // Completeness, which the SSIM samples below cannot see: an export that
     // truncates past its last sample still renders every frame it did write
     // correctly, so alignment alone passes on a short file.
-    const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+    const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
       | { totalFrames: number }
       | null
-    if (!perf) throw new Error('export settled but __weftcutExportPerf is missing')
+    if (!perf) throw new Error('export settled but __lahzaExportPerf is missing')
     expect(perf.totalFrames, '6s @ 30fps = 180 frames').toBe(180)
 
     // Frame alignment (strict) + app-only loss (loose 0.80 floor) at interior

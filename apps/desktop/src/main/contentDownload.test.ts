@@ -7,12 +7,24 @@ import type {
 } from "../shared/content-download";
 import type { ContentDeps, ContentFs, ZipEntry } from "./contentDownload";
 import {
+  contentRequestHeaders,
   downloadItem,
   itemStatus,
   speechAutofillPlan,
   vlmAutofillPlan,
   sweepStalePartials,
 } from "./contentDownload";
+
+describe("content request headers", () => {
+  it("downloads GitHub release asset bytes and preserves resumable ranges", () => {
+    expect(contentRequestHeaders("https://api.github.com/repositories/1246738326/releases/assets/583933461", 42))
+      .toEqual({ Accept: "application/octet-stream", Range: "bytes=42-" });
+  });
+  it("keeps ordinary download requests unchanged", () => {
+    expect(contentRequestHeaders("https://example.com/model.bin")).toEqual({});
+    expect(contentRequestHeaders("https://example.com/model.bin", 42)).toEqual({ Range: "bytes=42-" });
+  });
+});
 
 // The whole lifecycle runs against an in-memory fs and a scripted http stream
 // — no network, no real disk. What these tests pin is the CONTRACT the
@@ -718,6 +730,36 @@ describe("downloadItem — tar extraction (delegated to the injected extractor)"
     expect(
       deps.fs.statBytes("root/downloads/test-tarball/2.0.0/manifest.json"),
     ).toBeNull();
+  });
+});
+
+describe("executable raw payloads (first-run tools)", () => {
+  it("marks an `executable` raw artifact 0755 after install, and only that one", async () => {
+    const chmodded: string[] = [];
+    const base = memFs();
+    const fs: ContentFs = { ...base, chmodExec: (path) => { chmodded.push(path); } };
+    const tool = rawItem();
+    tool.platforms["win32-x64"]!.executable = true;
+    const deps = makeDeps({ fs, responses: [PAYLOAD] });
+    const result = await downloadItem(deps, tool, "win32-x64", noProgress, live());
+    expect(result.ok).toBe(true);
+    expect(chmodded.length).toBe(1);
+    expect(chmodded[0]).toMatch(/\.staging-rev1\/model\.bin$/);
+
+    chmodded.length = 0;
+    const plain = makeDeps({ fs: { ...memFs(), chmodExec: (path) => { chmodded.push(path); } }, responses: [PAYLOAD] });
+    await downloadItem(plain, rawItem(), "win32-x64", noProgress, live());
+    expect(chmodded).toEqual([]);
+  });
+
+  it("a digest mismatch on a tool installs nothing", async () => {
+    const tool = rawItem();
+    tool.platforms["win32-x64"]!.executable = true;
+    const bad = new TextEncoder().encode("model-bytes-XXXXXXXXXX");
+    const deps = makeDeps({ responses: [bad, bad, bad] });
+    const result = await downloadItem(deps, tool, "win32-x64", noProgress, live());
+    expect(result.ok).toBe(false);
+    expect(itemStatus(deps, tool, "win32-x64")).toEqual({ state: "not_installed" });
   });
 });
 

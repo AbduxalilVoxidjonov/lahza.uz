@@ -17,7 +17,7 @@ snapped at all. The ruler painted a fourth grid of its own, multiplying a
 pre-rounded frame duration.
 
 Underneath that, the grid had no single implementation. `snap_frame_round`
-lived in the shared `weftcut-eval` leaf (ADR 0025), but `snap_frame_floor` in
+lived in the shared `lahza-eval` leaf (ADR 0025), but `snap_frame_floor` in
 the same leaf **truncated** its output while an independent TypeScript
 `snapFrameFloor` rounded half-up — one name, two different numbers at
 fractional rates, with a caller double-snapping to paper over it. Frame
@@ -29,7 +29,7 @@ frame stepping each had their own local arithmetic.
 ### One implementation in the leaf, and index policy is separate from output policy
 
 All grid primitives — `time_us_at_frame`, `frame_index_floor/_round/_ceil`,
-`frame_count`, `snap_frame_floor/_round/_ceil` — live in `weftcut-eval` with
+`frame_count`, `snap_frame_floor/_round/_ceil` — live in `lahza-eval` with
 i128 arithmetic and cross the scalars-only wasm ABI. `src/renderer/frames.ts`
 is a typed wrapper and the single surface for the renderer, the timeline UI,
 and the main-process actor (through `src/main/state/snap.ts`). Nothing

@@ -11,7 +11,7 @@ Build with `npm run build:e2e`, then run from the repository root:
 ```powershell
 node apps/desktop/e2e/scripts/profile-marker-drag.mjs `
   --project 'C:\path\to\project' `
-  --user-data "$env:APPDATA\WeftCut" `
+  --user-data "$env:APPDATA\Lahza" `
   --work-dir 'tmp/marker-drag-diagnostics' `
   --label baseline --samples 6 --cpu-profile --chrome-trace
 ```
@@ -49,13 +49,13 @@ the test-owned Electron process tree.
 Start the updated development app from PowerShell:
 
 ```powershell
-$env:WEFTCUT_EDIT_TRACE = '1'
+$env:LAHZA_EDIT_TRACE = '1'
 npm run dev
 ```
 
 The variable is consumed when Vite starts/builds the renderer, not by an already
 built executable. Alternatively, in the updated development app press F12 and
-run `localStorage.setItem('weftcut.debug.editTrace', '1')`; this takes effect on
+run `localStorage.setItem('lahza.debug.editTrace', '1')`; this takes effect on
 the next edit without reloading. Close DevTools before measuring.
 
 Drag and release a marker or clip 3–5 times, leaving at least three seconds
@@ -71,8 +71,8 @@ after the last gesture before exporting. No project contents, marker text,
 paths or entity IDs are emitted by these probes.
 
 Disable immediately with
-`localStorage.setItem('weftcut.debug.editTrace', '0')`. To return to the default,
-remove that storage key and `Remove-Item Env:WEFTCUT_EDIT_TRACE`, then restart
+`localStorage.setItem('lahza.debug.editTrace', '0')`. To return to the default,
+remove that storage key and `Remove-Item Env:LAHZA_EDIT_TRACE`, then restart
 the dev command. No new observers are started while disabled; an already
 started two-second observation finishes normally.
 
@@ -183,4 +183,4 @@ These reductions remove unnecessary work; they do not eliminate full snapshot
 cost. The same probes still show roughly 17 ms structured clone and 60 ms history
 projection at 5,000 layers, 4,000 file checks for 1,000 proxied media entries,
 and no autosave during 10 seconds of uninterrupted 100 ms-spaced commits.
-Deferred work is tracked in [issue #63](https://github.com/WeftCut/WeftCut/issues/63).
+Deferred work is tracked in [issue #63](https://api.github.com/repositories/1246738326/issues/63).

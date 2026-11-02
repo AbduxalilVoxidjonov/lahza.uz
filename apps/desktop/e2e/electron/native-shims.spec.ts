@@ -40,7 +40,7 @@ test('shell:open is wired (no missing-handler error)', async () => {
   // error — that's what proves it's wired natively rather than detouring to Rust.
   const shellErr = await page.evaluate(async () => {
     try {
-      await (window as any).api.shell.open('Z:/weftcut/definitely/not/real')
+      await (window as any).api.shell.open('Z:/lahza/definitely/not/real')
       return 'resolved'
     } catch (e) {
       return String(e)
@@ -61,7 +61,7 @@ test('notification:send is wired (no missing-handler error)', async () => {
   // channel exists. An unregistered channel would reject "No handler registered".
   const notifyResult = await page.evaluate(async () => {
     try {
-      await (window as any).api.notification.send({ title: 'WeftCut', body: 'hi' })
+      await (window as any).api.notification.send({ title: 'Lahza', body: 'hi' })
       return 'ok'
     } catch (e) {
       return String(e)

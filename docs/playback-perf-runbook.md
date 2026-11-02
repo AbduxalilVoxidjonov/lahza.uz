@@ -13,9 +13,9 @@ Windows for the ffmpeg-hardware leg; the software and WebCodecs legs are
 cross-platform. From `apps/desktop`:
 
 ```bash
-npm run napi:build           # @weftcut/core — CLOSE THE DEV APP FIRST, it locks the .node
-npm run napi:build:decode    # @weftcut/native-decode — required by both ffmpeg legs
-npm run build:e2e            # the __weftcutTest hook surface
+npm run napi:build           # @lahza/core — CLOSE THE DEV APP FIRST, it locks the .node
+npm run napi:build:decode    # @lahza/native-decode — required by both ffmpeg legs
+npm run build:e2e            # the __lahzaTest hook surface
 ```
 
 Then from `apps/desktop/e2e`:
@@ -24,7 +24,7 @@ Then from `apps/desktop/e2e`:
 npm run bench:decode:fixtures    # shared fixture matrix (idempotent, gitignored, ~2.5 GB)
 ```
 
-`build:e2e` is not optional. A plain `npm run build` tree-shakes `__weftcutTest`
+`build:e2e` is not optional. A plain `npm run build` tree-shakes `__lahzaTest`
 away and the run dies on a 30 s `waitForFunction` with no other clue; the harness
 turns that into an explicit "rebuild with `npm run build:e2e`" and exits 2.
 

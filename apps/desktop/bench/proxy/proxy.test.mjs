@@ -17,7 +17,7 @@ import {
 import { startMcpProxy } from './proxy.ts'
 
 const LOCAL = '/tmp/bench-proxy-test/work'
-const REMOTE = 'C:\\Users\\u\\weftcut-bench\\runs\\r1\\work'
+const REMOTE = 'C:\\Users\\u\\lahza-bench\\runs\\r1\\work'
 const APP_TOKEN = 'app-token'
 
 /** A stand-in app. `events` records what it saw, in order. */
@@ -34,7 +34,7 @@ async function fakeApp(events) {
     const sid = req.headers['mcp-session-id']
     let t = sid ? transports.get(sid) : undefined
     if (!t && isInitializeRequest(body)) {
-      const server = new Server({ name: 'fake-weftcut', version: '9.9' }, { capabilities: { tools: {}, resources: {} }, instructions: 'be nice' })
+      const server = new Server({ name: 'fake-lahza', version: '9.9' }, { capabilities: { tools: {}, resources: {} }, instructions: 'be nice' })
       server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [
         { name: 'open_motif_draft', inputSchema: { type: 'object' } },
         { name: 'read_project', inputSchema: { type: 'object' }, annotations: { readOnlyHint: true } },
@@ -96,7 +96,7 @@ test('proxy: sync before call, rewrites both ways, passthrough of the rest', asy
     await agent.connect(new StreamableHTTPClientTransport(new URL(proxy.endpoint.url), {
       requestInit: { headers: { Authorization: `Bearer ${proxy.endpoint.bearer_token}` } },
     }))
-    assert.equal(agent.getServerVersion()?.name, 'fake-weftcut', 'server identity mirrored')
+    assert.equal(agent.getServerVersion()?.name, 'fake-lahza', 'server identity mirrored')
     assert.equal(agent.getInstructions(), 'be nice', 'instructions mirrored')
     assert.deepEqual((await agent.listTools()).tools.map((t) => t.name), ['open_motif_draft', 'read_project'])
 

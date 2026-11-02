@@ -17,10 +17,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 /// Twenty solid colour patches on a 5×4 grid (384×270 px each at 1920×1080) —
 /// hard edges, which is what a sharpen kernel has anything to do to, and grey
 /// mid-tones, which is where it can be seen doing it (see the sharpen test for
-/// why the primaries alone are not enough). Honours WEFTCUT_TEST_MEDIA like the
+/// why the primaries alone are not enough). Honours LAHZA_TEST_MEDIA like the
 /// conformance specs, so a machine that keeps its fixtures elsewhere still runs.
 const CHART = path.join(
-  process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media'),
+  process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media'),
   'color_chart.png',
 )
 
@@ -59,7 +59,7 @@ interface Sample {
 
 /// Seek to tUs, force a composite, and read whole-frame stats off the live canvas.
 async function sampleAt(page: import('@playwright/test').Page, tUs: number, x: number, y: number): Promise<Sample> {
-  // weftcutSeekUs throws until the PixiPreview bridge registers; retry briefly.
+  // lahzaSeekUs throws until the PixiPreview bridge registers; retry briefly.
   const deadline = Date.now() + 15_000
   // eslint-disable-next-line no-constant-condition
   while (true) {
@@ -67,9 +67,9 @@ async function sampleAt(page: import('@playwright/test').Page, tUs: number, x: n
       async ({ t, px, py }) => {
         try {
           const w = window as any
-          if (typeof w.__weftcutTest?.weftcutSeekUs !== 'function') return { ok: false }
-          w.__weftcutTest.weftcutSeekUs(t)
-          const s = await w.__weftcutTest.weftcutSampleComposite(px, py)
+          if (typeof w.__lahzaTest?.lahzaSeekUs !== 'function') return { ok: false }
+          w.__lahzaTest.lahzaSeekUs(t)
+          const s = await w.__lahzaTest.lahzaSampleComposite(px, py)
           return { ok: true, s }
         } catch {
           return { ok: false }
@@ -78,20 +78,20 @@ async function sampleAt(page: import('@playwright/test').Page, tUs: number, x: n
       { t: tUs, px: x, py: y },
     )
     if ((r as any).ok) return (r as any).s as Sample
-    if (Date.now() > deadline) throw new Error('weftcutSampleComposite never became ready')
+    if (Date.now() > deadline) throw new Error('lahzaSampleComposite never became ready')
     await page.waitForTimeout(300)
   }
 }
 
 test('effects: add a blur via MCP renders + persists, undo removes it', async () => {
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'blur pixel-diff + export need a real GPU not on headless CI; verified locally',
   )
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
 
-  const parent = tmpDir('weftcut-effects-smoke-')
+  const parent = tmpDir('lahza-effects-smoke-')
   await newProject(page, {
     parentFolder: parent,
     name: 'effects-smoke',
@@ -168,8 +168,8 @@ test('effects: add a blur via MCP renders + persists, undo removes it', async ()
   // Inspection pause: hold the window open (blur ON, seeked to the text frame)
   // so a human can eyeball whether the preview actually shows blurred text or a
   // black/empty frame. Gated so the normal automated run isn't slowed.
-  if (process.env.WEFTCUT_SMOKE_PAUSE) {
-    await page.evaluate(() => (window as any).__weftcutTest.weftcutSeekUs(500_000))
+  if (process.env.LAHZA_SMOKE_PAUSE) {
+    await page.evaluate(() => (window as any).__lahzaTest.lahzaSeekUs(500_000))
     console.log('EFFECTS_SMOKE PAUSED — blur is ON, look at the preview canvas. Ctrl-C to quit.')
     await page.waitForTimeout(600_000)
   }
@@ -198,13 +198,13 @@ test('effects: blur on a Motif layer renders + exports + undo', async () => {
   // Extra beyond the file-level GPU requirement: the motif capture can exceed
   // the 5s CDP budget on slow CI runners.
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'blur pixel-diff + motif export need a real GPU not on headless CI; verified locally',
   )
   test.setTimeout(180_000)
   const { app, page } = await launchApp()
 
-  const parent = tmpDir('weftcut-motif-effects-')
+  const parent = tmpDir('lahza-motif-effects-')
   await newProject(page, {
     parentFolder: parent,
     name: 'motif-effects',
@@ -299,13 +299,13 @@ test('effects: blur on a Motif layer renders + exports + undo', async () => {
 
 test('effects UI: add/edit/reorder/remove a blur from the inspector panel', async () => {
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'blur pixel-diff needs a real GPU not on headless CI; verified locally',
   )
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
 
-  const parent = tmpDir('weftcut-effects-ui-')
+  const parent = tmpDir('lahza-effects-ui-')
   await newProject(page, {
     parentFolder: parent,
     name: 'effects-ui',
@@ -333,7 +333,7 @@ test('effects UI: add/edit/reorder/remove a blur from the inspector panel', asyn
   if (!sharp) throw new Error('text never composited (warmup failed)')
 
   // Select the layer so the inspector renders its EffectsSection.
-  await page.evaluate((id) => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId)
+  await page.evaluate((id) => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId)
   // Bring the Effect tab forward: the pristine baseline docks it inactive behind
   // Attribute, which leaves effect-add rendered but hidden.
   await page.locator('.weft-dock-tab-label', { hasText: 'Effect' }).click()
@@ -426,7 +426,7 @@ test('effects UI: add/edit/reorder/remove a blur from the inspector panel', asyn
 // It exercises whichever backend the preview picked, which on Linux today is
 // WebGL: Chromium hands `requestAdapter()` null without --enable-features=Vulkan,
 // and Playwright's own --enable-features=CDPScreenshotNewSurface overrides that
-// switch when passed via WEFTCUT_E2E_GL. Forcing WebGPU here would not help
+// switch when passed via LAHZA_E2E_GL. Forcing WebGPU here would not help
 // anyway — the app's frame-capture hook is broken under WebGPU on this platform
 // (Pixi copies its bgra8unorm texture into an rgba8unorm canvas and Dawn rejects
 // it), which is why the WGSL twin is verified by the parity gate's third
@@ -437,7 +437,7 @@ test('effects UI: add/edit/reorder/remove a blur from the inspector panel', asyn
 // filter blit) and only the uniform differs, so what it isolates is the kernel.
 test('effects: sharpen rings a chart in the live preview, and amount 0 undoes it', async () => {
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'frame-diffing the live preview needs a real GPU not on headless CI; verified locally',
   )
   test.skip(!existsSync(CHART), `chart fixture not found at ${CHART} (run: cd apps/desktop/e2e && npm run fixtures)`)
@@ -453,7 +453,7 @@ test('effects: sharpen rings a chart in the live preview, and amount 0 undoes it
     if (hit) backends.push(Number(hit[1]))
   })
 
-  const parent = tmpDir('weftcut-sharpen-smoke-')
+  const parent = tmpDir('lahza-sharpen-smoke-')
   await newProject(page, {
     parentFolder: parent,
     name: 'sharpen-smoke',
@@ -504,9 +504,9 @@ test('effects: sharpen rings a chart in the live preview, and amount 0 undoes it
       const png = await page.evaluate(async () => {
         try {
           const w = window as any
-          if (typeof w.__weftcutTest?.capturePreviewFramePng !== 'function') return ''
-          w.__weftcutTest.weftcutSeekUs(0)
-          return (await w.__weftcutTest.capturePreviewFramePng()) as string
+          if (typeof w.__lahzaTest?.capturePreviewFramePng !== 'function') return ''
+          w.__lahzaTest.lahzaSeekUs(0)
+          return (await w.__lahzaTest.capturePreviewFramePng()) as string
         } catch {
           return ''
         }
@@ -579,12 +579,12 @@ test('effects: sharpen rings a chart in the live preview, and amount 0 undoes it
 
 test('effects: chromakey keys out a green color layer; viewMatte previews the matte', async () => {
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'pixel sampling needs a real GPU not on headless CI; verified locally',
   )
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
-  const parent = tmpDir('weftcut-chromakey-smoke-')
+  const parent = tmpDir('lahza-chromakey-smoke-')
   await newProject(page, {
     parentFolder: parent,
     name: 'chromakey-smoke',

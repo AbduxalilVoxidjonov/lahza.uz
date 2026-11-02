@@ -1,4 +1,4 @@
-/// Bundle the weftcut-mcp shim into ONE self-contained file. It ships as an
+/// Bundle the lahza-mcp shim into ONE self-contained file. It ships as an
 /// extraResource and is copied to <userData>/cli/ at app startup, then runs
 /// under ELECTRON_RUN_AS_NODE (the app binary as plain Node) on user machines
 /// that have no Node install — so everything, SDK included, must be inlined.
@@ -16,14 +16,14 @@ const { version } = JSON.parse(await readFile(path.join(HERE, '..', 'package.jso
 
 await build({
   entryPoints: [path.join(HERE, '..', 'src', 'cli', 'main.ts')],
-  outfile: path.join(HERE, '..', 'out', 'cli', 'weftcut-mcp.cjs'),
+  outfile: path.join(HERE, '..', 'out', 'cli', 'lahza-mcp.cjs'),
   bundle: true,
   platform: 'node',
   target: 'node22',
   format: 'cjs',
   // The only moment the shim can learn its version: it runs from <userData>/cli/
   // with no package.json in reach.
-  define: { __WEFTCUT_VERSION__: JSON.stringify(version) },
+  define: { __LAHZA_VERSION__: JSON.stringify(version) },
   sourcemap: false,
   minify: false,
   logLevel: 'info',

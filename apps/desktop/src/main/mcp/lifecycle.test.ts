@@ -18,7 +18,7 @@ vi.mock('../motif/capture.js', () => ({ captureMotifFrameB64: async () => '' }))
 import { startMcpHost, type McpHost } from './index'
 import type { McpLogDeps, McpLogEntryInput } from './withLog'
 
-type Backend = import('@weftcut/core').Backend
+type Backend = import('@lahza/core').Backend
 
 const INITIALIZE = {
   jsonrpc: '2.0',

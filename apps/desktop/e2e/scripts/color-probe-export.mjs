@@ -1,4 +1,4 @@
-// Axis-A probe (one-shot diagnostic, NOT a gate). Given a REAL WeftCut
+// Axis-A probe (one-shot diagnostic, NOT a gate). Given a REAL Lahza
 // export of the 709ltd color chart, it (1) ffprobes the output's color tags and
 // (2) decodes the output under all four (matrix,range) combos and reports total
 // error vs authored RGB — the combo with the lowest error reveals the matrix the
@@ -14,14 +14,14 @@ import { existsSync } from "node:fs";
 import { analyzeColor } from "../lib/analyze.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const MEDIA = process.env.WEFTCUT_TEST_MEDIA || path.resolve(HERE, "..", "fixtures", "media");
+const MEDIA = process.env.LAHZA_TEST_MEDIA || path.resolve(HERE, "..", "fixtures", "media");
 const MANIFEST = path.resolve(MEDIA, "color_manifest.json");
 const SOURCE = path.resolve(MEDIA, "test_1080p_color_709ltd.mp4");
 const OUTPUT = process.argv[2];
 
 if (!OUTPUT || !existsSync(OUTPUT)) {
   console.error("usage: node color-probe-export.mjs <exported-709ltd.mp4>");
-  console.error("  (provide a REAL WeftCut export of the 709ltd chart)");
+  console.error("  (provide a REAL Lahza export of the 709ltd chart)");
   process.exit(2);
 }
 

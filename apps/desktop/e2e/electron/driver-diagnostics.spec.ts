@@ -7,13 +7,13 @@ const canvas = { width: 320, height: 240, fpsNum: 30, fpsDen: 1 }
 test('resource failure diagnostics preserve the real rejection and its ledger', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-diag-'), name: 'Diagnostics', canvas })
+    await newProject(page, { parentFolder: tmpDir('lahza-diag-'), name: 'Diagnostics', canvas })
     const settings = await invokeCmd<{ resource_allocation: { work_mib: number } }>(page, 'app_settings_get')
     const memoryMiB = settings.resource_allocation.work_mib + 1
     // An impossible request is deterministic on every host, without lowering
     // the app target or changing how admission behaves.
     await page.evaluate(memoryMiB => {
-      const hook = (window as any).__weftcutTest
+      const hook = (window as any).__lahzaTest
       hook.diagnosticExport = () => (window as any).api.resources.acquire({ id: 'diagnostic-request', memoryMiB, threads: 0 })
     }, memoryMiB)
     const result = await driveExport(page, {}, { hook: 'diagnosticExport' })
@@ -36,9 +36,9 @@ test('resource failure diagnostics preserve the real rejection and its ledger', 
 test('a pending export timeout reports no observed progress and resource state', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-diag-'), name: 'Pending', canvas })
+    await newProject(page, { parentFolder: tmpDir('lahza-diag-'), name: 'Pending', canvas })
     await page.evaluate(() => {
-      ;(window as any).__weftcutTest.diagnosticPending = () => new Promise(() => {})
+      ;(window as any).__lahzaTest.diagnosticPending = () => new Promise(() => {})
     })
     const error = await driveExport(page, {}, { hook: 'diagnosticPending', timeout: 100 }).catch(error => error)
     expect(error).toBeInstanceOf(Error)
@@ -52,7 +52,7 @@ test('a pending export timeout reports no observed progress and resource state',
 test('a blocked import has its own deadline and preserves main diagnostics when the renderer read fails', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-diag-'), name: 'Import', canvas })
+    await newProject(page, { parentFolder: tmpDir('lahza-diag-'), name: 'Import', canvas })
     await app.evaluate(({ ipcMain }) => {
       const handler = ipcMain._invokeHandlers.get('backend:invokePublished')!
       ipcMain._invokeHandlers.set('backend:invokePublished', (event: any, request: any) => {

@@ -17,7 +17,7 @@ subtrees:
 Real-codec clips for the media-conformance E2E harness live under
 `apps/desktop/e2e/fixtures/media` and are generated (ffmpeg required) by
 `apps/desktop/e2e/fixtures/generate-fixtures.mjs` — that media is gitignored and
-rebuilt on checkout; see `docs/conformance.md`. `WEFTCUT_TEST_MEDIA` may point
+rebuilt on checkout; see `docs/conformance.md`. `LAHZA_TEST_MEDIA` may point
 the harness at an alternate fixture directory.
 
 For the full test-layout map (unit / Rust / E2E, and why they're split), see

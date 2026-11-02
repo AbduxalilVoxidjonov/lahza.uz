@@ -50,7 +50,7 @@ async function placeAndSelect(page: Page, motifId: string): Promise<string> {
   await waitForHook(page, 'revealLayer')
   const added = (await page.evaluate(
     (args) =>
-      (window as any).__weftcutTest
+      (window as any).__lahzaTest
         .addMotifLayer(args)
         .then((layerId: string) => ({ ok: true, layerId }))
         .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -58,7 +58,7 @@ async function placeAndSelect(page: Page, motifId: string): Promise<string> {
   )) as { ok: boolean; layerId?: string; error?: string }
   if (!added.ok) throw new Error(`addMotifLayer(${motifId}) failed: ${added.error}`)
   const layerId = added.layerId!
-  await page.evaluate((id) => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId)
+  await page.evaluate((id) => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId)
   return layerId
 }
 
@@ -169,7 +169,7 @@ test('text-fx params page: an enum pick commits; a preview drag alone does not',
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-params-'),
+      parentFolder: tmpDir('lahza-e2e-params-'),
       name: 'motif-params-commit',
       canvas: CANVAS,
     })
@@ -222,7 +222,7 @@ test('text-fx params page: a preset lands three colors that ONE undo takes back'
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-params-preset-'),
+      parentFolder: tmpDir('lahza-e2e-params-preset-'),
       name: 'motif-params-preset',
       canvas: CANVAS,
     })
@@ -271,7 +271,7 @@ test('countdown keeps the generated fallback form — no params page', async () 
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-params-fallback-'),
+      parentFolder: tmpDir('lahza-e2e-params-fallback-'),
       name: 'motif-params-fallback',
       canvas: CANVAS,
     })

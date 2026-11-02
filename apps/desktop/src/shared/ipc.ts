@@ -1,6 +1,6 @@
 // Single source of truth for the preload IPC contract — the shape of
 // `window.api`. Shared between the two DOM-context sides that must agree on it:
-//   - src/preload/index.ts   implements it: `const api: WeftcutApi = {…}`
+//   - src/preload/index.ts   implements it: `const api: LahzaApi = {…}`
 //                            (so the implementation is compile-checked here)
 //   - src/renderer/bridge/   consumes it: augments `Window` + wraps each method
 // Because both type-check against THIS definition, the two sides cannot drift.
@@ -94,7 +94,7 @@ export type PreviewGpuColorSpace = {
 /// Which read-completion barrier runs between snapshotting a slot's shared
 /// texture and acking it back to the native pool. The product ships one of these
 /// (`rendererFence`); the others exist so a bench can A/B against it. Main
-/// resolves the mode from an env var (`WEFTCUT_HW_BARRIER`, see
+/// resolves the mode from an env var (`LAHZA_HW_BARRIER`, see
 /// src/main/previewGpu.ts) and every session reports the one it applied.
 ///
 /// Two of them defer the ack behind a completion signal, and they differ in which
@@ -355,7 +355,7 @@ export interface ExportSwOpenReply {
   startPtsUs: number
 }
 
-/// Availability of the optional @weftcut/native-decode component (level-0
+/// Availability of the optional @lahza/native-decode component (level-0
 /// gate, ADR 0030). `reason` is the require error when unavailable.
 export interface DecodeComponentStatus {
   available: boolean
@@ -398,7 +398,7 @@ import type {
 } from './data-root'
 import type { MenuProjection } from './menu'
 
-export interface WeftcutApi {
+export interface LahzaApi {
   diagnostics: import('./diagnostics').DiagnosticsApi
   resources: {
     planExport(request: import('./export-resources').ExportPlanRequest): Promise<number>;
@@ -610,7 +610,7 @@ export interface WeftcutApi {
     closeAll(): void
     onMsg(cb: (m: ExportSwMsg) => void): () => void
   }
-  /// Availability of the optional @weftcut/native-decode component (level-0
+  /// Availability of the optional @lahza/native-decode component (level-0
   /// gate). The renderer pulls this once on mount (availability is fixed for a
   /// process lifetime — the require is memoized in main).
   decodeComponent: { status(): Promise<DecodeComponentStatus> }

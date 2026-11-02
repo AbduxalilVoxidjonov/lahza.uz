@@ -18,7 +18,7 @@ test('All Tracks reorders a whole populated track between A/B, with menu, cancel
       if (win.isMaximized()) win.unmaximize()
       win.setBounds({ x: 0, y: 0, width: 1440, height: 800 })
     })
-    await newProject(page, { parentFolder: tmpDir('weftcut-track-reorder-'), name: 'track-order', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-track-reorder-'), name: 'track-order', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     await expect(page.locator('.splash-screen')).toHaveCount(0)
     const clip = await invokeCmd<string>(page, 'add_color_layer', { tStartUs: 0, durationUs: 2_000_000 })
     const initial = await summary(page)
@@ -94,7 +94,7 @@ test('Move to a new track reveals the new row without losing selection or the ho
   test.setTimeout(90_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-track-reveal-'), name: 'track-reveal', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-track-reveal-'), name: 'track-reveal', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     await expect(page.locator('.splash-screen')).toHaveCount(0)
     const clip = await invokeCmd<string>(page, 'add_color_layer', { tStartUs: 0, durationUs: 30_000_000 })
     const id = (await summary(page)).tracks.find((track) => track.layers.some((layer) => layer.id === clip))!.id

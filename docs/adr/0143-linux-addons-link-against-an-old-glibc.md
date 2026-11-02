@@ -9,7 +9,7 @@ Date: 2026-10-27
 ## Context
 
 The Linux package failed to start on Ubuntu 22.04 (issue #73):
-`@weftcut/core` needed GLIBC_2.38 and GLIBC_2.39. The addons were built on
+`@lahza/core` needed GLIBC_2.38 and GLIBC_2.39. The addons were built on
 `ubuntu-latest`, so their glibc floor was whatever that runner image shipped,
 and it would have risen again with the image's move to 26.04. The rest of the
 package was never the problem: Electron 44 needs glibc 2.25 and the BtbN

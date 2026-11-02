@@ -123,9 +123,9 @@ territory of ADR 0012, not a decode-delay problem.
 ```bash
 cd apps/desktop
 npm run ffmpeg:fetch            # sidecar ffmpeg on PATH for the specs
-VITE_WEFTCUT_E2E=1 npm run build
+VITE_LAHZA_E2E=1 npm run build
 # un-skip: drop the linux arm of the test.skip at export-prores-fidelity.spec.ts:238
-PATH="$PWD/resources/ffmpeg/linux:$PATH" WEFTCUT_DECODE_E2E=1 \
+PATH="$PWD/resources/ffmpeg/linux:$PATH" LAHZA_DECODE_E2E=1 \
   npx playwright test e2e/electron/export-prores-fidelity.spec.ts
 ```
 

@@ -21,7 +21,7 @@ async function load(w, mode, data) {
   captures.set(w.webContents.id, data || {});
   await w.loadFile(path.join(__dirname, 'page.html'), { query: { mode } });
   await w.webContents.executeJavaScript('window.readyPromise');
-  await w.webContents.executeJavaScript(`document.title = ${JSON.stringify('WeftCut colorpick probe ' + mode + ' ' + w.id)}`);
+  await w.webContents.executeJavaScript(`document.title = ${JSON.stringify('Lahza colorpick probe ' + mode + ' ' + w.id)}`);
 }
 function finish(value) {
   if (!active) return;

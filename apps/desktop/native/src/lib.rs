@@ -1,4 +1,4 @@
-//! WeftCut domain core, exposed to Electron via napi-rs (`Backend`).
+//! Lahza domain core, exposed to Electron via napi-rs (`Backend`).
 //! Architecture: see `docs/architecture.md` and `docs/mcp.md`.
 
 // imbl's persistent collections have deep type chains (`Vector<T>` → internal

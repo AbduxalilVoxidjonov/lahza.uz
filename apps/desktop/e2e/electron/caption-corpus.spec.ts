@@ -145,9 +145,9 @@ function storedCaptionParams(projectDir: string): StoredTextParams {
 test("an unbroken transcript line is born with a wrap width inside the safe area, and breaks at it", async () => {
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-caption-wrap-");
+    const parent = tmpDir("lahza-caption-wrap-");
     await newProject(page, { parentFolder: parent, name: "caption-wrap", canvas: CANVAS });
-    const srt = path.join(tmpDir("weftcut-caption-srt-"), "unbroken.srt");
+    const srt = path.join(tmpDir("lahza-caption-srt-"), "unbroken.srt");
     fs.writeFileSync(srt, `1\n00:00:00,000 --> 00:00:03,000\n${UNBROKEN_LINE}\n`, "utf8");
 
     await applySubtitleFile(page, srt);
@@ -231,7 +231,7 @@ test("Caption Panel manages the whole corpus: aggregate, seek, restyle-all, one 
   // that assert the default Panel set.
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-caption-");
+    const parent = tmpDir("lahza-caption-");
     await newProject(page, { parentFolder: parent, name: "caption-corpus", canvas: CANVAS });
 
     // Seed captions via the real subtitle path: pool the .srt, then apply it.
@@ -260,7 +260,7 @@ test("Caption Panel manages the whole corpus: aggregate, seek, restyle-all, one 
     expect(target.startUs).toBeGreaterThan(0);
     await captionPanel.locator(".caption-seek").last().click();
     await expect
-      .poll(() => page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs()))
+      .poll(() => page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs()))
       .toBe(target.startUs);
     // Activation also SELECTS the cue's Text Layer through the host: the shared
     // selection flows back and the activated row (the last one) is marked.

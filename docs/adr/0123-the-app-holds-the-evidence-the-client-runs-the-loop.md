@@ -24,10 +24,10 @@ rather than the only one.
 open-design solves the same problem for design artifacts by owning the loop:
 its daemon composes design system, craft rules and skill into the system
 prompt, walks a pipeline of stages, and stops on a closed vocabulary of
-observed signals. WeftCut cannot do that. It is an MCP server; Claude Code,
+observed signals. Lahza cannot do that. It is an MCP server; Claude Code,
 Codex, Claude Desktop and others run their own loops and their own prompts.
 
-What WeftCut does own is every boundary the agent's work crosses: what a new
+What Lahza does own is every boundary the agent's work crosses: what a new
 layer looks like when created, what a tool accepts, what is measured about
 the timeline, what ending a session or starting an export reports, and what
 the user approves.
@@ -132,12 +132,12 @@ one batch up front.
   by their own ADRs, in that order.
 - The bench is local and outside CI; the lint's unit tests are app code and
   run in CI.
-- Weaker models become a supported way to drive WeftCut, and the measure of
+- Weaker models become a supported way to drive Lahza, and the measure of
   that support is a number we publish per recipe.
 
 ## Where this lives
 
-- `skills/weftcut/` — `SKILL.md`, `craft/`, `recipes/`; `docs/motif-authoring.md`.
+- `skills/lahza/` — `SKILL.md`, `craft/`, `recipes/`; `docs/motif-authoring.md`.
 - `apps/desktop/native/src/mcp/prompts.rs` — recipe prompts, generated.
 - `apps/desktop/src/main/state/__tests__/mcp.skill-conformance.test.ts` — the gate.
 - Working spec: `.scratch/agent-harness/spec.md` (local).

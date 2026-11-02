@@ -8,7 +8,7 @@ Date: 2026-10-27
 
 ## Context
 
-The PNG capture backend (`WEFTCUT_MOTIF_CAPTURE=png`, and every machine
+The PNG capture backend (`LAHZA_MOTIF_CAPTURE=png`, and every machine
 without shared-texture OSR, which is every Mac) renders a Motif in one
 offscreen bitmap host, navigates it between Motifs, emulates the capture
 size with `Emulation.setDeviceMetricsOverride`, and reads a frame back with

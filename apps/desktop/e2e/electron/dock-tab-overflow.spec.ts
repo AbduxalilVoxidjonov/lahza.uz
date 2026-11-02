@@ -115,7 +115,7 @@ test("a squeezed tab strip keeps every title whole and announces both ends", asy
     // BEFORE the project opens.
     await setWindowWidth(app, ROOMY_PX);
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-tab-overflow-"),
+      parentFolder: tmpDir("lahza-tab-overflow-"),
       name: "dock-tab-overflow",
       canvas: CANVAS,
     });

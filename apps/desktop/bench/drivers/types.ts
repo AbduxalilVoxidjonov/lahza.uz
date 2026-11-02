@@ -10,7 +10,7 @@
 import type { MediaWait } from '../mediaReady'
 import type { BenchTask } from '../tasks'
 
-/** Where the agent reaches WeftCut: the app's streamable-HTTP MCP endpoint and
+/** Where the agent reaches Lahza: the app's streamable-HTTP MCP endpoint and
  *  the bearer token it was launched with. A driver adapts this to its client's
  *  own MCP configuration. */
 export interface McpEndpoint {

@@ -187,9 +187,9 @@ function extractFramePng(ffmpeg: string, mp4: string, n: number, outPng: string)
 /// single call's frame — a fixed settle in front of an assertion is a flake on a
 /// loaded runner (e2e/README.md, "Waiting inside a spec").
 async function capturePreviewFrame(page: Page, tUs: number): Promise<{ frame: Frame; png: Buffer }> {
-  await page.evaluate((us) => (window as any).__weftcutTest.weftcutSeekUs(us), tUs)
+  await page.evaluate((us) => (window as any).__lahzaTest.lahzaSeekUs(us), tUs)
   await page.waitForTimeout(200)
-  const b64 = (await page.evaluate(() => (window as any).__weftcutTest.capturePreviewFramePng())) as string
+  const b64 = (await page.evaluate(() => (window as any).__lahzaTest.capturePreviewFramePng())) as string
   const png = Buffer.from(b64, 'base64')
   return { frame: decodePng(png), png }
 }
@@ -632,7 +632,7 @@ for (const sc of SCENARIOS) {
     // Local-only like the other export gates: the export leg needs the real
     // GPU/WebCodecs encode path, absent on headless CI.
     test.skip(
-      process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+      process.env.LAHZA_E2E_NO_EXPORT === '1',
       'keyframe export leg needs a real GPU/WebCodecs encoder not on headless CI; verified locally',
     )
     const ffmpeg = ffmpegBin()
@@ -648,7 +648,7 @@ for (const sc of SCENARIOS) {
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-keyframe-proj-'),
+        parentFolder: tmpDir('lahza-e2e-keyframe-proj-'),
         name: `keyframe-${sc.name}-` + Date.now(),
         canvas: CANVAS,
       })
@@ -673,14 +673,14 @@ for (const sc of SCENARIOS) {
 
       // ── Export leg — decode the SAME frame indices, run the SAME checks ─────
       const exportFrames = await test.step('export leg', async () => {
-        const output = path.join(tmpDir('weftcut-e2e-keyframe-out-'), `${sc.name}.mp4`)
+        const output = path.join(tmpDir('lahza-e2e-keyframe-out-'), `${sc.name}.mp4`)
         const exp = await driveExport(page, { outputAbsPath: output }, { hook: 'exportTimeline', timeout: 150_000 })
         if (!exp.done.ok) throw new Error(`exportTimeline failed (${sc.name}): ${exp.done.error}`)
 
-        const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+        const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
           | { totalFrames: number }
           | null
-        expect(perf, '__weftcutExportPerf must be set after export (E2E build)').not.toBeNull()
+        expect(perf, '__lahzaExportPerf must be set after export (E2E build)').not.toBeNull()
         expect(perf!.totalFrames, '3 s composition at 30 fps plans 90 frames').toBe(TOTAL_FRAMES)
 
         const frames: Record<string, Frame> = {}

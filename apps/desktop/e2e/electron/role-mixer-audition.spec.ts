@@ -22,7 +22,7 @@ test.describe('Role Gain audition (Electron preview audio)', () => {
   test.beforeAll(async () => {
     ;({ app, page } = await launchApp())
     // The hook surface mounts async (main.tsx dynamic-imports e2eHook after
-    // React mounts); evaluating before it lands races → undefined __weftcutTest.
+    // React mounts); evaluating before it lands races → undefined __lahzaTest.
     await waitForHook(page, 'roleGainAuditionProbe')
   })
   test.afterAll(async () => { await app?.close() })
@@ -34,7 +34,7 @@ test.describe('Role Gain audition (Electron preview audio)', () => {
 
   const probe = (overrideDb: number | null) =>
     page.evaluate(
-      (a) => (window as any).__weftcutTest.roleGainAuditionProbe(a),
+      (a) => (window as any).__lahzaTest.roleGainAuditionProbe(a),
       { role: 'dialogue', committedDb: COMMITTED_DB, overrideDb, frames: FRAMES },
     ) as Promise<{ rms: number; folded: number }>
 
@@ -161,7 +161,7 @@ test.describe('Role Mixer panel flow (Electron UI)', () => {
     // window before the project opens: the default size tracks the runner's
     // display, and the Panel's layout is a function of its width.
     await setWindowWidth(CARDS_WINDOW_PX)
-    workspace = tmpDir('weftcut-mixer-')
+    workspace = tmpDir('lahza-mixer-')
     await newProject(page, {
       parentFolder: workspace,
       name: 'role-mixer',

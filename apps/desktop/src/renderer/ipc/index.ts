@@ -79,9 +79,13 @@ export function updatePathTransform(layerId: string, dx: number, dy: number, ent
 }
 
 import type { ExportSettings } from "../render/exportSettings";
+import type { ComponentsView } from "../../shared/content-download";
 import type { ModelsView, ModelUseRequest, ModelFamily } from "../../shared/inference-models";
 export const modelsUnselect = (family: ModelFamily): Promise<void> => invoke("models_unselect", { family });
 export const modelsClearDownloads = (id: string): Promise<void> => invoke("models_clear_downloads", { id });
+export const componentsList = (): Promise<ComponentsView> => invoke("components_list");
+export const componentsRetry = (): Promise<ComponentsView> => invoke("components_retry");
+export const componentsCancel = (id: string): Promise<void> => invoke("components_cancel", { id });
 export const modelsList = (): Promise<ModelsView> => invoke("models_list");
 export const modelsUse = (request: ModelUseRequest): Promise<void> => invoke("models_use", { ...request });
 export const modelsCancel = (id: string): Promise<void> => invoke("models_cancel", { id });
@@ -276,7 +280,7 @@ export interface MediaSummary {
   /// missing item render placeholders.
   available: boolean;
   /// The file is there but holds other bytes than this item records (changed
-  /// outside WeftCut); `available` is false too, so it is treated as missing.
+  /// outside Lahza); `available` is false too, so it is treated as missing.
   changed?: boolean;
   /// Where preview/export decode from + proxy readiness. See decodeRoute.ts.
   decode_route: DecodeRoute;
@@ -2005,7 +2009,7 @@ export interface McpInfoView {
   /// (exe_path is the transient mount).
   appimage: string | null;
   user_data: string;
-  /// <userData>/cli/weftcut-mcp.cjs once installed; null in dev before
+  /// <userData>/cli/lahza-mcp.cjs once installed; null in dev before
   /// build:cli has produced the bundle (the panel then falls back to
   /// HTTP-direct as the primary path).
   shim_path: string | null;
@@ -2048,7 +2052,7 @@ export async function resetMcpToken(): Promise<string> {
 
 /// Re-run the startup refresh of `<userData>/skills` and return what it found.
 /// The recovery behind the Agent tab's "try again": every fault a packaged user
-/// can hit is one something outside WeftCut can clear, so re-checking must not
+/// can hit is one something outside Lahza can clear, so re-checking must not
 /// cost an app restart.
 export async function reinstallSkills(): Promise<SkillsInstallView> {
   return (await window.api.mcp.reinstallSkills()) as SkillsInstallView;

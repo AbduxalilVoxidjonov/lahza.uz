@@ -20,15 +20,15 @@ import {
   type PanelKind,
 } from "./panelRegistry";
 import {
-  WEFTCUT_LAYOUT_VERSION,
+  LAHZA_LAYOUT_VERSION,
   createEditingLayout,
   normalizeLayout,
   type PanelPlacement,
   type PanelPlacements,
-  type WeftCutLayout,
+  type LahzaLayout,
 } from "./workspaceLayout";
 
-export const WEFTCUT_MEDIA_MIME_PREFIX = "application/x-weftcut-";
+export const LAHZA_MEDIA_MIME_PREFIX = "application/x-lahza-";
 
 /** How much of the workspace a whole-layout edge drop claims on its axis.
  *  `WORKSPACE_EDGE_DROP_OVERLAY` (DockWorkspace.tsx) draws the drop band at
@@ -78,7 +78,7 @@ export interface DockWorkspaceSnapshot {
 }
 
 /** The app-facing workspace seam. No live Dockview object or API escapes it;
- *  layouts cross only as opaque, validated `WeftCutLayout` snapshots. */
+ *  layouts cross only as opaque, validated `LahzaLayout` snapshots. */
 export interface DockWorkspaceController {
   getSnapshot(): DockWorkspaceSnapshot;
   subscribe(listener: () => void): () => void;
@@ -102,14 +102,14 @@ export interface DockWorkspaceController {
   toggleMaximize(id?: PanelId): void;
   restoreMaximizedPanel(): void;
   resetWorkspace(): void;
-  /** Capture the live Dock Tree as a validated, versioned WeftCut layout
+  /** Capture the live Dock Tree as a validated, versioned Lahza layout
    *  snapshot. Transient maximize/focus/hover state is excluded. */
-  serialize(): WeftCutLayout;
+  serialize(): LahzaLayout;
   /** Replace the live layout from a normalized snapshot, reusing open Panel
    *  instances. Returns false (leaving the tree untouched-or-cleared) if the
    *  snapshot cannot be applied, so callers can fall through to the next
    *  fallback level. */
-  restore(layout: WeftCutLayout): boolean;
+  restore(layout: LahzaLayout): boolean;
 }
 
 export const EMPTY_DOCK_WORKSPACE_SNAPSHOT: DockWorkspaceSnapshot = {
@@ -140,14 +140,14 @@ function setSizeOnAxis(
   else group.api.setSize({ height: value });
 }
 
-/** True only for OS Files or WeftCut business drags, never Dockview drags. */
+/** True only for OS Files or Lahza business drags, never Dockview drags. */
 export function isBusinessDockDrag(
   dataTransfer: Pick<DataTransfer, "types"> | null | undefined,
 ): boolean {
   const types = Array.from(dataTransfer?.types ?? []);
   return (
     types.includes("Files") ||
-    types.some((type) => type.startsWith(WEFTCUT_MEDIA_MIME_PREFIX))
+    types.some((type) => type.startsWith(LAHZA_MEDIA_MIME_PREFIX))
   );
 }
 
@@ -620,7 +620,7 @@ export class DockWorkspaceAdapter implements DockWorkspaceController {
     }
   }
 
-  serialize(): WeftCutLayout {
+  serialize(): LahzaLayout {
     // An intentionally empty Workspace is a first-class, valid snapshot —
     // distinct from missing (null) or corrupt data on the persistence side. Its
     // placements still carry the closed Panels' remembered spots.
@@ -631,7 +631,7 @@ export class DockWorkspaceAdapter implements DockWorkspaceController {
     // sits and how large it is, which is all a profile can promise.
     const normalized = normalizeLayout(
       {
-        version: WEFTCUT_LAYOUT_VERSION,
+        version: LAHZA_LAYOUT_VERSION,
         empty,
         dockview: empty ? null : this.api.toJSON(),
         placements: this.serializePlacements(),
@@ -644,7 +644,7 @@ export class DockWorkspaceAdapter implements DockWorkspaceController {
     return normalized;
   }
 
-  restore(layout: WeftCutLayout): boolean {
+  restore(layout: LahzaLayout): boolean {
     try {
       this.applyLayout(layout);
       return true;
@@ -654,7 +654,7 @@ export class DockWorkspaceAdapter implements DockWorkspaceController {
     }
   }
 
-  private applyLayout(layout: WeftCutLayout): void {
+  private applyLayout(layout: LahzaLayout): void {
     // A snapshot carries the folded `timeline` slot, so restoring one means
     // binding that slot to the composition this adapter names. Re-normalizing
     // an already valid layout does nothing but re-address it; a null here would

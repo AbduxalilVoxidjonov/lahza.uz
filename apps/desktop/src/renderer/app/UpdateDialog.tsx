@@ -50,7 +50,7 @@ export function UpdateDialog({ onClose }: { onClose: () => void }) {
           <p id={statusId} role="status" className={status.phase === 'error' ? 'settings-warn' : 'settings-blurb'}>
             {status.phase === 'ready'
               ? <>{t('updates.version', { version: status.version })} {t(autoInstall ? 'updates.ready_auto' : 'updates.ready_manual')}</>
-              : t(status.phase === 'available' ? 'updates.available_manual' : `updates.${status.phase}`, { version: status.version, percent })}
+              : t(status.phase === 'available' ? status.installation === 'manual' ? 'updates.available_mac' : 'updates.available_manual' : `updates.${status.phase}`, { version: status.version, percent })}
           </p>
           {status.phase === 'downloading' && (
             <div

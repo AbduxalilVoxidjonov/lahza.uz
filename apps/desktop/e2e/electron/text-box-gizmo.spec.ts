@@ -46,7 +46,7 @@ test("inline text entry saves multiline content as one undo step and can reopen 
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-inline-text-"),
+      parentFolder: tmpDir("lahza-e2e-inline-text-"),
       name: `inline-text-${Date.now()}`,
       canvas: CANVAS,
     });
@@ -161,7 +161,7 @@ async function textLayerUnderGizmo(page: Page): Promise<string> {
   await expect(page.locator(".pixi-preview-canvas")).toBeVisible();
   await expect(page.getByTestId("pixi-preview-initializing")).toBeHidden();
   await waitForHook(page, "revealLayer");
-  await page.evaluate((id) => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId);
+  await page.evaluate((id) => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId);
   await expect(page.getByTestId("transform-gizmo-box")).toBeVisible();
   await expect
     .poll(async () => (await textBoxProbe(page, layerId)).natural?.w ?? 0)
@@ -201,7 +201,7 @@ test("an edge drag re-wraps the glyphs and leaves the stored font size alone", a
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-textbox-edge-"),
+      parentFolder: tmpDir("lahza-e2e-textbox-edge-"),
       name: `textbox-edge-${Date.now()}`,
       canvas: CANVAS,
     });
@@ -266,7 +266,7 @@ test("a corner drag compresses the rendered glyphs and still stores one font siz
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-textbox-corner-"),
+      parentFolder: tmpDir("lahza-e2e-textbox-corner-"),
       name: `textbox-corner-${Date.now()}`,
       canvas: CANVAS,
     });

@@ -95,7 +95,7 @@ export class PlaybackEngine {
       stageAdd(STAGE.Anchor, anchor);
       this.compositor.compositeFrame(tUs);
     } catch (error) {
-      console.error("[weftcut/pixi] presentation tick failed:", error);
+      console.error("[lahza/pixi] presentation tick failed:", error);
     } finally { stageAdd(STAGE.TickTotal, t0); stageFrameEnd(); }
   };
 }

@@ -402,7 +402,7 @@ export function createExportRunner(deps: {
           }
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error("[weftcut/pixi] audio-only export failed:", e);
+          console.error("[lahza/pixi] audio-only export failed:", e);
           setExportState({ kind: "error", detail: `Audio export failed: ${msg}` });
           return;
         }
@@ -622,7 +622,7 @@ export function createExportRunner(deps: {
           });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error("[weftcut/pixi] video sink start failed:", e);
+          console.error("[lahza/pixi] video sink start failed:", e);
           // Native encoder unavailable under `auto`, on a combo WebCodecs can
           // actually take (8-bit, non-intermediate): offer an explicit-consent
           // fallback instead of hard-erroring — never a silent encoder swap.
@@ -753,7 +753,7 @@ export function createExportRunner(deps: {
           setExportState(null);
           return;
         }
-        console.error("[weftcut/pixi] export failed:", e);
+        console.error("[lahza/pixi] export failed:", e);
         setExportState({ kind: "error", detail: msg });
         return;
       }
@@ -775,7 +775,7 @@ export function createExportRunner(deps: {
           await exportVideoSinkFinish();
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error("[weftcut/pixi] sink finish failed:", e);
+          console.error("[lahza/pixi] sink finish failed:", e);
           setExportState({ kind: "error", detail: `Finalize failed: ${msg}` });
           return;
         }

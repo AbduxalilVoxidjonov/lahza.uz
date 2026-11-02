@@ -110,7 +110,7 @@ export function assertDisjointRoots(oldRoot: string, newRoot: string, join: Join
 }
 
 /**
- * True when `root` already looks like a valid WeftCut data root: the recognizable
+ * True when `root` already looks like a valid Lahza data root: the recognizable
  * motifs/ + cache/ + downloads/ layout all present as directories. Such a target
  * is ADOPTED as-is (no copy, no merge).
  */
@@ -207,7 +207,7 @@ export function runCopy(
   const destDownloads = join(newRoot, 'downloads')
   const destCache = join(newRoot, 'cache')
 
-  // Copy mode targets a CLEAN folder (a populated WeftCut root goes down the
+  // Copy mode targets a CLEAN folder (a populated Lahza root goes down the
   // adopt path). Refuse to merge into a target that already holds copied content
   // — this also keeps rollback exact: everything under the dest buckets is ours.
   for (const bucket of COPY_BUCKETS) {

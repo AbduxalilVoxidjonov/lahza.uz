@@ -65,7 +65,7 @@ export async function runHardwareProbe(request: HardwareProbeRequest,
       }
     }
   }
-  const core = createRequire(import.meta.url)('@weftcut/core') as {
+  const core = createRequire(import.meta.url)('@lahza/core') as {
     hardwareEncoderDiagnostics?: () => Promise<string>;
   };
   if (core.hardwareEncoderDiagnostics) {

@@ -5,7 +5,7 @@ import { unzipSync, strFromU8 } from 'fflate'
 import { forceCloseApp, launchApp, tmpDir } from './helpers/driver'
 
 test('diagnostic export works before opening a project and normal quit does not prompt', async () => {
-  const userDataDir = tmpDir('weftcut-report-clean-')
+  const userDataDir = tmpDir('lahza-report-clean-')
   const output = path.join(userDataDir, 'report.zip')
   const first = await launchApp({ userDataDir })
   try {
@@ -35,7 +35,7 @@ test('diagnostic export works before opening a project and normal quit does not 
 
 test('forced termination prompts on restart, exports the previous session and dismisses persistently', async ({}, testInfo) => {
   test.setTimeout(90_000)
-  const userDataDir = tmpDir('weftcut-report-abrupt-')
+  const userDataDir = tmpDir('lahza-report-abrupt-')
   const first = await launchApp({ userDataDir })
   const closed = first.app.waitForEvent('close')
   // The cleanup helper sends SIGTERM on POSIX, which lets Electron quit cleanly.
@@ -64,7 +64,7 @@ test('forced termination prompts on restart, exports the previous session and di
     expect(JSON.parse(strFromU8(files['previous/session.json']!)).closed).toBe(false)
     expect(strFromU8(files['previous/events.jsonl']!)).toContain('startup')
     await second.page.getByRole('button', { name: 'Open GitHub Issue' }).click()
-    await expect.poll(() => second.app.evaluate(() => (globalThis as any).__diagnosticIssueUrl)).toContain('github.com/WeftCut/WeftCut/issues/new?')
+    await expect.poll(() => second.app.evaluate(() => (globalThis as any).__diagnosticIssueUrl)).toContain('github.com/AbduxalilVoxidjonov/lahza.uz/issues/new?')
     const issueUrl = new URL(await second.app.evaluate(() => (globalThis as any).__diagnosticIssueUrl))
     expect(issueUrl.searchParams.get('template')).toBe('bug_report.yml')
     expect(issueUrl.searchParams.get('what')).toContain('unclean-exit')

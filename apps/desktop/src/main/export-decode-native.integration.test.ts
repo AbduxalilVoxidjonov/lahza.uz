@@ -1,5 +1,5 @@
 // Integration test for the native export-decode session (ADR 0033). Drives the
-// @weftcut/native-decode napi seam DIRECTLY from Node — open → decodeRange →
+// @lahza/native-decode napi seam DIRECTLY from Node — open → decodeRange →
 // returnCredit → close — with zero renderer/Electron involvement, and asserts
 // exactly-once, GOP-exact, presentation-ordered coverage against ffprobe-known
 // fixtures, plus the credit-window flow control, internal EOS flush, and the
@@ -15,7 +15,7 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-import type { ExportSwFrame, ExportSwMsg, NativeDecode } from '@weftcut/native-decode'
+import type { ExportSwFrame, ExportSwMsg, NativeDecode } from '@lahza/native-decode'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const APP = path.resolve(HERE, '..', '..') // apps/desktop
@@ -30,7 +30,7 @@ const MPEG2 = path.join(DECODE, 'tests', 'fixtures', 'tiny_mpeg2.mpg')
 // co-located dylibs carry @loader_path install names — both load with no
 // loader-path shim. Any failure — wrong platform, missing libs, addon not
 // built — degrades to `mod = null` and the suite skips.
-function tryLoadAddon(): typeof import('@weftcut/native-decode') | null {
+function tryLoadAddon(): typeof import('@lahza/native-decode') | null {
   if (process.platform !== 'win32' && process.platform !== 'linux' && process.platform !== 'darwin') {
     return null
   }
@@ -39,7 +39,7 @@ function tryLoadAddon(): typeof import('@weftcut/native-decode') | null {
       process.env.PATH = `${DLL_DIR}${path.delimiter}${process.env.PATH ?? ''}`
     }
     const require_ = createRequire(import.meta.url)
-    return require_(path.join(DECODE, 'index.js')) as typeof import('@weftcut/native-decode')
+    return require_(path.join(DECODE, 'index.js')) as typeof import('@lahza/native-decode')
   } catch {
     return null
   }

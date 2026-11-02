@@ -11,7 +11,7 @@ test.describe('preview pan matrix mixer (Electron)', () => {
   test.beforeAll(async () => {
     ;({ app, page } = await launchApp())
     // The hook surface mounts async (main.tsx dynamic-imports e2eHook after
-    // React mounts); evaluating before it lands races → undefined __weftcutTest.
+    // React mounts); evaluating before it lands races → undefined __lahzaTest.
     await waitForHook(page, 'panRenderProbe')
   })
   test.afterAll(async () => { await app?.close() })
@@ -29,7 +29,7 @@ test.describe('preview pan matrix mixer (Electron)', () => {
     for (const pan of [-0.8, 0, 0.5]) {
       test(`channels=${ch} pan=${pan} matches equal-power L/R`, async () => {
         const probe = (await page.evaluate(
-          (a) => (window as any).__weftcutTest.panRenderProbe(a),
+          (a) => (window as any).__lahzaTest.panRenderProbe(a),
           { channels: ch, pan, frames: 48_000 },
         )) as { l: number; r: number }
         const want = expectLr(ch, pan)

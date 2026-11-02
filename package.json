@@ -1,17 +1,17 @@
 {
-  "name": "weftcut",
-  "version": "0.5.4",
+  "name": "lahza",
+  "version": "0.5.5",
   "private": true,
   "license": "MIT",
   "description": "Electron desktop video editor with an MCP tool surface for external AI agents",
   "author": "UncleChair (https://github.com/UncleChair)",
-  "homepage": "https://weftcut.com",
+  "homepage": "https://lahza.uz",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/WeftCut/WeftCut.git"
+    "url": "git+https://github.com/AbduxalilVoxidjonov/lahza.uz.git"
   },
   "bugs": {
-    "url": "https://github.com/WeftCut/WeftCut/issues"
+    "url": "https://github.com/AbduxalilVoxidjonov/lahza.uz/issues"
   },
   "workspaces": [
     "apps/*"

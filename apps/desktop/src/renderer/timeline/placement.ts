@@ -15,7 +15,7 @@ export type PlacementValidity = "valid" | "collision" | "locked" | "spawn";
 /// answer structural: it travels the same evaluation, the same claim/release
 /// drop-target protocol and the same ghost geometry a lane does, and no drop
 /// surface has to special-case it.
-export const SPAWN_TRACK_ID = "__weftcut-spawn-track__";
+export const SPAWN_TRACK_ID = "__lahza-spawn-track__";
 
 /// Which row a live drag's preview chip belongs in, given its resolved
 /// destination and the lane the clip is still on.

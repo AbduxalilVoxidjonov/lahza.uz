@@ -42,7 +42,7 @@ const BROADCAST_CAPACITY: usize = 256;
 
 /// JSONL writer mpsc bound. Bursts beyond this drop the line SILENTLY:
 /// there is no drop counter, and the writer's own `tracing::warn!`s never
-/// reach the bus (the layer bridges Error-level `weftcut*` targets only) —
+/// reach the bus (the layer bridges Error-level `lahza*` targets only) —
 /// so the JSONL can under-report a saturation burst. If drop reporting is
 /// ever added, it must not run inside `emit`: the tracing layer forwards
 /// into `emit`, so reporting from there would recurse.

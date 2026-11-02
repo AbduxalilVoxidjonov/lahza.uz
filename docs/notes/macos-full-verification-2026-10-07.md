@@ -20,7 +20,7 @@ symlinks, was corrected and verified with the full unit suite.
 - CLI Node 24.20.0; pinned Rust 1.98.1; Electron 44.5.0; bundled FFmpeg 8.1.2.
 - Rebuilt both native addons, their co-located decode libraries, WASM, the
   conformance analyzer and the E2E-enabled application.
-- `--full`, `WEFTCUT_DECODE_E2E=1`, one Playwright worker, zero retries.
+- `--full`, `LAHZA_DECODE_E2E=1`, one Playwright worker, zero retries.
   Serial/GPU measurement gates completed before the other E2E project started.
 - Fresh throwaway userData and synthetic media; the installed user's profile
   was not used. Browser, Electron, loopback and process-inspection checks needed
@@ -45,7 +45,7 @@ symlinks, was corrected and verified with the full unit suite.
 | Float16 effect pool and real WebGPU sharpen parity | Passed |
 | Maximum-zoom ruler count, 10 s / 1 h / 24 h + scroll | 58 nodes throughout; ceiling 145 |
 | Supplemental 4K ProRes software-preview memory ratchet | Passed: 424 → 411 MB, −13 MB; growth ceiling 30 MB |
-| Production arm64 package and afterPack gates | Passed; `release/WeftCut-mac-arm64.dmg`, 231 MB |
+| Production arm64 package and afterPack gates | Passed; `release/Lahza-mac-arm64.dmg`, 231 MB |
 | Deep/strict application signature verification and DMG checksum | Passed |
 | Production `.app` startup with isolated userData | Passed; visible welcome screen, version 0.3.1, no renderer page errors |
 | Native modules and bundled hardware encoder inside the package | Core and decode loaded; software/VideoToolbox capabilities; H.264 VideoToolbox sidecar encode passed |

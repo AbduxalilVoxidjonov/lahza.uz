@@ -67,10 +67,10 @@ const visibleTimelinePanelId = (page: Page): Promise<string | null> =>
     .evaluateAll((els) => els[0]?.getAttribute('data-focus-region-instance') ?? null)
 
 const openComposition = (page: Page): Promise<{ id: string; crumbs: unknown[] } | null> =>
-  page.evaluate(() => (window as any).__weftcutTest.getOpenComposition())
+  page.evaluate(() => (window as any).__lahzaTest.getOpenComposition())
 
 const playheadUs = (page: Page): Promise<number> =>
-  page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs())
+  page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs())
 
 const layerIdsOf = (c: { tracks: Array<{ layers: Array<{ id: string }> }> }) =>
   c.tracks.flatMap((t) => t.layers.map((l) => l.id)).sort()
@@ -95,7 +95,7 @@ test('the timeline, the ruler and the Insert menu follow the open composition', 
   test.setTimeout(150_000)
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-scope-')
+    const parent = tmpDir('lahza-scope-')
     await newProject(page, { parentFolder: parent, name: 'scope-blank', canvas: CANVAS })
 
     // Swap in the two-composition fixture as a workspace of its own and reopen
@@ -104,7 +104,7 @@ test('the timeline, the ruler and the Insert menu follow the open composition', 
     fs.mkdirSync(dir)
     fs.copyFileSync(FIXTURE, path.join(dir, 'project.json'))
     await waitForHook(page, 'motifReopenProject')
-    await page.evaluate((p) => (window as any).__weftcutTest.motifReopenProject({ path: p }), dir)
+    await page.evaluate((p) => (window as any).__lahzaTest.motifReopenProject({ path: p }), dir)
     await waitForHook(page, 'setOpenComposition')
     await waitForHook(page, 'getPlayheadUs')
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
@@ -135,7 +135,7 @@ test('the timeline, the ruler and the Insert menu follow the open composition', 
 
     // ── Open the Group: a Panel of its own, beside the root's ─────────────
     expect(
-      await page.evaluate((id) => (window as any).__weftcutTest.setOpenComposition(id), groupId),
+      await page.evaluate((id) => (window as any).__lahzaTest.setOpenComposition(id), groupId),
     ).toBe(true)
     await expect.poll(() => openComposition(page)).toMatchObject({ id: groupId })
     // The root's Panel is not replaced — it stays open behind the new tab.
@@ -199,7 +199,7 @@ test('the timeline, the ruler and the Insert menu follow the open composition', 
     // Activating a tab, not closing one: both Panels stand, and only which of
     // them is on screen changes.
     expect(
-      await page.evaluate((id) => (window as any).__weftcutTest.setOpenComposition(id), rootId),
+      await page.evaluate((id) => (window as any).__lahzaTest.setOpenComposition(id), rootId),
     ).toBe(true)
     await expect.poll(() => openComposition(page)).toMatchObject({ id: rootId, crumbs: [] })
     await expect.poll(() => visibleTimelinePanelId(page)).toBe(rootId)

@@ -65,7 +65,7 @@ inside the callback.
 Profiling is **off by default**: every entry point returns on a monomorphic
 boolean and `stageNow()` hands back 0 rather than reading a clock, so a
 production session pays a branch. The bench turns it on through
-`__weftcutTest.stageProfilingSet`.
+`__lahzaTest.stageProfilingSet`.
 
 **`present` lands one frame late.** It runs at `UPDATE_PRIORITY.LOW`, after
 `PlaybackEngine`'s HIGH tick already closed the frame, so its sample accumulates
@@ -226,8 +226,8 @@ codec-confounded:
 
 | route | `decode_engine` | env | resolves to |
 |---|---|---|---|
-| ffmpeg hardware | `ffmpeg` | `WEFTCUT_FORCE_HW_LANE=d3d11va` | `GpuTransport`, `sourceKind: native-gpu` |
-| ffmpeg software | `ffmpeg` | `WEFTCUT_FORCE_HW_LANE=nvdec` | `SwTransport`, `sourceKind: sw` |
+| ffmpeg hardware | `ffmpeg` | `LAHZA_FORCE_HW_LANE=d3d11va` | `GpuTransport`, `sourceKind: native-gpu` |
+| ffmpeg software | `ffmpeg` | `LAHZA_FORCE_HW_LANE=nvdec` | `SwTransport`, `sourceKind: sw` |
 | WebCodecs | `webcodecs` | — | `SourceHandle`, `sourceKind: webcodecs` |
 
 The software pin deserves a note: Windows advertises only `software` and

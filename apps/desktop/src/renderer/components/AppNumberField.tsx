@@ -48,7 +48,7 @@ export interface AppNumberFieldProps {
   className?: string;
 }
 
-/// The one numeric input for every WeftCut form. Wraps Base UI NumberField:
+/// The one numeric input for every Lahza form. Wraps Base UI NumberField:
 /// type a value, use ↑/↓ arrow keys, or the hover-revealed +/- steppers.
 /// (No drag-scrub: Base UI's ScrubArea needs Pointer Lock; it is simply not
 /// wired up here. Could be added — keyboard arrows and the +/- steppers cover

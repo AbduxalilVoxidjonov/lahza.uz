@@ -45,7 +45,7 @@ test.describe("whole-link duplicate", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-link-dup-"),
+        parentFolder: tmpDir("lahza-e2e-link-dup-"),
         name: "e2e-link-dup-" + Date.now(),
         canvas: { width: 640, height: 480, fpsNum: 30, fpsDen: 1 },
       });

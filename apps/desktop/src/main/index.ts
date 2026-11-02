@@ -52,8 +52,7 @@ import { shouldClearApplicationMenu } from './inputPolicy.js'
 import { WINDOWS_APP_USER_MODEL_ID } from './appIdentity.js'
 import { setUiLanguage, tr } from './uiLanguage.js'
 
-/** Whether a Lahza Studio release feed exists for electron-updater to follow. */
-const LAHZA_RELEASE_FEED = false
+import { configureReleaseUpdater, createMacReleaseUpdates } from './releaseUpdates.js'
 import { buildApplicationMenuTemplate, sanitizeMenuProjection } from './appMenu.js'
 import type { MenuProjection } from '../shared/menu.js'
 import { broadcastEvent } from './broadcast.js'
@@ -90,17 +89,18 @@ import type { DataRootMigrateResult, DataRootProgress } from '../shared/data-roo
 import { randomUUID } from 'node:crypto'
 import { CONTENT_CATALOG } from '../shared/content-catalog.js'
 import { contentPlatformKey } from '../shared/content-download.js'
-import { downloadItem, itemStatus, speechAutofillPlan, vlmAutofillPlan, sweepStalePartials, type ContentDeps } from './contentDownload.js'
+import { contentRequestHeaders, downloadItem, itemStatus, speechAutofillPlan, vlmAutofillPlan, sweepStalePartials, type ContentDeps } from './contentDownload.js'
 import { resignInvalidMachO, type ContentSignDeps } from './contentSign.js'
 import { ContentQueue } from './contentQueue.js'
+import { componentsToInstall, componentsView, type ComponentsDeps } from './components.js'
 import { createModelFeature } from './model-feature.js'
 import { ModelManager } from './model-manager.js'
 import { MODEL_EVENTS, type ModelUseRequest, type ModelFamily } from '../shared/inference-models.js'
 
 const require_ = createRequire(import.meta.url)
-const { Backend } = require_('@weftcut/core') as typeof import('@weftcut/core')
+const { Backend } = require_('@lahza/core') as typeof import('@lahza/core')
 
-let backend: import('@weftcut/core').Backend | null = null
+let backend: import('@lahza/core').Backend | null = null
 let mainWindow: BrowserWindow | null = null
 let layoutTheme = DEFAULT_LAYOUT_THEME
 
@@ -435,14 +435,14 @@ function isElevatedWindows(): Promise<boolean> {
   })
 }
 
-/// One-shot startup notice: when WeftCut runs elevated on Windows, Windows UIPI
+/// One-shot startup notice: when Lahza runs elevated on Windows, Windows UIPI
 /// blocks file drag-drop from the (Medium-integrity) Explorer into this
 /// (High-integrity) process — the drag never reaches the renderer, so drop-import
 /// silently dies. Surface it instead of leaving a confusing no-op. The dialog is
 /// suppressed under e2e/CI (which often run elevated) so it can't block automation.
 async function warnIfElevatedWindows(win: BrowserWindow): Promise<void> {
   if (process.platform !== 'win32') return
-  if (process.env['WEFTCUT_SUPPRESS_ELEVATION_NOTICE']) return
+  if (process.env['LAHZA_SUPPRESS_ELEVATION_NOTICE']) return
   if (!(await isElevatedWindows())) return
   if (win.isDestroyed()) return
   await dialog.showMessageBox(win, {
@@ -471,7 +471,7 @@ app.whenReady().then(async () => {
   // packaged identity on purpose (one taskbar grouping across dev and prod).
   app.setAppUserModelId(WINDOWS_APP_USER_MODEL_ID)
 
-  // WeftCut's UI is dark-only (base.css pins `color-scheme: dark`), so declare
+  // Lahza's UI is dark-only (base.css pins `color-scheme: dark`), so declare
   // that to the OS instead of inheriting the system appearance. macOS draws the
   // traffic lights through the WINDOW's appearance, and its light-chrome
   // INACTIVE state is a dark grey disc meant for a light titlebar — invisible
@@ -533,7 +533,7 @@ app.whenReady().then(async () => {
   const { hydratePerformanceSettings } = await import('../shared/performance-settings.js')
   let performanceGpu: PerformanceGpuHardware | null = null
   try {
-    const probe = (require_('@weftcut/core') as { gpuHardwareInfo?: () => PerformanceGpuHardware }).gpuHardwareInfo
+    const probe = (require_('@lahza/core') as { gpuHardwareInfo?: () => PerformanceGpuHardware }).gpuHardwareInfo
     performanceGpu = probe?.() ?? null
   } catch (error) { console.warn('[performance] GPU capacity unavailable:', error) }
   // Machine/build provenance is local-only. A driver/device change invalidates
@@ -603,6 +603,7 @@ app.whenReady().then(async () => {
   const { createSpeechConfigStore, toSpeechBackendSnapshot } = await import('./speech-config.js')
   const speechConfig = createSpeechConfigStore({ fs: atomicFs, path: path.join(app.getPath('userData'), 'speech_config.json'), dir: app.getPath('userData') })
   let models: ModelManager | undefined
+  let components: { list(): ReturnType<typeof componentsView>; retry(): ReturnType<typeof componentsView>; cancel(id: string): void } | undefined
 
   // Video-understanding (VLM) backend config store — <userData>/vlm_config.json,
   // the non-secret sibling of the endpoint key. Like speech's (ADR 0148), VLM
@@ -851,7 +852,7 @@ ${unavailableRoot}
     if (generation === null) return
     try { void backend!.invoke('log_emit', JSON.stringify({ input: entry, expectedGeneration: generation })).catch(() => {}) } catch { /* no bus */ }
   }
-  importDiagnostics = new ImportDiagnostics({ emit: emitLogEntry, send: emitToRenderer, version: process.env.WEFTCUT_BUILD_VERSION ?? app.getVersion() })
+  importDiagnostics = new ImportDiagnostics({ emit: emitLogEntry, send: emitToRenderer, version: process.env.LAHZA_BUILD_VERSION ?? app.getVersion() })
 
   // Wrap napiFacade.commitWorkspace to also refresh wsCache as a side effect —
   // the orchestrator calls it before replaceState, so by the time any post-open
@@ -1236,8 +1237,8 @@ ${unavailableRoot}
   // closed). See docs/mcp.md.
   const { installShim, stdioConnectConfig } = await import('./mcp/shimInstall.js')
   const shimPath = installShim({
-    resourcesShim: path.join(process.resourcesPath, 'cli', 'weftcut-mcp.cjs'),
-    devShim: path.join(import.meta.dirname, '../cli/weftcut-mcp.cjs'),
+    resourcesShim: path.join(process.resourcesPath, 'cli', 'lahza-mcp.cjs'),
+    devShim: path.join(import.meta.dirname, '../cli/lahza-mcp.cjs'),
     isPackaged: app.isPackaged,
     userDataDir: app.getPath('userData'),
   })
@@ -1285,7 +1286,7 @@ ${unavailableRoot}
     console.log(
       `[mcp] stdio connect: ${JSON.stringify({
         mcpServers: {
-          weftcut: stdioConnectConfig({
+          lahza: stdioConnectConfig({
             execPath: process.execPath,
             appImage: process.env.APPIMAGE,
             shimPath,
@@ -1300,7 +1301,7 @@ ${unavailableRoot}
   ipcMain.handle('reset_mcp_token', () => mcpHost.resetToken())
   // Re-run the startup refresh on demand, from the Agent panel. Every fault
   // that can reach a packaged user is one an outside actor can clear without
-  // touching WeftCut — a full disk emptied, an antivirus quarantine undone, a
+  // touching Lahza — a full disk emptied, an antivirus quarantine undone, a
   // file handle released, a repaired install — and a recovery that cost an app
   // restart would be one the user has no reason to trust worked.
   ipcMain.handle('reinstall_skills', () => {
@@ -1329,12 +1330,9 @@ ${unavailableRoot}
     platform: process.platform,
     arch: process.arch,
   }))
-  // Unpackaged dev/E2E runs never contact the release provider, and neither
-  // does macOS: its build is ad-hoc signed (electron-builder.yml §mac), and
-  // Squirrel.Mac installs only an update whose signature satisfies the running
-  // app's designated requirement — for ad-hoc that is this build's own code
-  // hash, so no later build can. The Help dialog says so and links the releases
-  // page.
+  // Dev/E2E runs never contact the release provider. Packaged Mac builds check
+  // our releases and offer a DMG; their ad-hoc signature cannot support
+  // Squirrel.Mac replacing the installed application automatically.
   const resumePath = path.join(app.getPath('userData'), 'update-resume.json')
   const updateResume = createUpdateResume({
     version: app.getVersion(),
@@ -1343,10 +1341,18 @@ ${unavailableRoot}
     clear: () => fs.rmSync(resumePath, { force: true }),
   })
   const resumeAfterUpdate = updateResume.take()
-  // Lahza Studio has no release feed of its own yet; the inherited one is
-  // upstream WeftCut's, whose installer would replace this app. Updates stay
-  // disabled until Lahza Studio publishes its own releases.
-  const updates = createUpdates(LAHZA_RELEASE_FEED && app.isPackaged && process.platform !== 'darwin'
+  if (app.isPackaged && process.platform !== 'darwin') configureReleaseUpdater(electronUpdater.autoUpdater)
+  const updates = app.isPackaged && process.platform === 'darwin'
+    ? createMacReleaseUpdates({
+      version: app.getVersion(), arch: process.arch,
+      fetchReleases: async url => {
+        const response = await net.fetch(url, { headers: { Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(30_000) })
+        if (!response.ok) throw new Error(`GitHub releases HTTP ${response.status}`)
+        return response.json() as Promise<unknown>
+      },
+      openDownload: url => shell.openExternal(url),
+    })
+    : createUpdates(app.isPackaged && process.platform !== 'darwin'
     ? electronUpdater.autoUpdater : null, {
     installOnQuit: () => appSettings.get().auto_install_updates_on_quit !== false,
     skippedVersion: () => appSettings.get().skipped_update_version,
@@ -1388,25 +1394,25 @@ ${unavailableRoot}
 
   const motifFrames = new MotifFrameStore(
     async () => JSON.parse(await backend!.invoke('workspace_dir', '{}')) as string | null,
-    require_('@weftcut/core') as typeof import('@weftcut/core'),
+    require_('@lahza/core') as typeof import('@lahza/core'),
   )
-  const motifPoolClass = (require_('@weftcut/core') as { MotifGpuPool?: new (w: number, h: number, count: number, bgra: boolean) => MotifPool }).MotifGpuPool
+  const motifPoolClass = (require_('@lahza/core') as { MotifGpuPool?: new (w: number, h: number, count: number, bgra: boolean) => MotifPool }).MotifGpuPool
   const motifGpu = process.platform === 'win32' && motifPoolClass
     ? new MotifGpuTransport((w, h, bgra) => new motifPoolClass(w, h, 1, bgra)) : null
-  const encoderClass = (require_('@weftcut/core') as { MotifTextureEncoder?: new () => TextureEncoder }).MotifTextureEncoder
+  const encoderClass = (require_('@lahza/core') as { MotifTextureEncoder?: new () => TextureEncoder }).MotifTextureEncoder
   const motifCapture = new MotifCaptureService({
     store: motifFrames, texture: captureMotifTexture, png: captureMotifFrameB64,
     copy: motifGpu ? (owner, texture, parent) => motifGpu.copy(owner, texture, parent) : null,
     createEncoder: process.platform === 'win32' && encoderClass ? () => new encoderClass() : null,
     setTextureEnabled: setTextureCaptureEnabled, isContentFailure: isMotifContentFailure,
     promote: key => controlMotifCapture(key, 'promote'),
-  }, process.env.WEFTCUT_MOTIF_CAPTURE !== 'png')
+  }, process.env.LAHZA_MOTIF_CAPTURE !== 'png')
   motifBakes = new MotifBakeWorkspace({
     session: () => {
       const generation = workspaceEvents.current()
       return motifAdmissionOpen && generation !== null && wsCache ? { generation, root: wsCache } : null
     },
-    codec: require_('@weftcut/core') as typeof import('@weftcut/core'), capture: motifCapture,
+    codec: require_('@lahza/core') as typeof import('@lahza/core'), capture: motifCapture,
     pause: backgroundResourcePause,
     diskBytes: () => resourceAllocation().disk_cache_mib * MIB,
     retain: retainRasterDirectories,
@@ -1589,6 +1595,9 @@ ${unavailableRoot}
     if (channel === 'models_unselect') { models!.unselect((args as { family: ModelFamily }).family); return null }
     if (channel === 'models_clear_downloads') { models!.clearDownloads((args as { id: string }).id); return null }
     if (channel === 'models_list') return models!.view()
+    if (channel === 'components_list') return components!.list()
+    if (channel === 'components_retry') return components!.retry()
+    if (channel === 'components_cancel') { components!.cancel(String((args as { id?: unknown })?.id ?? '')); return null }
     if (channel === 'models_use') { models!.use(args as ModelUseRequest); return null }
     if (channel === 'models_cancel') { models!.cancel((args as { id: string }).id); return null }
     if (channel === 'models_install_components') { await models!.installComponents((args as { id: string }).id); return null }
@@ -2049,14 +2058,14 @@ ${unavailableRoot}
         diagnostic: { kind: 'failed', reason: macDecodeProbe.unavailableReason } }
     }
     // E2E/bench lane pin: the lane-parameterized preview-hw conformance spec
-    // sets WEFTCUT_FORCE_HW_LANE so ONE variant tests exactly one HW lane on a
+    // sets LAHZA_FORCE_HW_LANE so ONE variant tests exactly one HW lane on a
     // multi-lane machine. When set, hide every advertised HW lane except the
     // forced one (keep `software` so the resolver's SW fallback is intact), which
     // pins `resolveHwLane` to that single lane instead of the normal NVDEC>VAAPI
     // priority walk. Forcing a lane the addon never advertised (e.g. `vaapi` on a
     // box whose libva can't copy-back) leaves no candidate → software fallback —
     // exactly the clean-skip the e2e wants. Absent = normal priority walk.
-    const forcedHwLane = process.env.WEFTCUT_FORCE_HW_LANE
+    const forcedHwLane = process.env.LAHZA_FORCE_HW_LANE
     const advertisedLanes = forcedHwLane
       ? nd.lanes.filter((l) => l === forcedHwLane || l === 'software')
       : nd.lanes
@@ -2433,6 +2442,7 @@ ${unavailableRoot}
       mkdirp: (d) => { fs.mkdirSync(d, { recursive: true }) },
       rm: (p) => { fs.rmSync(p, { recursive: true, force: true }) },
       rename: (from, to) => { fs.renameSync(from, to) },
+      chmodExec: (p) => { if (process.platform !== 'win32') fs.chmodSync(p, 0o755) },
       statBytes: (p) => {
         try { const s = fs.statSync(p); return s.isFile() ? s.size : null } catch { return null }
       },
@@ -2457,8 +2467,7 @@ ${unavailableRoot}
     },
     http: {
       get: async (url, signal, opts) => {
-        const headers: Record<string, string> = {}
-        if (opts?.rangeStart) headers['Range'] = `bytes=${opts.rangeStart}-`
+        const headers = contentRequestHeaders(url, opts?.rangeStart)
         const res = await net.fetch(url, { signal, headers })
         if (!res.ok || !res.body) {
           // A status the downloader rules on (416 → discard the partial,
@@ -2672,6 +2681,28 @@ ${unavailableRoot}
     }
   }
 
+  // First-run components (components.ts): yt-dlp, Remotion, HyperFrames and the
+  // skill packs ride the very same queue — resume, sha256, stall watchdog, LogBus
+  // progress, persisted pending list. Missing ones are enqueued at boot while
+  // online; offline they wait for the renderer's `online` event (components_retry).
+  const componentsDeps: ComponentsDeps = {
+    catalog: CONTENT_CATALOG,
+    platform: contentPlatform,
+    statusOf: (item) => itemStatus(contentDeps, item, contentPlatform),
+    entryOf: (id) => queue.entryOf(id),
+    isOnline: () => net.isOnline(),
+  }
+  const enqueueMissingComponents = (): void => {
+    const ids = componentsToInstall(componentsDeps)
+    if (ids.length > 0) queue.enqueue(ids)
+  }
+  enqueueMissingComponents()
+  components = {
+    list: () => componentsView(componentsDeps),
+    retry: () => { enqueueMissingComponents(); return componentsView(componentsDeps) },
+    cancel: (id) => { if (CONTENT_CATALOG.some((i) => i.id === id)) queue.cancel(id) },
+  }
+
   // fs:* — direct main-process filesystem access for the renderer (write/append/
   // read/remove/readDir). Confined to APP-MANAGED roots: the OS temp dir (export
   // scratch), userData (small config/state), the data root (backend cache +
@@ -2685,7 +2716,7 @@ ${unavailableRoot}
   // can't widen its own scope by lying about which folder is "the workspace".
   //
   // NOTE: arbitrary user-imported MEDIA is served read-only by the separate
-  // weftcut-media:// protocol below (those paths come from the import dialog and
+  // lahza-media:// protocol below (those paths come from the import dialog and
   // can live anywhere), which is deliberately NOT confined here.
   let cachedWorkspace: string | null = null
   const refreshWorkspace = async (): Promise<void> => {
@@ -2769,8 +2800,8 @@ ${unavailableRoot}
 
   registerMotifProtocol(motifBuiltinDir, motifStore)
 
-  protocol.handle('weftcut-media', async (request) => {
-    // URL form: weftcut-media://localhost/<encodeURIComponent(absPath)>
+  protocol.handle('lahza-media', async (request) => {
+    // URL form: lahza-media://localhost/<encodeURIComponent(absPath)>
     const u = new URL(request.url)
     const abs = decodeURIComponent(u.pathname.replace(/^\//, ''))
     if (!path.isAbsolute(abs)) {
@@ -2854,7 +2885,7 @@ ${unavailableRoot}
 // quit decision is quitIfLastUserWindowClosed (windows.ts), which explains why
 // this event cannot be trusted; a double quit is absorbed by quitFlushed below.
 // No platform test, for the same reason the gate carries none — a windowless
-// WeftCut is never a state to leave running.
+// Lahza is never a state to leave running.
 app.on('window-all-closed', () => app.quit())
 
 // Flush the TS actor's debounced autosave before the process exits — an edit made

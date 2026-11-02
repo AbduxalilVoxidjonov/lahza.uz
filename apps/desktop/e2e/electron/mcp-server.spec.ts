@@ -49,12 +49,12 @@ test('external MCP client connects, calls tools, and bearer is enforced', async 
   const startScreen = (await page.evaluate(() => (window as any).api.backend.invoke('project_summary', {}))) as { track_count: number }
   const refused = await client.callTool({ name: 'add_track', arguments: {} })
   expect((refused as { isError?: boolean }).isError).toBe(true)
-  expect((refused.content as Array<{ text: string }>)[0].text).toContain('No project is open in WeftCut')
+  expect((refused.content as Array<{ text: string }>)[0].text).toContain('No project is open in Lahza')
   expect((refused.structuredContent as { error?: string } | undefined)?.error).toBe('NoProjectOpen')
   const stillStartScreen = (await page.evaluate(() => (window as any).api.backend.invoke('project_summary', {}))) as { track_count: number }
   expect(stillStartScreen.track_count).toBe(startScreen.track_count)
 
-  await newProject(page, { parentFolder: tmpDir('weftcut-mcp-server-'), name: 'mcp-server', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+  await newProject(page, { parentFolder: tmpDir('lahza-mcp-server-'), name: 'mcp-server', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
 
   const before = (await page.evaluate(() => (window as any).api.backend.invoke('project_summary', {}))) as { track_count: number }
   await client.callTool({ name: 'add_track', arguments: {} })

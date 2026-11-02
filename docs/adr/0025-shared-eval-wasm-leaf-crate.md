@@ -16,9 +16,9 @@ These were hand-mirrored Rust + TypeScript copies. Identical math in two languag
 The wasm boundary cost was measured before committing: a resident-ABI `value_at` runs ~0.59× the JS cost (wasm is *faster*), and per-frame impact is under 0.5% of the frame budget — so sharing one implementation costs nothing in the hot path.
 
 ## Decision
-The math lives once, in a dependency-light Rust leaf crate **`weftcut-eval`** (`apps/desktop/native/eval/`), compiled two ways:
+The math lives once, in a dependency-light Rust leaf crate **`lahza-eval`** (`apps/desktop/native/eval/`), compiled two ways:
 
-- **Natively** as an `rlib` the `weftcut` napi crate links: `state/time.rs`, `state/animated.rs`, `audio/envelope.rs`, and `audio/mix.rs` delegate to it (behavior byte-identical).
+- **Natively** as an `rlib` the `lahza` napi crate links: `state/time.rs`, `state/animated.rs`, `audio/envelope.rs`, and `audio/mix.rs` delegate to it (behavior byte-identical).
 - **To `wasm32`** as a `cdylib`: a build script (`scripts/build-eval-wasm.mjs`) compiles it and base64-embeds the bytes into a generated TS module; the renderer loads it once via `initEval()` (awaited before the first composite) and calls it in place of the deleted TS twins. The four cross-language goldens become single-source regression + wasm-smoke tests.
 
 Design constraints that keep the leaf small and the boundary cheap:

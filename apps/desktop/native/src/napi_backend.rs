@@ -65,7 +65,7 @@ fn build_backend(events: Arc<dyn EventSink>, config_dir: String, cache_dir: Stri
     let _ = tracing_subscriber::registry()
         .with(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info,weftcut=debug,weftcut_lib=debug")),
+                .unwrap_or_else(|_| EnvFilter::new("info,lahza=debug,lahza_lib=debug")),
         )
         .with(tracing_subscriber::fmt::layer())
         .with(logs::LogBusLayer::new(log_slot.clone()))
@@ -805,13 +805,13 @@ impl Backend {
     /// the napi `new`. No `ThreadsafeFunction` / napi env required.
     ///
     /// Each call appends a process-wide monotonic counter to the temp-dir name
-    /// (`weftcut-test-<pid>-<n>`) so two backends in one test binary — e.g. a
+    /// (`lahza-test-<pid>-<n>`) so two backends in one test binary — e.g. a
     /// save-in-A / open-in-B round-trip — never share a config + cache root.
     #[cfg(test)]
     pub fn new_for_test(events: Arc<dyn EventSink>) -> Self {
         static COUNTER: AtomicUsize = AtomicUsize::new(0);
         let n = COUNTER.fetch_add(1, Ordering::Relaxed);
-        let base = std::env::temp_dir().join(format!("weftcut-test-{}-{}", std::process::id(), n));
+        let base = std::env::temp_dir().join(format!("lahza-test-{}-{}", std::process::id(), n));
         let config_dir = base.join("config").to_string_lossy().to_string();
         let cache_dir = base.join("cache").to_string_lossy().to_string();
         build_backend(events, config_dir, cache_dir)
@@ -1776,16 +1776,16 @@ mod tests {
     async fn hash_media_source_returns_blake3_of_file() {
         let sink = std::sync::Arc::new(crate::events::VecEventSink::new());
         let b = Backend::new_for_test(sink as std::sync::Arc<dyn crate::events::EventSink>);
-        let dir = std::env::temp_dir().join(format!("weftcut-hashsrc-{}", uuid::Uuid::now_v7()));
+        let dir = std::env::temp_dir().join(format!("lahza-hashsrc-{}", uuid::Uuid::now_v7()));
         std::fs::create_dir_all(&dir).unwrap();
         let f = dir.join("clip.bin");
-        std::fs::write(&f, b"hello weftcut").unwrap();
+        std::fs::write(&f, b"hello lahza").unwrap();
 
         let got = b
             .hash_media_source(f.to_string_lossy().to_string(), None, None)
             .await
             .unwrap();
-        let want = blake3::hash(b"hello weftcut").to_hex().to_string();
+        let want = blake3::hash(b"hello lahza").to_hex().to_string();
         assert_eq!(
             got, want,
             "hash_media_source must return the blake3 hex of the file bytes"
@@ -1800,7 +1800,7 @@ mod tests {
     async fn commit_workspace_sets_workspace_and_cache() {
         use std::sync::Arc;
         let backend = Backend::new_for_test(Arc::new(crate::events::VecEventSink::new()));
-        let dir = std::env::temp_dir().join(format!("weftcut-3cb-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("lahza-3cb-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.to_string_lossy().to_string();

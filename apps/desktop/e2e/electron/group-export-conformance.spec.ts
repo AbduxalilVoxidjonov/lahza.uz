@@ -46,7 +46,7 @@ import {
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 /// The per-second tone-marker A/V fixture (shared with `audio.spec.ts`): source
 /// second k carries F_k = 400 + 120k Hz, which is what lets the analyzer's
 /// `--audio` mode say which source second landed in which output second. The
@@ -129,10 +129,10 @@ const byId = (c: WireComposition, id: string): WireLayer => {
 const exportedFrames = async (page: Page): Promise<number> => {
   const perf = (await page.evaluate(
     () =>
-      (window as unknown as { __weftcutExportPerf?: { totalFrames: number } })
-        .__weftcutExportPerf ?? null,
+      (window as unknown as { __lahzaExportPerf?: { totalFrames: number } })
+        .__lahzaExportPerf ?? null,
   )) as { totalFrames: number } | null
-  if (!perf) throw new Error('no __weftcutExportPerf after the export — is this an E2E build?')
+  if (!perf) throw new Error('no __lahzaExportPerf after the export — is this an E2E build?')
   return perf.totalFrames
 }
 
@@ -260,11 +260,11 @@ async function saveAndRead(
 test('pre-composing an A/V pair, a lower third and a transition changes nothing that renders', async () => {
   test.skip(!existsSync(SOURCE), `tone source not found at ${SOURCE} (run \`npm run fixtures\`)`)
   test.setTimeout(300_000)
-  const outDir = tmpDir('weftcut-e2e-group-conf-out-')
+  const outDir = tmpDir('lahza-e2e-group-conf-out-')
   const plainOut = path.join(outDir, 'plain.mp4')
   const groupedOut = path.join(outDir, 'grouped.mp4')
   const witnessOut = path.join(outDir, 'no-lower-third.mp4')
-  const parentFolder = tmpDir('weftcut-e2e-group-conf-proj-')
+  const parentFolder = tmpDir('lahza-e2e-group-conf-proj-')
   const name = `e2e-group-conf-${Date.now()}`
   const projectDir = path.join(parentFolder, name)
 

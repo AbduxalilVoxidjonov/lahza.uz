@@ -7,7 +7,7 @@ on:
     branches: [main]
   # Nightly full sweep: runs the @matrix tier that the per-PR e2e run drops
   # (what earns the tag: apps/desktop/e2e/README.md §Tiers). Same job, no
-  # duplicated setup: only WEFTCUT_E2E_FULL differs (see the e2e step).
+  # duplicated setup: only LAHZA_E2E_FULL differs (see the e2e step).
   schedule:
     - cron: '0 4 * * *' # 04:00 UTC daily
   # Partial runs for CI iteration: pick one OS, scope the e2e suite (spec
@@ -82,7 +82,7 @@ jobs:
         run: node apps/desktop/scripts/release.mjs validate
       - name: Plan unpublished version
         id: plan
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'WeftCut/WeftCut'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'AbduxalilVoxidjonov/lahza.uz'
         env:
           GH_TOKEN: ${{ github.token }}
         run: node apps/desktop/scripts/release.mjs plan
@@ -276,7 +276,7 @@ jobs:
             echo "$PWD/resources/ffmpeg/mac" >> "$GITHUB_PATH"
           fi
 
-      # ── @weftcut/native-decode (Windows + Linux + macOS) ───────────────────
+      # ── @lahza/native-decode (Windows + Linux + macOS) ───────────────────
       # All three OSes fetch their LGPL-shared ffmpeg asset and build the addon;
       # per-OS runtime resolution differs (see napi-build-decode.mjs).
       #
@@ -340,7 +340,7 @@ jobs:
         run: npm run mcp:catalog:check
 
       # Build the renderer + main bundles with the E2E hook compiled in.
-      # build:e2e sets VITE_WEFTCUT_E2E itself, so this needs no bash shell for
+      # build:e2e sets VITE_LAHZA_E2E itself, so this needs no bash shell for
       # an inline env-var prefix and cannot drift from what a developer runs —
       # run-e2e.mjs's preflight names this exact command when out/ is stale.
       - name: Build app (E2E mode)
@@ -460,17 +460,17 @@ jobs:
           # The @matrix tier (see playwright.config.ts) runs only on the nightly
           # sweep — per-PR it would blow the job budget. A dispatch opts in by
           # passing --full in e2e_args instead of getting it implicitly.
-          WEFTCUT_E2E_FULL: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full)) && '1' || '' }}
+          LAHZA_E2E_FULL: ${{ (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full)) && '1' || '' }}
           # Dispatch runs are the scoped-diagnosis tool — tap the renderer
           # console so a wedge reports its last milestone in the job log.
-          WEFTCUT_E2E_CONSOLE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
+          LAHZA_E2E_CONSOLE: ${{ github.event_name == 'workflow_dispatch' && '1' || '' }}
           # The GPU-less legs (Linux AND Windows) rasterize in software, whose
           # shader rounding shifts smooth regions by ±1-2 LSB — SSIM-visible,
           # PSNR-flat. Both legs measure ~0.67 healthy; floors calibrated to
           # that baseline, and the color gates' per-channel ceiling likewise
           # (worst measured 12/255). See e2e/README.md §SSIM floors.
-          WEFTCUT_E2E_SSIM_FLOOR: ${{ matrix.os != 'macos-latest' && '0.62' || '' }}
-          WEFTCUT_E2E_COLOR_FAITHFUL_MAX: ${{ matrix.os != 'macos-latest' && '16' || '' }}
+          LAHZA_E2E_SSIM_FLOOR: ${{ matrix.os != 'macos-latest' && '0.62' || '' }}
+          LAHZA_E2E_COLOR_FAITHFUL_MAX: ${{ matrix.os != 'macos-latest' && '16' || '' }}
           # Native-decode gates run on Linux nightly: #15 measured 3/3 green
           # (16 passed, one hardware-only skip; 17–21 min at one worker).
           # The pack still places the files, so only their owning leg runs
@@ -480,7 +480,7 @@ jobs:
           # A push stays at the existing cost. Explicit dispatch opt-in works
           # on every OS; pair it with e2e_args to select the three spec files.
           # The preflight preserves this value, including the empty/off case.
-          WEFTCUT_DECODE_E2E: ${{ ((github.event_name == 'schedule' && matrix.os == 'ubuntu-latest') || (github.event_name == 'workflow_dispatch' && inputs.decode_e2e)) && '1' || '' }}
+          LAHZA_DECODE_E2E: ${{ ((github.event_name == 'schedule' && matrix.os == 'ubuntu-latest') || (github.event_name == 'workflow_dispatch' && inputs.decode_e2e)) && '1' || '' }}
           E2E_ARGS: ${{ inputs.e2e_args }}
           PART: ${{ matrix.part }}
           # Not `OS`: that name is already Windows's own (`Windows_NT`), and this
@@ -493,7 +493,7 @@ jobs:
           # replaying a red leg locally. Every spec file is packed onto one leg
           # per OS from the measured cost in e2e/timings.json, so a new spec
           # needs no entry anywhere and a drifted pack is one snapshot refresh.
-          # playwright.config.ts (§WEFTCUT_E2E_ONLY) carries why this is not
+          # playwright.config.ts (§LAHZA_E2E_ONLY) carries why this is not
           # Playwright's own --shard.
           #
           # BOTH matrix dimensions go in: the pack is per OS — macOS runs fewer
@@ -525,7 +525,7 @@ jobs:
             # live elsewhere, and Playwright kills the leg with "No tests found".
             # The serial project is not sliced at all — it greps @serial across
             # the whole suite.
-            ( export WEFTCUT_E2E_ONLY="$OWN"; e2e --project=parallel )
+            ( export LAHZA_E2E_ONLY="$OWN"; e2e --project=parallel )
           fi
 
       # Upload determinism PNGs so the compare job can fetch all three OSes.
@@ -575,15 +575,34 @@ jobs:
       # this step. Deliberately NOT `npm run package`: that script
       # re-runs napi:build + napi:build:decode for a one-shot local package,
       # and both addons already built above (their .node artefacts persist in
-      # node_modules/@weftcut/{core,native-decode}). Run the two remaining
+      # node_modules/@lahza/{core,native-decode}). Run the two remaining
       # halves directly — `build` for a clean non-E2E renderer bundle (no
-      # VITE_WEFTCUT_E2E), then electron-builder.
+      # VITE_LAHZA_E2E), then electron-builder.
       #
       # Once per OS, not once per e2e leg — riding CARRIERS.package in
       # e2e/slices.mjs. The pack counts this step's measured wall clock
       # (e2e/timings.json §package) as part of that leg's load and gives it
       # fewer specs, so no leg is the worst case for carrying an extra. It must
       # be a leg every OS runs, or that OS never packages.
+      # Lahza engine sidecar: fetched from a pinned bundle (repo variables
+      # LAHZA_ENGINE_URL_* / LAHZA_ENGINE_SHA256_*, docs/releases.md) into
+      # resources/lahza/<os> so electron-builder packs it. A missing variable
+      # for this OS is a visible ::warning:: (installer built WITHOUT the engine);
+      # a bad hash or unreachable URL fails the leg.
+      - name: Fetch Lahza engine bundle
+        if: (github.event_name != 'workflow_dispatch' || inputs.package) && (matrix.part == 'e2e-2' || matrix.part == 'all')
+        shell: bash
+        run: node scripts/fetch-lahza-engine.mjs
+        env:
+          LAHZA_ENGINE_URL_MAC_ARM64: ${{ vars.LAHZA_ENGINE_URL_MAC_ARM64 }}
+          LAHZA_ENGINE_SHA256_MAC_ARM64: ${{ vars.LAHZA_ENGINE_SHA256_MAC_ARM64 }}
+          LAHZA_ENGINE_URL_MAC_X64: ${{ vars.LAHZA_ENGINE_URL_MAC_X64 }}
+          LAHZA_ENGINE_SHA256_MAC_X64: ${{ vars.LAHZA_ENGINE_SHA256_MAC_X64 }}
+          LAHZA_ENGINE_URL_WIN_X64: ${{ vars.LAHZA_ENGINE_URL_WIN_X64 }}
+          LAHZA_ENGINE_SHA256_WIN_X64: ${{ vars.LAHZA_ENGINE_SHA256_WIN_X64 }}
+          LAHZA_ENGINE_URL_LINUX_X64: ${{ vars.LAHZA_ENGINE_URL_LINUX_X64 }}
+          LAHZA_ENGINE_SHA256_LINUX_X64: ${{ vars.LAHZA_ENGINE_SHA256_LINUX_X64 }}
+
       - name: Package (unsigned)
         if: (github.event_name != 'workflow_dispatch' || inputs.package) && (matrix.part == 'e2e-2' || matrix.part == 'all')
         run: npm run build && npx electron-builder --publish never
@@ -617,7 +636,7 @@ jobs:
 
   release:
     needs: [release-plan, e2e, checks, rust-test, compare]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'WeftCut/WeftCut' && needs.release-plan.outputs.publish == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && github.repository == 'AbduxalilVoxidjonov/lahza.uz' && needs.release-plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # Push runs are per commit (see the workflow's concurrency note), so two of
@@ -649,6 +668,10 @@ jobs:
       - name: Validate and publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          # CI cannot stage the Lahza engine sidecar (built outside this repo), so
+          # the build is left as a DRAFT unless the owner opts in to auto-publish
+          # by setting the repository variable LAHZA_AUTO_PUBLISH=true.
+          RELEASE_DRAFT_ONLY: ${{ vars.LAHZA_AUTO_PUBLISH == 'true' && '0' || '1' }}
         run: node apps/desktop/scripts/release.mjs publish release-assets
 
   # The OS-independent TS test work: the unit suite, the build-script suite, and
@@ -904,12 +927,12 @@ jobs:
       - name: Rust tests
         shell: bash
         run: |
-          # weftcut-eval is the shared-math leaf; the snap cross-language golden
+          # lahza-eval is the shared-math leaf; the snap cross-language golden
           # lives here now (it moved off the napi crate). Pure Rust, no napi
           # linkage, so it tests standalone. (Its wasm build is gated separately
           # via the Linux `npm test` TS goldens, which run the same fixtures.)
-          cargo test -p weftcut-eval --manifest-path native/Cargo.toml
-          cargo test -p weftcut-conversion --manifest-path native/Cargo.toml
+          cargo test -p lahza-eval --manifest-path native/Cargo.toml
+          cargo test -p lahza-conversion --manifest-path native/Cargo.toml
           # The production feature union is the crate `default` (jobs/export/mcp/
           # speech — see native/Cargo.toml; motifs migrated to TS and is NOT a Cargo
           # feature). Features are additive, so `--features test-noop` = defaults +

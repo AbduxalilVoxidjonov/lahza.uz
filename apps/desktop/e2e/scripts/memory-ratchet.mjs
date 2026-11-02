@@ -86,11 +86,11 @@ if (!fs.existsSync(path.join(DESKTOP, 'out/main/index.js'))) {
 }
 
 // ── Assemble the isolated shell + fixture ───────────────────────────────────
-const work = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-memgate-'));
+const work = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-memgate-'));
 const shell = path.join(work, 'shell');
 fs.mkdirSync(shell);
 fs.writeFileSync(path.join(shell, 'package.json'), JSON.stringify({
-  name: 'weftcut-memprobe-gate',
+  name: 'lahza-memprobe-gate',
   version: '0.0.0',
   private: true,
   main: 'out/main/index.js',
@@ -337,7 +337,7 @@ fs.writeFileSync(path.join(project, 'project.json'), JSON.stringify({
 
 // userData derives from the shell package name.
 const appData = process.env.APPDATA ?? path.join(os.homedir(), 'AppData', 'Roaming');
-const userData = path.join(appData, 'weftcut-memprobe-gate');
+const userData = path.join(appData, 'lahza-memprobe-gate');
 fs.mkdirSync(userData, { recursive: true });
 fs.writeFileSync(path.join(userData, 'recents.json'), JSON.stringify({
   reopen_on_launch: true,
@@ -352,7 +352,7 @@ const app = await _electron.launch({
   args: [shell],
   env: {
     ...process.env,
-    WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1',
+    LAHZA_SUPPRESS_ELEVATION_NOTICE: '1',
     ELECTRON_RENDERER_URL: 'http://localhost:1420',
   },
 });

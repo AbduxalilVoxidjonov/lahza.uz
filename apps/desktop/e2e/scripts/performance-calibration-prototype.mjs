@@ -133,11 +133,11 @@ process.on('SIGINT', () => {
 async function runFixture(fixture, scenario) {
   const { name, mixed } = scenario;
   let app, page;
-  const hook = (method, args) => page.evaluate(({ method, args }) => window.__weftcutTest[method](args), { method, args });
+  const hook = (method, args) => page.evaluate(({ method, args }) => window.__lahzaTest[method](args), { method, args });
   const invoke = (cmd, args) => page.evaluate(({ cmd, args }) => window.api.backend.invoke(cmd, args), { cmd, args });
   const ids = [];
-  const probes = () => page.evaluate(ids => ids.map(id => window.__weftcutTest.activeClipProbe(id)), ids);
-  const snapshot = () => page.evaluate(() => ({ resource: window.__weftcutTest.previewResourceProbe(), perf: window.__weftcutTest.compositorPerfSnapshot(), stage: window.__weftcutTest.stageProfilingSnapshot(), derivativeJobsPending: !!document.querySelector('.derivatives-pill') }));
+  const probes = () => page.evaluate(ids => ids.map(id => window.__lahzaTest.activeClipProbe(id)), ids);
+  const snapshot = () => page.evaluate(() => ({ resource: window.__lahzaTest.previewResourceProbe(), perf: window.__lahzaTest.compositorPerfSnapshot(), stage: window.__lahzaTest.stageProfilingSnapshot(), derivativeJobsPending: !!document.querySelector('.derivatives-pill') }));
   const metrics = () => app.evaluate(({ app }) => app.getAppMetrics());
   const root = path.join(runDir, name);
   fs.mkdirSync(path.join(root, 'projects'), { recursive: true });
@@ -149,10 +149,10 @@ async function runFixture(fixture, scenario) {
   }, (100 + options.quietS + (options.tracks.length + 1) * (options.windowS + options.warmupS + 30)) * 1000);
   try {
     await phase(name, 'launch', async () => {
-      app = activeApp = await electron.launch({ executablePath: electronBinPath(), args: [`--user-data-dir=${path.join(root, 'profile')}`, main], env: { ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1', ...(process.platform === 'win32' ? { WEFTCUT_FORCE_HW_LANE: 'd3d11va' } : {}) }, timeout: 45_000 });
+      app = activeApp = await electron.launch({ executablePath: electronBinPath(), args: [`--user-data-dir=${path.join(root, 'profile')}`, main], env: { ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: '1', ...(process.platform === 'win32' ? { LAHZA_FORCE_HW_LANE: 'd3d11va' } : {}) }, timeout: 45_000 });
       page = await app.firstWindow({ timeout: 30_000 });
       page.setDefaultTimeout(20_000);
-      await page.waitForFunction(() => typeof window.__weftcutTest?.stageProfilingSnapshot === 'function', undefined, { timeout: 30_000 });
+      await page.waitForFunction(() => typeof window.__lahzaTest?.stageProfilingSnapshot === 'function', undefined, { timeout: 30_000 });
       report.gpu ??= await app.evaluate(({ app }) => app.getGPUInfo('basic'));
     });
     await phase(name, 'settings', async () => {
@@ -168,7 +168,7 @@ async function runFixture(fixture, scenario) {
     await phase(name, 'import', async () => {
       const first = await hook('importAndPlaceMedia', { mediaAbsPath: fixture.file, tStartUs: 0 });
       mediaId = first.mediaId; ids.push(first.layerId);
-      await page.evaluate(mediaId => window.__weftcutTest.setProxyOverride(mediaId, false), mediaId);
+      await page.evaluate(mediaId => window.__lahzaTest.setProxyOverride(mediaId, false), mediaId);
     });
     const background = await phase(name, 'background', async () => {
       let quiet = 0;

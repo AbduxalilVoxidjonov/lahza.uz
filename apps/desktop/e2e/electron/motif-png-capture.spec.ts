@@ -23,9 +23,9 @@ test('PNG capture preserves canvas pixels across Motif navigation', async ({}, t
   test.setTimeout(240_000);
   // Exercise the real fallback backend even on a machine with shared textures.
   // Without this, a successful GPU run never tests PNG canvas compositing.
-  const { app, page } = await launchApp({ env: { WEFTCUT_MOTIF_CAPTURE: 'png' } });
+  const { app, page } = await launchApp({ env: { LAHZA_MOTIF_CAPTURE: 'png' } });
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-png-capture-'), name: 'Capture',
+    await newProject(page, { parentFolder: tmpDir('lahza-png-capture-'), name: 'Capture',
       canvas: { width: 1920, height: 1080, fpsNum: 25, fpsDen: 1 } });
     // Frame i is captured at tSec = 2 + i/25; the solid canvas paints green =
     // (i * 5) % 256 so a capture can tell "previous frame" from "no frame".
@@ -60,7 +60,7 @@ test('PNG capture preserves canvas pixels across Motif navigation', async ({}, t
         if (data.error || !data.bitmap) request.reject(new Error(data.error ?? 'Missing capture'));
         else request.resolve(data.bitmap);
       };
-      window.postMessage({ type: 'weftcut:motif-frame-port' }, '*', [channel.port2]);
+      window.postMessage({ type: 'lahza:motif-frame-port' }, '*', [channel.port2]);
       const context = new OffscreenCanvas(3, 1).getContext('2d', { willReadFrequently: true })!;
       const missing: number[] = [];
       const details: { i: number; kind: string; expectedG: number; size: string; rgba: number[]; ms: number }[] = [];

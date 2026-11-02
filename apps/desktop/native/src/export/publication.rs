@@ -61,12 +61,12 @@ pub fn prepare(output: &Path) -> Result<String> {
     let parent = output.parent().context("output has no directory")?;
     {
         let source = tempfile::Builder::new()
-            .prefix(".weftcut-probe-")
+            .prefix(".lahza-probe-")
             .tempfile_in(parent)?;
         let source = source.into_temp_path();
         std::fs::write(&source, b"completed")?;
         let target = tempfile::Builder::new()
-            .prefix(".weftcut-probe-")
+            .prefix(".lahza-probe-")
             .tempfile_in(parent)?
             .into_temp_path();
         std::fs::write(&target, b"existing")?;
@@ -85,7 +85,7 @@ pub fn prepare(output: &Path) -> Result<String> {
         .and_then(|v| v.to_str())
         .context("output needs an extension")?;
     let staged = tempfile::Builder::new()
-        .prefix(".weftcut-export-")
+        .prefix(".lahza-export-")
         .suffix(&format!(".{extension}"))
         .tempfile_in(parent)?
         .into_temp_path();
@@ -217,6 +217,6 @@ mod tests {
             .unwrap()
             .file_name()
             .to_string_lossy()
-            .starts_with(".weftcut-probe-")));
+            .starts_with(".lahza-probe-")));
     }
 }

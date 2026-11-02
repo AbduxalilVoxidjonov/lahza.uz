@@ -1,7 +1,7 @@
 // E2E-only decode-strategy benchmark driver. Measures at the DecodeSession
 // seam against a PRIVATE SourceDecoderPool (never the Compositor's live one),
 // so scenarios are deterministic and UI-independent. Installed on
-// window.__weftcutTest by e2eHook.installDecodeBenchHooks; imported only from
+// window.__lahzaTest by e2eHook.installDecodeBenchHooks; imported only from
 // there, so prod bundles tree-shake it out with the rest of the hook surface.
 // Spec: docs/decode-bench.md
 import { convertFileSrc } from "@/bridge/ipc";
@@ -27,12 +27,12 @@ type BenchHandle = SourceHandle | FfmpegSource;
 /// CPU frame, then feed the SAME `DecodeSession` seam as `sw` (the ship-bytes
 /// `SwTransport`). UNLIKE `native` it does NOT force the lane — it hands
 /// `pickInitialLane` the codec/pixFmt/dimensions so the real HW probe resolves
-/// the advertised lane; the orchestrator's `WEFTCUT_FORCE_HW_LANE` env pins
+/// the advertised lane; the orchestrator's `LAHZA_FORCE_HW_LANE` env pins
 /// WHICH one (nvdec/vaapi/videotoolbox).
 export type BenchStrategy = "webcodecs" | "native" | "sw" | "native-copyback";
 export type BenchScenario = "throughput" | "seek" | "coldstart";
 export interface BenchArgs {
-  sourcePath: string; // absolute fixture path; served via weftcut-media:// (unconfined by design)
+  sourcePath: string; // absolute fixture path; served via lahza-media:// (unconfined by design)
   durationUs: number;
   scenario: BenchScenario;
   strategy: BenchStrategy;
@@ -111,7 +111,7 @@ export function decodeBenchPhase(): string {
 // read/ack race) decodes to M ≠ N and is caught deterministically.
 
 export interface OrderCheckArgs {
-  sourcePath: string; // absolute fixture path; served via weftcut-media://
+  sourcePath: string; // absolute fixture path; served via lahza-media://
   /// `native` = the shared-texture HW lane (the suspect; Windows-only, see
   /// `BenchStrategy`), `native-copyback` = the copy-back HW lanes every other
   /// platform has, `sw` = control.
@@ -231,7 +231,7 @@ export async function decodeBenchOrderCheck(args: OrderCheckArgs): Promise<Order
             // Unforced, `pickInitialLane`'s real probe resolves the host's
             // copy-back lane and it rides the same `SwTransport` the `sw` control
             // does, so the SAME read loop below measures presentation order on
-            // hardware. `WEFTCUT_FORCE_HW_LANE` pins WHICH lane, from outside.
+            // hardware. `LAHZA_FORCE_HW_LANE` pins WHICH lane, from outside.
             engine: "ffmpeg" as const,
             sourcePath,
             componentAvailable: true,
@@ -346,7 +346,7 @@ export async function decodeBenchOrderCheck(args: OrderCheckArgs): Promise<Order
 // defect, and "which session reordered" is the first question a failure raises.
 
 export interface ConcurrentOrderCheckArgs {
-  sourcePath: string; // absolute fixture path; served via weftcut-media://
+  sourcePath: string; // absolute fixture path; served via lahza-media://
   /// Concurrent hardware sessions to open. Must fit both live admission
   /// currencies for this coded size or surplus sessions are budget-rejected —
   /// which this driver reports as an error rather than letting them run on SW.
@@ -641,7 +641,7 @@ export async function decodeBenchBudgetProbe(args: {
 // an injected error seam.
 
 export interface HwFallbackProbeArgs {
-  sourcePath: string; // absolute fixture path; served via weftcut-media://
+  sourcePath: string; // absolute fixture path; served via lahza-media://
   /// HW-eligible codec (h264/hevc/vp9, 8-bit) so `pickInitialLane`'s probe
   /// actually picks hardware until the supplied coded size fills admission.
   codec: string;
@@ -944,7 +944,7 @@ export async function decodeBenchRun(args: BenchArgs): Promise<BenchResult> {
         : args.strategy === "native-copyback"
         ? {
             // NO forceLane — `pickInitialLane`'s real HW probe resolves the lane
-            // (WEFTCUT_FORCE_HW_LANE, set by the orchestrator, pins WHICH one).
+            // (LAHZA_FORCE_HW_LANE, set by the orchestrator, pins WHICH one).
             // Feed it the codec/pixFmt/dimensions so the probe's classKey matches
             // main's; the resolved HW lane then rides the SwTransport (copy-back).
             engine: "ffmpeg" as const,

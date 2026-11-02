@@ -5,7 +5,7 @@ import path from 'node:path'
 /// The bench is not a test suite: it lives outside `e2e/electron` (the e2e
 /// config's testDir) and matches only its own entry file, so neither
 /// `npm run e2e` nor CI can pick it up. Start it through `npm run bench`, which
-/// supplies the run matrix in WEFTCUT_BENCH_PLAN.
+/// supplies the run matrix in LAHZA_BENCH_PLAN.
 export default defineConfig({
   testDir: '.',
   testMatch: '**/run.bench.ts',
@@ -18,5 +18,5 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [['list']],
   /// launchApp's resource journal writes here; nothing in it is bench evidence.
-  outputDir: path.join(os.tmpdir(), 'weftcut-bench-playwright'),
+  outputDir: path.join(os.tmpdir(), 'lahza-bench-playwright'),
 })

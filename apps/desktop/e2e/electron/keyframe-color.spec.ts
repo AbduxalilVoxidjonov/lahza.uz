@@ -184,9 +184,9 @@ function extractFramePng(ffmpeg: string, mp4: string, n: number, outPng: string)
 /// resolution. The 200 ms after the seek is pacing for the re-composite, and it
 /// is only safe because the only caller is a poll (`waitPreviewSettled`).
 async function capturePreviewFrame(page: Page, tUs: number): Promise<{ frame: Frame; png: Buffer }> {
-  await page.evaluate((us) => (window as any).__weftcutTest.weftcutSeekUs(us), tUs)
+  await page.evaluate((us) => (window as any).__lahzaTest.lahzaSeekUs(us), tUs)
   await page.waitForTimeout(200)
-  const b64 = (await page.evaluate(() => (window as any).__weftcutTest.capturePreviewFramePng())) as string
+  const b64 = (await page.evaluate(() => (window as any).__lahzaTest.capturePreviewFramePng())) as string
   const png = Buffer.from(b64, 'base64')
   return { frame: decodePng(png), png }
 }
@@ -270,7 +270,7 @@ test('colour keyframing: preview and export agree on the OkLab mix at the sample
   // Local-only like the other export gates: the export leg needs the real
   // GPU/WebCodecs encode path, absent on headless CI.
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'colour keyframe export leg needs a real GPU/WebCodecs encoder not on headless CI; verified locally',
   )
   const ffmpeg = ffmpegBin()
@@ -282,7 +282,7 @@ test('colour keyframing: preview and export agree on the OkLab mix at the sample
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-kfcolor-proj-'),
+      parentFolder: tmpDir('lahza-e2e-kfcolor-proj-'),
       name: 'keyframe-color-' + Date.now(),
       canvas: CANVAS,
     })
@@ -336,14 +336,14 @@ test('colour keyframing: preview and export agree on the OkLab mix at the sample
 
     // ── Export leg — decode the SAME frame indices, run the SAME checks ───────
     const exportFrames = await test.step('export leg', async () => {
-      const output = path.join(tmpDir('weftcut-e2e-kfcolor-out-'), 'keyframe-color.mp4')
+      const output = path.join(tmpDir('lahza-e2e-kfcolor-out-'), 'keyframe-color.mp4')
       const exp = await driveExport(page, { outputAbsPath: output }, { hook: 'exportTimeline', timeout: 150_000 })
       if (!exp.done.ok) throw new Error(`exportTimeline failed: ${exp.done.error}`)
 
-      const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+      const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
         | { totalFrames: number }
         | null
-      expect(perf, '__weftcutExportPerf must be set after export (E2E build)').not.toBeNull()
+      expect(perf, '__lahzaExportPerf must be set after export (E2E build)').not.toBeNull()
       expect(perf!.totalFrames, '3 s composition at 30 fps plans 90 frames').toBe(TOTAL_FRAMES)
 
       const frames: Record<string, Frame> = {}

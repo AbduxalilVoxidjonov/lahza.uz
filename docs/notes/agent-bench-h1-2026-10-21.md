@@ -9,7 +9,7 @@ play, `check_composition`). Compared with the baseline
 
 - App at `64a2f4ca` on the remote host (native addon rebuilt); skill: the H1
   bundle (`.scratch/agent-harness/h1-skill/`). No TASTE.md, so every run is in
-  `weftcut-default`.
+  `lahza-default`.
 - Tasks: `interview-title-lower-third`, `explainer-title-lower-third-captions`,
   `explainer-tighten`, `interview-social-cut` × Opus 5.5, Sonnet 5.5,
   Haiku 5.5.

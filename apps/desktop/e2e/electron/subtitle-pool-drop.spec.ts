@@ -58,10 +58,10 @@ test("a subtitle pools on import and lays its cues on the caption tracks where i
   test.setTimeout(120_000);
   const { app, page } = await launchApp();
   try {
-    await newProject(page, { parentFolder: tmpDir("weftcut-e2e-subtitle-drop-"), name: "subtitle-drop", canvas: CANVAS });
+    await newProject(page, { parentFolder: tmpDir("lahza-e2e-subtitle-drop-"), name: "subtitle-drop", canvas: CANVAS });
     await expect(page.locator(".splash-screen")).toHaveCount(0, { timeout: 15_000 });
 
-    const srt = path.join(tmpDir("weftcut-e2e-subtitle-src-"), "scene.srt");
+    const srt = path.join(tmpDir("lahza-e2e-subtitle-src-"), "scene.srt");
     fs.writeFileSync(srt, SRT, "utf8");
     const mediaId = await invokeCmd<string>(page, "import_media", { path: srt });
 

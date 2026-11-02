@@ -3,8 +3,8 @@
 //!
 //!   * Level filter: `Error` only — every `tracing::error!` from our
 //!     code becomes a `category=System, level=Error` log entry.
-//!   * Target filter: only events whose target starts with `weftcut`
-//!     (our binary) or `weftcut_lib` (the lib crate). Third-party
+//!   * Target filter: only events whose target starts with `lahza`
+//!     (our binary) or `lahza_lib` (the lib crate). Third-party
 //!     crates' errors don't leak into the user-visible log.
 //!
 //! Recursion guard: this layer NEVER calls `tracing::*!` macros — they
@@ -35,7 +35,7 @@ impl<S: Subscriber> Layer<S> for LogBusLayer {
             return;
         }
         let target = meta.target();
-        if !(target.starts_with("weftcut") || target.starts_with("weftcut_lib")) {
+        if !(target.starts_with("lahza") || target.starts_with("lahza_lib")) {
             return;
         }
 

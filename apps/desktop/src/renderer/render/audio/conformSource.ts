@@ -1,4 +1,4 @@
-// Range-reads over a VCONF conform file served via weftcut-media://. No decode —
+// Range-reads over a VCONF conform file served via lahza-media://. No decode —
 // the file IS the samples (48 kHz f32le interleaved; header per
 // `native/src/jobs/conform.rs`).
 
@@ -74,7 +74,7 @@ export class ConformSource {
   }
 }
 
-/// Loop until exactly `len` bytes arrive — a single weftcut-media:// 206 caps at
+/// Loop until exactly `len` bytes arrive — a single lahza-media:// 206 caps at
 /// ~1 MB and a short read would otherwise hand consumers truncated data.
 async function rangeRead(
   url: string,

@@ -71,7 +71,7 @@ test("a click on empty frame creates text centred on the click and opens the edi
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-text-tool-"),
+      parentFolder: tmpDir("lahza-e2e-text-tool-"),
       name: `text-tool-${Date.now()}`,
       canvas: CANVAS,
     });
@@ -127,7 +127,7 @@ test("a click on existing text edits it, and the click that closes the editor cr
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-text-tool-edit-"),
+      parentFolder: tmpDir("lahza-e2e-text-tool-edit-"),
       name: `text-tool-edit-${Date.now()}`,
       canvas: CANVAS,
     });

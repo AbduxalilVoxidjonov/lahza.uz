@@ -78,7 +78,7 @@ describe('reference text correction', () => {
     expect(correct('……', '文稿')).toBe('……')
   })
   it('normalizes English spelling case and punctuation', () => {
-    expect(correct('welcome to weftcut today', 'Welcome to WeftCut today.')).toBe('Welcome to WeftCut today.')
+    expect(correct('welcome to lahza today', 'Welcome to Lahza today.')).toBe('Welcome to Lahza today.')
   })
   it('is stable when applied again', () => {
     const fix = createTextCorrector('今天介绍自动剪辑功能。价格是399元。')

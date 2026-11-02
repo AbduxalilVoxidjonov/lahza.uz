@@ -61,12 +61,12 @@ const sample = async (page: Page, x: number, y: number): Promise<Sample> => {
   // 0087). Hook existence and a settled playhead do not imply a live canvas.
   // Check presentation readiness on every read, including composition switches.
   await page.waitForFunction(
-    () => (window as any).__weftcutTest?.previewResourceProbe?.() != null,
+    () => (window as any).__lahzaTest?.previewResourceProbe?.() != null,
     undefined,
     { timeout: 20_000 },
   );
   return page.evaluate(
-    (p) => (window as any).__weftcutTest.weftcutSampleComposite(p.x, p.y),
+    (p) => (window as any).__lahzaTest.lahzaSampleComposite(p.x, p.y),
     { x, y },
   );
 };
@@ -75,13 +75,13 @@ const sample = async (page: Page, x: number, y: number): Promise<Sample> => {
 /// (`state/playbackStore.ts`) — and it emits the time, so the playhead store
 /// below is a real settle signal.
 const seek = (page: Page, us: number): Promise<void> =>
-  page.evaluate((t) => (window as any).__weftcutTest.transportSeekUs(t), us);
+  page.evaluate((t) => (window as any).__lahzaTest.transportSeekUs(t), us);
 
 const playheadUs = (page: Page): Promise<number> =>
-  page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs());
+  page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs());
 
 const openComposition = (page: Page): Promise<{ id: string } | null> =>
-  page.evaluate(() => (window as any).__weftcutTest.getOpenComposition());
+  page.evaluate(() => (window as any).__lahzaTest.getOpenComposition());
 
 /// Park the preview on `us` — the ENGINE's clock, which is the composition it
 /// draws — and wait for the store to agree. Every sample below re-composites at
@@ -160,12 +160,12 @@ test("a Group composites its own timeline: twice over, nested, and as the open c
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-group-render-"),
+      parentFolder: tmpDir("lahza-e2e-group-render-"),
       name: "e2e-group-render-" + Date.now(),
       canvas: CANVAS,
     });
     await expect(page.locator(".splash-screen")).toHaveCount(0, { timeout: 15_000 });
-    await waitForHook(page, "weftcutSampleComposite");
+    await waitForHook(page, "lahzaSampleComposite");
     await waitForHook(page, "transportSeekUs");
     await waitForHook(page, "setOpenComposition");
     await waitForHook(page, "getOpenComposition");
@@ -279,7 +279,7 @@ test("a Group composites its own timeline: twice over, nested, and as the open c
       patch: { width: GROUP_W, height: GROUP_H },
     });
     expect(
-      await page.evaluate((id) => (window as any).__weftcutTest.setOpenComposition(id), groupId),
+      await page.evaluate((id) => (window as any).__lahzaTest.setOpenComposition(id), groupId),
     ).toBe(true);
     await expect.poll(() => openComposition(page)).toMatchObject({ id: groupId });
     // One moment (ADR 0053): the switch leaves the film at 1.2 s. Opening by id
@@ -315,7 +315,7 @@ test("a Group composites its own timeline: twice over, nested, and as the open c
 
     // ── Back to the root: its frame, and the placements again ─────────────
     expect(
-      await page.evaluate((id) => (window as any).__weftcutTest.setOpenComposition(id), rootId),
+      await page.evaluate((id) => (window as any).__lahzaTest.setOpenComposition(id), rootId),
     ).toBe(true);
     await expect.poll(() => openComposition(page)).toMatchObject({ id: rootId });
     await expect

@@ -120,7 +120,7 @@ const wire = (page: Page): Promise<Wire> => invokeCmd<Wire>(page, 'project_summa
 
 const layersOf = (c: WireComposition): WireLayer[] => c.tracks.flatMap((t) => t.layers)
 
-/// The export Worker's own frame count (`window.__weftcutExportPerf`, E2E only).
+/// The export Worker's own frame count (`window.__lahzaExportPerf`, E2E only).
 /// Equal counts are the precondition for comparing the two files index for
 /// index at all: `analyze` reads frame N of each, and two files of different
 /// length would put a different picture at the same N for reasons that have
@@ -128,10 +128,10 @@ const layersOf = (c: WireComposition): WireLayer[] => c.tracks.flatMap((t) => t.
 const exportedFrames = async (page: Page): Promise<number> => {
   const perf = (await page.evaluate(
     () =>
-      (window as unknown as { __weftcutExportPerf?: { totalFrames: number } })
-        .__weftcutExportPerf ?? null,
+      (window as unknown as { __lahzaExportPerf?: { totalFrames: number } })
+        .__lahzaExportPerf ?? null,
   )) as { totalFrames: number } | null
-  if (!perf) throw new Error('no __weftcutExportPerf after the export — is this an E2E build?')
+  if (!perf) throw new Error('no __lahzaExportPerf after the export — is this an E2E build?')
   return perf.totalFrames
 }
 
@@ -197,8 +197,8 @@ function expectIdentityWindow(ref: WireLayer, where: string): void {
 
 test('a Group inside a Group exports with both transforms composed', async () => {
   test.setTimeout(300_000)
-  const outDir = tmpDir('weftcut-e2e-group-nested-out-')
-  const projDir = tmpDir('weftcut-e2e-group-nested-proj-')
+  const outDir = tmpDir('lahza-e2e-group-nested-out-')
+  const projDir = tmpDir('lahza-e2e-group-nested-proj-')
   const flatOut = path.join(outDir, 'flat.mp4')
   const nestedOut = path.join(outDir, 'nested.mp4')
 

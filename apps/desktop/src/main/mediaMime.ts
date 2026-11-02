@@ -1,9 +1,9 @@
-/// Content-Type for a `weftcut-media://` body, keyed by file extension.
+/// Content-Type for a `lahza-media://` body, keyed by file extension.
 ///
 /// Two kinds of consumer, two different needs. For video/audio containers the
 /// exact type is cosmetic: what matters is that it is NOT text, so Chromium's
 /// loader skips the main-thread `TextResourceDecoder` pass over the body (the
-/// header comment at the `weftcut-media` handler in index.ts has the
+/// header comment at the `lahza-media` handler in index.ts has the
 /// measurement); a container mediabunny does not recognise falls back to
 /// `application/octet-stream`, which is equally non-text. For images the type is
 /// load-bearing: WebCodecs `ImageDecoder` refuses `application/octet-stream`

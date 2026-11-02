@@ -13,7 +13,7 @@ test.describe('still image media preview', () => {
   test('shows an imported image thumbnail and composites it in the live preview', async () => {
     const { app, page } = await launchApp()
     try {
-      const PROJECT_PARENT = tmpDir('weftcut-e2e-image-preview-')
+      const PROJECT_PARENT = tmpDir('lahza-e2e-image-preview-')
       await newProject(page, {
         parentFolder: PROJECT_PARENT,
         name: 'e2e-image-preview-' + Date.now(),
@@ -31,7 +31,7 @@ test.describe('still image media preview', () => {
 
       const thumb = page.locator('.media-item-thumb .media-thumbnail img')
       await expect(thumb).toBeVisible()
-      await expect(thumb).toHaveAttribute('src', /^weftcut-media:\/\//)
+      await expect(thumb).toHaveAttribute('src', /^lahza-media:\/\//)
       await expect.poll(() => thumb.evaluate(img => (img as HTMLImageElement).naturalWidth)).toBeGreaterThan(0)
 
       let sample: { r: number; g: number; b: number; a: number; nonTransparent: number; maxA: number } | null = null
@@ -39,9 +39,9 @@ test.describe('still image media preview', () => {
       while (Date.now() < deadline) {
         const maybeSample = await page.evaluate(async () => {
           try {
-            const hook = (window as any).__weftcutTest
-            hook.weftcutSeekUs(0)
-            const sample = await hook.weftcutSampleComposite(20, 20)
+            const hook = (window as any).__lahzaTest
+            hook.lahzaSeekUs(0)
+            const sample = await hook.lahzaSampleComposite(20, 20)
             if (sample.nonTransparent <= 0 || sample.maxA !== 255) return null
             return sample
           } catch {

@@ -1,6 +1,6 @@
 # Architecture
 
-WeftCut is an Electron desktop video editor (Electron + napi-rs). The
+Lahza is an Electron desktop video editor (Electron + napi-rs). The
 Electron **main** process (TypeScript) owns project state, persistence, and
 the agent/MCP surface. The Rust core (an in-process napi addon) owns
 native runtime services — media jobs, cache/workspace slots, import queue,
@@ -110,7 +110,7 @@ nobody asked for.
 
 The deterministic "what-you-see/hear" MATH both the renderer and Rust's
 compute/export paths need — frame snap, keyframe interpolation, the audio
-envelope curve, the role mute/solo gate — lives once in the `weftcut-eval`
+envelope curve, the role mute/solo gate — lives once in the `lahza-eval`
 leaf crate, compiled natively for the Rust compute + export paths and to
 wasm for the renderer and the TS main-process actor where main-process state
 logic needs it (notably frame snapping). One source of truth instead of
@@ -184,7 +184,7 @@ directly; no encode-and-swap step.
 |---|---|
 | Renderer → main (→ Rust core) | The contextBridge preload exposes named capabilities (not raw channels); the generic `api.backend.invoke(channel, args)` rides an `ipcRenderer.invoke('backend:invoke', …)` into the main process, where the TS host's `routeChannel` dispatches it — state / config / MCP channels are served in TS; compute channels forward to the napi addon's `Backend.invoke(cmd, argsJson)` dispatcher. Clip compute the renderer shares with the agent (`transcribe_clip`, `detect_pauses`, `describe_clip`) is intercepted in `main/index.ts` and served by the MCP host's own `callClipComputeTool`, so the human and the agent path are one function. |
 | Main → Renderer | The main process forwards events as `webContents.send('evt:<event>', payload)` — `project:changed` from the TS actor/host; `import:*`, `media:job_*` from the Rust core via its thread-safe-function callback — surfaced to the renderer via `api.on(event, …)`. |
-| Renderer → workspace files | The `weftcut-media://localhost/<encoded-abs-path>` custom protocol (registered privileged + `supportFetchAPI`/`stream`; HTTP `Range`, served from main) — used by the Pixi decoder pool to fetch proxies and originals. The `fs:*` IPC surface (confined to temp / userData / active-workspace roots) handles export-scratch writes and reads. |
+| Renderer → workspace files | The `lahza-media://localhost/<encoded-abs-path>` custom protocol (registered privileged + `supportFetchAPI`/`stream`; HTTP `Range`, served from main) — used by the Pixi decoder pool to fetch proxies and originals. The `fs:*` IPC surface (confined to temp / userData / active-workspace roots) handles export-scratch writes and reads. |
 | External agent → main (MCP host) | MCP over streamable-HTTP on localhost (`@modelcontextprotocol/sdk` host in the main process; bearer enforced by main, token in `app_config_dir/mcp_auth.json`). The tool catalog + resources are merged in TS — the TS-routed tool defs plus the Rust compute/hybrid tools. |
 | Main → External agent | The TS host's change notification, relayed by the in-process MCP host as a streamable-HTTP notification. |
 | Rust core → ffmpeg | `ffmpeg-sidecar` subprocess. Used by the audio encode tail (limiter + AAC/Opus), the native video encode sink (the default export engine's ffmpeg-backed encoder), proxy / thumbnail / waveform / conform / frame-extract jobs, audio-extract for transcription, and final mux (stream-copy only). |
@@ -192,12 +192,12 @@ directly; no encode-and-swap step.
 ## Repository layout
 
 ```
-weftcut/
+lahza/
   README.md
   docs/                       ← documentation (this directory)
   apps/desktop/               ← the Electron app
-    native/                   ← Rust core, built as a napi-rs addon (@weftcut/core)
-      eval/                   ← weftcut-eval leaf crate: the pure WYSIWYG math
+    native/                   ← Rust core, built as a napi-rs addon (@lahza/core)
+      eval/                   ← lahza-eval leaf crate: the pure WYSIWYG math
                               ←   (snap, keyframe eval, envelope, role gate),
                               ←   linked natively here + compiled to wasm for
                               ←   the renderer (ADR 0025)
@@ -242,12 +242,12 @@ weftcut/
         napi_backend.rs       ← the Backend napi type (invoke + init)
         lib.rs
       Cargo.toml
-      package.json            ← napi packaging (@weftcut/core, *.node)
+      package.json            ← napi packaging (@lahza/core, *.node)
     src/
       main/                   ← Electron main process (TypeScript)
-        index.ts             ←   app bootstrap: loads @weftcut/core, wires the
+        index.ts             ←   app bootstrap: loads @lahza/core, wires the
                              ←   backend:invoke / fs:* / window:* / dialog:* IPC,
-                             ←   registers the weftcut-media:// protocol
+                             ←   registers the lahza-media:// protocol
         state/               ←   project actor + history + validation + autosave
                              ←   + workspace orchestrator + MCP commands
                              ←   (THE sole state writer; ts-actor-host + router)
@@ -307,10 +307,10 @@ weftcut/
 ## External dependencies
 
 - **electron** — desktop shell: main/renderer processes, IPC, window
-  management, and the privileged `weftcut-media://` custom protocol for
+  management, and the privileged `lahza-media://` custom protocol for
   renderer access to workspace files.
 - **@napi-rs/cli** + **napi** / **napi-derive** — build the Rust core as
-  an in-process Node addon (`@weftcut/core`) that the main process loads.
+  an in-process Node addon (`@lahza/core`) that the main process loads.
 - **electron-vite** — bundles main / preload / renderer; **electron-builder**
   produces the per-OS installers.
 - **@modelcontextprotocol/sdk** + **express** — the streamable-HTTP MCP
@@ -330,7 +330,7 @@ weftcut/
 - **pixi.js** v8 — renderer-side compositor.
 - **mediabunny** — renderer-side demuxer / muxer for the WebCodecs
   pipeline (MP4/MOV + Matroska/WebM), reading through a
-  `weftcut-media://` Range `CustomSource`.
+  `lahza-media://` Range `CustomSource`.
 - **i18next** + **react-i18next** — frontend i18n; bundled resources
   for `en-US` and `zh-CN`.
 - **tailwindcss** v4 (`@tailwindcss/vite`) — design-token carrier +

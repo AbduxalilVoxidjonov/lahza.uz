@@ -19,7 +19,7 @@ const MEDIA_PATH = path.resolve(__dirname, '../../fixtures/media/tiny.mp4')
 test('palette jumps the playhead to a caption found by content', async () => {
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-palette-')
+    const parent = tmpDir('lahza-palette-')
     await newProject(page, { parentFolder: parent, name: 'palette', canvas: CANVAS })
     await invokeCmd(page, 'add_text_layer', {
       tStartUs: 2_000_000,
@@ -40,7 +40,7 @@ test('palette jumps the playhead to a caption found by content', async () => {
 
     await waitForHook(page, 'getPlayheadUs')
     await expect
-      .poll(() => page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs()))
+      .poll(() => page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs()))
       .toBe(2_000_000)
     await expect(page.locator('.search-palette')).toHaveCount(0)
   } finally {
@@ -56,7 +56,7 @@ test('media search reopens and reveals the singleton Media Pool Panel', async ()
   // text filters below need English — and isolates this spec's dock-Panel close.
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-palette-')
+    const parent = tmpDir('lahza-palette-')
     await newProject(page, { parentFolder: parent, name: 'palette-media', canvas: CANVAS })
 
     const mediaId = await invokeCmd<string>(page, 'import_media', { path: MEDIA_PATH })

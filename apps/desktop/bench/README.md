@@ -1,9 +1,9 @@
 # Agent bench
 
-Measures how far apart models land on the same WeftCut task: the **model gap**
+Measures how far apart models land on the same Lahza task: the **model gap**
 of [ADR 0123](../../../docs/adr/0123-the-app-holds-the-evidence-the-client-runs-the-loop.md).
 It launches the built app, sets a project up, hands it to an agent client
-(Claude Code first) with the WeftCut skill and MCP server, and records what the
+(Claude Code first) with the Lahza skill and MCP server, and records what the
 agent did from the app's side: before/after snapshots, the entity-level review
 diff (ADR 0116), the task's checklist, cost and turns.
 
@@ -25,7 +25,7 @@ npm run bench -- --task 'smoke-*' --model claude-opus-5-5,claude-haiku-5-5 --rep
 |---|---|---|
 | `--task` | required | Task ids or globs (`*`, `?`), comma-separated or repeated. |
 | `--model` | required | Model ids, comma-separated; passed to the client verbatim. |
-| `--skill` | `<repo>/skills/weftcut` | Skill directory (holds `SKILL.md`). Its content hash is recorded per run. |
+| `--skill` | `<repo>/skills/lahza` | Skill directory (holds `SKILL.md`). Its content hash is recorded per run. |
 | `--driver` | `claude` | `claude`, or `dsh` for DeepSeek models through DeepSeek Harness. |
 | `--repeat` | `1` | Runs per (task, model). |
 | `--out` | `bench/results/` | Results root; each invocation gets a timestamped folder. |
@@ -34,9 +34,9 @@ npm run bench -- --task 'smoke-*' --model claude-opus-5-5,claude-haiku-5-5 --rep
 | `--app-memory-mib` | app default | Pins the app's resource-policy memory (Settings → Resources). The default is 35% of host RAM. |
 | `--budget-usd` | none | Spend cap per session, for clients that enforce one. |
 | `--host` | `local` | `local`, or `remote`: the app runs on another machine ([Remote app host](#remote-app-host)). `--remote <alias>` alone implies `remote`. |
-| `--remote` | `$WEFTCUT_BENCH_REMOTE` | ssh alias of the remote app host (`~/.ssh/config`). |
-| `--remote-repo` | `$WEFTCUT_BENCH_REMOTE_REPO` | The built WeftCut checkout on that host, e.g. `C:\Users\me\src\WeftCut`. |
-| `--remote-node` | `$WEFTCUT_BENCH_REMOTE_NODE` | `node.exe` on the host for fixture fetching, when the default (fnm's v24.20.0, then `PATH`) is wrong. |
+| `--remote` | `$LAHZA_BENCH_REMOTE` | ssh alias of the remote app host (`~/.ssh/config`). |
+| `--remote-repo` | `$LAHZA_BENCH_REMOTE_REPO` | The built Lahza checkout on that host, e.g. `C:\Users\me\src\Lahza`. |
+| `--remote-node` | `$LAHZA_BENCH_REMOTE_NODE` | `node.exe` on the host for fixture fetching, when the default (fnm's v24.20.0, then `PATH`) is wrong. |
 | `--keep-remote` | off | Keep the run's directory on the host (profile, project, mirror) after teardown. |
 | `--rebuild-templates` | off | Set every project up from scratch and replace its template ([Project templates](#project-templates)). |
 
@@ -208,7 +208,7 @@ reached as an ssh alias:
 
 ```bash
 npm run bench -- --task explainer-tighten --model claude-haiku-5-5 \
-  --remote weftcut-pc --remote-repo 'C:\Users\me\src\WeftCut'
+  --remote lahza-pc --remote-repo 'C:\Users\me\src\Lahza'
 ```
 
 Needs, on the host: OpenSSH server with sftp and **TCP forwarding allowed**
@@ -219,12 +219,12 @@ checkout built (`out\main\index.js`, native addons, `node_modules\electron`),
 logged on at the console. Here: `ssh`/`sftp`. No `DISPLAY` and no local build
 are needed.
 
-Everything the bench creates on the host is under `%USERPROFILE%\weftcut-bench\`
+Everything the bench creates on the host is under `%USERPROFILE%\lahza-bench\`
 (`bin\pc.ps1` is the host-side helper, refreshed each invocation; `fixtures\`,
 `cache\`, `templates\`, `runs\<slug>\`). Per run:
 
 1. **Profile.** A fresh userData at `runs\<slug>\profile`, seeded from the
-   user's own profile (`%APPDATA%\WeftCut`), which is only read:
+   user's own profile (`%APPDATA%\Lahza`), which is only read:
    `speech_config.json`, `vlm_config.json` and `model_settings.json` are
    copied with every path naming that profile re-pointed at the run's; the
    model downloads (`data\downloads\…`) are hard-linked, never copied (same
@@ -235,11 +235,11 @@ Everything the bench creates on the host is under `%USERPROFILE%\weftcut-bench\`
    go to `run.json` `models`.
 2. **Launch in the console session.** An ssh logon lands in session 0, which
    has no desktop and no GPU for GUI processes. The helper registers a
-   scheduled task (`\WeftCutBench\WeftCutBench-<slug>`) with an
+   scheduled task (`\LahzaBench\LahzaBench-<slug>`) with an
    *Interactive* principal for the ssh user (what `schtasks /IT` does, without
    a stored password), so it runs in the user's logged-on session. The task
    runs `runs\<slug>\launch.ps1`, which sets launchApp's environment
-   (`LANG`/`LC_ALL`, `WEFTCUT_SUPPRESS_ELEVATION_NOTICE`, the checkout's own
+   (`LANG`/`LC_ALL`, `LAHZA_SUPPRESS_ELEVATION_NOTICE`, the checkout's own
    ffmpeg when fetched), starts `electron.exe --lang=en-US
    --user-data-dir=<profile> out\main\index.js` with stdout/stderr redirected,
    writes the pid and exits; the task is deleted as soon as it has. The app
@@ -364,9 +364,9 @@ global install (`npm i -g @deepseek-ai/dsh`).
 - **Key.** `DEEPSEEK_API_KEY` from the environment, else from `~/.dsh/.env`.
   It is passed to the child only.
 - **Isolation.** Each run boots in a fresh temp `DSH_HOME` and agents home.
-  The skill goes in `<workdir>/.dsh/skills/weftcut`. A patch overlay
+  The skill goes in `<workdir>/.dsh/skills/lahza`. A patch overlay
   (`runPatch`):
-  - names the app as the only MCP server, `mcp__weftcut__*`, with a 15 min
+  - names the app as the only MCP server, `mcp__lahza__*`, with a 15 min
     tool-call timeout;
   - turns off shell, web, subagent, job and workflow tools;
   - stops dsh's session-log upload to DeepSeek. OTel is disabled by the
@@ -385,18 +385,18 @@ global install (`npm i -g @deepseek-ai/dsh`).
 ## Claude isolation
 
 `drivers/claude.ts` runs `claude -p` in a fresh temp directory that holds only
-the skill, copied to `.claude/skills/weftcut/`. Flags:
+the skill, copied to `.claude/skills/lahza/`. Flags:
 
 - `--setting-sources project`: user and local settings are not loaded, and
   neither are the user's plugins, hooks, skills, permissions or `CLAUDE.md`.
   The "project" is the temp directory.
 - `--settings '{"autoMemoryEnabled":false}'`: auto-memory is not read or written.
 - `--strict-mcp-config --mcp-config <json>`: the only MCP server is the app,
-  named `weftcut`, so its tools are `mcp__weftcut__*`. The token is passed on
+  named `lahza`, so its tools are `mcp__lahza__*`. The token is passed on
   the command line, not written to disk.
 - `--tools Read,Write,Edit,Glob,Grep,Skill,ToolSearch,ListMcpResourcesTool,ReadMcpResourceTool`:
   no Bash, web or subagent tools.
-- `--permission-mode dontAsk --allowedTools mcp__weftcut,Skill(weftcut),…,Read(./**),Edit(./**)`:
+- `--permission-mode dontAsk --allowedTools mcp__lahza,Skill(lahza),…,Read(./**),Edit(./**)`:
   anything not listed is refused without a prompt. File reads and writes are
   confined to the working directory.
 - `--no-session-persistence`. The prompt goes in on stdin.
@@ -407,7 +407,7 @@ What cannot be isolated:
 
 - **Bundled skills.** Skills that ship inside the CLI (`dataviz`, `debug`,
   `code-review`, …) are still *listed* to the model. Only `--disable-slash-commands`
-  hides them, and that also hides the skill under test. `Skill(weftcut)` stops
+  hides them, and that also hides the skill under test. `Skill(lahza)` stops
   them from being invoked, but their descriptions still take up context.
 - **Built-in plugins** (`cc-plugin-*@builtin`) still load.
 - **Account and managed policy.** The run uses the machine's logged-in account,

@@ -105,7 +105,7 @@ export async function startMcpProxy(opts: ProxyOptions): Promise<McpProxy> {
       ...(opts.upstream.fetch ? { fetch: opts.upstream.fetch } : {}),
     }))
     const instructions = client.getInstructions()
-    server = new Server(client.getServerVersion() ?? { name: 'weftcut', version: '0' }, {
+    server = new Server(client.getServerVersion() ?? { name: 'lahza', version: '0' }, {
       capabilities: client.getServerCapabilities() ?? {},
       ...(instructions ? { instructions } : {}),
     })

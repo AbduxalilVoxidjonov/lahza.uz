@@ -4,13 +4,13 @@ import { placeHighlight } from './place'
 import type { LahzaClip, LahzaEpisode, LahzaJob, LahzaSentence, LahzaStatus, PlaceHighlightResult } from '../../shared/lahza'
 import type { TsActorHost } from '../state/ts-actor-host'
 
-/** The Lahza operations WeftCut offers — one surface behind both the Lahza
+/** The Lahza operations Lahza offers — one surface behind both the Lahza
  *  dock panel (IPC) and the `lahza_*` MCP tools, so a person and an agent
  *  reach the same engine the same way. */
 
-/** Every Lahza episode imported from WeftCut lives in this Lahza project, so
+/** Every Lahza episode imported from Lahza lives in this Lahza project, so
  *  they stay together in Lahza Studio's library too. */
-export const LAHZA_PROJECT_NAME = 'WeftCut'
+export const LAHZA_PROJECT_NAME = 'Lahza'
 
 export interface AnalyzeArgs { path: string; title?: string; focus?: string; num_speakers?: number; force_lite?: boolean }
 export interface ExportArgs {
@@ -92,10 +92,10 @@ export class LahzaService {
     return this.engine.request('POST', `/v1/episodes/${enc(episode_id)}/clips/${enc(clip_id)}:export`, body)
   }
 
-  /** Put a highlight on the open WeftCut timeline (see `placeHighlight`). */
+  /** Put a highlight on the open Lahza timeline (see `placeHighlight`). */
   place(args: { episode_id: string; clip_id: string; client?: string }): Promise<PlaceHighlightResult> {
     const host = this.host()
-    if (!host) throw new LahzaError('weftcut_not_ready', 'The editor is not started yet')
+    if (!host) throw new LahzaError('lahza_not_ready', 'The editor is not started yet')
     return placeHighlight(host, this.engine, args)
   }
 

@@ -37,7 +37,7 @@ function main(argv) {
       options: {
         task: { type: 'string', multiple: true },
         model: { type: 'string', multiple: true },
-        skill: { type: 'string', default: path.join(REPO, 'skills', 'weftcut') },
+        skill: { type: 'string', default: path.join(REPO, 'skills', 'lahza') },
         driver: { type: 'string', default: 'claude' },
         repeat: { type: 'string', default: '1' },
         out: { type: 'string', default: path.join(BENCH, 'results') },
@@ -48,11 +48,11 @@ function main(argv) {
         'app-memory-mib': { type: 'string' },
         'budget-usd': { type: 'string' },
         // Where the app runs. `--remote <alias>` alone implies `--host remote`;
-        // WEFTCUT_BENCH_REMOTE / WEFTCUT_BENCH_REMOTE_REPO are the defaults.
+        // LAHZA_BENCH_REMOTE / LAHZA_BENCH_REMOTE_REPO are the defaults.
         host: { type: 'string' },
-        remote: { type: 'string', default: process.env.WEFTCUT_BENCH_REMOTE },
-        'remote-repo': { type: 'string', default: process.env.WEFTCUT_BENCH_REMOTE_REPO },
-        'remote-node': { type: 'string', default: process.env.WEFTCUT_BENCH_REMOTE_NODE },
+        remote: { type: 'string', default: process.env.LAHZA_BENCH_REMOTE },
+        'remote-repo': { type: 'string', default: process.env.LAHZA_BENCH_REMOTE_REPO },
+        'remote-node': { type: 'string', default: process.env.LAHZA_BENCH_REMOTE_NODE },
         'keep-remote': { type: 'boolean', default: false },
         'rebuild-templates': { type: 'boolean', default: false },
         help: { type: 'boolean', short: 'h' },
@@ -88,8 +88,8 @@ function main(argv) {
   // default alone does not (it only supplies the alias for `--host remote`).
   const hostKind = values.host ?? (argv.some((a) => a === '--remote' || a.startsWith('--remote=')) ? 'remote' : 'local')
   if (!['local', 'remote'].includes(hostKind)) problems.push('--host must be local or remote')
-  if (hostKind === 'remote' && !values.remote) problems.push('--host remote needs --remote <ssh alias> (or WEFTCUT_BENCH_REMOTE)')
-  if (hostKind === 'remote' && !values['remote-repo']) problems.push('--host remote needs --remote-repo <the built WeftCut checkout on the host> (or WEFTCUT_BENCH_REMOTE_REPO)')
+  if (hostKind === 'remote' && !values.remote) problems.push('--host remote needs --remote <ssh alias> (or LAHZA_BENCH_REMOTE)')
+  if (hostKind === 'remote' && !values['remote-repo']) problems.push('--host remote needs --remote-repo <the built Lahza checkout on the host> (or LAHZA_BENCH_REMOTE_REPO)')
   if (hostKind === 'local' && values['keep-remote']) problems.push('--keep-remote applies to --host remote only')
   if (problems.length) {
     console.error(`[bench] ${problems.join('; ')}\n${USAGE}`)
@@ -142,7 +142,7 @@ function main(argv) {
   const result = spawnSync(
     process.execPath,
     [require.resolve('@playwright/test/cli'), 'test', '-c', path.join(BENCH, 'playwright.bench.config.ts')],
-    { cwd: ROOT, env: { ...env, WEFTCUT_BENCH_PLAN: JSON.stringify(plan) }, stdio: 'inherit' },
+    { cwd: ROOT, env: { ...env, LAHZA_BENCH_PLAN: JSON.stringify(plan) }, stdio: 'inherit' },
   )
   if (result.error) throw result.error
   return result.status ?? 1

@@ -1,7 +1,7 @@
 import { runHardwareProbe, type HardwareProbeRequest } from './hardwareProbe';
 import { createRequire } from 'node:module';
 
-const native = createRequire(import.meta.url)('@weftcut/core') as { linuxHardwareProbeProcessGroup?: () => boolean };
+const native = createRequire(import.meta.url)('@lahza/core') as { linuxHardwareProbeProcessGroup?: () => boolean };
 const grouped = native.linuxHardwareProbeProcessGroup?.() === true;
 process.parentPort.postMessage({ type: 'ready', grouped });
 

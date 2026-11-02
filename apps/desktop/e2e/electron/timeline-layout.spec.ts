@@ -5,7 +5,7 @@ test('link badges stay outside the sticky header column when horizontally scroll
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-link-header-'), name: 'link-header',
+      parentFolder: tmpDir('lahza-link-header-'), name: 'link-header',
       canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 },
     })
     await expect(page.locator('.splash-screen')).toHaveCount(0)
@@ -53,7 +53,7 @@ test('playhead stays continuous from the ruler through fixed rows to the tracks'
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-playhead-layout-'), name: 'playhead-layout',
+      parentFolder: tmpDir('lahza-playhead-layout-'), name: 'playhead-layout',
       canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 },
     })
     await expect(page.locator('.splash-screen')).toHaveCount(0)
@@ -108,7 +108,7 @@ test('track resize handles cannot cover the ruler after vertical scrolling', asy
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-timeline-layout-'), name: 'layout',
+      parentFolder: tmpDir('lahza-timeline-layout-'), name: 'layout',
       canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 },
     })
     await expect(page.locator('.splash-screen')).toHaveCount(0)

@@ -62,7 +62,7 @@ export interface DataRootDeps {
   exit: () => void
 }
 
-const PROBE_NAME = '.weftcut-write-probe'
+const PROBE_NAME = '.lahza-write-probe'
 
 export function resolveDataRoot(deps: DataRootDeps): ResolvedDataRoot {
   const { fs, join } = deps

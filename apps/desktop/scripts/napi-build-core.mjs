@@ -1,4 +1,4 @@
-// Builds @weftcut/core. A wrapper rather than a bare `napi build` for Linux
+// Builds @lahza/core. A wrapper rather than a bare `napi build` for Linux
 // only: there the addon is linked against an old glibc sysroot and the result
 // is held to the glibc floor (napi-linux-sysroot.mjs, glibc-floor.mjs).
 import { join, dirname } from 'node:path'

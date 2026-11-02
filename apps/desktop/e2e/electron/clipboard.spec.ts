@@ -17,7 +17,7 @@ test('navigator.clipboard writes reach the OS clipboard and read back', async ()
     await page.bringToFront()
     await expect.poll(() => page.evaluate(() => document.hasFocus()), { timeout: 5_000 }).toBe(true)
 
-    const token = `weftcut-clipboard-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const token = `lahza-clipboard-${Date.now()}-${Math.random().toString(36).slice(2)}`
     await page.evaluate((t) => navigator.clipboard.writeText(t), token)
 
     // Oracle: the main-process clipboard module reads what the OS holds.

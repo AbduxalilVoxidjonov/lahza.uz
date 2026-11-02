@@ -125,7 +125,7 @@ export function captionLimits(tokens: {
 const fmt = (r: CraftRule) => r.threshold === undefined ? '—'
   : `${r.direction === 'min' ? '≥' : '≤'} ${r.unit === 'fraction' ? `${Math.round(r.threshold * 100)} %` : `${r.threshold} ${r.unit === 's' ? 's' : r.unit}`}`
 
-/** `skills/weftcut/craft/rules.md`, rendered from the table above. The skill
+/** `skills/lahza/craft/rules.md`, rendered from the table above. The skill
  *  ships the file; `craft.test.ts` fails when it no longer matches. */
 export function renderCraftRules(): string {
   const rows = CRAFT_RULES.map((r) => `| \`${r.id}\` | ${r.severity} | ${fmt(r)} | ${r.summary} | ${r.why} |`)

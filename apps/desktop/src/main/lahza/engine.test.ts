@@ -29,7 +29,7 @@ describe('LahzaEngine', () => {
   it('starts once, reads the ready port, and authorizes every request', async () => {
     const child = fakeChild('booting\nLAHZA_READY port=47611\n')
     const spawn = vi.fn(() => child)
-    const fetch = vi.fn(async (url: string) => json(200, url.endsWith('/v1/health') ? { version: '0.2.4', ok: true } : [{ id: 'p1', name: 'WeftCut' }]))
+    const fetch = vi.fn(async (url: string) => json(200, url.endsWith('/v1/health') ? { version: '0.2.4', ok: true } : [{ id: 'p1', name: 'Lahza' }]))
     const engine = new LahzaEngine({ paths, spawn: spawn as never, fetch: fetch as never, exists: () => true, readText: () => ' PUBKEY \n' })
 
     const [a, b] = await Promise.all([engine.ensureStarted(), engine.ensureStarted()])
@@ -92,9 +92,9 @@ describe('LahzaEngine', () => {
 })
 
 describe('resolveLahzaPaths', () => {
-  it('prefers WEFTCUT_LAHZA_DIR, then the packaged resources', () => {
+  it('prefers LAHZA_ENGINE_DIR, then the packaged resources', () => {
     const exe = process.platform === 'win32' ? 'lahza-engine.exe' : 'lahza-engine'
-    expect(resolveLahzaPaths({ packaged: true, resourcesPath: '/res', devRoot: '/dev', env: { WEFTCUT_LAHZA_DIR: '/custom' } }).engine.replace(/\\/g, '/')).toBe(`/custom/${exe}`)
+    expect(resolveLahzaPaths({ packaged: true, resourcesPath: '/res', devRoot: '/dev', env: { LAHZA_ENGINE_DIR: '/custom' } }).engine.replace(/\\/g, '/')).toBe(`/custom/${exe}`)
     expect(resolveLahzaPaths({ packaged: true, resourcesPath: '/res', devRoot: '/dev', env: {} }).catalog.replace(/\\/g, '/')).toBe('/res/lahza/catalog/catalog.json')
   })
 })

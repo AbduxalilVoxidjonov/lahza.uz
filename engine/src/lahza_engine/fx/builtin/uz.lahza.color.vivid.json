@@ -1,0 +1,31 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.color.vivid",
+  "version": "1.0.0",
+  "kind": "color",
+  "name": {
+    "uz": "Yorqin",
+    "uz-Cyrl": "Ёрқин",
+    "ru": "Яркий",
+    "en": "Vivid"
+  },
+  "description": {
+    "uz": "To'yingan ranglar va kontrast",
+    "uz-Cyrl": "Тўйинган ранглар ва контраст",
+    "ru": "Насыщенные цвета и контраст",
+    "en": "Saturated colors and contrast"
+  },
+  "backend": "color",
+  "preset": "vivid",
+  "params": [
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 1.0
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

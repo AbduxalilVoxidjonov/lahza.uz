@@ -66,7 +66,7 @@ test('POSIX cleanup still owns helpers after the detached leader exits', { timeo
 })
 
 test('POSIX graceful close also stops native children with separate stdio', { timeout: 5000, skip: process.platform === 'win32' }, async () => {
-  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-child-heartbeat-'))
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-child-heartbeat-'))
   const heartbeat = path.join(folder, 'heartbeat')
   const writer = `const fs = require('node:fs'); const write = () => fs.writeFileSync(${JSON.stringify(heartbeat)}, String(Date.now())); write(); process.send('ready'); setInterval(write, 20)`
   const program = `

@@ -197,7 +197,7 @@ describe('open_project / create_project', () => {
     expect((await call(ts, 'create_project', { name: 'CON' })).content[0].text).toContain('reserves')
     expect((await call(ts, 'create_project', { name: 'x', width: 1921, height: 1080 })).content[0].text).toContain('even')
     expect((await call(ts, 'create_project', { name: 'x', width: 1920 })).content[0].text).toContain('together')
-    expect((await call(ts, 'create_project', { name: 'x', fps: { num: 48, den: 1 } })).content[0].text).toContain('not a WeftCut rate')
+    expect((await call(ts, 'create_project', { name: 'x', fps: { num: 48, den: 1 } })).content[0].text).toContain('not a Lahza rate')
     expect((await call(ts, 'open_project', { path: 'relative/dir' })).content[0].text).toContain('absolute path')
     expect(ts.openedProject()).toBeNull()
   })
@@ -240,7 +240,7 @@ describe('closing and quitting shut the gate before the flush', () => {
     expect(ts.openedProject()).toBeNull()
     const refused = await call(ts, 'open_project', { path: '/work/Q' })
     expect(refused.structuredContent?.error).toBe('AppQuitting')
-    expect(refused.content[0].text).toContain('WeftCut is quitting')
+    expect(refused.content[0].text).toContain('Lahza is quitting')
   })
 })
 

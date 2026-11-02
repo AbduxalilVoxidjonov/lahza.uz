@@ -239,7 +239,7 @@ test.describe('macOS traffic-light inset @serial', () => {
     expect(Math.abs(startup.barHeight - startup.bandHeight)).toBeLessThanOrEqual(1)
 
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-caption-'),
+      parentFolder: tmpDir('lahza-caption-'),
       name: 'Caption',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
     })

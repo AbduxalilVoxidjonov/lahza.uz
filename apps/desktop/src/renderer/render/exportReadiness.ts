@@ -64,7 +64,7 @@ export interface PrepareDeps {
   ensureFullProxy: (mediaId: string) => Promise<void>;
   /// Session proxy-job state for a media id (App `proxyState`).
   proxyStateOf: (mediaId: string) => ProxyJobState | undefined;
-  /// weftcut-media:// URL for a source's ORIGINAL file.
+  /// lahza-media:// URL for a source's ORIGINAL file.
   urlForOriginal: (m: MediaSummary) => string;
   /// Shared session probe memo (App-owned ref).
   memo: Map<string, ProbeState>;

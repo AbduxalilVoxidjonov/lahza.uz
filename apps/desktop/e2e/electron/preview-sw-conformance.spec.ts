@@ -17,12 +17,12 @@ import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir, waitForH
 // alignment/decode evidence only — it is structurally blind to a 601↔709
 // matrix swap (chroma weighs ~1/6); preview-sw-color.spec.ts is the color gate.
 //
-// Model: e2e/electron/conformance.spec.ts. Requires a VITE_WEFTCUT_E2E=1
-// build (the __weftcutTest hook surface) and the current preview-sw
+// Model: e2e/electron/conformance.spec.ts. Requires a VITE_LAHZA_E2E=1
+// build (the __lahzaTest hook surface) and the current preview-sw
 // native/index.*.node.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const PRORES = path.resolve(MEDIA_DIR, 'test_1080p_30fps_prores.mov')
 
 // Composition + probe target. 500 ms @30 fps = source frame 15; the clip is
@@ -58,17 +58,17 @@ function parseSsimAll(stderr: string): number | null {
 }
 
 test('preview-sw: Compositor uses the ffmpeg engine\'s software lane for the NativeSw-routed ProRes clip + SSIM', async () => {
-  test.skip(!existsSync(PRORES), `ProRes fixture not found at ${PRORES} (set WEFTCUT_TEST_MEDIA)`)
+  test.skip(!existsSync(PRORES), `ProRes fixture not found at ${PRORES} (set LAHZA_TEST_MEDIA)`)
   test.setTimeout(240_000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-sw-proj-')
-  const OUT_DIR = tmpDir('weftcut-e2e-preview-sw-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-preview-sw-proj-')
+  const OUT_DIR = tmpDir('lahza-e2e-preview-sw-')
 
   // Pin the resolver to the software lane: ProRes is videotoolbox-eligible, so
   // on a ProRes-engine Mac this spec's clip would otherwise ride the HW lane
   // and never exercise the SOFTWARE path it gates. Forcing a lane the addon
   // never advertises ('software' is not an HW lane) leaves the HW resolver no
   // candidate — clean software fallback, every host.
-  const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: 'software' } })
+  const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: 'software' } })
   // Surface renderer console noise — a warning here is a finding.
   const consoleLines: string[] = []
   page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
@@ -109,7 +109,7 @@ test('preview-sw: Compositor uses the ffmpeg engine\'s software lane for the Nat
     // seek on it being live.
     await waitForHook(page, 'mediaDecodeRouteKind')
     await page.waitForFunction(
-      (id) => (window as { __weftcutTest: { mediaDecodeRouteKind(m: string): string | null } }).__weftcutTest.mediaDecodeRouteKind(id) === 'native-sw',
+      (id) => (window as { __lahzaTest: { mediaDecodeRouteKind(m: string): string | null } }).__lahzaTest.mediaDecodeRouteKind(id) === 'native-sw',
       mediaId,
       { timeout: 90_000, polling: 500 },
     )
@@ -119,7 +119,7 @@ test('preview-sw: Compositor uses the ffmpeg engine\'s software lane for the Nat
     await page.waitForFunction(
       () => {
         try {
-          ;(window as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe()
+          ;(window as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe()
           return true
         } catch {
           return false
@@ -153,15 +153,15 @@ test('preview-sw: Compositor uses the ffmpeg engine\'s software lane for the Nat
       // (ringLastPtsUs >= target) — the ring surfaces the nearest decoded frame
       // while catching up, so an early poll would otherwise bind frame ~0.
       await page.evaluate(
-        (us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
+        (us) => (window as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us),
         SEEK_US,
       )
 
       const handle = await page.waitForFunction(
         ([id, target]) => {
-          const p = (window as { __weftcutTest: { activeClipProbe(id?: string): {
+          const p = (window as { __lahzaTest: { activeClipProbe(id?: string): {
             sourceKind: string; ringSize: number; ringLastPtsUs: number | null; spriteBound: boolean
-          } | null } }).__weftcutTest.activeClipProbe(id)
+          } | null } }).__lahzaTest.activeClipProbe(id)
           if (!p) return null
           if (p.sourceKind !== 'sw') return null
           if (p.ringSize < 1) return null
@@ -196,7 +196,7 @@ test('preview-sw: Compositor uses the ffmpeg engine\'s software lane for the Nat
 
       // Capture the LIVE composited preview frame at composition resolution.
       const b64 = (await page.evaluate(
-        () => (window as { __weftcutTest: { capturePreviewFramePng(): Promise<string> } }).__weftcutTest.capturePreviewFramePng(),
+        () => (window as { __lahzaTest: { capturePreviewFramePng(): Promise<string> } }).__lahzaTest.capturePreviewFramePng(),
       )) as string
       const rendered = path.join(OUT_DIR, 'rendered.png')
       writeFileSync(rendered, Buffer.from(b64, 'base64'))
@@ -250,10 +250,10 @@ test('preview-sw: Compositor uses the ffmpeg engine\'s software lane for the Nat
 test('preview-sw: 4K ProRes software preview stays within the memory ratchet (P3) @serial', async () => {
   test.skip(!existsSync(PRORES_4K), `4K ProRes bench fixture not found at ${PRORES_4K} (generate via e2e/scripts/gen-decode-bench-fixtures.mjs)`)
   test.setTimeout(240_000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-sw-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-preview-sw-proj-')
 
   // Pin the resolver to the software lane — same reason as the SSIM test above.
-  const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: 'software' } })
+  const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: 'software' } })
   let toggledOn = false
   try {
     await newProject(page, {
@@ -270,14 +270,14 @@ test('preview-sw: 4K ProRes software preview stays within the memory ratchet (P3
     const { mediaId, layerId } = await importAndPlaceMedia(page, { mediaAbsPath: PRORES_4K })
     await waitForHook(page, 'mediaDecodeRouteKind')
     await page.waitForFunction(
-      (id) => (window as { __weftcutTest: { mediaDecodeRouteKind(m: string): string | null } }).__weftcutTest.mediaDecodeRouteKind(id) === 'native-sw',
+      (id) => (window as { __lahzaTest: { mediaDecodeRouteKind(m: string): string | null } }).__lahzaTest.mediaDecodeRouteKind(id) === 'native-sw',
       mediaId,
       { timeout: 90_000, polling: 500 },
     )
     await page.waitForFunction(
       () => {
         try {
-          ;(window as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe()
+          ;(window as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe()
           return true
         } catch {
           return false
@@ -288,10 +288,10 @@ test('preview-sw: 4K ProRes software preview stays within the memory ratchet (P3
     )
 
     // Confirm we really are on the ffmpeg engine's software lane at 4K before measuring.
-    await page.evaluate((us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us), 1_000_000)
+    await page.evaluate((us) => (window as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us), 1_000_000)
     const kind = await page.waitForFunction(
       (id) => {
-        const p = (window as { __weftcutTest: { activeClipProbe(id?: string): { sourceKind: string; ringSize: number } | null } }).__weftcutTest.activeClipProbe(id)
+        const p = (window as { __lahzaTest: { activeClipProbe(id?: string): { sourceKind: string; ringSize: number } | null } }).__lahzaTest.activeClipProbe(id)
         return p && p.sourceKind === 'sw' && p.ringSize > 0 ? p.sourceKind : null
       },
       layerId,
@@ -342,7 +342,7 @@ test('preview-sw: 4K ProRes software preview stays within the memory ratchet (P3
       for (let i = 0; i < count; i++) {
         const us = (i % 120) * 500_000 // 0 .. 59.5 s across the 60 s clip
         // eslint-disable-next-line no-await-in-loop
-        await page.evaluate((u) => (window as { __weftcutTest: { weftcutSeekUs(u: number): void } }).__weftcutTest.weftcutSeekUs(u), us)
+        await page.evaluate((u) => (window as { __lahzaTest: { lahzaSeekUs(u: number): void } }).__lahzaTest.lahzaSeekUs(u), us)
         // eslint-disable-next-line no-await-in-loop
         await new Promise((r) => setTimeout(r, 120))
       }

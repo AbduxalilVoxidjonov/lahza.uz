@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { mediaMimeForExt } from './mediaMime.js'
 
-describe('weftcut-media Content-Type', () => {
+describe('lahza-media Content-Type', () => {
   it('names the real type for every image the renderer hands to ImageDecoder', () => {
     // ImageDecoder refuses application/octet-stream where createImageBitmap
     // would sniff the bytes; a generic type here froze every animated GIF to

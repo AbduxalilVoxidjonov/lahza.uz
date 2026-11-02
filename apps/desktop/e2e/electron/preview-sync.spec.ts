@@ -8,17 +8,17 @@ import { importAndPlaceMedia, invokeCmd, launchApp, newProject, summary, tmpDir,
 test('preview sync reports output mapping, visible frame intervals and a stalled presentation', async () => {
   test.skip(!DECODE_COMPONENT_PRESENT, 'native-decode component required');
   test.setTimeout(120_000);
-  const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: 'software' } });
+  const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: 'software' } });
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-sync-'), name: 'Preview sync',
+    await newProject(page, { parentFolder: tmpDir('lahza-sync-'), name: 'Preview sync',
       canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } });
     await invokeCmd(page, 'app_settings_set', { patch: { decode_engine: 'ffmpeg' } });
-    const mediaRoot = process.env.WEFTCUT_TEST_MEDIA ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/media');
+    const mediaRoot = process.env.LAHZA_TEST_MEDIA ?? path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/media');
     const { mediaId } = await importAndPlaceMedia(page, { mediaAbsPath: path.join(mediaRoot, 'test_1080p_30fps_audio.mp4') });
     await expect.poll(async () => (await summary(page)).media.find((m) => m.id === mediaId)?.conform_path ?? null,
       { timeout: 60_000 }).not.toBeNull();
-    const sync = () => page.evaluate(() => window.__weftcutTest!.compositorPerfSnapshot()?.sync ?? null);
-    await page.evaluate(() => { window.__weftcutTest!.transportSeekUs(0); window.__weftcutTest!.transportPlay(); });
+    const sync = () => page.evaluate(() => window.__lahzaTest!.compositorPerfSnapshot()?.sync ?? null);
+    await page.evaluate(() => { window.__lahzaTest!.transportSeekUs(0); window.__lahzaTest!.transportPlay(); });
     await expect.poll(async () => (await sync())?.samples ?? 0).toBeGreaterThan(5);
     await expect.poll(async () => (await sync())?.videoLateMs ?? null).not.toBeNull();
     const before = (await sync())!;
@@ -31,7 +31,7 @@ test('preview sync reports output mapping, visible frame intervals and a stalled
       while (performance.now() < end) { /* controlled renderer stall */ }
     });
     await expect.poll(async () => (await sync())?.submitIntervalMs?.max ?? 0).toBeGreaterThanOrEqual(170);
-    await page.evaluate(() => window.__weftcutTest!.transportPause());
+    await page.evaluate(() => window.__lahzaTest!.transportPause());
     const held = (await sync())!.samples;
     await page.waitForTimeout(100);
     expect((await sync())!.samples).toBe(held);

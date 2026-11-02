@@ -127,7 +127,7 @@ export function describeCreateError(
 }
 
 /// True when the error means the recents entry is permanently dead — the
-/// folder is gone, or it exists but is no longer a WeftCut project — and
+/// folder is gone, or it exists but is no longer a Lahza project — and
 /// should be dropped from the list rather than offered again.
 ///
 /// A project this build is too old to READ is pointedly NOT dead: the entry is

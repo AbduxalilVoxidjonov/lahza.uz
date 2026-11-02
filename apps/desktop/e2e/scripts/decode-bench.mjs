@@ -1,6 +1,6 @@
 // decode-bench orchestrator. LOCAL-ONLY (GPU-dependent; meaningless on
 // headless CI). Launches the real E2E-built app per (fixture × run), drives
-// window.__weftcutTest.decodeBenchRun, samples per-process CPU
+// window.__lahzaTest.decodeBenchRun, samples per-process CPU
 // (app.getAppMetrics) and GPU engine utilization (typeperf) during the
 // throughput measuring phase, and writes an informative JSON report — the
 // exit code never encodes "slow", only harness/self-check failure.
@@ -8,7 +8,7 @@
 //   node apps/desktop/e2e/scripts/decode-bench.mjs [--fixture <name>|all]
 //     [--scenario throughput|seek|coldstart|all] [--runs 3] [--self-check]
 //
-// Prereqs: `VITE_WEFTCUT_E2E=1 npm run build` (apps/desktop) and generated
+// Prereqs: `VITE_LAHZA_E2E=1 npm run build` (apps/desktop) and generated
 // fixtures (gen-decode-bench-fixtures.mjs). Run on a quiet machine — the GPU
 // counters are machine-wide.
 import { spawn, execSync } from "node:child_process";
@@ -41,7 +41,7 @@ if (!["webcodecs", "native", "sw", "native-copyback"].includes(STRATEGY)) {
   console.error(`[decode-bench] invalid --strategy '${STRATEGY}' (expected webcodecs|native|sw|native-copyback)`);
   process.exit(1);
 }
-// The HW copy-back lane to pin via WEFTCUT_FORCE_HW_LANE (Linux: nvdec/vaapi,
+// The HW copy-back lane to pin via LAHZA_FORCE_HW_LANE (Linux: nvdec/vaapi,
 // ADR 0034; macOS: videotoolbox, issue #10). Only meaningful for
 // `native-copyback`; the app leaves the lane UNFORCED and this env just
 // filters the resolver to one advertised HW lane.
@@ -53,8 +53,8 @@ if (STRATEGY === "native-copyback" && !["nvdec", "vaapi", "videotoolbox"].includ
 // Env for every electron.launch; see `HW_LANE` above for what the pin means.
 const launchEnv = {
   ...process.env,
-  WEFTCUT_SUPPRESS_ELEVATION_NOTICE: "1",
-  ...(STRATEGY === "native-copyback" ? { WEFTCUT_FORCE_HW_LANE: HW_LANE } : {}),
+  LAHZA_SUPPRESS_ELEVATION_NOTICE: "1",
+  ...(STRATEGY === "native-copyback" ? { LAHZA_FORCE_HW_LANE: HW_LANE } : {}),
 };
 const POOL_SWEEP = process.argv.includes("--pool-sweep");
 const poolSizeParsed = parsePoolSize(arg("pool-size", undefined));
@@ -81,7 +81,7 @@ if (fixtures.length === 0) {
   process.exit(1);
 }
 if (!fs.existsSync(MAIN)) {
-  console.error("[decode-bench] out/main/index.js missing — run `VITE_WEFTCUT_E2E=1 npm run build` in apps/desktop first");
+  console.error("[decode-bench] out/main/index.js missing — run `VITE_LAHZA_E2E=1 npm run build` in apps/desktop first");
   process.exit(1);
 }
 
@@ -175,7 +175,7 @@ async function runSession(fixture, wantScenarios, poolSize, throttleMs) {
   const page = await app.firstWindow({ timeout: 60_000 });
   await page.waitForLoadState("domcontentloaded");
   await page.waitForFunction(
-    () => typeof window.__weftcutTest?.decodeBenchRun === "function",
+    () => typeof window.__lahzaTest?.decodeBenchRun === "function",
     undefined,
     { timeout: 30_000 },
   );
@@ -191,21 +191,21 @@ async function runSession(fixture, wantScenarios, poolSize, throttleMs) {
         throttleMs,
         // native-copyback needs the fixture's codec/pixFmt/dimensions so the
         // UNforced pickInitialLane probe resolves the advertised HW lane (the
-        // WEFTCUT_FORCE_HW_LANE env pins WHICH one). Harmless for other strategies.
+        // LAHZA_FORCE_HW_LANE env pins WHICH one). Harmless for other strategies.
         ...(STRATEGY === "native-copyback"
           ? { codec: fixture.codec, pixFmt: fixture.pixFmt, width: fixture.width, height: fixture.height }
           : {}),
       };
       if (scenario !== "throughput") {
-        out[scenario] = await page.evaluate((a) => window.__weftcutTest.decodeBenchRun(a), args);
+        out[scenario] = await page.evaluate((a) => window.__lahzaTest.decodeBenchRun(a), args);
         continue;
       }
       // Throughput: gate the samplers on the driver's 'measuring' phase.
-      const resultP = page.evaluate((a) => window.__weftcutTest.decodeBenchRun(a), args);
+      const resultP = page.evaluate((a) => window.__lahzaTest.decodeBenchRun(a), args);
       let ph = "setup";
       const tGate = Date.now();
       while (ph !== "measuring" && ph !== "idle" && Date.now() - tGate < 30_000) {
-        ph = await page.evaluate(() => window.__weftcutTest.decodeBenchPhase());
+        ph = await page.evaluate(() => window.__lahzaTest.decodeBenchPhase());
         await new Promise((r) => setTimeout(r, 100));
       }
       const gpu = startGpuSampler();
@@ -393,7 +393,7 @@ const env = await envBlock();
 const report = {
   env,
   strategy: STRATEGY,
-  // The HW lane the copy-back run PINNED via WEFTCUT_FORCE_HW_LANE (the resolver
+  // The HW lane the copy-back run PINNED via LAHZA_FORCE_HW_LANE (the resolver
   // still ran unforced-but-filtered); each cell's actually-resolved lane lives in
   // its per-run result's `hwLane`. Undefined for the non-copy-back strategies.
   ...(STRATEGY === "native-copyback" ? { hwLanePin: HW_LANE } : {}),

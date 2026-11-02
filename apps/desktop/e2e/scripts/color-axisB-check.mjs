@@ -13,9 +13,9 @@ import { readFileSync, existsSync } from "node:fs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..", "..", "..");
-const MEDIA = process.env.WEFTCUT_TEST_MEDIA || path.resolve(HERE, "..", "fixtures", "media");
+const MEDIA = process.env.LAHZA_TEST_MEDIA || path.resolve(HERE, "..", "fixtures", "media");
 const SRC = path.resolve(MEDIA, "test_1080p_gradient10.mp4");
-const PROXY = path.resolve(os.tmpdir(), "weftcut-axisB-proxy.mp4");
+const PROXY = path.resolve(os.tmpdir(), "lahza-axisB-proxy.mp4");
 const BASE = JSON.parse(readFileSync(path.resolve(HERE, "..", "fixtures", "gradient_baseline.json"), "utf8"));
 
 if (!existsSync(SRC)) {

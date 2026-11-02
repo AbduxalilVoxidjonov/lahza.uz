@@ -16,7 +16,7 @@ async function openCaptions(page: import('@playwright/test').Page) {
 test('text correction supports imported captions, selected/all scope, undo and saved manuscripts', async ({}, info) => {
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir('weftcut-correction-');
+    const parent = tmpDir('lahza-correction-');
     await newProject(page, { parentFolder: parent, name: 'correction', canvas: CANVAS });
     const srt = path.join(parent, 'captions.srt');
     fs.writeFileSync(srt, '1\n00:00:00,000 --> 00:00:03,000\n今天介绍自动剪缉功能\n\n2\n00:00:04,000 --> 00:00:07,000\n今天介绍自动剪缉功能\n');
@@ -63,7 +63,7 @@ test('text correction supports imported captions, selected/all scope, undo and s
 test('word timing survives project reopen and correction resegments once', async () => {
   const { app, page } = await launchApp();
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-correction-timing-'), name: 'timing', canvas: CANVAS });
+    await newProject(page, { parentFolder: tmpDir('lahza-correction-timing-'), name: 'timing', canvas: CANVAS });
     const summary = await invokeCmd<{ project_id: string; root_id: string }>(page, 'project_summary');
     const text = '今天介绍自动剪缉功能它可以节省时间';
     await invokeCmd(page, 'apply_transcripts', { project_id: summary.project_id, composition_id: summary.root_id, transcripts: [{ word_timing: 'exact', segments: [{ text, t_start_us: 0, t_end_us: text.length * 200_000, words: [...text].map((text, i) => ({ text, t_start_us: i * 200_000, t_end_us: (i + 1) * 200_000 })) }] }] });
@@ -90,7 +90,7 @@ test('word timing survives project reopen and correction resegments once', async
 test('imported captions follow manuscript lines with estimated cuts, undo and reopen', async () => {
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir('weftcut-correction-estimates-');
+    const parent = tmpDir('lahza-correction-estimates-');
     await newProject(page, { parentFolder: parent, name: 'paper-demo', canvas: CANVAS });
     const srt = path.join(parent, 'captions.srt');
     fs.writeFileSync(srt, '1\n00:00:00,000 --> 00:00:06,000\n先准备彩纸。然后对折最后压平\n');
@@ -119,7 +119,7 @@ test('imported captions follow manuscript lines with estimated cuts, undo and re
     expect(cues[0].t_start_us).toBe(0);
     expect(cues[0].t_end_us).toBe(cues[1].t_start_us);
     expect(cues[1].t_end_us).toBe(6_000_000);
-    expect(cues.every((l: { metadata: Record<string, { provenance: string }> }) => l.metadata['weftcut.caption_timing']?.provenance === 'interpolated_from_cue')).toBe(true);
+    expect(cues.every((l: { metadata: Record<string, { provenance: string }> }) => l.metadata['lahza.caption_timing']?.provenance === 'interpolated_from_cue')).toBe(true);
     await invokeCmd(page, 'project_open', { path: workspace });
     await expect(panel.locator('.caption-row')).toHaveCount(2);
     expect(await invokeCmd(page, 'correct_caption_text', args)).toEqual({ changed: 0 });

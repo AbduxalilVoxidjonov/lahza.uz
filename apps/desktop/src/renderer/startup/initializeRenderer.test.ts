@@ -86,7 +86,7 @@ describe("startRendererInitialization", () => {
     ).resolves.toBeUndefined();
 
     expect(consoleError).toHaveBeenCalledWith(
-      "[weftcut/startup] Motif catalog failed",
+      "[lahza/startup] Motif catalog failed",
       error,
     );
     consoleError.mockRestore();

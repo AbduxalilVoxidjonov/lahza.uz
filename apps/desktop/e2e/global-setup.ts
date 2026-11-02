@@ -11,8 +11,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 /// run loudly here. electron-ci runs the same pass as its own cached step —
 /// this stays the backstop that keeps a local run, a scoped dispatch and the
 /// unsplit slice needing no special case.
-/// WEFTCUT_TEST_MEDIA redirects the media dir, same as the specs' own fallback.
+/// LAHZA_TEST_MEDIA redirects the media dir, same as the specs' own fallback.
 export default async function globalSetup(): Promise<void> {
-  const mediaDir = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, 'fixtures', 'media')
+  const mediaDir = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, 'fixtures', 'media')
   await ensureFixtures(mediaDir)
 }

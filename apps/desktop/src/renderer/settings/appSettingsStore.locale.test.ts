@@ -31,7 +31,7 @@ import i18n from "../i18n";
 import type { AppSettings } from "../ipc";
 import { wireAppSettingsStream } from "./appSettingsStore";
 
-const LEGACY_KEY = "weftcut.locale";
+const LEGACY_KEY = "lahza.locale";
 
 function settings(over: Partial<AppSettings> = {}): AppSettings {
   return { ...(over as AppSettings) };

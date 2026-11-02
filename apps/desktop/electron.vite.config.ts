@@ -18,7 +18,7 @@ catch { /* Source archives have no .git directory. */ }
 // eval + ws) is untouched. The renderer loads no remote content; this blocks
 // the real XSS vector (inline / remote <script>) while still allowing wasm
 // (mediabunny), blob workers (export), data: fonts/images, and
-// the app's own privileged schemes (weftcut-media:, motif:).
+// the app's own privileged schemes (lahza-media:, motif:).
 //
 // `'unsafe-eval'` is allowed because PixiJS generates shader/uniform code with
 // `new Function()`, and that codegen is REQUIRED for filters on the WebGPU
@@ -32,10 +32,10 @@ const CSP = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval' blob:",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: weftcut-media: motif:",
+  "img-src 'self' data: blob: lahza-media: motif:",
   "font-src 'self' data:",
-  "media-src 'self' blob: data: weftcut-media:",
-  "connect-src 'self' blob: data: weftcut-media: motif:",
+  "media-src 'self' blob: data: lahza-media:",
+  "connect-src 'self' blob: data: lahza-media: motif:",
   "worker-src 'self' blob:",
   "child-src 'self' blob:",
   "object-src 'none'",
@@ -51,7 +51,7 @@ const CSP = [
 
 function cspMeta(): Plugin {
   return {
-    name: 'weftcut-csp-meta',
+    name: 'lahza-csp-meta',
     apply: 'build',
     transformIndexHtml() {
       return [
@@ -68,12 +68,12 @@ function cspMeta(): Plugin {
 export default defineConfig({
   main: {
     define: {
-      'process.env.WEFTCUT_BUILD_COMMIT': JSON.stringify(buildCommit),
-      'process.env.WEFTCUT_BUILD_VERSION': JSON.stringify(buildVersion),
+      'process.env.LAHZA_BUILD_COMMIT': JSON.stringify(buildCommit),
+      'process.env.LAHZA_BUILD_VERSION': JSON.stringify(buildVersion),
     },
     build: {
       outDir: 'out/main',
-      lib: { entry: process.env.VITE_WEFTCUT_E2E === '1'
+      lib: { entry: process.env.VITE_LAHZA_E2E === '1'
         ? { index: 'src/main/entry.ts', calibration: 'src/main/calibration-host.ts', hardwareProbe: 'src/main/hardware-probe-host.ts', decodeProbe: 'src/main/decode-probe-host.ts' }
         : { index: 'src/main/entry.ts', hardwareProbe: 'src/main/hardware-probe-host.ts', decodeProbe: 'src/main/decode-probe-host.ts' } },
       // Externalize native + node-resolved deps. `@modelcontextprotocol/sdk`
@@ -81,7 +81,7 @@ export default defineConfig({
       // the regex keeps those subpaths external too, so Node resolves them from
       // node_modules at runtime rather than the bundler choking on the subpaths.
       rollupOptions: {
-        external: ['@weftcut/core', 'express', 'electron-updater', /^@modelcontextprotocol\/sdk(\/.*)?$/],
+        external: ['@lahza/core', 'express', 'electron-updater', /^@modelcontextprotocol\/sdk(\/.*)?$/],
       },
     },
   },
@@ -96,9 +96,9 @@ export default defineConfig({
     root: path.resolve(HERE, 'src/renderer'),
     plugins: [react(), tailwindcss(), cspMeta()],
     define: {
-      'import.meta.env.VITE_WEFTCUT_EDIT_TRACE': JSON.stringify(process.env.WEFTCUT_EDIT_TRACE === '1' ? '1' : '0'),
-      'import.meta.env.VITE_WEFTCUT_E2E': JSON.stringify(
-        process.env.VITE_WEFTCUT_E2E === '1' ? '1' : '0',
+      'import.meta.env.VITE_LAHZA_EDIT_TRACE': JSON.stringify(process.env.LAHZA_EDIT_TRACE === '1' ? '1' : '0'),
+      'import.meta.env.VITE_LAHZA_E2E': JSON.stringify(
+        process.env.VITE_LAHZA_E2E === '1' ? '1' : '0',
       ),
     },
     resolve: {

@@ -188,7 +188,7 @@ lane. Forcing `hardware` on Linux routes to the Windows-only `GpuTransport`
 measure the copy-back lane at all. Instead the driver leaves the lane unforced
 and feeds `pickInitialLane` the fixture's codec/pixFmt/dimensions so its real
 one-frame HW probe resolves the advertised lane exactly as production does; the
-orchestrator sets `WEFTCUT_FORCE_HW_LANE=<hw-lane>` in the app's env, which pins
+orchestrator sets `LAHZA_FORCE_HW_LANE=<hw-lane>` in the app's env, which pins
 main's `decodeCap:probeHw` resolver to that single advertised lane (NVDEC or
 VAAPI) instead of the NVDEC→VAAPI priority walk. The driver **records the
 resolved lane** (`hwLane` on every `BenchResult`) and, for `native-copyback`
@@ -288,7 +288,7 @@ the Apple media engine, `av_hwframe_transfer_data` copies each surface back to
 CPU, and the frame rides the same ship-bytes `SwTransport` — as NV12 for 8-bit
 sources, or as tightly-packed **I420P10** for 10-bit sources, rendered through
 the preview's ten-bit ingest. The unforced-resolution + env-pin mechanics above
-apply unchanged (`WEFTCUT_FORCE_HW_LANE=videotoolbox`), including the
+apply unchanged (`LAHZA_FORCE_HW_LANE=videotoolbox`), including the
 reject-software-fallback error semantics — confirm every cell reads
 `hwLane: videotoolbox`.
 
@@ -406,9 +406,9 @@ a native addon build, ffmpeg, an E2E-flagged build, and generated fixtures.
 From `apps/desktop`:
 
 ```bash
-npm run napi:build                      # build @weftcut/core — close the dev app first, it locks the .node
+npm run napi:build                      # build @lahza/core — close the dev app first, it locks the .node
 npm run ffmpeg:fetch                    # ffmpeg/ffprobe on PATH (or use a system ffmpeg)
-npm run build:e2e                       # build WITH the window.__weftcutTest hook
+npm run build:e2e                       # build WITH the window.__lahzaTest hook
 ```
 
 Then, from `apps/desktop/e2e`:
@@ -429,7 +429,7 @@ the one carrying the serial project, since those gates are `@serial` and no othe
 leg reads the rows.
 
 To also measure the **native**, **sw**, or **native-copyback** strategies,
-build the `@weftcut/native-decode` component — it ships on all three platforms
+build the `@lahza/native-decode` component — it ships on all three platforms
 (Windows, Linux, macOS — each stages its own LGPL-shared FFmpeg runtime; see
 [licensing.md](licensing.md)), links `ffmpeg-next`, and needs the LGPL FFmpeg
 dev libs + libclang on
@@ -439,7 +439,7 @@ only on Windows — macOS/Linux find libclang via Xcode CLT / `libclang-dev`):
 
 ```bash
 npm run ffmpeg:fetch-lgpl                # fetch the LGPL FFmpeg dev libs into resources/ffmpeg-lgpl/<os>
-npm run napi:build:decode                # build @weftcut/native-decode (component; no cargo features — union rule is per-addon)
+npm run napi:build:decode                # build @lahza/native-decode (component; no cargo features — union rule is per-addon)
 ```
 
 This is on top of the `npm run napi:build` (core) step already run above; CI
@@ -454,7 +454,7 @@ At run time the native strategy also needs the FFmpeg shared DLLs on `PATH`
 Useful flags, passed after `--` when invoked through npm:
 
 - `--strategy webcodecs|native|sw|native-copyback` — which decode path to
-  profile (default `webcodecs`). `native` requires the `@weftcut/native-decode`
+  profile (default `webcodecs`). `native` requires the `@lahza/native-decode`
   component build (above); it's Windows-only and applies to the `Proxied`-route
   8-bit codecs (see
   [Native strategy](#native-strategy)). It exercises the same
@@ -468,7 +468,7 @@ Useful flags, passed after `--` when invoked through npm:
   [Linux hardware (copy-back) strategy](#linux-hardware-copy-back-strategy) and
   [macOS hardware (copy-back) strategy](#macos-hardware-copy-back-strategy--videotoolbox)).
 - `--hw-lane nvdec|vaapi|videotoolbox` — for `native-copyback` only, which
-  advertised HW lane to pin via `WEFTCUT_FORCE_HW_LANE` (default `nvdec`;
+  advertised HW lane to pin via `LAHZA_FORCE_HW_LANE` (default `nvdec`;
   `videotoolbox` is the macOS lane). Ignored by the other strategies.
 - `--fixture <name>|all` — one fixture (`h264-1080`, `h264-2160`,
   `hevc-1080`, `hevc-2160`, `vp9-1080`, `av1-1080`, `hi10p-1080`,
@@ -513,7 +513,7 @@ markdown comparison table to stdout. The JSON shape:
   batch continues with the next run — one bad session doesn't abort the rest
   of the matrix.
 - **Known, accepted asymmetry.** The WebCodecs strategy reads the fixture
-  through `weftcut-media://` HTTP Range requests (`MediaRangeSource`); a
+  through `lahza-media://` HTTP Range requests (`MediaRangeSource`); a
   native strategy reads the OS file path directly. That's each strategy's
   real I/O cost structure in the shipping app, not measurement noise, so the
   report doesn't normalize it away.

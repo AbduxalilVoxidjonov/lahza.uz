@@ -8,7 +8,7 @@ export const WASM_TARGET = 'wasm32-unknown-unknown'
 /// that merely CONSUMES the wasm still chains build:wasm through an npm script
 /// — typecheck, build:e2e, vitest — so without this those legs would each need
 /// a Rust toolchain and a wasm32 target for an output they already have.
-export const PREBUILT_ENV = 'WEFTCUT_EVAL_WASM_PREBUILT'
+export const PREBUILT_ENV = 'LAHZA_EVAL_WASM_PREBUILT'
 
 function formatCommandError(error) {
   if (error && typeof error === 'object' && 'message' in error) {

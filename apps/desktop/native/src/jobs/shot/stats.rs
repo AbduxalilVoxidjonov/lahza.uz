@@ -213,7 +213,7 @@ pub async fn attach_span_stats(
     let pending = measured.missing(spans);
     if !pending.is_empty() {
         let tmp = tempfile::Builder::new()
-            .prefix("weftcut-span-stats")
+            .prefix("lahza-span-stats")
             .tempdir()
             .context("span stat temp dir")?;
         let mut fresh = Vec::with_capacity(pending.len());

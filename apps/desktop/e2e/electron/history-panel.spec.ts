@@ -42,15 +42,15 @@ async function cursorIndex(page: Page): Promise<number> {
 }
 
 const playheadUs = (page: Page) =>
-  page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs() as number)
+  page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs() as number)
 const selectedLayerId = (page: Page) =>
-  page.evaluate(() => (window as any).__weftcutTest.getSelectedLayerId() as string | null)
+  page.evaluate(() => (window as any).__lahzaTest.getSelectedLayerId() as string | null)
 
 test('History Panel navigates the edit stack and runs the checkpoint loop', async () => {
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-history-')
+    const parent = tmpDir('lahza-history-')
     await newProject(page, { parentFolder: parent, name: 'history-panel', canvas: CANVAS })
     // REQUIRED before any pointer gesture: the splash overlay outlives the
     // first dock render and swallows mousedown while the target is visible.

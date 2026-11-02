@@ -82,7 +82,7 @@ export function startRendererInitialization(): RendererInitialization {
       listener(progress);
     } catch (error) {
       // A presentation subscriber must never change startup settlement.
-      console.error("[weftcut/startup] progress listener failed", error);
+      console.error("[lahza/startup] progress listener failed", error);
     }
   };
   const publish = () => {
@@ -104,7 +104,7 @@ export function startRendererInitialization(): RendererInitialization {
       if (result.status === "fulfilled") return;
       const task = STARTUP_TASKS[index];
       console.error(
-        `[weftcut/startup] ${task?.name ?? "unknown task"} failed`,
+        `[lahza/startup] ${task?.name ?? "unknown task"} failed`,
         result.reason,
       );
     });

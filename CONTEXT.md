@@ -1,6 +1,6 @@
-# WeftCut
+# Lahza
 
-WeftCut is an Electron + napi-rs desktop video editor. This file is the
+Lahza is an Electron + napi-rs desktop video editor. This file is the
 project's glossary — the canonical word for each domain concept. It holds no
 implementation detail; the shape of the data lives in [`docs/data-model.md`](docs/data-model.md)
 and the decisions in [`docs/adr/`](docs/adr/).

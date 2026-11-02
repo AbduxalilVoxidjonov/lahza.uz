@@ -1,4 +1,4 @@
-// mediabunny CustomSource adapter over the `weftcut-media://` Range protocol. Maps
+// mediabunny CustomSource adapter over the `lahza-media://` Range protocol. Maps
 // mediabunny's read(start,end) / getSize() onto HTTP Range requests so the
 // whole file is never loaded — preserving the long-video heap budget. Owns an
 // AbortController so disposing the Input cancels in-flight reads.
@@ -23,7 +23,7 @@ export class MediaRangeSource {
       getSize: () => this.getSize(),
       read: (start, end) => this.read(start, end),
       dispose: () => this.dispose(),
-      // ~a few source seconds resident; network-style prefetch suits weftcut-media:// latency.
+      // ~a few source seconds resident; network-style prefetch suits lahza-media:// latency.
       maxCacheSize: 16 * 1024 * 1024,
       prefetchProfile: "network",
     };
@@ -49,7 +49,7 @@ export class MediaRangeSource {
 
   private async read(start: number, end: number): Promise<Uint8Array> {
     // mediabunny's CustomSource contract requires `read` to return EXACTLY
-    // `end - start` bytes. The weftcut-media:// Range handler caps
+    // `end - start` bytes. The lahza-media:// Range handler caps
     // each 206 body at a fixed ceiling (~1 MB observed), so a single request
     // for a larger window comes back short — and mediabunny throws
     // "Requested N bytes, but got M", wedging the decoder. Loop across

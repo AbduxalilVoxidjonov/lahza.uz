@@ -6,7 +6,7 @@
 //   ImageBitmap → live Pixi stage.
 //
 // We create a 480×480 project (countdown native size → fills the frame),
-// add the countdown layer, seek to t=2.5 s, then poll weftcutSampleComposite
+// add the countdown layer, seek to t=2.5 s, then poll lahzaSampleComposite
 // until accent-colored (#ff4d4d ≈ rgb 255,77,77) pixels exceed a threshold —
 // proving the CDP frames reached the live compositor on the Pixi canvas.
 
@@ -15,7 +15,7 @@ import { launchApp, newProject, waitForHook, tmpDir } from './helpers/driver'
 
 test('motif live preview: accent pixels reach the Pixi compositor via CDP', async () => {
   test.setTimeout(120_000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-preview-proj-')
 
   const { app, page } = await launchApp()
   try {
@@ -29,16 +29,16 @@ test('motif live preview: accent pixels reach the Pixi compositor via CDP', asyn
 
     // 2. Wait for editor-level hooks (installed after App mounts).
     await waitForHook(page, 'motifAddCountdown')
-    await waitForHook(page, 'weftcutSampleComposite')
+    await waitForHook(page, 'lahzaSampleComposite')
 
     // Reset the render counter that the CDP producer increments on each frame.
     await page.evaluate(() => {
-      ;(window as any).__weftcutMotifPerf = { renders: 0 }
+      ;(window as any).__lahzaMotifPerf = { renders: 0 }
     })
 
     // 3. Add the countdown Motif layer (5 s span, default accent #ff4d4d).
     const addRes = await page.evaluate(() =>
-      (window as any).__weftcutTest
+      (window as any).__lahzaTest
         .motifAddCountdown()
         .then((id: string) => ({ ok: true, id }))
         .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -49,7 +49,7 @@ test('motif live preview: accent pixels reach the Pixi compositor via CDP', asyn
 
     // 4. Poll until accent content appears on the live composite — or deadline.
     //    Re-seek each round: a paused stale frame must not starve the bind.
-    //    weftcutSeekUs throws until the PixiPreview bridge registers (it mounts
+    //    lahzaSeekUs throws until the PixiPreview bridge registers (it mounts
     //    async); swallow and continue polling per the documented gotcha.
     let s: {
       accentCount: number; accentR: number; accentG: number; accentB: number
@@ -61,7 +61,7 @@ test('motif live preview: accent pixels reach the Pixi compositor via CDP', asyn
     while (Date.now() < deadline) {
       await page.evaluate(() => {
         try {
-          ;(window as any).__weftcutTest.weftcutSeekUs(2_500_000)
+          ;(window as any).__lahzaTest.lahzaSeekUs(2_500_000)
         } catch {
           // preview bridge not yet registered — next round retries
         }
@@ -69,21 +69,21 @@ test('motif live preview: accent pixels reach the Pixi compositor via CDP', asyn
       await page.waitForTimeout(800)
 
       const snap = await page.evaluate(() =>
-        (window as any).__weftcutTest
-          .weftcutSampleComposite(240, 240)
+        (window as any).__lahzaTest
+          .lahzaSampleComposite(240, 240)
           .then((p: unknown) => ({
             ok: true,
             p,
-            renders: (window as any).__weftcutMotifPerf?.renders ?? 0,
+            renders: (window as any).__lahzaMotifPerf?.renders ?? 0,
           }))
           .catch((e: unknown) => ({ ok: false, error: String(e) })),
       )
       if (!snap.ok) {
-        // Same async-mount gotcha as weftcutSeekUs above: the PixiPreview
+        // Same async-mount gotcha as lahzaSeekUs above: the PixiPreview
         // bridge registers after App mounts, so under load the first rounds
         // can sample before it exists — retry until the deadline.
         if (String(snap.error).includes('preview bridge not registered')) continue
-        throw new Error('weftcutSampleComposite failed: ' + snap.error)
+        throw new Error('lahzaSampleComposite failed: ' + snap.error)
       }
       s = snap.p as typeof s
       renders = snap.renders as number

@@ -219,5 +219,5 @@ surfaces is the same trade a command palette makes everywhere else.
 Shrinking tabs until they ellipsize is Chrome's and VS Code's behaviour, and this
 decision declines it. Their tabs are documents named again elsewhere — a window
 title, a breadcrumb, a path in the status bar — so a truncated tab costs them a
-glance. A WeftCut tab is the only place its Panel is named, so the same
+glance. A Lahza tab is the only place its Panel is named, so the same
 truncation costs the name outright, and scrolling is the cheaper trade.

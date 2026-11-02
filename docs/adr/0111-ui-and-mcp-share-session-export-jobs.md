@@ -4,7 +4,7 @@ Status: Accepted
 
 ## Context
 
-PR [#50](https://github.com/WeftCut/WeftCut/pull/50) proposed asynchronous MCP
+PR [#50](https://api.github.com/repositories/1246738326/pulls/50) proposed asynchronous MCP
 export using the renderer. Since its base, export gained resource reservations,
 retryable finalization and time remapping. Porting its old pipeline would remove
 those behaviors. Its review also required a no-overwrite rename fallback and

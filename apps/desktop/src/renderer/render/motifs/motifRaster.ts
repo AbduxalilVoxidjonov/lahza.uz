@@ -17,8 +17,8 @@ export async function rasterMotifFrame(
   fpsDen?: number,
 ): Promise<ImageBitmap> {
   if (typeof window !== "undefined") {
-    const perf = (window as unknown as { __weftcutMotifPerf?: { renders: number } })
-      .__weftcutMotifPerf;
+    const perf = (window as unknown as { __lahzaMotifPerf?: { renders: number } })
+      .__lahzaMotifPerf;
     if (perf) perf.renders++;
   }
   return captureMotifFrame(motifId, tSec, props, width, height, settleRafs, contentHash, coalesceKey, fpsNum, fpsDen);

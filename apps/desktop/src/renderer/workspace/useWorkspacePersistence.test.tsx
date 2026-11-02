@@ -7,7 +7,7 @@ import {
   EMPTY_DOCK_WORKSPACE_SNAPSHOT,
   type DockWorkspaceController,
 } from "./dockWorkspaceAdapter";
-import type { WeftCutLayout } from "./workspaceLayout";
+import type { LahzaLayout } from "./workspaceLayout";
 import {
   EDITING_WORKSPACE_ID,
   isBuiltinWorkspace,
@@ -55,13 +55,13 @@ vi.mock("../state/compositionAnchorStore", () => ({
   restoreCompositionTabs: tabs.restore,
 }));
 
-const WEFTCUT_LAYOUT_VERSION = 1;
+const LAHZA_LAYOUT_VERSION = 1;
 
 /** A layout snapshot whose one open Panel is `kind` — normalizes cleanly and is
  *  distinguishable after restore. */
 function leaf(kind: string): unknown {
   return {
-    version: WEFTCUT_LAYOUT_VERSION,
+    version: LAHZA_LAYOUT_VERSION,
     empty: false,
     dockview: {
       grid: {
@@ -78,7 +78,7 @@ function leaf(kind: string): unknown {
 }
 
 /** Read the first leaf's first view out of a NORMALIZED layout. */
-function firstView(layout: WeftCutLayout): string | null {
+function firstView(layout: LahzaLayout): string | null {
   if (layout.empty || !layout.dockview) return null;
   let node: unknown = (layout.dockview as { grid: { root: unknown } }).grid.root;
   while (node && typeof node === "object" && (node as { type?: string }).type === "branch") {
@@ -92,7 +92,7 @@ function fakeController() {
   let liveKind: string | null = "preview";
   const listeners = new Set<() => void>();
   const calls = {
-    restore: [] as WeftCutLayout[],
+    restore: [] as LahzaLayout[],
     reset: 0,
     serialized: 0,
     subscribe: 0,
@@ -125,7 +125,7 @@ function fakeController() {
     },
     serialize: () => {
       calls.serialized++;
-      return (liveKind ? leaf(liveKind) : { version: 1, empty: true, dockview: null, placements: {} }) as WeftCutLayout;
+      return (liveKind ? leaf(liveKind) : { version: 1, empty: true, dockview: null, placements: {} }) as LahzaLayout;
     },
     restore: (layout) => {
       calls.restore.push(layout);

@@ -121,7 +121,7 @@ async function openTimeline(
   files: string[],
 ): Promise<{ mediaIds: string[]; trackIds: string[]; panel: Locator }> {
   await newProject(page, {
-    parentFolder: tmpDir(`weftcut-e2e-kfbatch-${tag}-`),
+    parentFolder: tmpDir(`lahza-e2e-kfbatch-${tag}-`),
     name: `e2e-kfbatch-${tag}-` + Date.now(),
     canvas: { width: 640, height: 480, fpsNum: FPS_NUM, fpsDen: FPS_DEN },
   });
@@ -150,7 +150,7 @@ async function openTimeline(
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as any).__weftcutTest.dockWorkspaceProbe()?.maximizedPanel ?? null,
+        () => (window as any).__lahzaTest.dockWorkspaceProbe()?.maximizedPanel ?? null,
       ),
     )
     .toBe("timeline");
@@ -257,7 +257,7 @@ async function seekTo(page: Page, us: number): Promise<void> {
     .poll(
       async () => {
         await page.evaluate(
-          (t) => (window as any).__weftcutTest.transportSeekUs(t),
+          (t) => (window as any).__lahzaTest.transportSeekUs(t),
           us,
         );
         const p = await playhead.boundingBox();
@@ -440,7 +440,7 @@ test.describe("keyframe batch gestures — the pointer and the keys agree", () =
       await waitForHook(page, "getSelectedLayerId");
       await expect
         .poll(() =>
-          page.evaluate(() => (window as any).__weftcutTest.getSelectedLayerId()),
+          page.evaluate(() => (window as any).__lahzaTest.getSelectedLayerId()),
         )
         .toBe(audio);
 
@@ -496,7 +496,7 @@ test.describe("keyframe batch gestures — the pointer and the keys agree", () =
       await waitForHook(page, "getSelectedLayerId");
       await expect
         .poll(() =>
-          page.evaluate(() => (window as any).__weftcutTest.getSelectedLayerId()),
+          page.evaluate(() => (window as any).__lahzaTest.getSelectedLayerId()),
         )
         .toBe(target);
       await seekTo(page, 2_000_000);

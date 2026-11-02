@@ -11,8 +11,8 @@ executableName: LahzaStudio
 artifactName: LahzaStudio-${os}-${arch}.${ext}
 publish:
   provider: github
-  owner: WeftCut
-  repo: WeftCut
+  owner: AbduxalilVoxidjonov
+  repo: lahza.uz
   releaseType: release
 # Pack-time gates, re-asserted from the packaged files rather than from what the
 # supply steps believed they staged: both ffmpeg lanes' licensing compliance, and
@@ -26,34 +26,34 @@ files:
   - out/**
   - package.json
   - "!**/*.map"
-  - "!**/node_modules/@weftcut/core/**"
-  - "**/node_modules/@weftcut/core/index.js"
-  - "**/node_modules/@weftcut/core/index.d.ts"
-  - "**/node_modules/@weftcut/core/*.node"
-  - "!**/node_modules/@weftcut/native-decode/**"
-  - "**/node_modules/@weftcut/native-decode/index.js"
-  - "**/node_modules/@weftcut/native-decode/index.d.ts"
-  - "**/node_modules/@weftcut/native-decode/*.node"
+  - "!**/node_modules/@lahza/core/**"
+  - "**/node_modules/@lahza/core/index.js"
+  - "**/node_modules/@lahza/core/index.d.ts"
+  - "**/node_modules/@lahza/core/*.node"
+  - "!**/node_modules/@lahza/native-decode/**"
+  - "**/node_modules/@lahza/native-decode/index.js"
+  - "**/node_modules/@lahza/native-decode/index.d.ts"
+  - "**/node_modules/@lahza/native-decode/*.node"
   # Linux + macOS: the co-located LGPL libav*/libsw* shared objects (+ their
   # SONAME symlink chains) that the addon's baked rpath (DT_RPATH $ORIGIN on
   # Linux, @loader_path on macOS) resolves at dlopen. On Windows the runtime is
   # DLLs shipped as extraResources (win: block) instead, so these globs simply
   # match nothing there. (*.dylib also matches the versioned libX.NN.dylib
   # chain links, so one glob covers macOS.)
-  - "**/node_modules/@weftcut/native-decode/*.so"
-  - "**/node_modules/@weftcut/native-decode/*.so.*"
-  - "**/node_modules/@weftcut/native-decode/*.dylib"
+  - "**/node_modules/@lahza/native-decode/*.so"
+  - "**/node_modules/@lahza/native-decode/*.so.*"
+  - "**/node_modules/@lahza/native-decode/*.dylib"
 asarUnpack:
   - "**/*.node"
   # $ORIGIN/@loader_path resolves against the .node's on-disk directory, which
   # only exists once the shared objects are unpacked out of the asar archive
   # beside it — inside app.asar there is no real directory for the loader to
   # search.
-  - "**/node_modules/@weftcut/native-decode/*.so"
-  - "**/node_modules/@weftcut/native-decode/*.so.*"
-  - "**/node_modules/@weftcut/native-decode/*.dylib"
+  - "**/node_modules/@lahza/native-decode/*.so"
+  - "**/node_modules/@lahza/native-decode/*.so.*"
+  - "**/node_modules/@lahza/native-decode/*.dylib"
 extraResources:
-  # The weftcut-mcp stdio shim (single self-contained bundle, built by
+  # The lahza-mcp stdio shim (single self-contained bundle, built by
   # scripts/build-cli.mjs). The app copies it to <userData>/cli/ at startup —
   # THAT copy is what client configs reference (stable across upgrades, and
   # the only stable option on AppImage); this one is just the ride-along.
@@ -99,7 +99,7 @@ win:
   target: [nsis]
   icon: build/icon.png
   extraResources:
-    # LGPL ffmpeg runtime for @weftcut/native-decode (dynamic linking + separate
+    # LGPL ffmpeg runtime for @lahza/native-decode (dynamic linking + separate
     # files satisfies LGPL §6; LICENSE + manifest.json carry the notice + exact
     # source pointer). *.dll only — the exes in bin/ are fetch-time tooling.
     - from: resources/ffmpeg-lgpl/win/bin
@@ -121,7 +121,7 @@ linux:
   icon: build/icon.png
   category: AudioVideo
   extraResources:
-    # LGPL §6 obligations for @weftcut/native-decode's ffmpeg runtime. The .so
+    # LGPL §6 obligations for @lahza/native-decode's ffmpeg runtime. The .so
     # themselves ride co-located beside the .node (files + asarUnpack above) so
     # $ORIGIN resolves in the packaged app exactly as in dev; here we only carry
     # the license notice + build manifest (the exact source pointer + banner).
@@ -190,7 +190,7 @@ mac:
   identity: "-"
   notarize: false
   extraResources:
-    # LGPL §6 obligations for @weftcut/native-decode's ffmpeg runtime. The
+    # LGPL §6 obligations for @lahza/native-decode's ffmpeg runtime. The
     # .dylib themselves ride co-located beside the .node (files + asarUnpack
     # above) so @loader_path resolves in the packaged app exactly as in dev;
     # here we only carry the license notice + build manifest (the exact source

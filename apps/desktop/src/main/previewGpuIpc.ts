@@ -1,6 +1,6 @@
 // The editor and isolated calibration host install the same GPU transport IPC.
 import { BrowserWindow, ipcMain } from 'electron'
-import type { NativeDecode } from '@weftcut/native-decode'
+import type { NativeDecode } from '@lahza/native-decode'
 import { openPreviewGpu, requestFrameAtPreviewGpu, consumeAckPreviewGpu, closePreviewGpu, takeTimingsPreviewGpu, hwBudget } from './previewGpu'
 import { recordConsumeAck, takeMainTimings } from './previewGpuTiming'
 

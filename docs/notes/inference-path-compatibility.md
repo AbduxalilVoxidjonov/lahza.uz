@@ -45,7 +45,7 @@ remain native absolute paths, preserving adjacent files such as split GGUFs.
 | Whisper | Real adapter failed before fix; JSON-full and SRT succeeded after fix, including Unicode executable/DLL, model, source, cache, and TEMP directories. |
 | FunASR / Paraformer | Real adapter failed before fix; succeeded after fix with Unicode executable/DLL, model, tokens, audio, and TEMP paths. |
 | Qwen3-VL | Real adapter failed before fix on a comma-containing image path; succeeded after fix with Unicode model/projector/runtime and Unicode/comma source/frame directories. |
-| MiniCPM-V | Uses the corrected Qwen/llama adapter. Separate MiniCPM weights were not installed for live inference; the live test supports them via `WEFTCUT_VLM_STYLE=minicpm`. |
+| MiniCPM-V | Uses the corrected Qwen/llama adapter. Separate MiniCPM weights were not installed for live inference; the live test supports them via `LAHZA_VLM_STYLE=minicpm`. |
 | Cloud speech / TTS / BYO vision endpoint | Local media is read/written via Rust/Tokio filesystem APIs and sent as bytes/base64; no native CLI filename decoding or comma-list boundary. Audited locally, no paid network inference invoked. |
 | FFmpeg audio/frame extraction | Preserves OS path arguments; exercised with Unicode/comma source and cache paths in the live tests. |
 
@@ -62,10 +62,10 @@ cargo fmt --check --all --manifest-path native/Cargo.toml
 
 The opt-in tests generate their own media and require installed engine files:
 
-- `WEFTCUT_WHISPER_CLI`, `WEFTCUT_WHISPER_MODEL`
-- `WEFTCUT_FUNASR_CLI`, `WEFTCUT_FUNASR_MODEL`, `WEFTCUT_FUNASR_TOKENS`
-- `WEFTCUT_VLM_CLI`, `WEFTCUT_VLM_MODEL`, `WEFTCUT_VLM_MMPROJ`
-- Optional `WEFTCUT_VLM_STYLE`: `qwen` (default) or `minicpm`
+- `LAHZA_WHISPER_CLI`, `LAHZA_WHISPER_MODEL`
+- `LAHZA_FUNASR_CLI`, `LAHZA_FUNASR_MODEL`, `LAHZA_FUNASR_TOKENS`
+- `LAHZA_VLM_CLI`, `LAHZA_VLM_MODEL`, `LAHZA_VLM_MMPROJ`
+- Optional `LAHZA_VLM_STYLE`: `qwen` (default) or `minicpm`
 
 Set TEMP/TMP to an existing writable directory containing Chinese, Japanese,
 emoji and commas **before launching the test process**. Do not mutate the

@@ -7,7 +7,7 @@ import { launchApp, tmpDir } from './helpers/driver'
 // Keep the failing attempt's trace so launch, fetch and shutdown are separable.
 test.use({ trace: 'retain-on-failure' })
 
-test('weftcut-media:// serves a local file with Range', async () => {
+test('lahza-media:// serves a local file with Range', async () => {
   // A 256-byte file of known content.
   const tmp = path.join(tmpDir('wc-proto-'), 'payload.bin')
   const buf = Buffer.alloc(256)
@@ -16,7 +16,7 @@ test('weftcut-media:// serves a local file with Range', async () => {
 
   const { app, page } = await test.step('launch Electron', () => launchApp())
   try {
-    const url = `weftcut-media://localhost/${encodeURIComponent(tmp)}`
+    const url = `lahza-media://localhost/${encodeURIComponent(tmp)}`
     await test.step('fetch and verify the requested byte range', async () => {
       const result = await page.evaluate(async (u) => {
         const res = await fetch(u, { headers: { Range: 'bytes=10-19' } })

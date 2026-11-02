@@ -1,0 +1,41 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.motion.push-in",
+  "version": "1.0.0",
+  "kind": "motion",
+  "name": {
+    "uz": "Sekin yaqinlashish",
+    "uz-Cyrl": "Секин яқинлашиш",
+    "ru": "Медленный наезд",
+    "en": "Push-in"
+  },
+  "description": {
+    "uz": "Kadr bo'ylab sekin zoom (1 → zoom)",
+    "uz-Cyrl": "Кадр бўйлаб секин зум (1 → zoom)",
+    "ru": "Плавный зум по ходу кадра",
+    "en": "Slow zoom across the shot"
+  },
+  "backend": "motion-keys",
+  "preset": "push-in",
+  "params": [
+    {
+      "id": "zoom",
+      "type": "float",
+      "min": 1.0,
+      "max": 1.6,
+      "default": 1.12
+    },
+    {
+      "id": "easing",
+      "type": "enum",
+      "values": [
+        "linear",
+        "ease-out",
+        "expo-out"
+      ],
+      "default": "linear"
+    }
+  ],
+  "default_trigger": "on_cut",
+  "license": "Lahza"
+}

@@ -3,7 +3,7 @@ import type { AnimTrack } from "./animated";
 import { resolveAnimated } from "./animated";
 import fixture from "./animatedGolden.fixture.json";
 
-// resolveAnimated runs the shared weftcut-eval wasm (loaded by the global test
+// resolveAnimated runs the shared lahza-eval wasm (loaded by the global test
 // setup); this golden verifies it reproduces the fixture.
 
 interface Sample {

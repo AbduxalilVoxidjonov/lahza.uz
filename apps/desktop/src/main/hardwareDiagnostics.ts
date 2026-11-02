@@ -29,11 +29,11 @@ export function createLinuxHardwareDiagnostics(ffmpeg: string) {
       try { release = reserveResources(1, 192); } catch { throw failure('resource-busy'); }
       let directory: string | undefined;
       try {
-        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-hardware-probe-'));
+        directory = await fs.mkdtemp(path.join(os.tmpdir(), 'lahza-hardware-probe-'));
         if (closed) throw failure('probe-failed');
         const result = await new Promise<HardwareAccelerationDiagnostics>((resolve, reject) => {
           const child = utilityProcess.fork(path.join(import.meta.dirname, 'hardwareProbe.js'), [], {
-            stdio: 'ignore', serviceName: 'WeftCut hardware diagnostics',
+            stdio: 'ignore', serviceName: 'Lahza hardware diagnostics',
           });
           running = child;
           let grouped = false;

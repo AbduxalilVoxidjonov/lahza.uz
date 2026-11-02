@@ -13,7 +13,7 @@ import { launchApp, waitForHook } from './helpers/driver'
 // supported GPU-import paths (the preview lane already uses createImageBitmap
 // and is HW-verified on this host).
 //
-// This spec drives `window.__weftcutTest.importProbe`, which decodes the clip's
+// This spec drives `window.__lahzaTest.importProbe`, which decodes the clip's
 // first frame under prefer-hardware AND prefer-software and, for each, imports
 // the raw frame four ways (2D drawImage / createImageBitmap / WebGL texImage2D /
 // copyTo), reading pixels back as mean luma. It runs the probe on the renderer
@@ -26,10 +26,10 @@ import { launchApp, waitForHook } from './helpers/driver'
 // human-readable verdict, so this stays a green, reusable diagnostic regardless
 // of what the platform does.
 //
-// Requires a VITE_WEFTCUT_E2E=1 build (the __weftcutTest hook surface).
+// Requires a VITE_LAHZA_E2E=1 build (the __lahzaTest hook surface).
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const SOURCE = path.resolve(MEDIA_DIR, 'test_1080p_30fps.mp4')
 
 interface MethodResult { meanLuma: number; litPct: number; error: string | null }
@@ -75,7 +75,7 @@ function printDecode(ctx: string, mode: string, d: DecodeProbeResult): void {
 }
 
 test('issue#7 #1: HW VideoFrame import path comparison (drawImage/createImageBitmap/texImage2D) @serial', async () => {
-  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
   test.setTimeout(180_000)
 
   const { app, page } = await launchApp()
@@ -88,8 +88,8 @@ test('issue#7 #1: HW VideoFrame import path comparison (drawImage/createImageBit
     const r = (await page.evaluate(
       (sourcePath) =>
         (window as unknown as {
-          __weftcutTest: { importProbe(a: { sourcePath: string }): Promise<ImportProbeResult> }
-        }).__weftcutTest.importProbe({ sourcePath }),
+          __lahzaTest: { importProbe(a: { sourcePath: string }): Promise<ImportProbeResult> }
+        }).__lahzaTest.importProbe({ sourcePath }),
       SOURCE,
     )) as ImportProbeResult
 

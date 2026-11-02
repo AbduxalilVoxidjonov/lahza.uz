@@ -1,7 +1,7 @@
 # Agent bench baseline — 2026-10-20
 
 The first bench run of ADR 0123's harness: what three Claude models do with
-WeftCut **before** any craft rule, recipe or style exists. It is the reference
+Lahza **before** any craft rule, recipe or style exists. It is the reference
 every later harness change is measured against, and the source of the first
 `craft/` entries.
 
@@ -10,7 +10,7 @@ close, and where they miss it is engagement (finding the app at all), not
 quality. On **look**, there is no model gap to speak of — every model lands on
 the same tool defaults: white system-sans text with a black outline, no plate,
 no entrance, captions exactly as the transcription tool emits them. The style of
-a WeftCut edit today is decided by tool defaults, not by the model. That makes
+a Lahza edit today is decided by tool defaults, not by the model. That makes
 "correct by construction" (style tokens as tool defaults, ADR 0123) the lever
 with the most reach, and it says the anti-pattern list should be written
 against those defaults.
@@ -19,7 +19,7 @@ against those defaults.
 
 - Branch `feat/agent-harness-h0` (bench at `abaf0856`); the app on the remote
   host at `233a732b` (no app-code difference).
-- Skill under test: **main's** shipped bundle (`skills/weftcut` at `e3c184dc`,
+- Skill under test: **main's** shipped bundle (`skills/lahza` at `e3c184dc`,
   staged by `build:skills`), i.e. before the craft/recipe layers and the Motif
   scope rule. Snapshot kept in `.scratch/agent-harness/baseline-skill/`.
 - Agent: Claude Code 2.1.304, headless, isolated workdir, default effort per
@@ -55,11 +55,11 @@ separates engagement failures, not quality.
 
 ### Engagement
 
-- **Haiku did not find WeftCut in 2 of 6 tasks.** On `explainer-tighten`
+- **Haiku did not find Lahza in 2 of 6 tasks.** On `explainer-tighten`
   ("tighten this lecture excerpt…") it never loaded the skill or searched the
   MCP tools, assumed a text-editing job and asked for a transcript (2 turns).
   On `interview-social-cut` it called `create_project` and stopped to ask for
-  a save folder. Neither prompt names WeftCut; both describe editing the clip
+  a save folder. Neither prompt names Lahza; both describe editing the clip
   the user has open. Opus and Sonnet engaged every time.
 - Sonnet on `explainer-tighten` cut pauses only and explicitly declined to cut
   content without a transcript — a reasonable call, 1.4 s short of the range.
@@ -132,11 +132,11 @@ from "think Vox": paper card, serif headline, highlighter sweep, accent rule.
 | Caption cues up to 80 chars, 0.42 s minimum | Construction (`apply_transcripts` re-segments to the style's caption limits) + check |
 | Sub-second jump-cut fragments after tightening | Check (`hard`: fragment shorter than a floor) + craft number |
 | Frame-sized Motif canvases, positions baked in | Contract (M1–M3 now on the branch) + check (M4) |
-| Haiku misses the app when the prompt doesn't name it | Skill description / `initialize` instructions: trigger on video-editing requests whenever the weftcut server is connected |
+| Haiku misses the app when the prompt doesn't name it | Skill description / `initialize` instructions: trigger on video-editing requests whenever the lahza server is connected |
 
 ## Craft candidates (draft, not shipped)
 
-Numbers to validate on the bench before they enter `skills/weftcut/craft/`:
+Numbers to validate on the bench before they enter `skills/lahza/craft/`:
 
 - Title: hold ≥ 3 s; on talking-head footage, never centred over the
   speaker — top third or on a plate.
@@ -222,7 +222,7 @@ of one package placed twice with different props.
 Two problems the runs exposed:
 
 - **Sonnet r1 wrote its folder beside the working directory**
-  (`/tmp/weftcut-bench-…/motifs/`, not `…/work/motifs/`); the bench's file
+  (`/tmp/lahza-bench-…/motifs/`, not `…/work/motifs/`); the bench's file
   permissions refused it, and it fell back to empty drafts. The skill now says
   the folder goes inside the working directory.
 - **`preview_motif` crops; it does not scale.** `width`/`height` set the

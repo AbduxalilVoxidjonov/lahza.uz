@@ -67,14 +67,14 @@ function genFixture(ffmpeg: string, out: string, codecArgs: string[]): void {
 }
 
 /// Preview-sw conformance/families' two-step gate: the hook surface mounts
-/// async (waitForHook), but `activeClipProbe`/`weftcutSeekUs` additionally
+/// async (waitForHook), but `activeClipProbe`/`lahzaSeekUs` additionally
 /// throw until `PixiPreview` registers its bridge — poll past that too.
 async function waitForPreviewBridge(page: Page): Promise<void> {
   await waitForHook(page, 'mediaDecodeRouteKind')
   await page.waitForFunction(
     () => {
       try {
-        ;(window as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe()
+        ;(window as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe()
         return true
       } catch {
         return false
@@ -130,8 +130,8 @@ async function waitForBuiltKey(
 ): Promise<Probe> {
   const handle = await page.waitForFunction(
     ({ id, sk, pfx }) => {
-      const p = (window as unknown as { __weftcutTest: { activeClipProbe(id?: string): Probe | null } })
-        .__weftcutTest.activeClipProbe(id)
+      const p = (window as unknown as { __lahzaTest: { activeClipProbe(id?: string): Probe | null } })
+        .__lahzaTest.activeClipProbe(id)
       if (!p || !p.builtFromKey || !p.builtFromKey.startsWith(pfx)) return null
       if (sk !== null && p.sourceKind !== sk) return null
       return p
@@ -144,15 +144,15 @@ async function waitForBuiltKey(
 
 async function seek(page: Page, us: number): Promise<void> {
   await page.evaluate(
-    (u) => (window as unknown as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(u),
+    (u) => (window as unknown as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(u),
     us,
   )
 }
 
 async function probeNow(page: Page, layerId: string): Promise<Probe> {
   return (await page.evaluate(
-    (id) => (window as unknown as { __weftcutTest: { activeClipProbe(id?: string): Probe | null } })
-      .__weftcutTest.activeClipProbe(id),
+    (id) => (window as unknown as { __lahzaTest: { activeClipProbe(id?: string): Probe | null } })
+      .__lahzaTest.activeClipProbe(id),
     layerId,
   )) as Probe
 }
@@ -186,13 +186,13 @@ test.describe('decode-engine resolution (Electron)', () => {
   // ffmpeg lacks an encoder — they do NOT gate CI. CI's fetched ffmpeg builds
   // (gyan "essentials" on Windows, BtbN GPL static on Linux, evermeet on
   // macOS) all bundle libx265 + prores_ks, so the probes would pass there;
-  // meanwhile `@weftcut/native-decode` is Windows-only in CI, so on
+  // meanwhile `@lahza/native-decode` is Windows-only in CI, so on
   // the Linux/macOS legs the ProRes cell (which needs the ffmpeg engine) would
   // resolve to webcodecs/unsupported instead and fail. This spec is
   // local-only; require explicit opt-in.
   test.skip(
-    process.env.WEFTCUT_DECODE_E2E !== '1',
-    'decode-engine e2e is local-only (needs the native-decode component + real encoders); set WEFTCUT_DECODE_E2E=1 to run',
+    process.env.LAHZA_DECODE_E2E !== '1',
+    'decode-engine e2e is local-only (needs the native-decode component + real encoders); set LAHZA_DECODE_E2E=1 to run',
   )
 
   let ffmpeg: string | null = null
@@ -200,7 +200,7 @@ test.describe('decode-engine resolution (Electron)', () => {
   test.beforeAll(() => {
     ffmpeg = ffmpegBin()
     test.skip(ffmpeg === null, 'ffmpeg not on PATH (set FFMPEG) — decode-engine fixtures need it')
-    const outDir = tmpDir('weftcut-e2e-decode-engine-')
+    const outDir = tmpDir('lahza-e2e-decode-engine-')
     PRORES_FIXTURE = path.join(outDir, 'prores-tier3.mov')
     H264_FIXTURE = path.join(outDir, 'h264-tier1.mp4')
     AV1_FIXTURE = path.join(outDir, 'av1-tier3.mp4')
@@ -234,7 +234,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     test.setTimeout(180_000)
     const { app, page } = await launchApp()
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'h264-auto', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
         patch: { decode_engine: 'auto', resource_policy: { processing: 'high' } },
@@ -254,10 +254,10 @@ test.describe('decode-engine resolution (Electron)', () => {
       // A source identity exists before the asynchronous isolated probe/open
       // finishes. Require an actual presented frame before judging the lane.
       await page.waitForFunction(id => {
-        const p = (window as any).__weftcutTest.activeClipProbe(id)
+        const p = (window as any).__lahzaTest.activeClipProbe(id)
         return p?.spriteBound && p.ringSize > 0
       }, layerId, { timeout: 30_000 })
-      const live = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId)
+      const live = await page.evaluate(id => (window as any).__lahzaTest.activeClipProbe(id), layerId)
       const expectedLane = live.hwLane ?? (process.platform === 'darwin' ? 'videotoolbox' : process.platform === 'win32' ? 'd3d11va' : 'nvdec')
       await hardwareEnvironmentGate(app, page, expectedLane, 'h264', true)
       const evidence = await hardwareGate(page, layerId, expectedLane, 'h264')
@@ -291,7 +291,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     test.setTimeout(180_000)
     const { app, page } = await launchApp()
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'prores-auto', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
         patch: { decode_engine: 'auto' },
@@ -313,10 +313,10 @@ test.describe('decode-engine resolution (Electron)', () => {
       const copied = (await invokeCmd<CopyEntry[]>(page, 'import_queue_list'))
         .find(entry => entry.media_id === mediaId)!.destination_rel!
       await page.waitForFunction(({ id, relative }) => {
-        const original = (window as any).__weftcutTest.mediaById(id)?.path as string | undefined
+        const original = (window as any).__lahzaTest.mediaById(id)?.path as string | undefined
         return original?.replaceAll('\\', '/').endsWith('/' + relative.replaceAll('\\', '/'))
       }, { id: mediaId, relative: copied })
-      const originalPath = await page.evaluate(id => (window as any).__weftcutTest.mediaById(id).path as string, mediaId)
+      const originalPath = await page.evaluate(id => (window as any).__lahzaTest.mediaById(id).path as string, mediaId)
 
       await waitForPreviewBridge(page)
       // Not required for the frontend to acquire (resolveDecodeEngine's ffmpeg
@@ -324,8 +324,8 @@ test.describe('decode-engine resolution (Electron)', () => {
       // cheap sanity check that the backend's independent WebCodecs-blind
       // classification (`DecodeRoute::NativeSw`) landed as expected.
       await page.waitForFunction(
-        (id) => (window as unknown as { __weftcutTest: { mediaDecodeRouteKind(m: string): string | null } })
-          .__weftcutTest.mediaDecodeRouteKind(id) === 'native-sw',
+        (id) => (window as unknown as { __lahzaTest: { mediaDecodeRouteKind(m: string): string | null } })
+          .__lahzaTest.mediaDecodeRouteKind(id) === 'native-sw',
         mediaId,
         { timeout: 90_000, polling: 500 },
       )
@@ -362,7 +362,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     const { app, page } = await launchApp()
     let toggledOn = false
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'av1-webcodecs', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
         patch: { decode_engine: 'webcodecs' },
@@ -401,7 +401,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     const { app, page } = await launchApp()
     let toggledOn = false
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'av1-ffmpeg', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
         patch: { decode_engine: 'ffmpeg' },
@@ -444,7 +444,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     page.on('console', message => messages.push(message.text()))
     let ids: { layerId: string; mediaId: string } | undefined
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'proxy-toggle', canvas: CANVAS })
       const { layerId, mediaId } = await importAndPlaceMedia(page, { mediaAbsPath: H264_FIXTURE })
       ids = { layerId, mediaId }
@@ -453,7 +453,7 @@ test.describe('decode-engine resolution (Electron)', () => {
       await invokeCmd(page, 'generate_quick_proxy', { mediaId })
       await page.waitForFunction(
         (id) => {
-          const m = (window as any).__weftcutTest?.mediaById?.(id)
+          const m = (window as any).__lahzaTest?.mediaById?.(id)
           const r = m?.decode_route
           return !!r && r.route !== 'bypass' && !!r.quick_proxy
         },
@@ -466,7 +466,7 @@ test.describe('decode-engine resolution (Electron)', () => {
       // resolver gates on the renderer's useProxyPrefStore, which only that
       // setter (or a project_id-change rehydrate) updates — see the
       // E2EHook.setPreferProxies doc comment in e2eHook.ts.
-      await page.evaluate(() => (window as any).__weftcutTest.setPreferProxies(true))
+      await page.evaluate(() => (window as any).__lahzaTest.setPreferProxies(true))
       await waitForPreviewBridge(page)
       await seek(page, SEEK_US)
       const probe = await waitForBuiltKey(page, layerId, 'webcodecs', 'webcodecs:proxy:')
@@ -474,14 +474,14 @@ test.describe('decode-engine resolution (Electron)', () => {
       // Repeated source switches must acquire the requested engine, even when
       // the import-copy path change already completed an overlap swap.
       for (const prefer of [false, true, false, true]) {
-        await page.evaluate(v => (window as any).__weftcutTest.setPreferProxies(v), prefer)
+        await page.evaluate(v => (window as any).__lahzaTest.setPreferProxies(v), prefer)
         const next = await waitForBuiltKey(page, layerId, prefer ? 'webcodecs' : null,
           prefer ? 'webcodecs:proxy:' : 'ffmpeg:original:')
         if (!prefer) expect(['native-gpu', 'sw']).toContain(next.sourceKind)
       }
     } catch (error) {
       const state = await page.evaluate(ids => {
-        const h = (window as any).__weftcutTest
+        const h = (window as any).__lahzaTest
         return {
           probe: h.activeClipProbe(ids?.layerId), resource: h.previewResourceProbe(),
           media: ids && h.mediaById(ids.mediaId),
@@ -517,7 +517,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     const { app, page } = await launchApp()
     let toggledOn = false
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'prores-webcodecs', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
         patch: { decode_engine: 'webcodecs' },
@@ -552,7 +552,7 @@ test.describe('decode-engine resolution (Electron)', () => {
     test.setTimeout(180_000)
     const { app, page } = await launchApp()
     try {
-      const projectParent = tmpDir('weftcut-e2e-decode-engine-proj-')
+      const projectParent = tmpDir('lahza-e2e-decode-engine-proj-')
       await newProject(page, { parentFolder: projectParent, name: 'prores-switch', canvas: CANVAS })
       const after = (await invokeCmd(page, 'app_settings_set', {
         patch: { decode_engine: 'auto' },

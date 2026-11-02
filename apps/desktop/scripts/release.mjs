@@ -61,6 +61,8 @@ export async function setVersion(version, root = ROOT) {
 // `arm64` on macOS (the Apple Silicon runner's host arch; there is no Intel
 // build), but the Linux targets keep their packaging conventions — `x86_64` for
 // AppImage and `amd64` for deb — even though both build with arch=x64.
+// GitHub rejects a release asset of 2 GiB or more; fail before the draft exists.
+export const MAX_ASSET_BYTES = 2 * 1024 ** 3 - 1
 const INSTALLERS = {
   'latest.yml': ['LahzaStudio-win-x64.exe'],
   'latest-linux.yml': ['LahzaStudio-linux-x86_64.AppImage', 'LahzaStudio-linux-amd64.deb'],
@@ -91,6 +93,9 @@ export async function validateAssets(directory, version) {
   const allowed = new Set([...required, 'LahzaStudio-mac-arm64.dmg.blockmap'])
   for (const name of names) {
     if (!allowed.has(name)) throw new Error(`Unexpected release asset: ${name}`)
+    if ((await fs.stat(path.join(directory, name))).size > MAX_ASSET_BYTES) {
+      throw new Error(`Release asset exceeds GitHub's 2 GiB limit: ${name}`)
+    }
   }
   for (const [manifest, expected] of Object.entries(INSTALLERS)) {
     const info = parse(await fs.readFile(path.join(directory, manifest), 'utf8'))
@@ -126,13 +131,13 @@ export function releaseNotes() {
     '',
     `- **Windows** — run ${code(exe)}. The app keeps itself current: new versions download in the background and install when you quit.`,
     `- **Linux** — ${code(appImage)} (mark it executable first) or ${code(deb)}. Self-updates like Windows.`,
-    `- **macOS (Apple Silicon, macOS 13 or newer)** — open ${code(dmg)} and drag WeftCut into Applications. ` +
-      'The build is ad-hoc signed and not notarized (WeftCut has no Apple Developer ID), so macOS blocks the first launch: ' +
+    `- **macOS (Apple Silicon, macOS 13 or newer)** — open ${code(dmg)} and drag Lahza Studio into Applications. ` +
+      'The build is ad-hoc signed and not notarized (Lahza has no Apple Developer ID), so macOS blocks the first launch: ' +
       'open the app once, click **Done**, then go to **System Settings → Privacy & Security** and click **Open Anyway**. ' +
       'If macOS calls the app *damaged* instead, clear the download quarantine in Terminal and open it again:',
     '',
     '  ```sh',
-    '  xattr -dr com.apple.quarantine /Applications/WeftCut.app',
+    '  xattr -dr com.apple.quarantine /Applications/LahzaStudio.app',
     '  ```',
     '',
     '  macOS builds do not self-update; watch this page for new versions.',
@@ -140,6 +145,11 @@ export function releaseNotes() {
   ].join('\n')
 }
 
+/** Commit a `git ls-remote --tags` listing resolves the tag to (peeled line wins for annotated tags). */
+export function remoteTagCommit(listing) {
+  const lines = listing.split('\n').map(l => l.trim().split(/\s+/))
+  return (lines.find(([, ref]) => ref?.endsWith('^{}')) ?? lines[0])?.[0]
+}
 function gh(args) {
   return execFileSync('gh', [...args, '--repo', process.env.GITHUB_REPOSITORY], {
     encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
@@ -172,12 +182,19 @@ async function main() {
   } else {
     // A pre-existing tag could point at a different commit. Refuse it; this
     // pipeline owns its version tags, created with the draft at this exact SHA.
-    const remote = execFileSync('git', ['ls-remote', '--tags', 'origin', `refs/tags/${tag}`], { encoding: 'utf8' }).trim()
-    if (remote) throw new Error(`Tag ${tag} already exists without a matching draft`)
-    gh(['release', 'create', tag, '--target', process.env.GITHUB_SHA, '--draft', '--title', `WeftCut ${version}`,
+    // A tag-triggered run (release.yml) legitimately arrives with the tag already
+    // pushed — accepted only when it resolves to exactly this commit.
+    const remote = execFileSync('git', ['ls-remote', '--tags', 'origin', `refs/tags/${tag}`, `refs/tags/${tag}^{}`], { encoding: 'utf8' }).trim()
+    if (remote && remoteTagCommit(remote) !== process.env.GITHUB_SHA) {
+      throw new Error(`Tag ${tag} already exists without a matching draft`)
+    }
+    gh(['release', 'create', tag, '--target', process.env.GITHUB_SHA, '--draft', '--title', `Lahza ${version}`,
       '--generate-notes', '--notes', releaseNotes()])
   }
   gh(['release', 'upload', tag, ...files, '--clobber'])
+  // RELEASE_DRAFT_ONLY=1 stops after the upload: a person reviews the draft and
+  // publishes it by hand. Electron-updater and the macOS check ignore drafts.
+  if (process.env.RELEASE_DRAFT_ONLY === '1') return console.log(`Uploaded draft ${tag}; publish it manually`)
   // The update provider sees the release only once every OS is complete.
   gh(['release', 'edit', tag, '--draft=false', '--latest'])
   console.log(`Published ${tag}`)

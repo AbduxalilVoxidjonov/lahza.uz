@@ -23,12 +23,12 @@ import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 // Either way `Compositor.activeClipProbe` reports `sourceKind: "native-gpu"`.
 //
 // PARAMETERIZED BY VARIANT = HW LANE × FIXTURE. One test() per VARIANTS entry;
-// each launches the app with WEFTCUT_FORCE_HW_LANE=<lane>, which pins main's
+// each launches the app with LAHZA_FORCE_HW_LANE=<lane>, which pins main's
 // `decodeCap:probeHw` resolver to consider ONLY that HW lane (plus the software
 // fallback). Only affirmative unavailability may skip an OPTIONAL variant.
 // A timeout/crash/unknown rejection or runtime fallback fails. The macOS
 // H.264/HEVC baseline is mandatory; additional known capabilities can be pinned
-// with WEFTCUT_REQUIRE_HW_VARIANTS. Evidence is checked before AND after SSIM.
+// with LAHZA_REQUIRE_HW_VARIANTS. Evidence is checked before AND after SSIM.
 // This lets the ONE spec run correctly on a box that has NVDEC but not VAAPI
 // (or a Mac, which has only videotoolbox) with no per-machine config. The loop
 // body is variant-agnostic — fixture, artifact names, and the forced lane all
@@ -43,11 +43,11 @@ import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 // NVDEC-decodable.)
 //
 // Model: e2e/electron/preview-sw-conformance.spec.ts. Requires a
-// VITE_WEFTCUT_E2E=1 build (the __weftcutTest hook surface) and the current
+// VITE_LAHZA_E2E=1 build (the __lahzaTest hook surface) and the current
 // native-decode addon (advertising the HW lane under test).
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const H264 = path.resolve(MEDIA_DIR, 'test_1080p_h264.mp4')
 // 10-bit fixtures for the videotoolbox p10 variants. Both 1080p30, ≥ 1 s,
 // already in the generator matrix. The SSIM leg normalizes BOTH sides through
@@ -92,16 +92,16 @@ const SSIM_FLOOR_HIGH_FREQ = 0.96
 /// A correct decode measured 0.997468 — this floor still has real headroom.
 const SSIM_FLOOR_SMOOTH = 0.98
 
-// Skip-path audit seam: an OUTER `WEFTCUT_FORCE_HW_LANE` (exported around the
+// Skip-path audit seam: an OUTER `LAHZA_FORCE_HW_LANE` (exported around the
 // runner by an operator) overrides every variant's own pin. Pinning a lane the
 // box does not advertise makes main's `decodeCap:probeHw` hide all HW lanes,
 // so EVERY variant must then report SKIP (hwLane === null), never FAIL — a
 // one-command proof of the clean-skip degradation on a machine whose own lane
-// would otherwise engage (e.g. WEFTCUT_FORCE_HW_LANE=vaapi on a videotoolbox
+// would otherwise engage (e.g. LAHZA_FORCE_HW_LANE=vaapi on a videotoolbox
 // Mac). Unset — the normal run — each variant pins its own lane. (The
 // override has to live HERE: launchApp spreads the spec's env LAST, so the
 // outer variable can never reach the app around this spec on its own.)
-const OUTER_LANE_PIN = process.env.WEFTCUT_FORCE_HW_LANE
+const OUTER_LANE_PIN = process.env.LAHZA_FORCE_HW_LANE
 
 // One test() per variant: a hardware lane × the fixture (codec) it must
 // decode. `id` keys artifacts and log lines (a lane can host several codec
@@ -158,14 +158,14 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
   test(`preview-hw: ffmpeg engine decodes interframe ${codec} on the ${lane} ${transportWord(frameKind)} lane + SSIM (issue #5 Block C3) @serial`, async () => {
     expect(existsSync(fixture), `${codec} fixture missing: ${fixture}`).toBe(true)
     test.setTimeout(240_000)
-    const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-hw-proj-')
-    const OUT_DIR = tmpDir('weftcut-e2e-preview-hw-')
+    const PROJECT_PARENT = tmpDir('lahza-e2e-preview-hw-proj-')
+    const OUT_DIR = tmpDir('lahza-e2e-preview-hw-')
 
     // Force the resolver to only consider THIS hardware lane (+ software
     // fallback). On a box that doesn't advertise the lane, the resolver finds no
     // candidate and falls back to software → probe.hwLane === null → clean skip.
     // An operator's OUTER pin (skip-path audit, see OUTER_LANE_PIN) wins.
-    const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: OUTER_LANE_PIN ?? lane } })
+    const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: OUTER_LANE_PIN ?? lane } })
     // Surface renderer console noise (errors are findings for the investigation).
     const consoleLines: string[] = []
     page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
@@ -219,7 +219,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
       await page.waitForFunction(
         () => {
           try {
-            ;(window as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe()
+            ;(window as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe()
             return true
           } catch {
             return false
@@ -234,13 +234,13 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
       // software fallback (`sw`) here; the evidence gate below decides whether
       // it is an allowed environmental skip or a failed hardware test.
       await page.evaluate(
-        (us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
+        (us) => (window as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us),
         SEEK_US,
       )
 
       const handle = await page.waitForFunction(
         ([id, target]) => {
-          const p = (window as { __weftcutTest: { activeClipProbe(id?: string): {
+          const p = (window as { __lahzaTest: { activeClipProbe(id?: string): {
             sourceKind: string
             hwLane: string | null
             ringLastPtsUs: number | null
@@ -248,7 +248,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
             spriteWidth: number
             spriteHeight: number
             boundFrameKind: string | null
-          } | null } }).__weftcutTest.activeClipProbe(id)
+          } | null } }).__lahzaTest.activeClipProbe(id)
           if (!p) return null
           if (p.sourceKind !== 'native-gpu' && p.sourceKind !== 'sw') return null
           if (p.ringLastPtsUs == null || p.ringLastPtsUs < target) return null
@@ -288,7 +288,7 @@ for (const { lane, id, codec, fixture, frameKind, ssimFloor } of VARIANTS) {
 
       // Capture the LIVE composited preview frame at composition resolution.
       const b64 = (await page.evaluate(
-        () => (window as { __weftcutTest: { capturePreviewFramePng(): Promise<string> } }).__weftcutTest.capturePreviewFramePng(),
+        () => (window as { __lahzaTest: { capturePreviewFramePng(): Promise<string> } }).__lahzaTest.capturePreviewFramePng(),
       )) as string
       const rendered = path.join(OUT_DIR, `rendered-${id}.png`)
       writeFileSync(rendered, Buffer.from(b64, 'base64'))

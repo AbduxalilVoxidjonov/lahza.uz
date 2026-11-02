@@ -6,7 +6,7 @@ import { analyze } from '../lib/analyze.mjs'
 import { launchApp, newProject, tmpDir, waitForHook, driveExport, exportSsimFloor, importAndPlaceMedia, placeMediaLayer, invokeCmd } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const SOURCE = path.resolve(MEDIA_DIR, 'test_1080p_30fps_6s.mp4')
 const SSIM_FLOOR = exportSsimFloor()
 const OFFSET_US = 2_000_000
@@ -29,17 +29,17 @@ async function bootProject(page: Page, parentFolder: string, name: string): Prom
 async function placeSameSourceClips(page: Page, extras: number[]): Promise<void> {
   const first = await importAndPlaceMedia(page, { mediaAbsPath: SOURCE, tStartUs: 0 })
   for (const tStartUs of extras) await placeMediaLayer(page, { mediaId: first.mediaId, tStartUs })
-  await page.evaluate(mediaId => (window as any).__weftcutTest.waitMediaExportReady({ mediaId }), first.mediaId)
+  await page.evaluate(mediaId => (window as any).__lahzaTest.waitMediaExportReady({ mediaId }), first.mediaId)
 }
 
 async function runTimelineExport(page: Page, output: string): Promise<{ totalFrames: number; totalDispatched: number; sources: unknown[] }> {
   rmSync(output, { force: true })
   const r = await driveExport(page, { outputAbsPath: output }, { hook: 'exportTimeline' })
   if (!r.done.ok) throw new Error('exportTimeline failed: ' + r.done.error)
-  const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+  const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
     | { totalFrames: number; totalDispatched: number; sources: unknown[] }
     | null
-  if (!perf) throw new Error('export settled but __weftcutExportPerf is missing')
+  if (!perf) throw new Error('export settled but __lahzaExportPerf is missing')
   return perf
 }
 
@@ -51,7 +51,7 @@ function assertIdentityAligned(report: any): void {
 }
 
 test.describe('same-source overlapping clips export (Electron)', () => {
-  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
 
   test('two stacked enabled clips export without wedging or extra decode', async () => {
     // Cost bound only; driveExport's stall probe detects failure. On the
@@ -61,8 +61,8 @@ test.describe('same-source overlapping clips export (Electron)', () => {
     test.setTimeout(360000)
     const { app, page } = await launchApp()
     try {
-      const out = path.join(tmpDir('weftcut-e2e-overlap-'), 'stacked.mp4')
-      await bootProject(page, tmpDir('weftcut-e2e-overlap-proj-'), 'e2e-overlap-stack')
+      const out = path.join(tmpDir('lahza-e2e-overlap-'), 'stacked.mp4')
+      await bootProject(page, tmpDir('lahza-e2e-overlap-proj-'), 'e2e-overlap-stack')
       await placeSameSourceClips(page, [0])
       const perf = await runTimelineExport(page, out)
       expect(perf.totalFrames).toBe(180)
@@ -102,8 +102,8 @@ test.describe('same-source overlapping clips export (Electron)', () => {
     test.setTimeout(600000)
     const { app, page } = await launchApp()
     try {
-      const out = path.join(tmpDir('weftcut-e2e-overlap-'), 'offset.mp4')
-      await bootProject(page, tmpDir('weftcut-e2e-overlap-proj-'), 'e2e-overlap-offset')
+      const out = path.join(tmpDir('lahza-e2e-overlap-'), 'offset.mp4')
+      await bootProject(page, tmpDir('lahza-e2e-overlap-proj-'), 'e2e-overlap-offset')
       await placeSameSourceClips(page, [OFFSET_US])
       const perf = await runTimelineExport(page, out)
       expect(perf.totalFrames, '8s composition = 240 frames').toBe(240)

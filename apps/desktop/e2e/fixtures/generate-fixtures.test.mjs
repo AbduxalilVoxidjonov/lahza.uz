@@ -194,7 +194,7 @@ test('the fixture matrix has one unique output name per entry', () => {
 })
 
 test('runFfmpeg preserves a spaced cwd and never invokes a shell', () => {
-  const outputDir = path.join(tmpdir(), 'WeftCut fixtures with spaces')
+  const outputDir = path.join(tmpdir(), 'Lahza fixtures with spaces')
   let invocation
 
   runFfmpeg(['-version'], {
@@ -217,7 +217,7 @@ test('runFfmpeg preserves a spaced cwd and never invokes a shell', () => {
 })
 
 test('ensureFixtures calls the JavaScript generator in the target directory', async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut-fixture-test-'))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza-fixture-test-'))
   const outputDir = path.join(parent, 'media with spaces')
   const entry = { fps: 30, format: 'mp4' }
   const calls = []
@@ -241,7 +241,7 @@ test('ensureFixtures calls the JavaScript generator in the target directory', as
 })
 
 test('every matrix entry runs through the JavaScript generator in a spaced path', () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture matrix '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture matrix '))
 
   try {
     for (const [index, entry] of MATRIX.entries()) {
@@ -281,7 +281,7 @@ test('Windows font paths use WINDIR and are escaped for drawtext', () => {
 })
 
 test('the JavaScript generator writes a valid chart PNG and manifest itself', () => {
-  const outputDir = mkdtempSync(path.join(tmpdir(), 'weftcut-chart-test-'))
+  const outputDir = mkdtempSync(path.join(tmpdir(), 'lahza-chart-test-'))
 
   try {
     generateFixture({ color: '709ltd' }, {
@@ -310,7 +310,7 @@ test('the JavaScript generator writes a valid chart PNG and manifest itself', ()
 })
 
 test('every matrix entry claims exactly the files it publishes', () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture claims '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture claims '))
 
   try {
     for (const [index, entry] of MATRIX.entries()) {
@@ -372,7 +372,7 @@ test('recipeOf is stable across calls and moves when a recipe argument does', ()
 })
 
 test('a moved recipe deletes and regenerates only its own entry', async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture recipe '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture recipe '))
   const outputDir = path.join(parent, 'media with spaces')
   const untouched = { fps: 60, format: 'mp4' }
   const before = { fps: 30, format: 'mp4' }
@@ -407,7 +407,7 @@ test('a moved recipe deletes and regenerates only its own entry', async () => {
 })
 
 test('a lost side-file regenerates the entry that publishes it', async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture sidefile '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture sidefile '))
   const outputDir = path.join(parent, 'media with spaces')
   const matrix = [{ imageset: true }, { fps: 30, format: 'mp4' }]
   const first = []
@@ -436,7 +436,7 @@ test('a lost side-file regenerates the entry that publishes it', async () => {
 })
 
 test('a missing manifest regenerates every entry', async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture manifest '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture manifest '))
   const outputDir = path.join(parent, 'media with spaces')
   const matrix = [{ fps: 30, format: 'mp4' }, { fps: 60, format: 'mp4' }]
   const first = []
@@ -461,7 +461,7 @@ test('a missing manifest regenerates every entry', async () => {
 })
 
 test('a failed pass still records the entries it verified', async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture partial '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture partial '))
   const outputDir = path.join(parent, 'media with spaces')
   const good = { fps: 30, format: 'mp4' }
   const bad = { fps: 60, format: 'mp4' }
@@ -495,7 +495,7 @@ test('a failed pass still records the entries it verified', async () => {
 })
 
 test('a file no entry claims is reported and left alone', async () => {
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture unclaimed '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture unclaimed '))
   const outputDir = path.join(parent, 'media with spaces')
 
   try {
@@ -524,7 +524,7 @@ test('the shot fixture yields exactly the cuts and scores its manifest records',
     t.skip('no ffmpeg on PATH, so the fixture cannot be produced either')
     return
   }
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture shot '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture shot '))
   const outputDir = path.join(parent, 'media with spaces')
   const entry = { shotCuts: true }
   const name = outputName(entry)
@@ -567,7 +567,7 @@ test('the denoise fixture measures the levels its manifest records', async (t) =
     t.skip('no ffmpeg on PATH, so the fixture cannot be produced either')
     return
   }
-  const parent = mkdtempSync(path.join(tmpdir(), 'weftcut fixture denoise '))
+  const parent = mkdtempSync(path.join(tmpdir(), 'lahza fixture denoise '))
   const outputDir = path.join(parent, 'media with spaces')
   const entry = { noisySpeech: true }
   const name = outputName(entry)

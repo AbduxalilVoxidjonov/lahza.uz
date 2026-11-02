@@ -11,7 +11,7 @@ import type { ExportRun } from '../shared/exportJob';
 
 const cleanup: string[] = [];
 it('suggests an unused numbered name without creating or replacing any file', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-export-name-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'lahza-export-name-'));
   cleanup.push(dir);
   for (const name of ['clip.mp4', 'clip (1).mp4', 'clip (2).mp4', 'clip (3).mov']) {
     await fs.writeFile(path.join(dir, name), 'existing output');
@@ -21,7 +21,7 @@ it('suggests an unused numbered name without creating or replacing any file', as
   expect(await fs.readFile(path.join(dir, 'clip.mp4'), 'utf8')).toBe('existing output');
 });
 it('distinguishes absent output files from filesystem failures during filename checks', async () => {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-filename-check-'));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'lahza-filename-check-'));
   cleanup.push(dir);
   const output = path.join(dir, 'clip.mp4');
   expect(await exportPathExists(output)).toBe(false);
@@ -36,7 +36,7 @@ it('distinguishes absent output files from filesystem failures during filename c
 });
 afterEach(async () => { vi.useRealTimers(); await Promise.all(cleanup.splice(0).map(p => fs.rm(p, { recursive: true, force: true }))); });
 async function setup(exportPreferences?: () => ExportPresetPreferences) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-export-test-')); cleanup.push(dir);
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'lahza-export-test-')); cleanup.push(dir);
   const project = blankProject(() => crypto.randomUUID(), 'Project');
   rootComposition(project).duration_us = 1_000_000;
   let opened = { dir } as { dir: string } | null;
@@ -127,7 +127,7 @@ it('does not accept a completion acknowledgement without publication', async () 
 });
 
 it('sanitizes portable default filenames', () => {
-  expect(exportBasename('CON')).toBe('weftcut-export');
+  expect(exportBasename('CON')).toBe('lahza-export');
   expect(exportBasename('clip/one:two. ')).toBe('clip_one_two');
 });
 

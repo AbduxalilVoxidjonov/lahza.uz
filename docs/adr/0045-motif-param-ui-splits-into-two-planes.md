@@ -254,4 +254,4 @@ identity as authentication.
 - **After Effects effect parameters** are the counter-example: a host-generated
   panel from a fixed parameter-type list. It is workable because the parameter
   types ship with the host on the host's release cadence, which is exactly the
-  property WeftCut's user- and agent-authored Motifs do not have.
+  property Lahza's user- and agent-authored Motifs do not have.

@@ -130,7 +130,7 @@ function mimeFromUrl(url: string): string {
 /// and `application/octet-stream` alike (unlike `createImageBitmap`, it never
 /// sniffs), and a `text/*` body is an error page rather than image bytes — so
 /// all three fall through to the extension. Generic types are a normal input:
-/// weftcut-media:// sends octet-stream for any extension main/mediaMime.ts
+/// lahza-media:// sends octet-stream for any extension main/mediaMime.ts
 /// does not know, and so does any plain file server.
 export function imageMimeFor(blobType: string, url: string): string {
   const generic = !blobType || blobType === "application/octet-stream" || blobType.startsWith("text/");

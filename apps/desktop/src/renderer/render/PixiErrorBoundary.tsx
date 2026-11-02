@@ -25,7 +25,7 @@ export class PixiErrorBoundary extends Component<Props, State> {
 
   override componentDidCatch(error: Error, info: ErrorInfo): void {
     // eslint-disable-next-line no-console
-    console.error("[weftcut/pixi] error boundary caught:", error, info);
+    console.error("[lahza/pixi] error boundary caught:", error, info);
   }
 
   override render(): ReactNode {

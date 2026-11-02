@@ -255,7 +255,7 @@ export function setLocale(next: Locale): void {
 
 /// The old (pre-app_settings) localStorage cache key written by i18next's
 /// LanguageDetector. Read once to migrate the choice, then cleared.
-const LEGACY_LOCALE_STORAGE_KEY = "weftcut.locale";
+const LEGACY_LOCALE_STORAGE_KEY = "lahza.locale";
 
 /// Apply a persisted locale to the i18next runtime. No-op when unset (→ leave
 /// the OS-detected default) or already active (avoids a redundant
@@ -266,7 +266,7 @@ function applyPersistedLocale(locale: string | undefined): void {
 }
 
 /// One-time migration for users upgrading from the localStorage era: older
-/// builds cached the choice under `weftcut.locale`. When app_settings has no
+/// builds cached the choice under `lahza.locale`. When app_settings has no
 /// language yet, adopt that value (if it's a supported locale) into the store,
 /// then drop the stale key so this never runs again.
 ///
@@ -351,7 +351,7 @@ export async function wireAppSettingsStream(): Promise<UnlistenFn> {
     if (!eventSeen) {
       useAppSettingsStore.getState().hydrate(initial);
       // Apply the persisted language choice to i18next, or — on a first launch
-      // with nothing persisted — adopt a legacy `weftcut.locale` if there is
+      // with nothing persisted — adopt a legacy `lahza.locale` if there is
       // one, else pin what the OS detection resolved to. Either way the field
       // is populated from here on, which is what lets main answer "which
       // language does this app speak" without a second detector of its own.

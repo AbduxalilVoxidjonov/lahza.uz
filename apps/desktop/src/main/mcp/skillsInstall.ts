@@ -8,7 +8,7 @@ import path from 'node:path'
 ///   member, and the reason the others need their own names: a packaged build
 ///   reaching any of these is a defect, and the panel says so differently.
 /// - `bundle_missing` — packaged, but no bundle rode along in `<resources>`.
-/// - `incomplete` — a bundle exists without the `weftcut` skill inside it.
+/// - `incomplete` — a bundle exists without the `lahza` skill inside it.
 /// - `copy_failed` — the refresh into userData threw (permissions, full disk).
 export type SkillsFault = 'not_built' | 'bundle_missing' | 'incomplete' | 'copy_failed'
 
@@ -26,7 +26,7 @@ export type SkillsInstall =
 /// The skill folder every layer above this one names literally: the panel
 /// concatenates it onto `dir`, and `scripts/build-skills-lib.mjs` asserts the
 /// build staged it under the same name.
-const REQUIRED_SKILL = 'weftcut'
+const REQUIRED_SKILL = 'lahza'
 
 /// A destination that holds the required skill is one a user can install from;
 /// an empty or half-written `skills/` is not, however successfully it was

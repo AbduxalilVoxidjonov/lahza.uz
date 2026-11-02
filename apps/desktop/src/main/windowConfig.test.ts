@@ -51,7 +51,7 @@ describe('secondaryWindowConfig', () => {
       height: 560,
       minWidth: 380,
       minHeight: 320,
-      title: 'WeftCut — Performance',
+      title: 'Lahza — Performance',
       resizable: true,
     })
     expect(c).toMatchObject({
@@ -59,7 +59,7 @@ describe('secondaryWindowConfig', () => {
       height: 560,
       minWidth: 380,
       minHeight: 320,
-      title: 'WeftCut — Performance',
+      title: 'Lahza — Performance',
       resizable: true,
     })
   })

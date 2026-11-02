@@ -11,7 +11,7 @@ import { type Envelope } from './envelope'
 import { panCoeff } from '../../eval'
 
 const PBT_SEED = 0x5747_4354
-const RUNS = Number(process.env.WEFTCUT_PBT_RUNS ?? 200)
+const RUNS = Number(process.env.LAHZA_PBT_RUNS ?? 200)
 
 function reference(values: number[], stepUs: number, channels: number, tUs: number): number[] {
   const coeff = (p: number) => [0, 1, 2, 3].map((k) => panCoeff(p, channels, k))

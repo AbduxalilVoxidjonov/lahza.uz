@@ -60,7 +60,7 @@ retry, and the service through a timeout that must not disable the texture
 path. `e2e/electron/motif-capture-load.spec.ts` repeats the first on the real
 host with the platform's default backend (a Motif that hangs on demand: 5.0 s
 strike, a sub-second retry on the rebuilt host, two more strikes, a 1-2 ms
-verdict, another lane still rendering), and with `WEFTCUT_E2E_LOAD=1` measures
+verdict, another lane still rendering), and with `LAHZA_E2E_LOAD=1` measures
 load on the running machine.
 
 - 2-core Linux, PNG host: retry 0.4 s. A 1080p authored page went from a

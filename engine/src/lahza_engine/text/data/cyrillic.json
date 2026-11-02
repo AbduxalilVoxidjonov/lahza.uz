@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "_izoh": "Lotin -> kirill istisnolari (PRO-4). words - butun so'z; stems - so'z boshi (qo'shimchalar umumiy qoida bilan); keep - o'girilmaydigan lotin nomlar. Kalitlar oddiy apostrof bilan yozilishi mumkin (normalize qilinadi).",
+  "words": {
+    "yanvar": "январь",
+    "fevral": "февраль",
+    "aprel": "апрель",
+    "iyun": "июнь",
+    "iyul": "июль",
+    "sentyabr": "сентябрь",
+    "sentabr": "сентябрь",
+    "oktyabr": "октябрь",
+    "oktabr": "октябрь",
+    "noyabr": "ноябрь",
+    "dekabr": "декабрь",
+    "sirk": "цирк",
+    "mayor": "майор",
+    "medal": "медаль",
+    "mebel": "мебель",
+    "avtomobil": "автомобиль",
+    "duel": "дуэль",
+    "kontsert": "концерт"
+  },
+  "stems": {
+    "obyekt": "объект",
+    "subyekt": "субъект",
+    "podyezd": "подъезд",
+    "s'yezd": "съезд",
+    "syezd": "съезд",
+    "kompyuter": "компьютер",
+    "intervyu": "интервью",
+    "pyesa": "пьеса",
+    "batalyon": "батальон",
+    "aktyor": "актёр",
+    "film": "фильм",
+    "rayon": "район",
+    "konsert": "концерт",
+    "stansiya": "станция",
+    "sement": "цемент"
+  },
+  "keep": [
+    "Instagram",
+    "Telegram",
+    "Google",
+    "Apple",
+    "Android",
+    "Samsung",
+    "Spotify",
+    "Netflix",
+    "Reels",
+    "Shorts"
+  ]
+}

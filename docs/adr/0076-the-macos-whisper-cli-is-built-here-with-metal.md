@@ -16,7 +16,7 @@ no upstream macOS CLI to pin.
 macOS arm64 gets **whisper-cli v1.9.1 built by this project** and published as
 a release asset of this repository:
 
-- [`whisper-cli-v1.9.1-macos-arm64.tar.gz`](https://github.com/WeftCut/WeftCut/releases/download/content-whisper-cli-v1.9.1/whisper-cli-v1.9.1-macos-arm64.tar.gz),
+- [`whisper-cli-v1.9.1-macos-arm64.tar.gz`](https://api.github.com/repositories/1246738326/releases/assets/583933461),
   1,169,176 bytes, SHA-256
   `cda72d4951aa2adbcf4b109151fbfaa071be7fab0297acbf002f3cf5d007b8d1`;
   entry point `whisper-cli-v1.9.1-macos-arm64/whisper-cli`.

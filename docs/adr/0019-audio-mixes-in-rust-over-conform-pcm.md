@@ -38,7 +38,7 @@ clipping answer.
   to canonical PCM — 48 kHz, f32, interleaved, source channels capped
   at 2 (mono stays mono) — under `Cache/audio/{blake3}.conform` with a
   VPEAKS-style header. Both preview and export read conform and only
-  conform: the preview over `weftcut-media://` Range windows with zero decode
+  conform: the preview over `lahza-media://` Range windows with zero decode
   in the renderer, the export mixer by direct frame-offset reads.
   48 kHz makes the dominant source class (video audio) a
   decode-without-resample; f32 makes the cache format identical to
@@ -84,7 +84,7 @@ clipping answer.
   allocation (~1.4 GB/h, unbounded by `suspend()`); segmented
   multi-context rendering loses stateful-node state at seams. The
   only surveyed project doing this is pure-web and caps renders at
-  500 MiB with a skip fallback — a constraint WeftCut, with Rust at
+  500 MiB with a skip fallback — a constraint Lahza, with Rust at
   hand, has no reason to inherit.
 - **All-TS export audio** (ADR 0001 redux — offline mix in the export
   Worker): already superseded once; the Worker has no Web Audio

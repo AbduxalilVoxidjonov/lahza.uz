@@ -4,7 +4,7 @@ status: superseded
 
 # An agent may fetch open-licence pictures, with their credits
 
-> **Superseded by ADR 0137.** WeftCut no longer searches an image library
+> **Superseded by ADR 0137.** Lahza no longer searches an image library
 > for the agent; pictures come from the user's media, the footage, or what
 > the agent draws, and a missing picture is reported.
 
@@ -20,7 +20,7 @@ a still of the slide the speaker stood beside. The agents had nothing else:
 - Claude models cannot output images;
 - drawing meant forking a Motif per picture.
 
-ADR 0132 listed the picture sources and said WeftCut calls no image service.
+ADR 0132 listed the picture sources and said Lahza calls no image service.
 The user set the order instead:
 1. their own media;
 2. a search of open image libraries, when their media is missing a picture
@@ -32,7 +32,7 @@ and the bench's agent has no web tools.
 
 ## Decision
 
-- **WeftCut searches Wikimedia Commons for the agent.**
+- **Lahza searches Wikimedia Commons for the agent.**
   - `search_images` returns candidates as thumbnails with their licence and
     credit line, so the agent can look before it chooses.
   - `import_image` fetches one into the pool.
@@ -73,7 +73,7 @@ and the bench's agent has no web tools.
   4. a picture the agent's model generates, where it can;
   5. a drawing.
 
-  This revises ADR 0132's list and its "WeftCut calls no image service".
+  This revises ADR 0132's list and its "Lahza calls no image service".
 
 ## Consequences
 

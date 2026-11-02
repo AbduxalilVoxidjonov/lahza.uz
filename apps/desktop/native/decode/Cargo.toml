@@ -1,27 +1,27 @@
-# @weftcut/native-decode — the optional native preview-decode component
+# @lahza/native-decode — the optional native preview-decode component
 # (ADR 0030 §Conditional first-class). Carries preview_sw +
-# preview_gpu and the ONLY ffmpeg-next linkage in the repo; @weftcut/core
+# preview_gpu and the ONLY ffmpeg-next linkage in the repo; @lahza/core
 # must never link libav. Build needs FFMPEG_DIR (shared build with
 # include/ + lib/) and LIBCLANG_PATH; run needs the matching DLLs on PATH.
 [package]
-name = "weftcut-native-decode"
+name = "lahza-native-decode"
 version = "0.0.0"
 edition = "2021"
-description = "WeftCut native decode component"
+description = "Lahza native decode component"
 license = "MIT"
-authors = ["WeftCut"]
+authors = ["Lahza"]
 publish = false
 rust-version = "1.88"
 
 [lib]
-name = "weftcut_native_decode"
+name = "lahza_native_decode"
 crate-type = ["cdylib"]
 
 [build-dependencies]
 napi-build = "2"
 
 [dependencies]
-# `dyn-symbols` is a NAPI-RS v3 DEFAULT (see @weftcut/core's Cargo.toml): the
+# `dyn-symbols` is a NAPI-RS v3 DEFAULT (see @lahza/core's Cargo.toml): the
 # component addon resolves the host's `napi_*` entry points via dynamic lookup at
 # load time instead of baking them in as hard import records. Same production
 # symbol-resolution policy as the core addon — keep the two in lockstep.
@@ -53,7 +53,7 @@ libc = "0.2"
 # export_sw unit tests link and run on Linux (and macOS once its ffmpeg-lgpl
 # asset lands) as well as Windows.
 #
-# NOTE: unlike @weftcut/core this enables ONLY `napi/noop`, NOT
+# NOTE: unlike @lahza/core this enables ONLY `napi/noop`, NOT
 # `napi-derive/noop`. decode holds `ThreadsafeFunction<ExportSwMsg>` /
 # `ThreadsafeFunction<String>` in non-test code; `napi-derive/noop` would delete
 # the derived `ToNapiValue` impl for the `#[napi(object)]` `ExportSwMsg` that the

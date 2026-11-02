@@ -6,7 +6,7 @@ import { reserveResources } from './resources'
 export function createMacDecodeProbe() {
   const probe = createDecodeProbeProcess({
     spawn: () => utilityProcess.fork(path.join(import.meta.dirname, 'decodeProbe.js'), [], {
-      serviceName: 'WeftCut decode probe', stdio: 'ignore',
+      serviceName: 'Lahza decode probe', stdio: 'ignore',
     }),
     kill(child) {
       // utilityProcess.kill may send SIGTERM. Native driver calls cannot be

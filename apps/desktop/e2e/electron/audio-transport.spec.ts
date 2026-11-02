@@ -9,7 +9,7 @@ test('audio transport starts/stops without presentation and survives closing Pre
   test.setTimeout(120_000);
   const { app, page } = await launchApp();
   try {
-    const folder = tmpDir('weftcut-audio-transport-');
+    const folder = tmpDir('lahza-audio-transport-');
     const frames = 48_000 * 30;
     const wav = Buffer.alloc(44 + frames * 2);
     wav.write('RIFF', 0); wav.writeUInt32LE(wav.length - 8, 4);
@@ -27,10 +27,10 @@ test('audio transport starts/stops without presentation and survives closing Pre
       const s = await summary(page);
       return (s.media.find((m) => m.id === mediaId) as { conform_path?: string } | undefined)?.conform_path ?? null;
     }, { timeout: 60_000 }).not.toBeNull();
-    await expect.poll(() => page.evaluate(() => (window as any).__weftcutTest.previewResourceProbe())).not.toBeNull();
-    const probe = () => page.evaluate(() => (window as any).__weftcutTest.audioTransportSnapshot());
+    await expect.poll(() => page.evaluate(() => (window as any).__lahzaTest.previewResourceProbe())).not.toBeNull();
+    const probe = () => page.evaluate(() => (window as any).__lahzaTest.audioTransportSnapshot());
     await page.evaluate(() => {
-      const hook = (window as any).__weftcutTest;
+      const hook = (window as any).__lahzaTest;
       hook.previewTickerEnabled(false);
       hook.transportSeekUs(0);
       hook.transportPlay();
@@ -39,7 +39,7 @@ test('audio transport starts/stops without presentation and survives closing Pre
     await expect.poll(async () => (await probe())?.rmsDb ?? -120).toBeGreaterThan(-40);
     const beforePause = await probe();
     const stopped = await page.evaluate(() => {
-      const hook = (window as any).__weftcutTest;
+      const hook = (window as any).__lahzaTest;
       hook.transportPause();
       const state = hook.audioTransportSnapshot();
       // Stop must reach Web Audio BEFORE a subsequent main-thread stall.
@@ -53,18 +53,18 @@ test('audio transport starts/stops without presentation and survives closing Pre
     expect((await probe()).positionUs).toBe(stopped.positionUs);
 
     // Resume also works with the ticker still stopped.
-    await page.evaluate(() => (window as any).__weftcutTest.transportPlay());
+    await page.evaluate(() => (window as any).__lahzaTest.transportPlay());
     await expect.poll(async () => (await probe())?.rmsDb ?? -120).toBeGreaterThan(-40);
 
     // A real fetch rejection must remain visible and retriable. The status
     // shares the toolbar's caption typography and does not displace Play.
     await page.evaluate(() => {
-      const hook = (window as any).__weftcutTest;
+      const hook = (window as any).__lahzaTest;
       hook.transportPause();
       const original = window.fetch;
       (window as any).__restoreAudioFetch = () => { window.fetch = original; };
       window.fetch = (input, init) => {
-        if (String(input).startsWith('weftcut-media:')) {
+        if (String(input).startsWith('lahza-media:')) {
           return Promise.reject(new DOMException('Controlled PCM read failure', 'NetworkError'));
         }
         return original(input, init);
@@ -110,9 +110,9 @@ test('audio transport starts/stops without presentation and survives closing Pre
     expect(withoutPanel.contextTime).toBeGreaterThan(beforePause.contextTime);
     await expect.poll(async () => (await probe()).positionUs).toBeGreaterThan(withoutPanel.positionUs);
     await expect.poll(async () => (await probe()).rmsDb).toBeGreaterThan(-40);
-    await page.evaluate(() => (window as any).__weftcutTest.transportPause());
+    await page.evaluate(() => (window as any).__lahzaTest.transportPause());
     await expect.poll(async () => (await probe()).rmsDb).toBeLessThan(-90);
-    await page.evaluate(() => (window as any).__weftcutTest.transportPlay());
+    await page.evaluate(() => (window as any).__lahzaTest.transportPlay());
     await expect.poll(async () => (await probe()).phase).toBe('playing');
     await viewMenu.click();
     await page.locator('.app-menu-item').filter({ hasText: /^Preview$/ }).click();

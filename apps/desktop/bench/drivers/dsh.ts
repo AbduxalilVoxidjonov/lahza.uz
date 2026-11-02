@@ -24,7 +24,7 @@ import os from 'node:os'
 import path from 'node:path'
 import type { Driver, DriverRunInput, DriverRunOutput } from './types'
 
-const SERVER = 'weftcut'
+const SERVER = 'lahza'
 const DEFAULT_PROVIDER = 'deepseek-official'
 
 /** Rows of the headless profile turned off for a run: the tools the Claude
@@ -114,7 +114,7 @@ export const dshDriver: Driver = {
     // Copied, not linked, as in the Claude driver: the agent's write tool must
     // not reach the repo's skill.
     fs.cpSync(input.skill_path, path.join(input.workdir, '.dsh', 'skills', SERVER), { recursive: true })
-    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-dsh-'))
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-dsh-'))
     const patchPath = path.join(home, 'bench.patch.yml')
     fs.writeFileSync(patchPath, JSON.stringify(runPatch(input), null, 2))
     const env: NodeJS.ProcessEnv = {

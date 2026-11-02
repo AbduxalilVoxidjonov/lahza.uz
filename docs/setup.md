@@ -1,12 +1,12 @@
 # Setup
 
-Prerequisites for building WeftCut on each supported OS, and the
+Prerequisites for building Lahza on each supported OS, and the
 first-run flow.
 
-WeftCut is an Electron app: it bundles its own Chromium on every OS, so
+Lahza is an Electron app: it bundles its own Chromium on every OS, so
 there is **no per-OS webview runtime to install** (no WebView2 on
 Windows, no WKWebView on macOS, no WebKitGTK on Linux). The only native
-build dependency is the Rust toolchain, used to compile the `@weftcut/core`
+build dependency is the Rust toolchain, used to compile the `@lahza/core`
 napi addon under `apps/desktop/native/`.
 
 The repo root contains `rust-toolchain.toml`, which tells `rustup` to use
@@ -45,7 +45,7 @@ npm run dev     # build eval wasm → Vite (renderer) → Electron window
 
 `npm install` installs JS dependencies but does **not** build the native
 addons. `npm run bootstrap` fetches ffmpeg and compiles the two napi addons
-(`@weftcut/core`, `@weftcut/native-decode`); `npm run dev` then builds the
+(`@lahza/core`, `@lahza/native-decode`); `npm run dev` then builds the
 eval wasm, starts Vite, and launches the Electron window.
 
 ## macOS
@@ -90,7 +90,7 @@ with `unknown type [0x13] section .relr.dyn`. For local development, explicitly
 use the host Rust/C/C++ toolchain instead:
 
 ```sh
-WEFTCUT_NATIVE_BUILD=1 npm run bootstrap
+LAHZA_NATIVE_BUILD=1 npm run bootstrap
 npm run dev
 ```
 
@@ -108,7 +108,7 @@ and its compatibility checks are unchanged.
 
 ## ffmpeg
 
-WeftCut will auto-download ffmpeg via `ffmpeg-sidecar` on first run,
+Lahza will auto-download ffmpeg via `ffmpeg-sidecar` on first run,
 but the downloader uses `ureq` without SOCKS support. If you're behind
 an `ALL_PROXY=socks5h://...` proxy (China / GFW workarounds, corporate
 VPNs), the download will fail with `Connection refused`. Workarounds:
@@ -134,7 +134,7 @@ webview runtime to provision.
 After cloning, run `npm install` (JS deps) then `npm run bootstrap` once.
 `bootstrap` fetches ffmpeg (both the runtime static build and the LGPL dev
 libs) and compiles the two Rust napi addons the renderer/main import
-(`@weftcut/core`, `@weftcut/native-decode`) — `npm install` alone does **not**
+(`@lahza/core`, `@lahza/native-decode`) — `npm install` alone does **not**
 build them, so `npm run dev` on a fresh clone fails without this step. Re-run
 `bootstrap` only after touching the Rust sources under `native/`; cargo's
 incremental build makes repeat runs cheap. The app icon is committed at

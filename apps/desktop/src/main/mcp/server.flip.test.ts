@@ -307,7 +307,7 @@ describe('a source whose file no longer holds its bytes', () => {
     const spy = vi.fn(async (_name: string, _args: string) => '{"ok":true,"result":{"content":[]}}')
     const result = await handleCallTool(fakeBackend(spy), () => ts, 'analyze_audio', { media_id: MID }) as any
     expect(result.isError).toBe(true)
-    expect(result.content[0].text).toContain(state === 'changed' ? 'changed outside WeftCut' : 'missing')
+    expect(result.content[0].text).toContain(state === 'changed' ? 'changed outside Lahza' : 'missing')
     expect(spy).not.toHaveBeenCalled()
   })
 

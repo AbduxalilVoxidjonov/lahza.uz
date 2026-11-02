@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-/// Install the bundled weftcut-mcp shim into <userData>/cli/ at app startup.
+/// Install the bundled lahza-mcp shim into <userData>/cli/ at app startup.
 ///
 /// userData is the path client configs reference because it is the only one
 /// that is stable across version upgrades on all three OSes — on AppImage the
@@ -12,15 +12,15 @@ import path from 'node:path'
 /// Electron-free on purpose (paths ride in as arguments) so Vitest can cover
 /// it — `electron` cannot load under the unit runner.
 export function installShim(opts: {
-  /// Packaged source: <resources>/cli/weftcut-mcp.cjs (extraResources).
+  /// Packaged source: <resources>/cli/lahza-mcp.cjs (extraResources).
   resourcesShim: string
-  /// Dev source: <appRoot>/out/cli/weftcut-mcp.cjs (present after build:cli).
+  /// Dev source: <appRoot>/out/cli/lahza-mcp.cjs (present after build:cli).
   devShim: string
   isPackaged: boolean
   userDataDir: string
 }): string | null {
   const source = opts.isPackaged ? opts.resourcesShim : opts.devShim
-  const dest = path.join(opts.userDataDir, 'cli', 'weftcut-mcp.cjs')
+  const dest = path.join(opts.userDataDir, 'cli', 'lahza-mcp.cjs')
   try {
     if (fs.existsSync(source)) {
       fs.mkdirSync(path.dirname(dest), { recursive: true })
@@ -45,6 +45,6 @@ export function stdioConnectConfig(opts: {
   return {
     command: opts.appImage ?? opts.execPath,
     args: [opts.shimPath],
-    env: { ELECTRON_RUN_AS_NODE: '1', WEFTCUT_USERDATA: opts.userDataDir },
+    env: { ELECTRON_RUN_AS_NODE: '1', LAHZA_USERDATA: opts.userDataDir },
   }
 }

@@ -77,18 +77,18 @@ async function setContent(page: Page, layerId: string, content: string): Promise
 
 test("CJK wraps in the export Worker's realm, not only the preview's", async () => {
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === "1",
+    process.env.LAHZA_E2E_NO_EXPORT === "1",
     "both legs drive a real WebCodecs encode; the wrap rule itself is unit-covered",
   );
   test.setTimeout(300_000);
-  const outDir = tmpDir("weftcut-e2e-cjk-out-");
+  const outDir = tmpDir("lahza-e2e-cjk-out-");
   const autoWrap = path.join(outDir, "auto-wrap.mp4");
   const explicitBreaks = path.join(outDir, "explicit-breaks.mp4");
 
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-cjk-proj-"),
+      parentFolder: tmpDir("lahza-e2e-cjk-proj-"),
       name: `textbox-cjk-${Date.now()}`,
       canvas: CANVAS,
     });

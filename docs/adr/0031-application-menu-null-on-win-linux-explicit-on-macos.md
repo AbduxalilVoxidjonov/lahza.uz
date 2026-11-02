@@ -4,7 +4,7 @@ status: accepted
 # 0031 — Application menu: `null` on Windows/Linux, explicit minimal menu on macOS
 
 ## Context
-Every WeftCut keyboard shortcut is dispatched in the **renderer** by `useShortcuts`
+Every Lahza keyboard shortcut is dispatched in the **renderer** by `useShortcuts`
 (`src/renderer/shortcuts/`): a `window` keydown listener with capture/bubble phases,
 editable-target and transient-widget awareness, and per-user rebinds persisted to
 `keybindings.json`. The action catalogue (`shortcuts/defs.ts`) is the single source of

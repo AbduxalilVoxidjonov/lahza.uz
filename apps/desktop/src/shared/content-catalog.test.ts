@@ -7,6 +7,8 @@ import { contentPlatformKey, type ContentItem } from "./content-download";
 // URL" edit cannot silently turn a verified artifact into a rolling one.
 // These invariants gate every current AND future entry.
 
+const pendingItems = CONTENT_CATALOG.filter((i) => i.pending);
+
 const allArtifacts = CONTENT_CATALOG.flatMap((item) =>
   Object.entries(item.platforms).map(([platform, artifact]) => ({
     id: item.id,
@@ -19,7 +21,7 @@ describe("content catalog pinning invariants", () => {
   it("ids are unique and every item covers at least one platform", () => {
     const ids = CONTENT_CATALOG.map((i) => i.id);
     expect(new Set(ids).size).toBe(ids.length);
-    for (const item of CONTENT_CATALOG) {
+    for (const item of CONTENT_CATALOG.filter((i) => !i.pending)) {
       expect(Object.keys(item.platforms).length).toBeGreaterThan(0);
     }
   });
@@ -221,7 +223,7 @@ describe("the ADR 0073 Linux slice is present verbatim", () => {
   });
 
   it("every catalog item covers Linux — a half-covered engine has no usable row", () => {
-    for (const item of CONTENT_CATALOG) {
+    for (const item of CONTENT_CATALOG.filter((i) => !i.pending)) {
       expect(Object.keys(item.platforms), item.id).toContain("linux-x64");
     }
   });
@@ -283,7 +285,7 @@ describe("the ADR 0076 macOS arm64 whisper-cli is present verbatim", () => {
     );
     expect(mac?.archive).toBe("tar.gz");
     expect(mac?.url).toBe(
-      "https://github.com/WeftCut/WeftCut/releases/download/content-whisper-cli-v1.9.1/whisper-cli-v1.9.1-macos-arm64.tar.gz",
+      "https://api.github.com/repositories/1246738326/releases/assets/583933461",
     );
     expect(mac?.fields).toEqual({
       binary: "whisper-cli-v1.9.1-macos-arm64/whisper-cli",
@@ -322,6 +324,88 @@ describe("coverage is all-or-nothing per engine on every platform", () => {
           ] !== undefined,
       );
       expect(new Set(covered).size, `${platform}: ${ids.join(", ")}`).toBe(1);
+    }
+  });
+});
+
+describe("first-run components", () => {
+  const byId = (id: string) => CONTENT_CATALOG.find((i) => i.id === id)!;
+  const components = CONTENT_CATALOG.filter((i) => ["tool", "package", "skill-pack"].includes(i.kind));
+
+  it("the requested components are all catalogued", () => {
+    for (const id of ["yt-dlp", "remotion-core", "hyperframes", "remotion-skills", "openmontage"]) {
+      expect(byId(id), id).toBeDefined();
+      // AGPL-3.0: opt-in only, never fetched automatically.
+      expect(byId(id).autoInstall, id).toBe(id !== "openmontage");
+    }
+    expect(byId("asr-navaistt")).toBeDefined();
+  });
+
+  it("a pinned component is an immutable URL: an exact version, tag or commit, never a branch", () => {
+    for (const item of components) {
+      for (const a of Object.values(item.platforms)) {
+        expect(a.url, item.id).not.toMatch(/\/(main|master|HEAD)(\/|$)/);
+        expect(a.url, item.id).toMatch(/\d/);
+      }
+    }
+    expect(byId("remotion-skills").platforms["linux-x64"]!.url).toContain(byId("remotion-skills").version);
+    expect(byId("openmontage").platforms["linux-x64"]!.url).toContain(byId("openmontage").version);
+  });
+
+  it("yt-dlp matches the upstream release digests and is marked executable on every platform", () => {
+    const y = byId("yt-dlp");
+    expect(y.platforms["win32-x64"]!.sha256).toBe("f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d");
+    expect(y.platforms["linux-x64"]!.sha256).toBe("767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795");
+    expect(y.platforms["darwin-arm64"]!.sha256).toBe("0f922c15ccc0b83eefa1c8bc9104e434318c4bf16e408e1ee93b7745a6efe0aa");
+    for (const a of Object.values(y.platforms)) {
+      expect(a.executable).toBe(true);
+      expect(a.archive).toBe("none");
+      expect(a.url).toContain(`/download/${y.version}/`);
+    }
+  });
+
+  it("an unpinned item has no platforms, no auto-install, and a way to finish pinning", () => {
+    // NavaiST is pinned now, so no item is pending at the moment; the loop
+    // still gates any future unpinned entry.
+    for (const item of pendingItems) {
+      expect(Object.keys(item.platforms), item.id).toEqual([]);
+      expect(item.autoInstall, item.id).toBeFalsy();
+      expect(item.pending!.reason.length, item.id).toBeGreaterThan(10);
+      expect(item.pending!.howToPin, item.id).toContain("shasum -a 256");
+    }
+  });
+
+  it("NavaiST v2 medium CT2 is pinned to one HF commit, opt-in, with an explicit license gap", () => {
+    const REV = "e4e78fef714aa13d1e8581cb8816ea362586d543";
+    const items = CONTENT_CATALOG.filter((i) => i.id.startsWith("asr-navaistt"));
+    expect(items.map((i) => i.id).sort()).toEqual([
+      "asr-navaistt", "asr-navaistt-config", "asr-navaistt-preprocessor", "asr-navaistt-tokenizer", "asr-navaistt-vocabulary",
+    ]);
+    for (const item of items) {
+      expect(item.pending, item.id).toBeUndefined();
+      expect(item.autoInstall, item.id).toBe(false);
+      expect(item.version, item.id).toBe(REV);
+      expect(item.license.name, item.id).toMatch(/Unspecified upstream.*permission required/);
+      for (const a of Object.values(item.platforms)) {
+        expect(a.url, item.id).toContain(`/abduaziz/navaistt_v2_medium_ct2/resolve/${REV}/`);
+      }
+    }
+    expect(byId("asr-navaistt").platforms["darwin-arm64"]?.bytes).toBe(1527906453);
+    expect(byId("asr-navaistt").platforms["darwin-arm64"]?.sha256).toBe(
+      "7c247983182b6eee58ab48e94183e6079fdb68d5a621ab50e69a714b45b191f0",
+    );
+  });
+
+  it("every component label key exists in the uz-UZ and en-US locales", async () => {
+    const [uz, en] = await Promise.all([
+      import("../renderer/i18n/locales/uz-UZ"),
+      import("../renderer/i18n/locales/en-US"),
+    ]);
+    for (const item of [...components, ...pendingItems, ...CONTENT_CATALOG.filter((i) => i.id.startsWith("asr-navaistt"))]) {
+      for (const mod of [uz, en]) {
+        const settings = (mod.default as unknown as { settings: Record<string, string> }).settings;
+        expect(typeof settings[item.labelKey], item.labelKey).toBe("string");
+      }
     }
   });
 });

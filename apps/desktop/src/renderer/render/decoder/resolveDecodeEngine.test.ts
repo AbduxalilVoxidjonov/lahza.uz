@@ -9,7 +9,7 @@ function base(over: Partial<DecodeResolveInputs>): DecodeResolveInputs {
     proxyReady: false,
     proxyUrl: null,
     originalPath: "C:/src/a.mov",
-    originalUrl: "weftcut-media://a.mov",
+    originalUrl: "lahza-media://a.mov",
     webcodecsCanDecodeOriginal: "untested",
     ffmpegUsable: true,
     ...over,
@@ -25,7 +25,7 @@ describe("resolveDecodeEngine — engine selection", () => {
   });
   it("auto with no component → webcodecs", () => {
     const r = resolveDecodeEngine(base({ componentAvailable: false, webcodecsCanDecodeOriginal: "ok" }));
-    expect(r).toMatchObject({ engine: "webcodecs", source: "original", status: "ok", target: "weftcut-media://a.mov" });
+    expect(r).toMatchObject({ engine: "webcodecs", source: "original", status: "ok", target: "lahza-media://a.mov" });
   });
   it("setting=ffmpeg pins ffmpeg even without component check on the codec", () => {
     expect(resolveDecodeEngine(base({ setting: "ffmpeg" })).engine).toBe("ffmpeg");
@@ -65,15 +65,15 @@ describe("resolveDecodeEngine — webcodecs × original verdict", () => {
     expect(r).toMatchObject({ status: "pending", target: null });
   });
   it("auto+no-component+unsupported original → unsupported (NO auto-proxy)", () => {
-    const r = resolveDecodeEngine(base({ componentAvailable: false, webcodecsCanDecodeOriginal: "fail", proxyReady: true, proxyUrl: "weftcut-media://p.mp4" }));
+    const r = resolveDecodeEngine(base({ componentAvailable: false, webcodecsCanDecodeOriginal: "fail", proxyReady: true, proxyUrl: "lahza-media://p.mp4" }));
     expect(r.status).toBe("unsupported"); // proxy exists but is NOT auto-routed
   });
 });
 
 describe("resolveDecodeEngine — source axis", () => {
   it("useProxySource + proxyReady → decodes the proxy on webcodecs (quick proxy is always WebCodecs-decodable)", () => {
-    const r = resolveDecodeEngine(base({ useProxySource: true, proxyReady: true, proxyUrl: "weftcut-media://p.mp4" }));
-    expect(r).toMatchObject({ engine: "webcodecs", source: "proxy", status: "ok", target: "weftcut-media://p.mp4" });
+    const r = resolveDecodeEngine(base({ useProxySource: true, proxyReady: true, proxyUrl: "lahza-media://p.mp4" }));
+    expect(r).toMatchObject({ engine: "webcodecs", source: "proxy", status: "ok", target: "lahza-media://p.mp4" });
   });
   it("useProxySource but proxy not built → pending", () => {
     expect(resolveDecodeEngine(base({ useProxySource: true, proxyReady: false })).status).toBe("pending");
@@ -81,16 +81,16 @@ describe("resolveDecodeEngine — source axis", () => {
   it("proxy source resolves to webcodecs even when setting is ffmpeg", () => {
     expect(resolveDecodeEngine(base({
       setting: "ffmpeg", useProxySource: true, proxyReady: true,
-      proxyUrl: "weftcut-media://p.mp4",
+      proxyUrl: "lahza-media://p.mp4",
     }))).toMatchObject({
-      engine: "webcodecs", source: "proxy", status: "ok", target: "weftcut-media://p.mp4",
-      key: "webcodecs:proxy:weftcut-media://p.mp4",
+      engine: "webcodecs", source: "proxy", status: "ok", target: "lahza-media://p.mp4",
+      key: "webcodecs:proxy:lahza-media://p.mp4",
     });
   });
   it("proxy source with no component still resolves to webcodecs (rescue path)", () => {
     expect(resolveDecodeEngine(base({
       setting: "ffmpeg", componentAvailable: false, useProxySource: true,
-      proxyReady: true, proxyUrl: "weftcut-media://p.mp4",
+      proxyReady: true, proxyUrl: "lahza-media://p.mp4",
     }))).toMatchObject({ engine: "webcodecs", source: "proxy", status: "ok" });
   });
   it("proxy requested but not ready → pending on webcodecs", () => {

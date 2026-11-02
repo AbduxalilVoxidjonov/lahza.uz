@@ -1,6 +1,6 @@
 // Role gating for the audio preview, mirroring the Rust role gating in
 // `audio/mix.rs::audible_audio_layers` + the role-gain fold in `plan_for_project`.
-// The mute/solo DECISION and dbToLinear now run the shared weftcut-eval wasm
+// The mute/solo DECISION and dbToLinear now run the shared lahza-eval wasm
 // (the SAME crate the Rust export mixer links), so there is no hand-mirrored
 // copy to drift — the roleGate golden is a wasm-smoke. `anyRoleSolo` and the
 // absent-role default stay in JS (trivial `.some` / the caller's resolution,

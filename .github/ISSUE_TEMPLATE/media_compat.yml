@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        WeftCut decodes through two engines — WebCodecs in the renderer and
+        Lahza decodes through two engines — WebCodecs in the renderer and
         FFmpeg natively — so "which stage fails" is the single most useful thing
         you can tell us.
   - type: input
@@ -34,7 +34,7 @@ body:
       description: >
         Container, video codec, audio codec, resolution, frame rate — whatever you
         know. If you have ffprobe on hand, `ffprobe -hide_banner <file>` prints all
-        of it at once and pasting that output is ideal. WeftCut ships an ffprobe
+        of it at once and pasting that output is ideal. Lahza ships an ffprobe
         under its `resources/ffmpeg/` directory if you'd rather not install one.
       render: text
     validations:

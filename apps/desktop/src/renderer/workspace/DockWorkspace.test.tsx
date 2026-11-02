@@ -51,7 +51,7 @@ vi.mock("dockview-react", async () => {
             }>
           >
         | undefined;
-      const Tab = tabComponents?.["weftcut-tab"] as
+      const Tab = tabComponents?.["lahza-tab"] as
         | ComponentType<{
             api: unknown;
             containerApi: unknown;
@@ -68,7 +68,7 @@ vi.mock("dockview-react", async () => {
             }>
           >
         | undefined;
-      const Content = components?.["weftcut-panel"];
+      const Content = components?.["lahza-panel"];
       return (
         <div data-testid="dockview">
           {dockHarness.renderWatermark && Watermark ? <Watermark /> : null}
@@ -498,7 +498,7 @@ describe("DockWorkspace React integration", () => {
       </StrictMode>,
     );
 
-    // StrictMode intentionally repeats effect setup, while the WeftCut
+    // StrictMode intentionally repeats effect setup, while the Lahza
     // adapter recognizes the same API and leaves registration idempotent.
     expect(dockHarness.readyCalls).toBe(2);
     expect(dock.addPanel).toHaveBeenCalledTimes(9);

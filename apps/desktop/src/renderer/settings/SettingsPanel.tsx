@@ -32,6 +32,7 @@ import { LayoutThemeControl } from "./LayoutThemeControl";
 import { AgentSection } from "./AgentSection";
 import { PreviewSection } from "./PreviewSection";
 import { PerformanceSection } from "./PerformanceSection";
+import { ComponentsSection } from "./ComponentsSection";
 import { ModelSection } from "./ModelSection";
 import { VlmSection } from "./VlmSection";
 import {
@@ -1334,5 +1335,5 @@ function CompositionSection({
 }
 
 function SpeechSection({ onError }: { onError: (msg: string) => void }) {
-  return <ModelSection family="speech" onError={onError} />;
+  return <><ModelSection family="speech" onError={onError} /><ComponentsSection onError={onError} /></>;
 }

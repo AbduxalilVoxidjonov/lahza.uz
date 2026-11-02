@@ -568,10 +568,10 @@ export function App({ onCloseProject }: AppProps) {
     }
   }, [run, t]);
 
-  // E2E-only: expose `window.__weftcutTest.exportClip`, wired to the real
-  // export path. Stripped from prod (static `VITE_WEFTCUT_E2E` check).
+  // E2E-only: expose `window.__lahzaTest.exportClip`, wired to the real
+  // export path. Stripped from prod (static `VITE_LAHZA_E2E` check).
   useEffect(() => {
-    if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
+    if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
     void import("./testhook/e2eHook").then(({ installExportHook }) =>
       installExportHook(runExportWithSettings, setPendingRevealLayerId),
     );
@@ -582,9 +582,9 @@ export function App({ onCloseProject }: AppProps) {
   // assert focus/maximize/open-close/empty without reaching into Dockview's
   // private DOM. Reads the controller's live getSnapshot at call time; the
   // effect re-runs (reinstalling, or nulling out) as the controller mounts and
-  // unmounts. Stripped from prod (static `VITE_WEFTCUT_E2E` check).
+  // unmounts. Stripped from prod (static `VITE_LAHZA_E2E` check).
   useEffect(() => {
-    if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
+    if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
     void import("./testhook/e2eHook").then(({ installDockWorkspaceProbe }) =>
       installDockWorkspaceProbe(() => {
         const snapshot = workspaceController?.getSnapshot();

@@ -1,0 +1,31 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.color.warm",
+  "version": "1.0.0",
+  "kind": "color",
+  "name": {
+    "uz": "Iliq",
+    "uz-Cyrl": "Илиқ",
+    "ru": "Тёплый",
+    "en": "Warm"
+  },
+  "description": {
+    "uz": "Iliq, oltin tus",
+    "uz-Cyrl": "Илиқ, олтин тус",
+    "ru": "Тёплый золотистый тон",
+    "en": "Warm golden tone"
+  },
+  "backend": "color",
+  "preset": "warm",
+  "params": [
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 1.0
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

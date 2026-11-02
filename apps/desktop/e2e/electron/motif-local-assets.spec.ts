@@ -129,7 +129,7 @@ test('@serial Three.js Motif ZIP round-trip loads local modules, GLB and texture
       const host = webContents.getAllWebContents().find(w => w.getURL().startsWith(`motif://${motifId}/`))!
       return host.executeJavaScript(`(async () => {
         const urls = ['https://example.invalid/model.glb', 'http://127.0.0.1:40000/model.glb',
-          'motif://countdown/index.html', 'file:///not-a-motif', 'weftcut-media://not-a-motif'];
+          'motif://countdown/index.html', 'file:///not-a-motif', 'lahza-media://not-a-motif'];
         const blocked = [];
         for (const url of urls) {
           const violation = new Promise(resolve => document.addEventListener('securitypolicyviolation',

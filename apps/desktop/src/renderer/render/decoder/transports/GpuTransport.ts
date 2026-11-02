@@ -168,10 +168,10 @@ export class GpuTransport implements DecodeTransport {
     // session but the newest. Match our own id; ignore the rest.
     this.messageListener = (ev: MessageEvent) => {
       const data = ev.data as
-        | { __weftcutPreviewGpu?: string; streamId?: string }
+        | { __lahzaPreviewGpu?: string; streamId?: string }
         | null
         | undefined;
-      if (!data || data.__weftcutPreviewGpu !== "port") return;
+      if (!data || data.__lahzaPreviewGpu !== "port") return;
       if (data.streamId !== this.streamId) return;
       const port = ev.ports?.[0];
       if (!port) return;

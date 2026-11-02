@@ -11,7 +11,7 @@ import { listenLoopback } from './bind.js'
 import { NO_MCP_LOG, type McpLogEntryInput } from './withLog.js'
 import type { AgentConnection, AgentConnectionSnapshot } from '../../shared/agent-activity.js'
 
-type Backend = import('@weftcut/core').Backend
+type Backend = import('@lahza/core').Backend
 
 export interface McpInfoView {
   bind: string
@@ -283,7 +283,7 @@ export async function startMcpHost(backend: Backend, opts: McpHostOptions = {}):
   if (!app.isPackaged) {
     console.log(
       `[mcp] connect: ${JSON.stringify({
-        mcpServers: { weftcut: { url, headers: { Authorization: `Bearer ${auth.token}` } } },
+        mcpServers: { lahza: { url, headers: { Authorization: `Bearer ${auth.token}` } } },
       })}`,
     )
   }
@@ -306,7 +306,7 @@ export async function startMcpHost(backend: Backend, opts: McpHostOptions = {}):
       for (const server of servers) {
         server
           .notification({
-            method: 'notifications/weftcut/change',
+            method: 'notifications/lahza/change',
             params: summary as Record<string, unknown>,
           })
           .catch(() => {

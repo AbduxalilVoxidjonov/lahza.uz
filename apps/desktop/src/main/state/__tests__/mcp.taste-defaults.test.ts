@@ -79,7 +79,7 @@ describe('apply_transcripts is born in the caption tokens', () => {
     expect(cues(a)).toHaveLength(1)
     expect((cues(a)[0]!.params as TextParams).content.split('\n')).toHaveLength(2)
     expect(longest(a)).toBeLessThanOrEqual(42)
-    expect(cues(a)[0]!.metadata['weftcut.caption_timing']).toMatchObject({ provenance: 'exact', text: (cues(a)[0]!.params as TextParams).content })
+    expect(cues(a)[0]!.metadata['lahza.caption_timing']).toMatchObject({ provenance: 'exact', text: (cues(a)[0]!.params as TextParams).content })
   })
 
   it('splits cues in time when a TASTE asks for shorter lines', () => {

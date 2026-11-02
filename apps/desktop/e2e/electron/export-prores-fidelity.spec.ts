@@ -27,11 +27,11 @@ import {
 //      pin (ffmpeg vs webcodecs): SSIM(native, source) > SSIM(proxy, source).
 //      Structural guarantee: the proxy leg pays two lossy generations
 //      (ProRes → proxy encode → export encode), the native leg one.
-// Same run requirements as export-native-wedges.spec.ts: a VITE_WEFTCUT_E2E=1
-// build, WEFTCUT_DECODE_E2E=1, and the built native-decode component.
+// Same run requirements as export-native-wedges.spec.ts: a VITE_LAHZA_E2E=1
+// build, LAHZA_DECODE_E2E=1, and the built native-decode component.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 // 10 s @ 30 fps testsrc2 ProRes — the frame counters give analyze()'s
 // best-match alignment real teeth on the differential legs.
 const PRORES = path.resolve(MEDIA_DIR, 'test_1080p_30fps_prores.mov')
@@ -74,7 +74,7 @@ async function bootProject(page: Page, prefix: string): Promise<void> {
   // one-slot policy correctly returns busy instead of reaching the fidelity gate.
   await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { processing: 'high' } } })
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-e2e-pf-proj-'),
+    parentFolder: tmpDir('lahza-e2e-pf-proj-'),
     name: prefix + Date.now(),
     canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
   })
@@ -82,10 +82,10 @@ async function bootProject(page: Page, prefix: string): Promise<void> {
 }
 
 async function readPerf(page: Page): Promise<NativePerf> {
-  const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+  const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
     | NativePerf
     | null
-  if (!perf) throw new Error('export settled but __weftcutExportPerf is missing (VITE_WEFTCUT_E2E build?)')
+  if (!perf) throw new Error('export settled but __lahzaExportPerf is missing (VITE_LAHZA_E2E build?)')
   return perf
 }
 
@@ -148,7 +148,7 @@ async function runTimelineExport(
     { hook: 'exportTimeline', timeout: timeoutMs },
   )
   if (!r.done.ok) throw new Error('exportTimeline failed: ' + r.done.error)
-  // __weftcutExportPerf is (re)published on each export's `done` message
+  // __lahzaExportPerf is (re)published on each export's `done` message
   // (worker/runExport.ts), so it must be read here, before the next export
   // overwrites it.
   return readPerf(page)
@@ -156,11 +156,11 @@ async function runTimelineExport(
 
 test.describe('export ProRes fidelity gates (Electron)', () => {
   test.skip(
-    process.env.WEFTCUT_DECODE_E2E !== '1',
-    'ProRes fidelity gates are local-only (need the native-decode component + a VITE_WEFTCUT_E2E=1 build); set WEFTCUT_DECODE_E2E=1 to run',
+    process.env.LAHZA_DECODE_E2E !== '1',
+    'ProRes fidelity gates are local-only (need the native-decode component + a VITE_LAHZA_E2E=1 build); set LAHZA_DECODE_E2E=1 to run',
   )
   test.skip(!COMPONENT_PRESENT, `native-decode component not built (${DECODE_ADDON}) — the app cannot open native sessions`)
-  test.skip(!existsSync(PRORES), `ProRes fixture not found at ${PRORES} (set WEFTCUT_TEST_MEDIA / npm run fixtures)`)
+  test.skip(!existsSync(PRORES), `ProRes fixture not found at ${PRORES} (set LAHZA_TEST_MEDIA / npm run fixtures)`)
 
   // Gate A: the color half — the chart's colors and its
   // bt709/limited interpretation must survive native decode → composite →
@@ -171,7 +171,7 @@ test.describe('export ProRes fidelity gates (Electron)', () => {
     test.skip(!existsSync(MANIFEST), `color manifest not found at ${MANIFEST} (npm run fixtures)`)
     test.setTimeout(420_000)
     const { app, page } = await launchApp()
-    const OUT_COLOR = path.join(tmpDir('weftcut-e2e-pf-color-'), 'color.mp4')
+    const OUT_COLOR = path.join(tmpDir('lahza-e2e-pf-color-'), 'color.mp4')
     try {
       await bootProject(page, 'e2e-pf-color-')
       await importAndPlaceMedia(page, { mediaAbsPath: CHART_PRORES, tStartUs: 0 })
@@ -226,8 +226,8 @@ test.describe('export ProRes fidelity gates (Electron)', () => {
     // gates and the whole test roughly the sum of both legs.
     test.setTimeout(900_000)
     const { app, page } = await launchApp()
-    const OUT_NATIVE = path.join(tmpDir('weftcut-e2e-pf-native-'), 'native.mp4')
-    const OUT_PROXY = path.join(tmpDir('weftcut-e2e-pf-proxy-'), 'proxy.mp4')
+    const OUT_NATIVE = path.join(tmpDir('lahza-e2e-pf-native-'), 'native.mp4')
+    const OUT_PROXY = path.join(tmpDir('lahza-e2e-pf-proxy-'), 'proxy.mp4')
     try {
       await bootProject(page, 'e2e-pf-diff-')
       await importAndPlaceMedia(page, { mediaAbsPath: PRORES, tStartUs: 0 })

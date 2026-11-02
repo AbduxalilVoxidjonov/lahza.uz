@@ -34,7 +34,7 @@ deleting the saved result. Machine/build/protocol mismatches disable restoration
 Cancel, a closed test window or a failed run never applies settings. The owner
 process also cancels testing on application exit. Test reports and the child's
 isolated profile are retained beneath the OS temporary directory in
-`weftcut-performance-calibration/run-*`.
+`lahza-performance-calibration/run-*`.
 
 The first in-app run generates the synthetic reference under
 `<dataRoot>/cache/performance-calibration` with the app's bundled FFmpeg and

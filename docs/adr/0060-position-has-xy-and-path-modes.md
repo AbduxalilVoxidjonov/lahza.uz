@@ -20,7 +20,7 @@ This replaces ADR 0058's proposed `Animated<Vec2>` direction. Follow-up decision
 
 ## Rust conversion core (2026-10-04)
 
-Complex authoring calculations belong in Rust. `weftcut-conversion` owns both directions' sampling, spatial and temporal least-squares fitting, local refinement, redundant-key merging, frame alignment and final spatial-error measurement. It links `weftcut-eval` directly, so there is one implementation of playback math and no TS numerical conversion twin. Temporal fitting uses the existing normalized scalar spline format; equal-value endpoints with an intervening excursion must split. XY axis residual targets share the pixel-error budget, and final verification measures the joint spatial distance.
+Complex authoring calculations belong in Rust. `lahza-conversion` owns both directions' sampling, spatial and temporal least-squares fitting, local refinement, redundant-key merging, frame alignment and final spatial-error measurement. It links `lahza-eval` directly, so there is one implementation of playback math and no TS numerical conversion twin. Temporal fitting uses the existing normalized scalar spline format; equal-value endpoints with an intervening excursion must split. XY axis residual targets share the pixel-error budget, and final verification measures the joint spatial distance.
 
 Conversion requires dynamic reference/working buffers. Its separate std-enabled Wasm module preserves the small allocation-free playback module. The eval crate's `hosted` feature omits its standalone exports and panic handler when linked into conversion; the two Wasm artifacts must be built in separate cargo invocations to avoid feature unification. Both are embedded in the existing generated artifact and covered by the Rust-source cache key.
 

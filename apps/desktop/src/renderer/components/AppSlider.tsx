@@ -30,7 +30,7 @@ interface AppSliderProps {
   className?: string;
 }
 
-/// The one slider for every WeftCut form. Replaces native
+/// The one slider for every Lahza form. Replaces native
 /// `<input type="range">` with an app-skinned track/thumb (the .app-slider*
 /// classes) so all sliders look the same and pick up keyboard stepping,
 /// Home/End, and pointer-anywhere-on-track jumps from Base UI.

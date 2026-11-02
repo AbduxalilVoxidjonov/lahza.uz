@@ -52,7 +52,7 @@ describe("prepareExportMedia", () => {
     probe: vi.fn().mockResolvedValue("ok"),
     ensureFullProxy: vi.fn().mockResolvedValue(undefined),
     proxyStateOf: () => undefined,
-    urlForOriginal: (m: any) => `weftcut-media://${m.id}`,
+    urlForOriginal: (m: any) => `lahza-media://${m.id}`,
     memo: new Map<string, ProbeState>(),
     ...over,
   });

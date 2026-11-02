@@ -173,7 +173,7 @@ test.describe("Groups in the media pool", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-group-pool-"),
+        parentFolder: tmpDir("lahza-e2e-group-pool-"),
         name: PROJECT_NAME,
         canvas: CANVAS,
       });
@@ -256,7 +256,7 @@ test.describe("Groups in the media pool", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-group-pool-cycle-"),
+        parentFolder: tmpDir("lahza-e2e-group-pool-cycle-"),
         name: PROJECT_NAME,
         canvas: CANVAS,
       });
@@ -270,13 +270,13 @@ test.describe("Groups in the media pool", () => {
       await waitForHook(page, "setOpenComposition");
       expect(
         await page.evaluate(
-          (id) => (window as any).__weftcutTest.setOpenComposition(id),
+          (id) => (window as any).__lahzaTest.setOpenComposition(id),
           groupId,
         ),
       ).toBe(true);
       await expect.poll(async () => {
         const open = await page.evaluate(() =>
-          (window as any).__weftcutTest.getOpenComposition(),
+          (window as any).__lahzaTest.getOpenComposition(),
         );
         return (open as { id: string } | null)?.id ?? null;
       }).toBe(groupId);

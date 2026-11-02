@@ -543,7 +543,7 @@ const PANEL_COMPONENTS: Readonly<Record<PanelKind, () => ReactElement>> = {
   lahza: LahzaDockPanel,
 };
 
-export function WeftCutPanelRenderer({
+export function LahzaPanelRenderer({
   api,
   containerApi,
   params,
@@ -1210,7 +1210,7 @@ function QuickActionsDockTab({
   );
 }
 
-export function WeftCutDockTab({
+export function LahzaDockTab({
   api,
   containerApi,
   tabLocation,
@@ -1389,8 +1389,8 @@ function TabStripTrailingEdge(props: IDockviewHeaderActionsProps) {
   return <TabStripEdge {...props} toward="end" />;
 }
 
-const DOCK_COMPONENTS = { [DOCK_COMPONENT_ID]: WeftCutPanelRenderer };
-const DOCK_TAB_COMPONENTS = { [DOCK_TAB_COMPONENT_ID]: WeftCutDockTab };
+const DOCK_COMPONENTS = { [DOCK_COMPONENT_ID]: LahzaPanelRenderer };
+const DOCK_TAB_COMPONENTS = { [DOCK_TAB_COMPONENT_ID]: LahzaDockTab };
 
 /* Spaced theme: `gap` is layout-level (the shell sizes groups so a real gap
  * sits between them), letting the sunken workspace background show through

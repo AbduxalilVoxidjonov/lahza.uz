@@ -12,7 +12,7 @@ import { launchApp, newProject, waitForHook, driveExport, importAndPlaceMedia, i
 // Goertzel can read which source-second each output-second carries — the key
 // to proving the audio trim. Local-only (needs `npm run fixtures` + cargo).
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const fixture = (name: string) => path.resolve(MEDIA_DIR, name)
 
 // The 30fps tone-marker fixture (shared with audio.spec.ts). Output fps follows
@@ -158,7 +158,7 @@ test.describe('export range + audio settings (Electron)', () => {
   /// Returns the project directory.
   async function bootProject(namePrefix: string): Promise<string> {
     const name = namePrefix + Date.now()
-    const parent = tmpDir('weftcut-e2e-range-audio-proj-')
+    const parent = tmpDir('lahza-e2e-range-audio-proj-')
     await newProject(page, {
       parentFolder: parent,
       name,
@@ -169,7 +169,7 @@ test.describe('export range + audio settings (Electron)', () => {
   }
 
   /// Boot a fresh project, drive exportClip, and return `{ perf }` — the
-  /// worker's `window.__weftcutExportPerf` (E2E-only), carrying `totalFrames`.
+  /// worker's `window.__lahzaExportPerf` (E2E-only), carrying `totalFrames`.
   async function bootAndExport(opts: {
     output: string
     settings?: Record<string, unknown>
@@ -187,7 +187,7 @@ test.describe('export range + audio settings (Electron)', () => {
     if (!r.done.ok) {
       throw new Error(`export failed: ${r.done.error} | kind=${r.lastKind} detail=${r.lastDetail}`)
     }
-    const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as {
+    const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as {
       totalFrames: number
     } | null
     return { perf }
@@ -198,7 +198,7 @@ test.describe('export range + audio settings (Electron)', () => {
     // Window [1s, 3s): 2 s at 30fps = 60 output frames. Audio output-second 0
     // should carry the source's 1 s tone (520 Hz), second 1 the 2 s tone
     // (640 Hz) — proving the audio was trimmed to the In point and rebased to 0.
-    const output = path.join(tmpDir('weftcut-e2e-range-'), 'range.mp4')
+    const output = path.join(tmpDir('lahza-e2e-range-'), 'range.mp4')
 
     const { perf } = await bootAndExport({ output, range: { startUs: 1_000_000, endUs: 3_000_000 } })
 
@@ -280,7 +280,7 @@ test.describe('export range + audio settings (Electron)', () => {
     expect(await startOf(audioLayer), 'reopening must not repair a sample-aligned audio layer').toBe(slippedAfterMove)
 
     // …and the export still runs and stays audio-faithful from that geometry.
-    const output = path.join(tmpDir('weftcut-e2e-audio-slip-'), 'slip.mp4')
+    const output = path.join(tmpDir('lahza-e2e-audio-slip-'), 'slip.mp4')
     const r = await driveExport(page, { outputAbsPath: output }, { hook: 'exportTimeline' })
     if (!r.done.ok) throw new Error(`export failed: ${r.done.error} | kind=${r.lastKind} detail=${r.lastDetail}`)
     const pcm = extractPcm(output)
@@ -349,7 +349,7 @@ test.describe('export range + audio settings (Electron)', () => {
     // 350_000 µs is exactly sample 16800 and exactly frame 10.5 — the sub-frame
     // geometry of the test above, minus the link move it already covers.
     const SLIP_US = 350_000
-    const outDir = tmpDir('weftcut-e2e-group-audio-')
+    const outDir = tmpDir('lahza-e2e-group-audio-')
     const flatOut = path.join(outDir, 'flat.m4a')
     const groupedOut = path.join(outDir, 'grouped.m4a')
 
@@ -451,7 +451,7 @@ test.describe('export range + audio settings (Electron)', () => {
     test.setTimeout(240000)
     // Whole-clip export to MKV with Opus: exercises libopus encode -> .mka ->
     // stream-copy into .mkv end to end.
-    const output = path.join(tmpDir('weftcut-e2e-opus-'), 'opus.mkv')
+    const output = path.join(tmpDir('lahza-e2e-opus-'), 'opus.mkv')
 
     await bootAndExport({ output, settings: { container: 'mkv', audio: { codec: 'opus' } } })
 
@@ -465,7 +465,7 @@ test.describe('export range + audio settings (Electron)', () => {
 
   test('mute export produces a video file with no audio track', async () => {
     test.setTimeout(240000)
-    const output = path.join(tmpDir('weftcut-e2e-mute-'), 'mute.mp4')
+    const output = path.join(tmpDir('lahza-e2e-mute-'), 'mute.mp4')
 
     await bootAndExport({ output, settings: { audio: { include: false } } })
 
@@ -479,7 +479,7 @@ test.describe('export range + audio settings (Electron)', () => {
     // Whole-clip export with a 2 s keyframe interval. The export sink forces a
     // keyframe every round(fps×2) frames (gopFrames), so ffprobe should see
     // keyframes ~2 s apart — clearly not the 1 s default.
-    const output = path.join(tmpDir('weftcut-e2e-gop-'), 'gop.mp4')
+    const output = path.join(tmpDir('lahza-e2e-gop-'), 'gop.mp4')
 
     await bootAndExport({ output, settings: { keyframeIntervalSec: 2 } })
 
@@ -503,7 +503,7 @@ test.describe('export range + audio settings (Electron)', () => {
     const WAV = fixture('test_tones_10s.wav')
     const MP3 = fixture('test_tones_10s.mp3')
     test.skip(!existsSync(WAV) || !existsSync(MP3), `tone fixtures not found under ${MEDIA_DIR}`)
-    const output = path.join(tmpDir('weftcut-e2e-range-conform-'), 'range-conform.m4a')
+    const output = path.join(tmpDir('lahza-e2e-range-conform-'), 'range-conform.m4a')
 
     const projDir = await bootProject('e2e-range-conform-')
     // Documented cache layout (docs/audio.md): Cache/audio/{hash}.conform.
@@ -573,7 +573,7 @@ test.describe('export range + audio settings (Electron)', () => {
     // settings leave encoderEngine on "auto", which resolves native). Assert it
     // works in the real renderer and stays frame-aligned + faithful (SSIM).
     test.skip(!existsSync(VIDEO_SOURCE), `video source not found at ${VIDEO_SOURCE}`)
-    const output = path.join(tmpDir('weftcut-e2e-sw-'), 'sw.mp4')
+    const output = path.join(tmpDir('lahza-e2e-sw-'), 'sw.mp4')
 
     await bootAndExport({ output, source: VIDEO_SOURCE, settings: { hwAccel: 'software' } })
 

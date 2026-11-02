@@ -2,7 +2,7 @@
 
 ## Question
 
-Which existing layout manager best fits WeftCut's editor workspace: recursive
+Which existing layout manager best fits Lahza's editor workspace: recursive
 splits, tab stacks, edge/centre docking, resizable splitters, singleton panels,
 named app-level workspace persistence, and a possible later path to floating or
 secondary-window surfaces?
@@ -15,7 +15,7 @@ secondary-window surfaces?
   on `min-width: 0`, `min-height: 0`, and explicit overflow boundaries; a dock
   host must preserve those constraints.
 - Media Pool to Timeline uses native HTML5 drag-and-drop with the custom
-  `application/x-weftcut-media` MIME type. OS file drops use `Files`. Panel
+  `application/x-lahza-media` MIME type. OS file drops use `Files`. Panel
   docking must not consume either drag class.
 - Workspace JSON persistence follows the main-process-owned atomic-store
   pattern and remains outside project state and undo history.
@@ -35,7 +35,7 @@ Relevant local sources: [desktop dependencies](../../apps/desktop/package.json),
 Dockview is the closest functional match. Its core model is panels inside groups
 on a resizable grid. It supplies tab reordering, centre-to-stack and edge-to-split
 docking, floating groups, popout groups, and JSON serialization. Panel IDs are
-unique, which maps directly to WeftCut's one-instance-per-panel-kind rule.
+unique, which maps directly to Lahza's one-instance-per-panel-kind rule.
 Layout mutation events provide an explicit persistence seam, and `fromJSON` can
 reuse existing panels rather than recreating their content.
 
@@ -43,11 +43,11 @@ Version 7 adds keyboard navigation, screen-reader announcements, focus recovery,
 and keyboard docking. `dockview-react` declares React 19 compatibility and is
 MIT licensed. The main trade-off is that layout mutation is performed through
 an imperative `DockviewApi`, not an application-owned immutable React value.
-WeftCut should wrap the API behind a small workspace adapter and persist only
+Lahza should wrap the API behind a small workspace adapter and persist only
 the serialized form.
 
 Dockview's built-in popouts open a same-origin browser window and require a
-separate host page. That conflicts with WeftCut's current `window.open` denial
+separate host page. That conflicts with Lahza's current `window.open` denial
 and does not solve the app's renderer-local playback/selection/GPU-preview
 routing. Do not enable it. Its serialized floating/popout model is
 still useful as a future seam.
@@ -73,7 +73,7 @@ API and fits strict singleton validation well.
 Its popout implementation uses React portals: content remains in the main
 window's JavaScript realm and renders into another document. That can preserve
 React state, but global `window`/`document` listeners, timers, resize observers,
-and third-party portals need owner-document awareness. WeftCut has many direct
+and third-party portals need owner-document awareness. Lahza has many direct
 global listeners, and renderer `window.open` is denied, so this feature must
 stay disabled.
 
@@ -100,7 +100,7 @@ Lumino's `DockPanel` is mature and actively maintained through JupyterLab, but
 it is a general widget/message-loop framework rather than a React-first layout
 component. Integrating React panels requires a widget/React bridge and adopts a
 second UI lifecycle. That is justified for JupyterLab's plugin platform, not
-for WeftCut's small fixed panel catalogue.
+for Lahza's small fixed panel catalogue.
 
 Primary sources:
 
@@ -109,7 +109,7 @@ Primary sources:
 
 ## Recommendation
 
-Use **Dockview v7 behind a WeftCut-owned workspace adapter**. The adapter keeps
+Use **Dockview v7 behind a Lahza-owned workspace adapter**. The adapter keeps
 Dockview's imperative model and serialized form behind an application-owned
 boundary; FlexLayout remains the documented alternative if a future Dockview
 change can no longer be isolated there.
@@ -124,9 +124,9 @@ The integration must preserve all of the following:
 4. Media MIME drags and OS `Files` drops still reach their existing handlers.
 5. Preview and Timeline correctly resize without overflow and without recreating
    the playback engine during an ordinary dock move.
-6. Keyboard tab/group navigation remains usable after WeftCut theme overrides.
+6. Keyboard tab/group navigation remains usable after Lahza theme overrides.
 
 Do not expose Dockview's floating or popout commands. Do not let
-library JSON become WeftCut's durable public schema directly: wrap it in a
+library JSON become Lahza's durable public schema directly: wrap it in a
 versioned workspace record so a future library migration can be handled at one
 boundary.

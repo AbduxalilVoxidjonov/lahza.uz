@@ -7,20 +7,20 @@ const canvas = { width: 640, height: 360, fpsNum: 30, fpsDen: 1 }
 test('accepted renderer commands publish before returning and mutation callbacks do not fetch twice', async () => {
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-publication-')
+    const parent = tmpDir('lahza-publication-')
     await newProject(page, { parentFolder: parent, name: 'publication', canvas })
     await waitForHook(page, 'publishedCommand')
-    await page.waitForFunction(() => (window as any).__weftcutTest.projectStoreSummary() !== null)
+    await page.waitForFunction(() => (window as any).__lahzaTest.projectStoreSummary() !== null)
     await page.evaluate(() => {
       ;(globalThis as any).__publicationReads = 0
-      ;(globalThis as any).__weftcutE2EBackendInvokeInterceptor = async (cmd: string, args: unknown, next: any) => {
+      ;(globalThis as any).__lahzaE2EBackendInvokeInterceptor = async (cmd: string, args: unknown, next: any) => {
         if (cmd === 'project_publication') (globalThis as any).__publicationReads++
         return next(cmd, args)
       }
     })
 
     const added = await page.evaluate(async () => {
-      const result = await (window as any).__weftcutTest.publishedCommand({
+      const result = await (window as any).__lahzaTest.publishedCommand({
         command: 'add_marker', args: { tUs: 1_000_000, label: 'Published' }, afterMutation: true,
       })
       // Read synchronously at the command's return, without a polling helper.
@@ -32,15 +32,15 @@ test('accepted renderer commands publish before returning and mutation callbacks
     const before = await invokeCmd<any>(page, 'project_publication')
 
     const reopened = await page.evaluate(async (dir) => {
-      await (window as any).__weftcutTest.publishedCommand({ command: 'project_save' })
-      return (window as any).__weftcutTest.publishedCommand({ command: 'project_open', args: { path: dir }, afterMutation: true })
+      await (window as any).__lahzaTest.publishedCommand({ command: 'project_save' })
+      return (window as any).__lahzaTest.publishedCommand({ command: 'project_open', args: { path: dir }, afterMutation: true })
     }, path.join(parent, 'publication'))
     const after = await invokeCmd<any>(page, 'project_publication')
     expect(after.version.session).toBeGreaterThan(before.version.session)
     expect(reopened.summary.project_id).toBe(before.summary.project_id)
     expect(reopened.summary.compositions[reopened.summary.root_id].markers[0].id).toBe(added.value)
 
-    const closed = await page.evaluate(() => (window as any).__weftcutTest.publishedCommand({ command: 'project_close' }))
+    const closed = await page.evaluate(() => (window as any).__lahzaTest.publishedCommand({ command: 'project_close' }))
     expect(closed.summary).toBeNull()
     const closedView = await invokeCmd<any>(page, 'project_publication')
     expect(closedView.summary).toBeNull()
@@ -51,16 +51,16 @@ test('accepted renderer commands publish before returning and mutation callbacks
 test('a delayed old publication never applies while the newer event waits for its bounded read', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-publication-race-'), name: 'race', canvas })
+    await newProject(page, { parentFolder: tmpDir('lahza-publication-race-'), name: 'race', canvas })
     await waitForHook(page, 'publishedCommand')
-    await page.waitForFunction(() => (window as any).__weftcutTest.projectStoreSummary() !== null)
-    const markerId = await page.evaluate(async () => (await (window as any).__weftcutTest.publishedCommand({
+    await page.waitForFunction(() => (window as any).__lahzaTest.projectStoreSummary() !== null)
+    const markerId = await page.evaluate(async () => (await (window as any).__lahzaTest.publishedCommand({
       command: 'add_marker', args: { tUs: 1_000_000, label: 'Original' },
     })).value)
     await page.evaluate(() => {
       const gate = { captured: 0, active: 0, peak: 0, release: [] as Array<() => void> }
       ;(globalThis as any).__publicationRace = gate
-      ;(globalThis as any).__weftcutE2EBackendInvokeInterceptor = async (cmd: string, args: unknown, next: any) => {
+      ;(globalThis as any).__lahzaE2EBackendInvokeInterceptor = async (cmd: string, args: unknown, next: any) => {
         if (cmd !== 'project_publication') return next(cmd, args)
         gate.active++
         gate.peak = Math.max(gate.peak, gate.active)
@@ -80,13 +80,13 @@ test('a delayed old publication never applies while the newer event waits for it
     await page.evaluate(() => (globalThis as any).__publicationRace.release[0]())
     await page.waitForFunction(() => (globalThis as any).__publicationRace.captured === 2)
     const during = await page.evaluate(() => {
-      const s = (window as any).__weftcutTest.projectStoreSummary()
+      const s = (window as any).__lahzaTest.projectStoreSummary()
       return { label: s.compositions[s.root_id].markers[0].label, peak: (globalThis as any).__publicationRace.peak }
     })
     expect(during).toEqual({ label: 'Original', peak: 1 })
     await page.evaluate(() => (globalThis as any).__publicationRace.release[1]())
     await expect.poll(() => page.evaluate(() => {
-      const s = (window as any).__weftcutTest.projectStoreSummary()
+      const s = (window as any).__lahzaTest.projectStoreSummary()
       return s.compositions[s.root_id].markers[0].label
     })).toBe('Newest')
   } finally { await app.close() }

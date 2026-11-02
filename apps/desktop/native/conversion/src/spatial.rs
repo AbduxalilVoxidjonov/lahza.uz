@@ -1,6 +1,6 @@
 //! Ordered least-squares spatial fitting. Port of the former TS fitter; the
 //! path compiler and distance parameterization use the playback evaluator.
-use weftcut_eval::path::{self, Node, Point};
+use lahza_eval::path::{self, Node, Point};
 
 struct Span {
     first: usize,

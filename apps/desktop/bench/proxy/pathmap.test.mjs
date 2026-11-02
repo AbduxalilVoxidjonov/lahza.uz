@@ -4,8 +4,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { createPathMap } from './pathmap.mjs'
 
-const LOCAL = '/tmp/weftcut-bench-AbC/work'
-const REMOTE = 'C:\\Users\\u\\weftcut-bench\\runs\\r1\\work'
+const LOCAL = '/tmp/lahza-bench-AbC/work'
+const REMOTE = 'C:\\Users\\u\\lahza-bench\\runs\\r1\\work'
 const map = createPathMap({ localRoot: LOCAL, remoteRoot: REMOTE })
 
 test('toRemote: a workdir path, nested, in a tool argument', () => {
@@ -60,7 +60,7 @@ test('toLocal: case and separator variants of the root', () => {
 test('toLocal: a sibling of the root is not the root', () => {
   const s = `${REMOTE}2\\x`
   assert.equal(map.toLocal(s).value, s)
-  assert.equal(map.toLocal('C:\\Users\\u\\weftcut-bench\\runs\\r1\\projects\\t\\project.json').rewrites.length, 0)
+  assert.equal(map.toLocal('C:\\Users\\u\\lahza-bench\\runs\\r1\\projects\\t\\project.json').rewrites.length, 0)
 })
 
 test('round trip: toLocal(toRemote(p)) === p for workdir paths', () => {

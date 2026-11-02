@@ -19,7 +19,7 @@
 // downgraded lane can never be published under the label it drifted from.
 //   route   — the three decode paths (`ROUTE_SPEC` below), all measured on ONE
 //             fixture so a route comparison is never codec-confounded.
-//   barrier — `--barrier`, pinned by WEFTCUT_HW_BARRIER and meaningful on the
+//   barrier — `--barrier`, pinned by LAHZA_HW_BARRIER and meaningful on the
 //             hardware route ONLY. What each mode waits on, and which one the
 //             product ships: `HwBarrierMode` in `src/shared/ipc.ts`.
 //
@@ -32,7 +32,7 @@
 //
 // Run:
 //   1. npm run napi:build && npm run napi:build:decode   (close the dev app — it locks the .node)
-//   2. npm run build:e2e                                 (the __weftcutTest hook)
+//   2. npm run build:e2e                                 (the __lahzaTest hook)
 //   3. npm run bench:decode:fixtures                     (from e2e/, generates the fixtures)
 //   4. npm run bench:playback                            (from e2e/)
 //
@@ -75,7 +75,7 @@ const CODECS = arg("codec", "h264").split(",");
 const RESOLUTIONS = arg("resolution", "1080,2160").split(",");
 const ROUTES = arg("route", "hw,sw,webcodecs").split(",");
 /// `null` — the single element when the flag is absent — means "launch with
-/// WEFTCUT_HW_BARRIER unset", which is not the same leg as an explicit
+/// LAHZA_HW_BARRIER unset", which is not the same leg as an explicit
 /// `rendererFence` even though both resolve to it: this is the path the app
 /// takes with nobody experimenting on it. A leg axis rather than something
 /// flipped between invocations because absolute numbers on this box drift
@@ -131,7 +131,7 @@ const ROUTE_SPEC = {
   hw: {
     label: "ffmpeg-hw",
     setting: "ffmpeg",
-    env: { WEFTCUT_FORCE_HW_LANE: "d3d11va" },
+    env: { LAHZA_FORCE_HW_LANE: "d3d11va" },
     sourceKind: "native-gpu",
     keyPrefix: "ffmpeg:original:",
   },
@@ -142,7 +142,7 @@ const ROUTE_SPEC = {
   sw: {
     label: "ffmpeg-sw",
     setting: "ffmpeg",
-    env: { WEFTCUT_FORCE_HW_LANE: "nvdec" },
+    env: { LAHZA_FORCE_HW_LANE: "nvdec" },
     sourceKind: "sw",
     keyPrefix: "ffmpeg:original:",
   },
@@ -190,9 +190,9 @@ for (const b of BARRIERS) {
 // An ambient value would ride into the leg labelled as the unset control and be
 // published under a label that does not name it — the same dishonesty the
 // per-layer route verification exists to prevent, one level up.
-if (!BARRIER_FLAG && process.env.WEFTCUT_HW_BARRIER) {
+if (!BARRIER_FLAG && process.env.LAHZA_HW_BARRIER) {
   console.error(
-    `[playback-perf] WEFTCUT_HW_BARRIER=${process.env.WEFTCUT_HW_BARRIER} is set in this shell — pass it as --barrier so the leg labels name it, or unset it.`,
+    `[playback-perf] LAHZA_HW_BARRIER=${process.env.LAHZA_HW_BARRIER} is set in this shell — pass it as --barrier so the leg labels name it, or unset it.`,
   );
   process.exit(2);
 }
@@ -201,7 +201,7 @@ if (!BARRIER_FLAG && process.env.WEFTCUT_HW_BARRIER) {
 // nothing outside the hardware transport reads the variable.
 const nonHwRoutes = ROUTES.filter((r) => r !== "hw" && ROUTE_SPEC[r]);
 if (BARRIER_FLAG && nonHwRoutes.length > 0)
-  log(`note: the barrier axis exists on the hw route only — ${nonHwRoutes.join(", ")} run once each with WEFTCUT_HW_BARRIER unset, not once per --barrier value.`);
+  log(`note: the barrier axis exists on the hw route only — ${nonHwRoutes.join(", ")} run once each with LAHZA_HW_BARRIER unset, not once per --barrier value.`);
 
 const legs = [];
 for (const codec of CODECS) {
@@ -589,7 +589,7 @@ async function envBlock() {
   const app = await electron.launch({
     executablePath: fs.existsSync(ELECTRON_EXE) ? ELECTRON_EXE : undefined,
     args: [MAIN],
-    env: { ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: "1" },
+    env: { ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: "1" },
   });
   try {
     const w = await app.firstWindow({ timeout: 60_000 });
@@ -635,14 +635,14 @@ async function envBlock() {
 async function runCell(leg, tracks) {
   const spec = ROUTE_SPEC[leg.route];
   const [width, height] = RES_DIMS[leg.res];
-  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "weftcut-pbperf-"));
-  const projectParent = fs.mkdtempSync(path.join(os.tmpdir(), "weftcut-pbperf-proj-"));
+  const userData = fs.mkdtempSync(path.join(os.tmpdir(), "lahza-pbperf-"));
+  const projectParent = fs.mkdtempSync(path.join(os.tmpdir(), "lahza-pbperf-proj-"));
   const app = await electron.launch({
     executablePath: fs.existsSync(ELECTRON_EXE) ? ELECTRON_EXE : undefined,
     args: [`--user-data-dir=${userData}`, MAIN],
     env: {
-      ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: "1", ...spec.env,
-      ...(leg.barrier ? { WEFTCUT_HW_BARRIER: leg.barrier } : {}),
+      ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: "1", ...spec.env,
+      ...(leg.barrier ? { LAHZA_HW_BARRIER: leg.barrier } : {}),
     },
   });
   const consoleErrors = [];
@@ -666,14 +666,14 @@ async function runCell(leg, tracks) {
     try {
       await page.waitForFunction(
         () =>
-          typeof window.__weftcutTest?.newProjectAndEnter === "function" &&
-          typeof window.__weftcutTest?.transportPlay === "function" &&
-          typeof window.__weftcutTest?.stageProfilingSnapshot === "function",
+          typeof window.__lahzaTest?.newProjectAndEnter === "function" &&
+          typeof window.__lahzaTest?.transportPlay === "function" &&
+          typeof window.__lahzaTest?.stageProfilingSnapshot === "function",
         undefined,
         { timeout: 30_000 },
       );
     } catch {
-      throw new InvalidRun("__weftcutTest playback-bench hooks absent — rebuild with `npm run build:e2e`.");
+      throw new InvalidRun("__lahzaTest playback-bench hooks absent — rebuild with `npm run build:e2e`.");
     }
 
     // Settings BEFORE any layer exists: `ensureClip` reads `decode_engine` live,
@@ -684,7 +684,7 @@ async function runCell(leg, tracks) {
     );
 
     await page.evaluate(
-      (o) => window.__weftcutTest.newProjectAndEnter(o),
+      (o) => window.__lahzaTest.newProjectAndEnter(o),
       { parentFolder: projectParent, name: `pbperf-${leg.fixture}-${leg.route}${leg.barrier ? `-${leg.barrier}` : ""}-${tracks}t`,
         canvas: { width, height, fpsNum: COMP_FPS, fpsDen: 1 } },
     );
@@ -696,16 +696,16 @@ async function runCell(leg, tracks) {
     // Proxies off BEFORE the first clip resolves. The raw
     // `update_project_settings` command does not reach the renderer store the
     // decode resolver reads — the hook does both halves.
-    await page.evaluate(() => window.__weftcutTest.setPreferProxies(false));
+    await page.evaluate(() => window.__lahzaTest.setPreferProxies(false));
 
     const placed = await page.evaluate(
       async ({ file, n }) => {
         try {
-          const first = await window.__weftcutTest.importAndPlaceMedia({ mediaAbsPath: file, tStartUs: 0 });
-          await window.__weftcutTest.setProxyOverride(first.mediaId, false);
+          const first = await window.__lahzaTest.importAndPlaceMedia({ mediaAbsPath: file, tStartUs: 0 });
+          await window.__lahzaTest.setProxyOverride(first.mediaId, false);
           const layerIds = [first.layerId];
           for (let i = 1; i < n; i++) {
-            const r = await window.__weftcutTest.placeMediaLayer({ mediaId: first.mediaId, tStartUs: 0 });
+            const r = await window.__lahzaTest.placeMediaLayer({ mediaId: first.mediaId, tStartUs: 0 });
             layerIds.push(r.layerId);
           }
           return { ok: true, mediaId: first.mediaId, layerIds };
@@ -731,7 +731,7 @@ async function runCell(leg, tracks) {
     const probeAll = () =>
       page.evaluate(
         (ids) => ids.map((id) => {
-          try { return window.__weftcutTest.activeClipProbe(id); } catch { return null; }
+          try { return window.__lahzaTest.activeClipProbe(id); } catch { return null; }
         }),
         placed.layerIds,
       );
@@ -814,13 +814,13 @@ async function runCell(leg, tracks) {
     // Start 2 s in so the window never straddles the clip head, and end well
     // inside the 60 s fixture so the auto-pause at end-of-material can't stop
     // the clock mid-measurement.
-    await page.evaluate(() => window.__weftcutTest.transportSeekUs(2_000_000));
-    await page.evaluate(() => window.__weftcutTest.stageProfilingSet(true));
-    await page.evaluate(() => window.__weftcutTest.transportPlay());
+    await page.evaluate(() => window.__lahzaTest.transportSeekUs(2_000_000));
+    await page.evaluate(() => window.__lahzaTest.stageProfilingSet(true));
+    await page.evaluate(() => window.__lahzaTest.transportPlay());
 
     // `playing` is INTENT — it flips before the warm-up gate releases the clock.
     // An advancing `positionUs` is the only proof playback actually started.
-    const probeRes = () => page.evaluate(() => window.__weftcutTest.previewResourceProbe());
+    const probeRes = () => page.evaluate(() => window.__lahzaTest.previewResourceProbe());
     let last = (await probeRes())?.positionUs ?? 0;
     const playDeadline = Date.now() + 30_000;
     for (;;) {
@@ -834,9 +834,9 @@ async function runCell(leg, tracks) {
     await sleep(WARMUP_S * 1000);
 
     if (REPLAY_AFTER_WARMUP) {
-      await page.evaluate(() => window.__weftcutTest.transportPause());
-      await page.evaluate(() => window.__weftcutTest.transportSeekUs(2_000_000));
-      await page.evaluate(() => window.__weftcutTest.transportPlay());
+      await page.evaluate(() => window.__lahzaTest.transportPause());
+      await page.evaluate(() => window.__lahzaTest.transportSeekUs(2_000_000));
+      await page.evaluate(() => window.__lahzaTest.transportPlay());
 
       let replayLast = (await probeRes())?.positionUs ?? 0;
       const replayDeadline = Date.now() + 30_000;
@@ -904,11 +904,11 @@ async function runCell(leg, tracks) {
 
     // Reset AFTER the warm-up so cold-start decoder init and the first-frame
     // texture allocations stay out of the distribution.
-    await page.evaluate(() => window.__weftcutTest.stageProfilingReset());
+    await page.evaluate(() => window.__lahzaTest.stageProfilingReset());
     const stallProbeSupport = await installStallProbes(page, TIMER_PROBE_MS);
     const t0 = Date.now();
     const startRes = await probeRes();
-    const startPerf = await page.evaluate(() => window.__weftcutTest.compositorPerfSnapshot());
+    const startPerf = await page.evaluate(() => window.__lahzaTest.compositorPerfSnapshot());
 
     gpuSampler = startGpuSampler();
     const metricSamples = [];
@@ -952,18 +952,18 @@ async function runCell(leg, tracks) {
     gpuSampler = null;
     const wallS = (Date.now() - t0) / 1000;
     const endRes = await probeRes();
-    const endPerf = await page.evaluate(() => window.__weftcutTest.compositorPerfSnapshot());
+    const endPerf = await page.evaluate(() => window.__lahzaTest.compositorPerfSnapshot());
     // Pool-VRAM sample (the A′ instrument): live Σ w×h×4×slots across the OPEN
     // hardware sessions, from main's admission surface. Must be taken here —
     // while the sessions still exist — not after pause/teardown below.
     const hwBudgetAtEnd = await page
       .evaluate(() => window.api.previewGpu.budget())
       .catch(() => null);
-    const stages = await page.evaluate(() => window.__weftcutTest.stageProfilingSnapshot());
+    const stages = await page.evaluate(() => window.__lahzaTest.stageProfilingSnapshot());
     const { longFrames, timer: timerCadence } = await drainStallProbes(page);
     const post = await probeAll();
-    await page.evaluate(() => window.__weftcutTest.transportPause());
-    await page.evaluate(() => window.__weftcutTest.stageProfilingSet(false));
+    await page.evaluate(() => window.__lahzaTest.transportPause());
+    await page.evaluate(() => window.__lahzaTest.stageProfilingSet(false));
 
     // ── Route verification (post) ──────────────────────────────────────────
     const drift = [];

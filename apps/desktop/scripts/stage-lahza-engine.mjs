@@ -44,7 +44,9 @@ rmSync(dest, { recursive: true, force: true })
 mkdirSync(dest, { recursive: true })
 const exe = process.platform === 'win32' ? 'lahza-engine.exe' : 'lahza-engine'
 cpSync(sources.engine, join(dest, exe))
-cpSync(sources.bin, join(dest, 'bin'), { recursive: true })
-cpSync(sources.catalog, join(dest, 'catalog'), { recursive: true })
+// Preserve relative dylib links: rebasing them to the source checkout makes
+// codesign reject the bundle and prevents the installed app being portable.
+cpSync(sources.bin, join(dest, 'bin'), { recursive: true, verbatimSymlinks: true })
+cpSync(sources.catalog, join(dest, 'catalog'), { recursive: true, verbatimSymlinks: true })
 writeFileSync(join(dest, 'manifest.json'), JSON.stringify({ source: root, engine: sidecarName(), staged_at: new Date().toISOString() }, null, 2) + '\n')
 console.log(`[stage-lahza-engine] staged ${root} -> ${dest}`)

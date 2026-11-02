@@ -151,7 +151,7 @@ test('a legacy plaintext endpoint key migrates into safeStorage at boot and is s
   // Shape: launch, let the app tell us where its userData really is (a guessed
   // path would seed the wrong file and pass without exercising anything), write
   // the old build's plaintext shape there, relaunch over the same dir.
-  const userDataDir = tmpDir('weftcut-e2e-vlm-migrate-')
+  const userDataDir = tmpDir('lahza-e2e-vlm-migrate-')
 
   const first = await launchApp({ userDataDir })
   let userData = ''
@@ -221,7 +221,7 @@ test('a retired preferred_engine tag on disk degrades to automatic', async () =>
   // `"cloud"` is what a config written before the backend was removed holds. It
   // must read as "no preference", not survive as a tag no resolver knows — and
   // must not blank the Settings selector, which is what an undefined would do.
-  const userDataDir = tmpDir('weftcut-e2e-vlm-retired-')
+  const userDataDir = tmpDir('lahza-e2e-vlm-retired-')
 
   const first = await launchApp({ userDataDir })
   let userData = ''

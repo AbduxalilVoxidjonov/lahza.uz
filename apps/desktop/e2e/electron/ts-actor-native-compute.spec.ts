@@ -30,7 +30,7 @@ import { launchApp, tmpDir } from './helpers/driver'
 // conform cache is absent, which is not deterministic to assert synchronously.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 
 // A small audio fixture (pure audio, no video stream). Exists in the committed
 // fixtures; no `npm run fixtures` generation required.

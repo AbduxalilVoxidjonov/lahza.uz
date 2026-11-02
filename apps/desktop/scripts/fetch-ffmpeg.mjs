@@ -5,7 +5,7 @@
 //
 // LICENSING (project licensing model, docs/licensing.md): these are the GPL
 // SIDECAR binaries — run strictly as subprocesses, so they never affect
-// WeftCut's MIT license, but DISTRIBUTING them owes GPLv3 compliance. This
+// Lahza's MIT license, but DISTRIBUTING them owes GPLv3 compliance. This
 // script captures each binary's `-version` banner, rejects `--enable-nonfree`
 // (nonfree builds are non-redistributable under ANY license), and records the
 // provenance in manifest.json + SOURCE-OFFER.txt beside the binaries. The GPL
@@ -28,7 +28,7 @@ const FFMPEG_VERSION = '7.1.1'
 const FFMPEG_WIN_SHA256 = '04861d3339c5ebe38b56c19a15cf2c0cc97f5de4fa8910e4d47e5e6404e4a2d4'
 // macOS: martin-riedl.de arm64 static build, pinned by build id AND SHA-256
 // (the /download/<os>/<arch>/<id>/ URLs are stable, unlike evermeet's rolling
-// `getrelease`). arm64-only BY DESIGN — WeftCut supports Apple Silicon only.
+// `getrelease`). arm64-only BY DESIGN — Lahza supports Apple Silicon only.
 // Bump: resolve https://ffmpeg.martin-riedl.de/redirect/latest/macos/arm64/release/ffmpeg.zip
 // to its versioned URL, download both zips, and update the three constants.
 const FFMPEG_MAC_BUILD = '1783011502_8.1.2'
@@ -62,7 +62,7 @@ const SOURCES = {
     builder: 'https://ffmpeg.martin-riedl.de/ (build configuration published per build id)',
   },
 }
-const PROJECT_ISSUES_URL = 'https://github.com/WeftCut/WeftCut/issues'
+const PROJECT_ISSUES_URL = 'https://github.com/AbduxalilVoxidjonov/lahza.uz/issues'
 
 /** Pure gate, exported for the packaging assert (after-pack-licensing.mjs):
  *  throws unless the sidecar's configuration banner is redistributable. GPL is
@@ -118,11 +118,11 @@ function stageCompliance() {
     fetchedAt: new Date().toISOString(),
   }, null, 2))
 
-  writeFileSync(join(dest, 'SOURCE-OFFER.txt'), `WeftCut bundles the following FFmpeg build as standalone command-line tools
+  writeFileSync(join(dest, 'SOURCE-OFFER.txt'), `Lahza bundles the following FFmpeg build as standalone command-line tools
 (ffmpeg, ffprobe), executed strictly as separate subprocesses. These binaries
 are licensed under the GNU General Public License version 3 — the license text
 ships beside them as LICENSE.txt. Their license covers these binaries only; it
-does not extend to WeftCut itself (MIT, see the application's LICENSE).
+does not extend to Lahza itself (MIT, see the application's LICENSE).
 
 Exact build:
   ${version}

@@ -12,7 +12,7 @@ commit.
 
 ## Dark-only, on purpose
 
-WeftCut is a dark-only application: a neutral dark surround is part of an
+Lahza is a dark-only application: a neutral dark surround is part of an
 editor's color judgment, and one theme keeps the visual QA surface of
 every panel at ×1. `html.dark` is hardwired, `color-scheme: dark` is set
 in `base.css`, and there is no color-theme switcher and no

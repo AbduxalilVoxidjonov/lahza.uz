@@ -66,7 +66,7 @@ function fullProjection(): MenuProjection {
 describe('macOS application menu template', () => {
   it('never declares a reload or DevTools role', () => {
     for (const projection of [null, fullProjection()]) {
-      const roles = rolesIn(buildApplicationMenuTemplate({ projection, dispatch: noop, appName: 'WeftCut' }))
+      const roles = rolesIn(buildApplicationMenuTemplate({ projection, dispatch: noop, appName: 'Lahza' }))
         .map((r) => r.toLowerCase())
       for (const forbidden of FORBIDDEN_MENU_ROLES) {
         expect(roles).not.toContain(forbidden.toLowerCase())
@@ -77,7 +77,7 @@ describe('macOS application menu template', () => {
   it('builds View by hand rather than through role: viewMenu', () => {
     // `role: 'viewMenu'` is what re-adds Reload and DevTools — the very bug
     // this menu exists to fix. The hand-built View carries fullscreen only.
-    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'WeftCut' })
+    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'Lahza' })
     expect(rolesIn(template)).not.toContain('viewMenu')
     expect(submenuOf(template, 'View').map((i) => i.role)).toEqual(['togglefullscreen'])
   })
@@ -86,16 +86,16 @@ describe('macOS application menu template', () => {
     // Roles, not hand-built copies, so AppKit supplies the behaviour — and so
     // the Edit menu's clipboard accelerators stay intact. Stripping one kills
     // the role outright (docs/notes/electron-chromium-behavior.md).
-    const top = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'WeftCut' })
+    const top = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'Lahza' })
       .map((i) => i.role)
     expect(top).toContain('editMenu')
     expect(top).toContain('windowMenu')
   })
 
   it('orders the bar the way macOS expects', () => {
-    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'WeftCut' })
+    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'Lahza' })
     expect(template.map((i) => i.role ?? i.label)).toEqual([
-      'WeftCut',
+      'Lahza',
       'File',
       'editMenu',
       'View',
@@ -104,8 +104,8 @@ describe('macOS application menu template', () => {
   })
 
   it('hand-builds the App menu so Settings gets its conventional slot', () => {
-    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'WeftCut' })
-    const app = submenuOf(template, 'WeftCut')
+    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'Lahza' })
+    const app = submenuOf(template, 'Lahza')
     expect(app.map((i) => i.role).filter(Boolean)).toEqual([
       'about',
       'services',
@@ -122,7 +122,7 @@ describe('macOS application menu template', () => {
   })
 
   it('projects File in the same order as the in-app File menu', () => {
-    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'WeftCut' })
+    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch: noop, appName: 'Lahza' })
     expect(labelsOf(submenuOf(template, 'File'))).toEqual([
       'Import media…',
       'Save',
@@ -139,7 +139,7 @@ describe('macOS application menu template', () => {
     const template = buildApplicationMenuTemplate({
       projection: fullProjection(),
       dispatch: (id) => dispatched.push(id),
-      appName: 'WeftCut',
+      appName: 'Lahza',
     })
     for (const item of flatten(template)) choose(item)
     expect([...dispatched].sort()).toEqual([...MENU_ACTION_IDS].sort())
@@ -147,7 +147,7 @@ describe('macOS application menu template', () => {
 
   it('runs the projected action when an item is chosen', () => {
     const dispatch = vi.fn()
-    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch, appName: 'WeftCut' })
+    const template = buildApplicationMenuTemplate({ projection: fullProjection(), dispatch, appName: 'Lahza' })
     const save = submenuOf(template, 'File').find((i) => i.label === 'Save')
     choose(save!)
     expect(dispatch).toHaveBeenCalledWith('save')
@@ -159,7 +159,7 @@ describe('macOS application menu template', () => {
     // Unbound in Settings → Keyboard: no accelerator at all beats a wrong one.
     projection.actions.export = { label: 'Export…', keys: [] }
     const file = submenuOf(
-      buildApplicationMenuTemplate({ projection, dispatch: noop, appName: 'WeftCut' }),
+      buildApplicationMenuTemplate({ projection, dispatch: noop, appName: 'Lahza' }),
       'File',
     )
     expect(file.find((i) => i.label === 'Save')?.accelerator).toBe('Control+Alt+S')
@@ -171,20 +171,20 @@ describe('macOS application menu template', () => {
     const template = buildApplicationMenuTemplate({
       projection: { actions: { openSettings: { label: '设置…', keys: ['Mod+Comma'] } }, labels: {} },
       dispatch: noop,
-      appName: 'WeftCut',
+      appName: 'Lahza',
     })
     // No File menu at all — no dead entries, and no live-state IPC to keep it
     // in step (ADR 0031: that sync cost is what full parity would buy).
     expect(template.map((i) => i.label)).not.toContain('File')
-    expect(labelsOf(submenuOf(template, 'WeftCut'))).toContain('设置…')
+    expect(labelsOf(submenuOf(template, 'Lahza'))).toContain('设置…')
   })
 
   it("falls back to English titles before the renderer's first sync", () => {
     // The window between app.whenReady and the first projection: roles only,
     // so the bar is complete and safe from the very first frame.
-    const template = buildApplicationMenuTemplate({ projection: null, dispatch: noop, appName: 'WeftCut' })
+    const template = buildApplicationMenuTemplate({ projection: null, dispatch: noop, appName: 'Lahza' })
     expect(template.map((i) => i.role ?? i.label)).toEqual([
-      'WeftCut',
+      'Lahza',
       'editMenu',
       'View',
       'windowMenu',

@@ -82,7 +82,7 @@ test.describe('timeline drop strip', () => {
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-drop-strip-'),
+        parentFolder: tmpDir('lahza-e2e-drop-strip-'),
         name: 'e2e-drop-strip-' + Date.now(),
         canvas: { width: 640, height: 480, fpsNum: 30, fpsDen: 1 },
       })

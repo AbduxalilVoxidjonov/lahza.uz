@@ -26,7 +26,7 @@ export function readLayoutTheme(value: unknown): LayoutTheme {
 /** Main appends the saved preset to each window's renderer argv so the first
  * frame (the launch splash in particular) is already themed; settings
  * hydration stays the authority and corrects a stale value after a reload. */
-const LAYOUT_THEME_SWITCH = '--weftcut-layout-theme=';
+const LAYOUT_THEME_SWITCH = '--lahza-layout-theme=';
 
 export const layoutThemeArgument = (id: LayoutTheme) => `${LAYOUT_THEME_SWITCH}${id}`;
 

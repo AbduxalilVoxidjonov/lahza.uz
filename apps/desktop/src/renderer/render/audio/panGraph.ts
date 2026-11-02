@@ -1,5 +1,5 @@
 // Preview pan matrix mixer (docs/audio.md §Preview mixer). The equal-power pan
-// LAW is the shared weftcut-eval leaf (panCoeff); this file only wires the
+// LAW is the shared lahza-eval leaf (panCoeff); this file only wires the
 // native Web Audio graph that APPLIES it: a ChannelSplitter → per-coefficient
 // GainNode → ChannelMerger matrix, the same 2×2 mix StereoPannerNode does
 // internally, but with coefficients we control so preview and export run one

@@ -2,7 +2,7 @@
 //
 // Headless Claude Code (`claude -p`) as a bench client. Each run gets a fresh
 // working directory holding only the skill under test, an MCP config naming
-// only the app, and a permission set of the weftcut tools plus file tools
+// only the app, and a permission set of the lahza tools plus file tools
 // inside that directory. The aim is that the machine's own Claude Code setup —
 // user settings, plugins, skills, MCP servers, memory — changes nothing about
 // the run; README.md lists what the CLI does not let us shut out.
@@ -13,9 +13,9 @@ import path from 'node:path'
 import type { Driver, DriverRunInput, DriverRunOutput } from './types'
 
 /** The server name in the MCP config, which fixes the tool prefix the agent
- *  sees (`mcp__weftcut__*`) — the same name a user's own install uses, so the
+ *  sees (`mcp__lahza__*`) — the same name a user's own install uses, so the
  *  skill's tool references read as they do in the field. */
-const SERVER = 'weftcut'
+const SERVER = 'lahza'
 
 /** Built-in tools the agent gets. File tools for Motif authoring on disk;
  *  Skill to load the skill; ToolSearch because Claude Code defers MCP tool
@@ -25,7 +25,7 @@ const TOOLS = ['Read', 'Write', 'Edit', 'Glob', 'Grep', 'Skill', 'ToolSearch', '
 
 /** What runs without asking, under `dontAsk` (everything else is refused, never
  *  prompted). Path rules are relative to the working directory, so file tools
- *  stop at its edge; `Skill(weftcut)` keeps the CLI's bundled skills, which no
+ *  stop at its edge; `Skill(lahza)` keeps the CLI's bundled skills, which no
  *  flag removes from the listing, from being invoked. */
 const ALLOWED = [
   `mcp__${SERVER}`,

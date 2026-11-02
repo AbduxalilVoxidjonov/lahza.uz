@@ -17,7 +17,7 @@ import { listStyleDirs, readStylePackage, readTasteFile, TASTE_FILE, type StyleP
 import { validateMotifs, validateRoles, validateTokens, type MotifsByRole, type RoleDeclaration, type TasteDiagnostic, type TasteSource, type Tokens } from './schema'
 import type { Manifest } from '../../shared/motifs/catalog'
 
-export const DEFAULT_STYLE = 'weftcut-default'
+export const DEFAULT_STYLE = 'lahza-default'
 
 export interface TasteRole { name: string; builtin: boolean; declared_by: 'builtin' | TasteSource; description?: string }
 
@@ -62,7 +62,7 @@ const TASTE_KEYS = ['extends', 'roles', 'tokens', 'motifs']
 
 type Located = { pkg: StylePackage; origin: 'builtin' | 'user' }
 
-/** Built-ins shadow user packages of the same name: `weftcut-default` always
+/** Built-ins shadow user packages of the same name: `lahza-default` always
  *  means the shipped one. */
 export function findStyle(dirs: StyleDirs, name: string): Located | null {
   const builtin = listStyleDirs(dirs.builtin).get(name)

@@ -11,14 +11,14 @@ Result-5 color gap). No open technical risk remains; what's left is integration
 engineering.
 
 - Environment: Electron **42.4.1** (Chromium 148), Windows 11, NVIDIA RTX 3050, `ffmpeg-next` 8.1 / FFmpeg 8.1.1.
-- Branch: `poc/shared-texture-import`. Standalone under `poc/shared-texture/`; does **not** touch `@weftcut/core`.
+- Branch: `poc/shared-texture-import`. Standalone under `poc/shared-texture/`; does **not** touch `@lahza/core`.
 - Commits: `3c0f1d7b` (BGRA) → `c4ebf5bf` (NV12) → `7e95b8cf` (ffmpeg CPU-bounce) → `be72894a` (ffmpeg zero-copy) → `37cba608` (streaming, Result 3) → `2fc4f701` (this writeup) → `9314f112` (persistent import / zero per-frame IPC, Result 4) → `4b52d2ef` (renderer color paths, Result 5) → `28e6c4e0` (native NV12→BGRA convert, Result 6).
 
 ---
 
 ## 1. The question
 
-WeftCut's preview decodes via WebCodecs in the renderer; export and proxy use
+Lahza's preview decodes via WebCodecs in the renderer; export and proxy use
 native ffmpeg. The idea: let **native ffmpeg** decode (e.g. HEVC/10-bit/VP9 that we
 currently proxy) and hand frames to the renderer **without** an IPC frame copy —
 sharing GPU memory instead. Electron 42 ships an experimental `sharedTexture`
@@ -246,7 +246,7 @@ Caveats / what this does NOT yet establish:
 - Tested at 256×256 / 60 frames on one machine (Electron 42.4.1, RTX 3050); not a
   soak or a multi-resolution sweep.
 
-**Integration implication:** the real WeftCut preview can import a small ring of
+**Integration implication:** the real Lahza preview can import a small ring of
 shared textures **once** at session/seek setup and thereafter feed the renderer by
 overwriting them in place + a tiny frame-index poke — eliminating the per-frame
 `importSharedTexture`/`sendSharedTexture` IPC that bounded Result 3's throughput
@@ -255,8 +255,8 @@ overwriting them in place + a tiny frame-index poke — eliminating the per-fram
 ## 6c. Result 5 — renderer color paths ❌ WebGPU video ingestion is NOT color-correct (2026-06-29)
 
 Results 1–4 verified pixels **only** through 2D `drawImage` + `getImageData`,
-which honors `VideoFrame.colorSpace`. WeftCut's real renderer uploads to
-WebGPU/Pixi, where a known WeftCut finding is that Pixi v8's
+which honors `VideoFrame.colorSpace`. Lahza's real renderer uploads to
+WebGPU/Pixi, where a known Lahza finding is that Pixi v8's
 `device.queue.copyExternalImageToTexture({source: videoFrame})` **ignores**
 `VideoFrame.colorSpace` and converts every frame with BT.709. So the WebGPU color
 behavior for our shared NV12 textures was **unverified** — especially the spec's
@@ -385,7 +385,7 @@ renderer and read back at the center patch:
 
 1. **`refDraw`** — the existing zero-copy NV12 texture
    (`pocCreateTextureFromVideoZerocopy`), imported tagged BT.601 limited, read back
-   via 2D `drawImage`. This is WeftCut's existing-pipeline reference (~[20,220,40]),
+   via 2D `drawImage`. This is Lahza's existing-pipeline reference (~[20,220,40]),
    the self-calibrating target.
 2. **`bgraViaWebGPU`** — a new `pocCreateBgraFromVideoZerocopy(path, matrix)`:
    - decode the first frame to the NV12 D3D11 surface (reuse
@@ -432,7 +432,7 @@ error, so (A) was not needed. The shader compiles HLSL at runtime via `D3DCompil
 ### What this proves
 
 1. **Native NV12→BGRA convert closes the Result-5 color gap.** The native-converted
-   BGRA texture read back through `copyExternalImageToTexture` matches WeftCut's 2D
+   BGRA texture read back through `copyExternalImageToTexture` matches Lahza's 2D
    `drawImage` reference **to the byte** ([20,220,41] vs [20,220,41], maxAbs 0), and
    is 38 away from the broken raw-NV12-via-WebGPU value. The zero-copy-to-renderer
    property is preserved: the convert is a GPU render on ffmpeg's device, no CPU
@@ -605,7 +605,7 @@ the renderer zero-copy and stream continuously (Results 1–4), and the renderer
 *ingestion* color gap that Result 5 exposed for raw NV12 is **closed** by a native
 GPU NV12→BGRA convert (Result 6): the native-converted BGRA texture read back through
 the same WebGPU `copyExternalImageToTexture` path that mangled raw NV12 now matches
-WeftCut's 2D-`drawImage` reference **to the byte** (maxAbs 0), for both BT.601 and
+Lahza's 2D-`drawImage` reference **to the byte** (maxAbs 0), for both BT.601 and
 BT.709 sources. Integration is back to deterministic engineering: share **BGRA**
 (converted on the producer's D3D11 device, matrix/range from the stream tags), not
 raw NV12. Remaining work:
@@ -613,7 +613,7 @@ raw NV12. Remaining work:
 - Pace the pump to the playback clock / PTS instead of as-fast-as-possible; wire into the transport (`playbackStore`).
 - Correct color-range tagging (libx264 is limited-range; the streaming POC tagged full, hence 235/16 instead of 255/0), HDR (P010), odd-size/alignment. The full Electron-string↔`AVCOL_*` correspondence for setting the import tag from the stream's color tags is in §7 (from node-av).
 - Lifecycle: decode errors, seek, pause, pool teardown on window close.
-- This currently lives outside `@weftcut/core`; integrating means weighing it against the existing WebCodecs preview path — worth a separate design pass.
+- This currently lives outside `@lahza/core`; integrating means weighing it against the existing WebCodecs preview path — worth a separate design pass.
 
 ## 9. Reproduce
 

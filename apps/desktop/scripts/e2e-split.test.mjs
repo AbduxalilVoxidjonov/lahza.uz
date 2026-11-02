@@ -121,8 +121,8 @@ test('a leg restricts to its own files', () => {
   for (const os of OSES) {
     for (const leg of slicesFor(os)) {
       const env = sliceEnv(leg.name, os)
-      assert.deepEqual(names(env.WEFTCUT_E2E_ONLY), leg.own)
-      assert.deepEqual(Object.keys(env), ['WEFTCUT_E2E_ONLY'], 'the pack speaks through one variable')
+      assert.deepEqual(names(env.LAHZA_E2E_ONLY), leg.own)
+      assert.deepEqual(Object.keys(env), ['LAHZA_E2E_ONLY'], 'the pack speaks through one variable')
     }
   }
 })
@@ -273,7 +273,7 @@ test('the slice restriction reaches the parallel project and nothing else', () =
   // the restriction narrows that project to the leg's files too; most @serial
   // tests live elsewhere, so Playwright kills the whole leg with "No tests
   // found" before a single spec runs.
-  const applied = yml.split('\n').filter((l) => /WEFTCUT_E2E_ONLY=/.test(l))
+  const applied = yml.split('\n').filter((l) => /LAHZA_E2E_ONLY=/.test(l))
   assert.ok(applied.length > 0, 'nothing applies a slice restriction — the split is not in effect')
   for (const line of applied)
     assert.match(
@@ -281,7 +281,7 @@ test('the slice restriction reaches the parallel project and nothing else', () =
       /--project=parallel/,
       `a slice restriction must be set on the parallel invocation itself, never where the serial run inherits it: ${line.trim()}`,
     )
-  assert.ok(!/WEFTCUT_E2E_IGNORE/.test(yml), 'the catch-all variable is gone; every leg is an explicit set')
+  assert.ok(!/LAHZA_E2E_IGNORE/.test(yml), 'the catch-all variable is gone; every leg is an explicit set')
 })
 
 test('the E2E step passes both matrix dimensions to the pack', () => {

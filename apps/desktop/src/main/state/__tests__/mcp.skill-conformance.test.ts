@@ -1,7 +1,7 @@
 // apps/desktop/src/main/state/__tests__/mcp.skill-conformance.test.ts
 // Anti-drift gate for the shipped agent-skill sources.
 //
-// The skill bundle (repo-root skills/weftcut/ + docs/motif-authoring.md, staged
+// The skill bundle (repo-root skills/lahza/ + docs/motif-authoring.md, staged
 // by scripts/build-skills.mjs) name-drops MCP tools, resources, and prompts in
 // backticks. Those files ship to end users' agents, so a rename that leaves a
 // stale name behind teaches every connected agent to call something that no
@@ -34,15 +34,15 @@ import { parse as parseYaml } from 'yaml'
 import { MAX_ROUNDS, SIGNALS, STAGES } from '../../../shared/harness'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../../../..')
-const CRAFT_DIR = path.join(repoRoot, 'skills/weftcut/craft')
-const RECIPES_DIR = path.join(repoRoot, 'skills/weftcut/recipes')
+const CRAFT_DIR = path.join(repoRoot, 'skills/lahza/craft')
+const RECIPES_DIR = path.join(repoRoot, 'skills/lahza/recipes')
 const markdownIn = (dir: string) =>
   readdirSync(dir)
     .filter((f) => f.endsWith('.md'))
     .sort()
     .map((f) => path.join(dir, f))
 const SKILL_SOURCES = [
-  path.join(repoRoot, 'skills/weftcut/SKILL.md'),
+  path.join(repoRoot, 'skills/lahza/SKILL.md'),
   path.join(repoRoot, 'docs/motif-authoring.md'),
   path.join(repoRoot, 'docs/motif-workspaces.md'),
   path.join(repoRoot, 'docs/motif-three-model.md'),

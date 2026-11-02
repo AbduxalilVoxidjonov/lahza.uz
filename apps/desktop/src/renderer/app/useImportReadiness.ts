@@ -223,7 +223,7 @@ export function useImportReadiness(deps: {
       markWebcodecsUnusable(media.id, 'webcodecs cannot decode original');
       if (resolveDecode(media).route === 'direct-export') {
         routeCorrected.current.add(media.id);
-        void ensureFullProxy(media.id).catch(error => console.error('[weftcut] route correction failed', error));
+        void ensureFullProxy(media.id).catch(error => console.error('[lahza] route correction failed', error));
       }
     },
     changed: () => { setSweepTick(n => n + 1); previewRef.current?.refreshSources(); },

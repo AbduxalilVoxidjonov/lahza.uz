@@ -4,7 +4,7 @@
 // widgets, and the region hook can all import this without a cycle.
 //
 // A focus REGION is a dock panel. `PANEL_REGISTRY` already enumerates every
-// kind and `WeftCutPanelRenderer` already wraps every panel's content in one
+// kind and `LahzaPanelRenderer` already wraps every panel's content in one
 // element, so regions need no taxonomy of their own — see ADR 0041.
 //
 // LANDMINE: this module must NOT import `panelRegistry`. It is imported by the

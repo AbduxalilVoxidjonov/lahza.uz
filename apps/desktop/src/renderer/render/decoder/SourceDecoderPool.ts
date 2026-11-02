@@ -122,7 +122,7 @@ export class SourceMedia {
       this.config = withDefaultColorSpace(config, this.sourceColor);
       // eslint-disable-next-line no-console
       console.log(
-        `[weftcut/pixi] source ${this.mediaId} ready: codec=${config.codec} ` +
+        `[lahza/pixi] source ${this.mediaId} ready: codec=${config.codec} ` +
           `${config.codedWidth ?? "?"}x${config.codedHeight ?? "?"} ` +
           `startPts=${this.sourceStartPtsUs}us ` +
           `desc=${config.description ? `${(config.description as { byteLength: number }).byteLength}B` : "none"}`,
@@ -319,7 +319,7 @@ export class SourceHandle {
               this.firedFirstFrame = true;
               // eslint-disable-next-line no-console
               console.log(
-                `[weftcut/pixi] layer ${this.layerId} (source ${this.mediaId}) first frame decoded`,
+                `[lahza/pixi] layer ${this.layerId} (source ${this.mediaId}) first frame decoded`,
               );
               this.onFirstFrameCb?.();
               this.onFirstFrameCb = null;
@@ -335,7 +335,7 @@ export class SourceHandle {
                 ringLastUs !== null ? (ringLastUs / 1000).toFixed(0) : "—";
               // eslint-disable-next-line no-console
               console.log(
-                `[weftcut/pixi] decoder throughput: ${this.outputsInWindow} frames in ` +
+                `[lahza/pixi] decoder throughput: ${this.outputsInWindow} frames in ` +
                   `${(nowMs - this.windowStartMs).toFixed(0)}ms ` +
                   `(${((this.outputsInWindow * 1000) / (nowMs - this.windowStartMs)).toFixed(1)} fps) ` +
                   `[total=${this.outputFrameCount} queue=${dec.decodeQueueSize} ` +
@@ -362,7 +362,7 @@ export class SourceHandle {
             }
             // eslint-disable-next-line no-console
             console.warn(
-              `[weftcut/pixi] createImageBitmap failed for source ${this.mediaId} ` +
+              `[lahza/pixi] createImageBitmap failed for source ${this.mediaId} ` +
                 `(pts=${ptsUs}us):`,
               err,
             );
@@ -373,7 +373,7 @@ export class SourceHandle {
         if (this.decoder !== dec) return;
         const err = e instanceof Error ? e : new Error(String(e));
         // eslint-disable-next-line no-console
-        console.error(`[weftcut/pixi] decoder ${this.mediaId} error:`, err.message);
+        console.error(`[lahza/pixi] decoder ${this.mediaId} error:`, err.message);
         const action = handleDecodeError({
           err,
           outputFrameCount: this.outputFrameCount,
@@ -432,7 +432,7 @@ export class SourceHandle {
       decodeClock: handle.media.decodeClock,
       log: (msg: string) => {
         // eslint-disable-next-line no-console
-        console.warn(`[weftcut/pixi] pump ${handle.mediaId}: ${msg}`);
+        console.warn(`[lahza/pixi] pump ${handle.mediaId}: ${msg}`);
       },
     };
   }

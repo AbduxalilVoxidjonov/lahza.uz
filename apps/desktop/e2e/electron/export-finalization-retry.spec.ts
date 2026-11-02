@@ -14,9 +14,9 @@ for (const action of ['retry', 'discard'] as const) {
     test.setTimeout(180_000)
     const { app, page } = await launchApp({ locale: 'zh-CN' })
     try {
-      await newProject(page, { parentFolder: tmpDir('weftcut-finalize-project-'), name: 'Finalize retry', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+      await newProject(page, { parentFolder: tmpDir('lahza-finalize-project-'), name: 'Finalize retry', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
       await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: 2304 } } })
-      const output = path.join(tmpDir('weftcut-finalize-output-'), 'finished.mp4')
+      const output = path.join(tmpDir('lahza-finalize-output-'), 'finished.mp4')
       writeFileSync(output, 'previous complete output')
       await app.evaluate(({ ipcMain }, addon) => {
         const native = process.getBuiltinModule('module').createRequire(addon)(addon)
@@ -79,7 +79,7 @@ for (const action of ['retry', 'discard'] as const) {
       expect(existsSync(audioPath)).toBe(true)
       if (action === 'retry') {
         await panel.getByRole('button', { name: '重试完成导出' }).click()
-        await page.waitForFunction(() => (window as any).__weftcutExportState?.kind === 'complete')
+        await page.waitForFunction(() => (window as any).__lahzaExportState?.kind === 'complete')
         const report = analyze({ output, source: media, samples: [0, 28, 58], ssimMin: exportSsimFloor() })
         expect(report.pass, JSON.stringify(report)).toBe(true)
         const probe = spawnSync(process.env.FFPROBE || 'ffprobe', ['-v', 'error', '-show_entries', 'stream=codec_type', '-of', 'json', output], { encoding: 'utf8' })
@@ -106,7 +106,7 @@ for (const action of ['retry', 'discard'] as const) {
 test('failed stream-copy mux preserves an existing output and removes its staged file', async () => {
   const { app, page } = await launchApp()
   try {
-    const folder = tmpDir('weftcut-mux-atomic-')
+    const folder = tmpDir('lahza-mux-atomic-')
     const input = path.join(folder, 'invalid.mp4'), output = path.join(folder, 'existing.mp4')
     writeFileSync(input, 'invalid media')
     writeFileSync(output, 'previous complete output')

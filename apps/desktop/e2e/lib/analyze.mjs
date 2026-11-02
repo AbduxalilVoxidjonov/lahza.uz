@@ -14,12 +14,12 @@ const BIN = path.join(
   process.platform === "win32" ? "media_conformance.exe" : "media_conformance",
 );
 
-// Default child-process deadline; per-leg override: WEFTCUT_ANALYZE_TIMEOUT_MS.
+// Default child-process deadline; per-leg override: LAHZA_ANALYZE_TIMEOUT_MS.
 // Wide SSIM searches can need more: #37's 245-candidate call exceeded 600 s
 // on Windows even after the export completed. Such callers pass timeoutMs
 // explicitly; the ordinary calls keep this default. A deadline firing alone
 // does not prove a wedge — the per-call logs show where the time went.
-const TIMEOUT_MS = Number(process.env.WEFTCUT_ANALYZE_TIMEOUT_MS) || 600_000;
+const TIMEOUT_MS = Number(process.env.LAHZA_ANALYZE_TIMEOUT_MS) || 600_000;
 
 let warnedNoBin = false;
 

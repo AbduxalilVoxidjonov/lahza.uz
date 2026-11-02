@@ -4,10 +4,10 @@
 // PixiJS 8.21 no longer loads these declarations on TypeScript 6+.
 // lib.dom still omits GPUBufferUsage, GPUTextureUsage, and GPUMapMode.
 
-// Set to "1" only by the E2E build (`VITE_WEFTCUT_E2E=1`); gates the dev-only
-// `window.__weftcutTest` hook so it's dead-code-eliminated from prod bundles.
+// Set to "1" only by the E2E build (`VITE_LAHZA_E2E=1`); gates the dev-only
+// `window.__lahzaTest` hook so it's dead-code-eliminated from prod bundles.
 interface ImportMetaEnv {
-  readonly VITE_WEFTCUT_E2E?: string;
+  readonly VITE_LAHZA_E2E?: string;
 }
 
 // Vite's `?url` import suffix yields a string URL for any asset. The

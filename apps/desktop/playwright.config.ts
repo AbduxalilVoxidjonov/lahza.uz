@@ -2,17 +2,17 @@ import { defineConfig } from '@playwright/test'
 
 /// `@matrix` marks the nightly-only tier — combinatorial cells and low-churn
 /// specialty targets excluded from the per-PR run (what earns the tag, and what
-/// must not: e2e/README.md §Tiers). `WEFTCUT_E2E_FULL=1` puts them back;
+/// must not: e2e/README.md §Tiers). `LAHZA_E2E_FULL=1` puts them back;
 /// electron-ci sets it on its scheduled sweep, and `npm run e2e -- --full` is
 /// the local equivalent.
 ///
 /// This is a project-level grepInvert rather than a CLI `--grep-invert` so the
 /// command line stays free for a developer to filter with, and so it composes
 /// with the serial/parallel split below instead of overwriting it.
-const MATRIX_EXCLUDED = process.env.WEFTCUT_E2E_FULL ? [] : [/@matrix/]
+const MATRIX_EXCLUDED = process.env.LAHZA_E2E_FULL ? [] : [/@matrix/]
 
 /// How electron-ci splits one e2e run across runners: each leg OWNS the spec
-/// files `WEFTCUT_E2E_ONLY` names, and `e2e/slices.mjs` packs every file onto
+/// files `LAHZA_E2E_ONLY` names, and `e2e/slices.mjs` packs every file onto
 /// exactly one leg per OS from the measured cost in `e2e/timings.json`. Unset,
 /// the whole suite runs — a local `npm run e2e`, or CI's single `all` slice.
 ///
@@ -31,7 +31,7 @@ const globs = (names: string | undefined) =>
     .split(',')
     .filter(Boolean)
     .map((name) => `**/${name}`)
-const OWNED = globs(process.env.WEFTCUT_E2E_ONLY)
+const OWNED = globs(process.env.LAHZA_E2E_ONLY)
 
 export default defineConfig({
   testDir: 'e2e/electron',

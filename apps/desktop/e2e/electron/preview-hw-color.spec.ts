@@ -46,11 +46,11 @@ import { hardwareGate, hardwareEnvironmentGate } from './helpers/hardwareGate'
 // normalization discounts (ADR 0032, the same reason preview-sw-color exists).
 //
 // Model: preview-sw-color.spec.ts (chart method) + preview-hw-conformance
-// (lane forcing + clean-skip). Needs a VITE_WEFTCUT_E2E=1 build + the built
+// (lane forcing + clean-skip). Needs a VITE_LAHZA_E2E=1 build + the built
 // native-decode addon.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const MANIFEST = path.resolve(MEDIA_DIR, 'color_manifest.json')
 
 const CANVAS = { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 }
@@ -69,12 +69,12 @@ const COMPONENT_PRESENT = DECODE_COMPONENT_PRESENT
 type HwLane = 'nvdec' | 'vaapi' | 'd3d11va' | 'videotoolbox'
 
 // Skip-path audit seam, same contract as preview-hw-conformance: an OUTER
-// `WEFTCUT_FORCE_HW_LANE` (exported around the runner by an operator)
+// `LAHZA_FORCE_HW_LANE` (exported around the runner by an operator)
 // overrides the platform's own lanes. Pinning a lane the box does not
 // advertise makes main's `decodeCap:probeHw` hide every HW lane, so all legs
 // must then SKIP, never FAIL. It has to be read HERE because launchApp
 // spreads this spec's env LAST.
-const OUTER_LANE_PIN = process.env.WEFTCUT_FORCE_HW_LANE as HwLane | undefined
+const OUTER_LANE_PIN = process.env.LAHZA_FORCE_HW_LANE as HwLane | undefined
 
 // Which lanes to pin on this host, from `HW_LANE_PRIORITY` filtered to the OS
 // that has them. Only the host's OWN lanes are enumerated, because a leg costs
@@ -127,7 +127,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
   expect(existsSync(fixture), `${label} chart fixture missing: ${fixture}`).toBe(true)
   expect(existsSync(MANIFEST), `color manifest missing: ${MANIFEST}`).toBe(true)
   test.setTimeout(240_000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-hw-color-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-preview-hw-color-proj-')
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as {
     width: number
     height: number
@@ -138,7 +138,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
   // Pin the resolver to this leg's lane only (+ software fallback). Where the
   // lane can't engage, the evidence gate distinguishes affirmative absence
   // from an operational failure. A software frame alone never permits a skip.
-  const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: lane } })
+  const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: lane } })
   const consoleLines: string[] = []
   page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
   page.on('pageerror', (e) => consoleLines.push(`[pageerror] ${String(e)}`))
@@ -166,7 +166,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     await page.waitForFunction(
       () => {
         try {
-          ;(window as unknown as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe()
+          ;(window as unknown as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe()
           return true
         } catch {
           return false
@@ -179,14 +179,14 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
     // Seek once, then poll read-only until a lane has decoded + bound the
     // target frame. The evidence gate below checks which lane actually engaged.
     await page.evaluate(
-      (us) => (window as unknown as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
+      (us) => (window as unknown as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us),
       SEEK_US,
     )
     const handle = await page.waitForFunction(
       ([id, target]) => {
-        const p = (window as unknown as { __weftcutTest: { activeClipProbe(id?: string): {
+        const p = (window as unknown as { __lahzaTest: { activeClipProbe(id?: string): {
           sourceKind: string; hwLane: string | null; ringLastPtsUs: number | null; spriteBound: boolean
-        } | null } }).__weftcutTest.activeClipProbe(id)
+        } | null } }).__lahzaTest.activeClipProbe(id)
         if (!p) return null
         if (p.sourceKind !== 'native-gpu' && p.sourceKind !== 'sw') return null
         if (p.ringLastPtsUs == null || p.ringLastPtsUs < target) return null
@@ -209,7 +209,7 @@ async function runChartLeg(label: string, fixture: string, lane: HwLane): Promis
       const cx = patch.x + Math.floor(patch.w / 2)
       const cy = patch.y + Math.floor(patch.h / 2)
       const s = (await page.evaluate(
-        ([x, y]) => (window as unknown as { __weftcutTest: { weftcutSampleComposite(x: number, y: number): Promise<{ r: number; g: number; b: number }> } }).__weftcutTest.weftcutSampleComposite(x, y),
+        ([x, y]) => (window as unknown as { __lahzaTest: { lahzaSampleComposite(x: number, y: number): Promise<{ r: number; g: number; b: number }> } }).__lahzaTest.lahzaSampleComposite(x, y),
         [cx, cy] as const,
       )) as { r: number; g: number; b: number }
       const got: [number, number, number] = [s.r, s.g, s.b]

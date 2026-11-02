@@ -12,7 +12,7 @@ import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { launchApp } from '../../e2e/electron/helpers/driver'
 import { resourceDiagnostics } from '../../e2e/electron/helpers/resourceDiagnostics'
-import type { WeftcutApi } from '../../src/shared/ipc'
+import type { LahzaApi } from '../../src/shared/ipc'
 import type { McpEndpoint } from '../drivers/types'
 import { mediaJobLog, recordMediaJobs } from '../mediaReady'
 import type { FixtureMeta, HostSession, HostStartOptions, TemplateMeta, TemplateStore } from './types'
@@ -112,7 +112,7 @@ export const localTemplates: TemplateStore = {
 }
 
 export async function startLocalHost(opts: HostStartOptions): Promise<HostSession> {
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-bench-proj-'))
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-bench-proj-'))
   const { app, page } = await launchApp()
   try {
     // The main process's own log: job failures and admission waits show up
@@ -120,9 +120,9 @@ export async function startLocalHost(opts: HostStartOptions): Promise<HostSessio
     const appLog = fs.createWriteStream(path.join(opts.out_dir, 'app.log'))
     app.process().stdout?.pipe(appLog)
     app.process().stderr?.pipe(appLog)
-    const mcp = (await page.evaluate(() => (window as unknown as { api: WeftcutApi }).api.mcp.getInfo())) as McpEndpoint
+    const mcp = (await page.evaluate(() => (window as unknown as { api: LahzaApi }).api.mcp.getInfo())) as McpEndpoint
     const invoke = (cmd: string, args: Record<string, unknown> = {}) =>
-      page.evaluate(([c, a]) => (window as unknown as { api: WeftcutApi }).api.backend.invoke(c, a), [cmd, args] as const)
+      page.evaluate(([c, a]) => (window as unknown as { api: LahzaApi }).api.backend.invoke(c, a), [cmd, args] as const)
     if (opts.app_memory_mib !== undefined)
       await invoke('app_settings_set', { patch: { resource_policy: { memory_mib: opts.app_memory_mib } } })
     const record: Record<string, unknown> = {

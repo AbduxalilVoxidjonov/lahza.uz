@@ -1,9 +1,9 @@
 # NAPI-RS multi-platform testing and production symbol loading
 
-Verified 2026-07-19 on the WeftCut workspace and generalized to all three
+Verified 2026-07-19 on the Lahza workspace and generalized to all three
 desktop targets. This note records why a native crate's Rust test binary behaves
 differently from the addon Electron loads, the `test-noop` test pattern (with the
-per-crate nuance both WeftCut addons hit), the production `dyn-symbols` policy,
+per-crate nuance both Lahza addons hit), the production `dyn-symbols` policy,
 and the per-OS build/runtime specifics — including the macOS decode wiring,
 which landed 2026-07-19 (SW lanes; checklist below).
 
@@ -27,7 +27,7 @@ Linux is the strict one, which is why the gap surfaced there first.
 ## The layered testing pattern
 
 1. Keep domain logic independent of NAPI-RS types and test it with ordinary Rust
-   tests (WeftCut: the `weftcut-eval` leaf).
+   tests (Lahza: the `lahza-eval` leaf).
 2. For addon-crate unit tests that still compile `#[napi]` exports, enable a
    **test-only `test-noop` feature** and run `cargo test --features test-noop` on
    all three OSes.
@@ -41,10 +41,10 @@ Neither replaces the Rust tests or the host integration tests.
 
 ## test-noop: per-crate configuration (IMPORTANT)
 
-The two noop features are separable, and WeftCut's two addons need different
+The two noop features are separable, and Lahza's two addons need different
 subsets:
 
-- **`@weftcut/core`** → `test-noop = ["napi/noop", "napi-derive/noop"]` (both).
+- **`@lahza/core`** → `test-noop = ["napi/noop", "napi-derive/noop"]` (both).
   The exported wrappers vanish under `napi-derive/noop`, so everything reachable
   only through them reads as dead; `lib.rs` allows `dead_code` under this
   feature alone, and item-level `#[expect(dead_code)]` sites opt out of it too
@@ -52,7 +52,7 @@ subsets:
   go unfulfilled once its parent is dead). The crate still compiles because
   nothing depends on the derived `ToNapiValue`/`FromNapiValue` impls at compile
   time.
-- **`@weftcut/native-decode`** → `test-noop = ["napi/noop"]` (**only**).
+- **`@lahza/native-decode`** → `test-noop = ["napi/noop"]` (**only**).
   It must **not** add `napi-derive/noop`: decode holds
   `ThreadsafeFunction<ExportSwMsg>` and `ThreadsafeFunction<String>` in non-test
   code. `napi-derive/noop` deletes the derived `ToNapiValue` impl for the
@@ -69,7 +69,7 @@ return type that needs its derived `To`/`FromNapiValue` impl. The
 
 ## dyn-symbols: production symbol-resolution policy
 
-`dyn-symbols` is a **NAPI-RS v3 default**. Both WeftCut addons had switched it off
+`dyn-symbols` is a **NAPI-RS v3 default**. Both Lahza addons had switched it off
 (`default-features = false` without re-adding it, 2026-06-17) and have now
 restored it. With it, the addon resolves the host's `napi_*` entry points via
 **dynamic lookup at load time** instead of baking them in as hard import records.
@@ -80,8 +80,8 @@ enable `noop` in a production build.
 
 ## Building & testing the decode component, per OS
 
-`@weftcut/native-decode` is the repo's **only `ffmpeg-next` consumer**
-(`@weftcut/core` must never link libav). It needs `FFMPEG_DIR` + libclang to
+`@lahza/native-decode` is the repo's **only `ffmpeg-next` consumer**
+(`@lahza/core` must never link libav). It needs `FFMPEG_DIR` + libclang to
 build and the bundled libav* on the loader path at run. HW-preview lanes are
 per-OS; the **SW lanes (`preview_sw` / `export_sw`) build on every platform**.
 
@@ -208,7 +208,7 @@ still has no `cfg(target_os = "macos")` code. Items 1–5 and 8 **landed
 
 ## Status
 
-- **Done** (branch `fix/native-linux-rust-tests`): `@weftcut/core` `test-noop` +
+- **Done** (branch `fix/native-linux-rust-tests`): `@lahza/core` `test-noop` +
   Rust tests on all three OSes (macOS `dynamic_lookup` hack removed); core +
   decode `dyn-symbols` restored; decode built and tested on the Linux CI leg.
 - **Done** (2026-07-19, macOS 26.5.2 arm64): macOS decode SW vertical —
@@ -221,4 +221,4 @@ still has no `cfg(target_os = "macos")` code. Items 1–5 and 8 **landed
 - **TODO**: macOS decode CI leg (checklist item 6) and electron-builder
   packaging (item 7) — tracked separately. Longer term, keep the exported NAPI
   layer thin and continue moving NAPI-free logic behind narrow Rust interfaces
-  (as with `weftcut-eval`), splitting at useful seams rather than wholesale.
+  (as with `lahza-eval`), splitting at useful seams rather than wholesale.

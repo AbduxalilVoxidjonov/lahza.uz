@@ -1,6 +1,6 @@
 // Shared primitives for the state-corpus property-based test suite.
 // Every fc.assert in this suite passes { seed: PBT_SEED, numRuns: PBT_RUNS }
-// so CI is deterministic and Stryker can shrink runs via WEFTCUT_PBT_RUNS.
+// so CI is deterministic and Stryker can shrink runs via LAHZA_PBT_RUNS.
 import { seededGen } from '../../ids'
 import { blankProject } from '../../model'
 import { createActor } from '../../actor'
@@ -9,7 +9,7 @@ import { canonicalString } from '../../canonical'
 import { root } from '../fixtures/project'
 
 export const PBT_SEED = 0x5747_4354 // "WGCT" — fixed; do not randomize.
-export const PBT_RUNS = Number(process.env.WEFTCUT_PBT_RUNS ?? 200)
+export const PBT_RUNS = Number(process.env.LAHZA_PBT_RUNS ?? 200)
 
 // `src_in_us` / `src_out_us` are present exactly on the source-window kinds
 // (VideoClip, Audio, CompositionRef) — optional here rather than a second layer

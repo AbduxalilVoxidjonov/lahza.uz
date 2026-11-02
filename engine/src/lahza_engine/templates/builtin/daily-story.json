@@ -1,0 +1,53 @@
+{
+  "schema": "lahza.template/1",
+  "id": "uz.lahza.tpl.daily-story",
+  "version": "1.0.0",
+  "name": {
+    "uz": "Kun hikoyasi",
+    "uz-Cyrl": "Кун ҳикояси",
+    "ru": "История дня",
+    "en": "Daily story"
+  },
+  "description": {
+    "uz": "Kun davomida olingan videolardan xronologik hikoya: har videodan eng yaxshi lahzalar, iliq ranglar, slideup o'tishlar, xohishga ko'ra musiqa.",
+    "uz-Cyrl": "Кун давомида олинган видеолардан хронологик ҳикоя: ҳар видеодан энг яхши лаҳзалар, илиқ ранглар, slideup ўтишлар, хоҳишга кўра мусиқа.",
+    "ru": "Хронологическая история из видео, снятых за день: лучшие моменты каждого ролика, тёплые цвета, переходы slideup, музыка по желанию.",
+    "en": "A chronological story from clips shot during the day: the best moments of each clip, warm colour, slide-up transitions, optional music."
+  },
+  "category": "boshqa",
+  "builtin": true,
+  "aspect": "9:16",
+  "fps": 30.0,
+  "target_duration_ms": 30000,
+  "min_shot_ms": 1500,
+  "max_shot_ms": 4000,
+  "selection": "scenes",
+  "order": "xronologik",
+  "max_per_source": 3,
+  "respect_sentences": true,
+  "reframe": "auto",
+  "transition": {"plugin": "uz.lahza.tr.slideup", "dur_ms": 300},
+  "fx": [
+    {
+      "plugin": "uz.lahza.motion.push-in",
+      "trigger": "every_n",
+      "every_n": 3,
+      "params": {"zoom": 1.06},
+      "min_gap_ms": 4000
+    }
+  ],
+  "color": "uz.lahza.color.warm",
+  "captions": false,
+  "hook_text": {
+    "text": "{sarlavha}",
+    "dur_ms": 2500,
+    "kind": "title",
+    "position": "upper",
+    "animation": "fade"
+  },
+  "music": {"required": false, "gain_db": -12.0, "duck": true, "fade_in_ms": 500, "fade_out_ms": 2000},
+  "source_gain_db": -3.0,
+  "mute_sources": false,
+  "loudnorm_lufs": -14.0,
+  "logo": false
+}

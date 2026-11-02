@@ -18,15 +18,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 for (const source of ['builtin', 'installed'] as const) {
   test(`motif export: ${source} countdown animates in output (frames differ across seconds)`, async () => {
     test.skip(
-      process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+      process.env.LAHZA_E2E_NO_EXPORT === '1',
       'WebCodecs H.264 encode needs a GPU not available on headless CI runners; motif export is verified locally',
     )
     test.setTimeout(300_000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-motif-out-'), 'motif-out.mp4')
-    const PROJECT_PARENT = tmpDir('weftcut-e2e-motif-proj-')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-motif-out-'), 'motif-out.mp4')
+    const PROJECT_PARENT = tmpDir('lahza-e2e-motif-proj-')
     rmSync(OUTPUT, { force: true })
 
-    const userDataDir = tmpDir('weftcut-e2e-motif-profile-')
+    const userDataDir = tmpDir('lahza-e2e-motif-profile-')
     const motifId = source === 'builtin' ? 'countdown' : 'e2e-user-countdown'
     if (source === 'installed') {
       // Same animation, but resolved through the runtime user catalog. The
@@ -77,7 +77,7 @@ for (const source of ['builtin', 'installed'] as const) {
       }
       expect(report.pass).toBe(true)
 
-      const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+      const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
       expect(perf.motif.peakBytes).toBeLessThanOrEqual(128 * 1024 * 1024)
       expect(perf.motif.framesRead).toBe(60)
       const rasterDir = path.join(PROJECT_PARENT, projectName, 'Cache', 'raster')
@@ -101,16 +101,16 @@ for (const source of ['builtin', 'installed'] as const) {
         await page.evaluate(outputAbsPath => {
           const w = window as any
           w.__cancelResult = null
-          void w.__weftcutTest.exportTimeline({ outputAbsPath }).then(
+          void w.__lahzaTest.exportTimeline({ outputAbsPath }).then(
             () => { w.__cancelResult = 'unexpected success' },
             () => { w.__cancelResult = 'cancelled' },
           )
         }, cancelled)
         await page.waitForFunction(() => {
-          const s = (window as any).__weftcutExportState
+          const s = (window as any).__lahzaExportState
           return s?.kind === 'progress' && typeof s.onCancel === 'function'
         })
-        await page.evaluate(() => (window as any).__weftcutExportState.onCancel())
+        await page.evaluate(() => (window as any).__lahzaExportState.onCancel())
         await page.waitForFunction(() => (window as any).__cancelResult !== null)
         expect(await page.evaluate(() => (window as any).__cancelResult)).toBe('cancelled')
         expect(existsSync(cancelled)).toBe(false)

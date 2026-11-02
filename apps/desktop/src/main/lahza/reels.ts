@@ -1,4 +1,4 @@
-/** Lahza highlight → WeftCut timeline, as pure data. The engine speaks
+/** Lahza highlight → Lahza timeline, as pure data. The engine speaks
  *  source-absolute milliseconds; the timeline speaks integer microseconds. A
  *  clip is not one span: `cuts` remove source ranges and a `hook` replays a
  *  range at the front, so a clip becomes several source segments laid end to
@@ -41,7 +41,7 @@ export interface Transform { x: number; y: number; scale_x: number; scale_y: num
 
 /** Scale-to-fill a `canvas` with a `source` frame, centred on the normalized
  *  focus point (cx, cy) and clamped so no canvas edge shows past the picture.
- *  WeftCut's transform is `world = Position + S·(local − anchor·naturalSize)`
+ *  Lahza's transform is `world = Position + S·(local − anchor·naturalSize)`
  *  with the full source as natural size, so with a centre anchor the focus
  *  lands on the canvas centre when Position = centre − S·size·(focus − ½). */
 export function fillTransform(source: { width: number; height: number }, canvas: { width: number; height: number }, focus: { cx: number; cy: number } = { cx: 0.5, cy: 0.5 }, zoom = 1): Transform {

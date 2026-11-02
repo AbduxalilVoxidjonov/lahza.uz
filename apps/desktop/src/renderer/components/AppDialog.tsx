@@ -33,7 +33,7 @@ interface AppDialogProps {
 }
 const DialogDepth = createContext(0);
 
-/// The one modal wrapper for every WeftCut dialog. Base UI supplies the
+/// The one modal wrapper for every Lahza dialog. Base UI supplies the
 /// portal, focus trap, Escape close, backdrop dismiss, and aria wiring.
 /// Callers conditionally render the whole dialog (mount == open), so `open`
 /// is always true here and closing happens by the parent unmounting us.

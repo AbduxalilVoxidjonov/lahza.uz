@@ -5,7 +5,7 @@ status: accepted
 
 ## Context
 
-[PR #41 by baraa (@baraa404)](https://github.com/WeftCut/WeftCut/pull/41)
+[PR #41 by baraa (@baraa404)](https://api.github.com/repositories/1246738326/pulls/41)
 proposed importing fonts and choosing a default text font. Its default-font
 preference and settings-store approach are retained. The review chose OS font
 installation instead of maintaining an app-owned font store. The inspector's
@@ -50,7 +50,7 @@ app to refresh the catalog; there is no second refresh/invalidation lifecycle.
 Credit the original default-font contribution in the implementation commit:
 
 ```text
-Inspired by the default text font preference in WeftCut/WeftCut#41.
+Inspired by the default text font preference in AbduxalilVoxidjonov/lahza.uz#41.
 
 Co-authored-by: baraa <baraa0email@gmail.com>
 ```

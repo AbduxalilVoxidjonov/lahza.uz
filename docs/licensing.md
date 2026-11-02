@@ -1,6 +1,6 @@
 # Licensing
 
-WeftCut's own code — TypeScript, Rust, shaders, docs — is **MIT** (root
+Lahza's own code — TypeScript, Rust, shaders, docs — is **MIT** (root
 [`LICENSE`](../LICENSE)). Packaged installers additionally bundle third-party
 binaries with their own licenses; [`THIRD-PARTY-NOTICES.md`](../THIRD-PARTY-NOTICES.md)
 enumerates them. This doc explains *why* the MIT license holds next to
@@ -13,17 +13,17 @@ license boundary:
 
 | Lane | What ships | License | Boundary that protects MIT |
 |---|---|---|---|
-| In-process decode | Shared libraries (`libav*`) dynamically linked by `@weftcut/native-decode` | LGPL 2.1+ | The libraries are an **LGPL-only build** — decode needs no GPL component |
+| In-process decode | Shared libraries (`libav*`) dynamically linked by `@lahza/native-decode` | LGPL 2.1+ | The libraries are an **LGPL-only build** — decode needs no GPL component |
 | Encode/transcode sidecar | Stock `ffmpeg`/`ffprobe` CLI binaries | GPL v3 | **Process boundary** — subprocess + pipes is mere aggregation; GPL does not propagate across it |
 
 Two rules keep the boundaries honest:
 
 - **The addon split is NOT a license boundary.** A dynamically loaded,
   function-calling addon forms a combined work with its host (FSF plugin
-  doctrine). `@weftcut/native-decode` may only ever link LGPL-clean builds;
+  doctrine). `@lahza/native-decode` may only ever link LGPL-clean builds;
   moving GPL code in-process would contaminate the app regardless of which
   addon carries it.
-- **`@weftcut/core` never links libav.** The only `ffmpeg-next` consumer is
+- **`@lahza/core` never links libav.** The only `ffmpeg-next` consumer is
   the decode component crate; everything else talks to FFmpeg over the
   sidecar's CLI/stdio.
 
@@ -54,7 +54,7 @@ as `resources/native-decode/LIBVA-LICENSE.txt` and the pack gate asserts it.
 
 Binaries staged by `apps/desktop/scripts/fetch-ffmpeg.mjs` (gyan.dev on
 Windows, BtbN GPL on Linux, martin-riedl.de on macOS) and only ever executed
-as subprocesses. The GPL covers **those binaries**, not WeftCut — but
+as subprocesses. The GPL covers **those binaries**, not Lahza — but
 *distributing* them owes GPLv3 compliance for the binaries themselves:
 
 - **License text** — `resources/ffmpeg/LICENSE.txt` in the package (from the

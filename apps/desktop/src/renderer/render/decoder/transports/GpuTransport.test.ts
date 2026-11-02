@@ -34,7 +34,7 @@ function dispatchHandoff(streamId: string): FakePort {
   const port: FakePort = { onmessage: null, postMessage: vi.fn(), close: vi.fn() };
   window.dispatchEvent(
     new MessageEvent("message", {
-      data: { __weftcutPreviewGpu: "port", streamId },
+      data: { __lahzaPreviewGpu: "port", streamId },
       ports: [port as unknown as MessagePort],
     }),
   );

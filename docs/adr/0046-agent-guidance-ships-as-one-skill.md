@@ -6,7 +6,7 @@ status: accepted
 
 ## Context
 
-WeftCut's MCP surface already teaches connected agents everything a single
+Lahza's MCP surface already teaches connected agents everything a single
 tool can carry: tool descriptions written as API docs, structured errors with
 options, three canned prompts. What it structurally cannot carry is
 **cross-tool process knowledge** — how a session should go (checkpoint first,
@@ -23,8 +23,8 @@ tools that no longer exist — silently, on machines we don't control.
 
 ### One skill, not a series
 
-A single model-invoked skill named `weftcut` (repo-root `skills/weftcut/`),
-description-anchored on "use BEFORE calling any weftcut MCP tool" so the MCP
+A single model-invoked skill named `lahza` (repo-root `skills/lahza/`),
+description-anchored on "use BEFORE calling any lahza MCP tool" so the MCP
 catalog itself is the trigger signal. Editing etiquette and orchestration
 patterns sit inline in `SKILL.md`; the Motif authoring spec is a disclosed
 sibling file reached by a pointer. Splitting waits for observed trigger
@@ -90,7 +90,7 @@ startup notice. A dev tree before `build:skills` is the one benign fault, and
 it is named separately so it can read as the instruction it is.
 
 The fault block carries a "try again" rather than only an instruction, because
-none of the causes that reach a user live inside WeftCut — a full disk, a
+none of the causes that reach a user live inside Lahza — a full disk, a
 quarantined file, a lock, a damaged install — and re-running the install is the
 only way to find out whether the cause is gone. Recovery therefore costs no app
 restart, which also means the startup notice has to be retractable: main
@@ -125,7 +125,7 @@ stays a docs-conformance-pass duty.
 
 ## Where this lives
 
-- `skills/weftcut/SKILL.md` — the skill; `docs/motif-authoring.md` — the
+- `skills/lahza/SKILL.md` — the skill; `docs/motif-authoring.md` — the
   contract (copied verbatim into the bundle).
 - `apps/desktop/scripts/build-skills.mjs` — staging, and
   `build-skills-lib.mjs` — the stamp plus the two assertions both gates share;

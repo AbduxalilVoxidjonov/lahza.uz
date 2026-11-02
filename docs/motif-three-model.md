@@ -1,7 +1,7 @@
 # Offline 3D model Motifs
 
 The app supports local glTF/GLB, Draco geometry and KTX2/Basis textures. Start
-with the official `templates/three-model.zip` beside the installed WeftCut
+with the official `templates/three-model.zip` beside the installed Lahza
 skill. It contains a working demo, Three.js 0.186.1, bundled loaders and local
 decoder JS/WASM. Import it with **Import Motif**, or call
 `open_motif_draft { "source": { "kind": "zip", "path": "<absolute path to three-model.zip>" } }` over MCP.

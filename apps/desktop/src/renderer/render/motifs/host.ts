@@ -23,7 +23,7 @@ export function captureMotifFrameResult(
       options.key, fpsNum, fpsDen).then(bitmap => ({ bitmap, persisted: false }));
   }
   if (typeof window !== 'undefined') {
-    const perf = (window as unknown as { __weftcutMotifPerf?: { renders: number } }).__weftcutMotifPerf;
+    const perf = (window as unknown as { __lahzaMotifPerf?: { renders: number } }).__lahzaMotifPerf;
     if (perf) perf.renders++;
   }
   return captureMotifResult({

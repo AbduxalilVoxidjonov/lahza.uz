@@ -338,7 +338,7 @@ mod tests {
         // when placed on the timeline. Transcription must still read it.
         let media = audio_media(PathBuf::from("source.wav"), 2_000_012);
         let mut layer = audio_layer(media.id, 0, 2_000_012);
-        layer.t_end_us = weftcut_eval::snap_frame_round(layer.t_end_us, 48_000, 1);
+        layer.t_end_us = lahza_eval::snap_frame_round(layer.t_end_us, 48_000, 1);
         assert_eq!(layer.t_end_us, 2_000_021);
         let resolved = resolve_clip_audio_source(Some(&layer), Some(&media), layer.id, None, None)
             .expect("sample-rounded clip must be transcribable");

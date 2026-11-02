@@ -138,7 +138,7 @@ describe('assertDisjointRoots', () => {
 })
 
 describe('planMigration / isValidDataRoot', () => {
-  it('adopts a target that is already a valid WeftCut data root', () => {
+  it('adopts a target that is already a valid Lahza data root', () => {
     const m = memFs()
     m.fs.mkdirp('/new/motifs')
     m.fs.mkdirp('/new/cache')

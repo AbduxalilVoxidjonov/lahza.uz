@@ -80,13 +80,13 @@ const trackHolding = (c: WireComposition, layerId: string): string | null =>
 const selectedLayerIds = async (page: Page): Promise<string[]> => {
   await waitForHook(page, "getSelectedLayerIds");
   const ids = (await page.evaluate(() =>
-    (window as any).__weftcutTest.getSelectedLayerIds(),
+    (window as any).__lahzaTest.getSelectedLayerIds(),
   )) as string[];
   return ids.slice().sort();
 };
 
 const openComposition = (page: Page): Promise<{ id: string } | null> =>
-  page.evaluate(() => (window as any).__weftcutTest.getOpenComposition());
+  page.evaluate(() => (window as any).__lahzaTest.getOpenComposition());
 
 /// The composition tabs the Dock is showing — the navigation the breadcrumb
 /// used to be (ADR 0053) — by the composition each tab's Panel id names.
@@ -181,7 +181,7 @@ test.describe("Group on the timeline", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-group-"),
+        parentFolder: tmpDir("lahza-e2e-group-"),
         name: PROJECT_NAME,
         canvas: CANVAS,
       });
@@ -316,7 +316,7 @@ test.describe("Group on the timeline", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-group-tail-"),
+        parentFolder: tmpDir("lahza-e2e-group-tail-"),
         name: PROJECT_NAME,
         canvas: CANVAS,
       });
@@ -423,7 +423,7 @@ test.describe("Add to Group", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-group-add-"),
+        parentFolder: tmpDir("lahza-e2e-group-add-"),
         name: PROJECT_NAME,
         canvas: CANVAS,
       });

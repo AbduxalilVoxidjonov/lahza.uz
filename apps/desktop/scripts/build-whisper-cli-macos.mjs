@@ -1,4 +1,4 @@
-// Builds the WeftCut-published macOS arm64 `whisper-cli` content artifact.
+// Builds the Lahza-published macOS arm64 `whisper-cli` content artifact.
 //
 // whisper.cpp publishes no macOS CLI — v1.9.1's only Apple asset is an
 // xcframework, a library for apps to link, which the whisper.cpp speech backend
@@ -65,8 +65,8 @@ const flag = (name, fallback) => {
   const i = args.indexOf(name)
   return i >= 0 && args[i + 1] ? resolve(args[i + 1]) : fallback
 }
-const outDir = flag('--out', join(tmpdir(), 'weftcut-whisper-cli', 'out'))
-const workDir = flag('--work', join(tmpdir(), 'weftcut-whisper-cli'))
+const outDir = flag('--out', join(tmpdir(), 'lahza-whisper-cli', 'out'))
+const workDir = flag('--work', join(tmpdir(), 'lahza-whisper-cli'))
 const cmake = process.env.CMAKE || 'cmake'
 
 const run = (cmd, argv, opts = {}) => execFileSync(cmd, argv, { stdio: 'inherit', ...opts })

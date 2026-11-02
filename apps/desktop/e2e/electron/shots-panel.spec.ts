@@ -98,12 +98,12 @@ const thresholdHandle = (page: Page): Locator =>
 
 /// The primary selection, which is the Panel's whole subject. The hook wait is
 /// what names a missing control surface: `expect.poll` swallows the callback's
-/// throw and retries, so without it a non-`VITE_WEFTCUT_E2E` build reads as a
+/// throw and retries, so without it a non-`VITE_LAHZA_E2E` build reads as a
 /// selection that never landed.
 async function selectedLayerId(page: Page): Promise<string | null> {
   await waitForHook(page, 'getSelectedLayerId')
   return page.evaluate(
-    () => (window as any).__weftcutTest.getSelectedLayerId() as string | null,
+    () => (window as any).__lahzaTest.getSelectedLayerId() as string | null,
   )
 }
 
@@ -132,7 +132,7 @@ test.describe('Shots Panel', () => {
     test.setTimeout(180_000)
     const { app, page } = await launchApp()
     try {
-      const parent = tmpDir('weftcut-shots-')
+      const parent = tmpDir('lahza-shots-')
       await newProject(page, { parentFolder: parent, name: 'shots-panel', canvas: CANVAS })
       // REQUIRED before any pointer gesture: the splash overlay outlives the
       // first dock render and swallows mousedown while the target is visible.

@@ -122,7 +122,7 @@ frame ordering, H.264 SSIM (0.982976), eight preview reopen cycles and recovery
 after an intentional GPU-process crash passed. Hardware rendering on the RTX
 3050 remains unverified until the driver installation is coherent.
 
-The production `linux-unpacked/WeftCut` executable also started with a fresh
+The production `linux-unpacked/Lahza` executable also started with a fresh
 profile, without the E2E `--enable-unsafe-swiftshader` argument. Native addons
 loaded, settings were readable, the E2E hook was absent, and a new project
 displayed the text “Linux preview” (screenshot inspected). No renderer errors
@@ -141,8 +141,8 @@ so installed taskbar association remains unchecked.
 Eight initial image-conformance failures match the repository's documented
 software-raster signature: BT.709 limited maximum error 12 and H.264 SSIM around
 0.673–0.675 with correct frame alignment. All eight passed independent replay
-using **existing** Linux CI values `WEFTCUT_E2E_COLOR_FAITHFUL_MAX=16` and
-`WEFTCUT_E2E_SSIM_FLOOR=0.62`. No assertion or image floor was edited.
+using **existing** Linux CI values `LAHZA_E2E_COLOR_FAITHFUL_MAX=16` and
+`LAHZA_E2E_SSIM_FLOOR=0.62`. No assertion or image floor was edited.
 
 Two UI failures passed replay: preview click focus (`focus-regions.spec.ts:88`,
 expected region `preview`, observed null), and property title editing

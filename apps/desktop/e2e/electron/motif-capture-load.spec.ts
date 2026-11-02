@@ -13,7 +13,7 @@ import { createMotifDraft, publishMotifDraft } from './helpers/motif';
 /// fast-reject, and shows another lane is unaffected.
 ///
 /// The second is a measurement under CPU load and runs only with
-/// `WEFTCUT_E2E_LOAD=1`: it reports capture times idle vs loaded, then pushes a
+/// `LAHZA_E2E_LOAD=1`: it reports capture times idle vs loaded, then pushes a
 /// calibrated CPU-bound frame over the deadline under load and checks the lane
 /// recovers once the load is gone — the case the old latch lost for a session.
 
@@ -32,7 +32,7 @@ async function installProbePort(page: Page): Promise<void> {
       if (data.error || !data.bitmap) request.reject(new Error(data.error ?? 'Missing capture'));
       else request.resolve(data.bitmap);
     };
-    window.postMessage({ type: 'weftcut:motif-frame-port' }, '*', [channel.port2]);
+    window.postMessage({ type: 'lahza:motif-frame-port' }, '*', [channel.port2]);
     let next = 0;
     const context = new OffscreenCanvas(3, 1).getContext('2d', { willReadFrequently: true })!;
     w.__probe = async (capture: Record<string, unknown>) => {
@@ -116,7 +116,7 @@ test.describe('Motif capture timeouts on the real host', () => {
     // The platform's default backend: shared textures on Windows, PNG elsewhere.
     const { app, page } = await launchApp({});
     try {
-      await newProject(page, { parentFolder: tmpDir('weftcut-capture-hang-'), name: 'Hang',
+      await newProject(page, { parentFolder: tmpDir('lahza-capture-hang-'), name: 'Hang',
         canvas: { width: 1920, height: 1080, fpsNum: 25, fpsDen: 1 } });
       const solid = await publish(page, 'hang-solid', SOLID_HTML);
       const network = await publish(page, 'hang-network', readFileSync(new URL('./fixtures/png-capture-network.html', import.meta.url), 'utf8'));
@@ -161,7 +161,7 @@ test.describe('Motif capture timeouts on the real host', () => {
 });
 
 test.describe('Motif capture under CPU load', () => {
-  test.skip(!process.env.WEFTCUT_E2E_LOAD, 'measurement; set WEFTCUT_E2E_LOAD=1');
+  test.skip(!process.env.LAHZA_E2E_LOAD, 'measurement; set LAHZA_E2E_LOAD=1');
   test.setTimeout(900_000);
 
   test('a slow-but-healthy lane that crosses the deadline under load recovers when the load lifts', async () => {
@@ -169,7 +169,7 @@ test.describe('Motif capture under CPU load', () => {
     let burners: ChildProcess[] = [];
     const stopLoad = () => { for (const b of burners) b.kill('SIGKILL'); burners = []; };
     try {
-      await newProject(page, { parentFolder: tmpDir('weftcut-capture-load-'), name: 'Load',
+      await newProject(page, { parentFolder: tmpDir('lahza-capture-load-'), name: 'Load',
         canvas: { width: 1920, height: 1080, fpsNum: 25, fpsDen: 1 } });
       const solid = await publish(page, 'load-solid', SOLID_HTML);
       const network = await publish(page, 'load-network', readFileSync(new URL('./fixtures/png-capture-network.html', import.meta.url), 'utf8'));

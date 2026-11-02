@@ -10,8 +10,8 @@
 # one line, '@@RESULT@@' + JSON, and a failure is '@@ERROR@@' + text with exit 1.
 #
 # Ground rules (README "Remote app host"):
-#   - Everything the bench creates lives under %USERPROFILE%\weftcut-bench.
-#   - The user's own profile (%APPDATA%\WeftCut) is only READ: config files are
+#   - Everything the bench creates lives under %USERPROFILE%\lahza-bench.
+#   - The user's own profile (%APPDATA%\Lahza) is only READ: config files are
 #     read and rewritten into the bench profile, model files are hard-linked
 #     out of it. Nothing is written into it, and its mcp_auth.json is never read.
 #   - Only processes this bench started are stopped: the app's root process is
@@ -29,9 +29,9 @@ $ProgressPreference = 'SilentlyContinue'
 
 $A = $null
 if ($ArgsB64) { $A = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($ArgsB64)) | ConvertFrom-Json }
-$Root = Join-Path $env:USERPROFILE 'weftcut-bench'
-$UserProfileDir = Join-Path $env:APPDATA 'WeftCut'
-$TaskPath = '\WeftCutBench\'
+$Root = Join-Path $env:USERPROFILE 'lahza-bench'
+$UserProfileDir = Join-Path $env:APPDATA 'Lahza'
+$TaskPath = '\LahzaBench\'
 $Utf8 = New-Object System.Text.UTF8Encoding $false
 
 function Out-Result($obj) {
@@ -253,7 +253,7 @@ try {
       $lines += ('Set-Content -LiteralPath {0} -Value $p.Id -Encoding ascii' -f (& $q (Join-Path $runDir 'app.pid')))
       Write-Text (Join-Path $runDir 'launch.ps1') ($lines -join "`r`n")
 
-      $name = 'WeftCutBench-' + $A.run
+      $name = 'LahzaBench-' + $A.run
       $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ('-NoProfile -NonInteractive -ExecutionPolicy Bypass -WindowStyle Hidden -File "{0}"' -f (Join-Path $runDir 'launch.ps1'))
       $principal = New-ScheduledTaskPrincipal -UserId (whoami) -LogonType Interactive -RunLevel Limited
       $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Hours 0)
@@ -340,7 +340,7 @@ try {
       }
       Start-Sleep -Milliseconds 500
       foreach ($p in (Run-Processes $runDir)) { Quiet { taskkill.exe /PID $p.ProcessId /T /F }; $killed += @{ pid = $p.ProcessId; name = $p.Name; straggler = $true } }
-      Get-ScheduledTask -TaskPath $TaskPath -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq ('WeftCutBench-' + $A.run) } |
+      Get-ScheduledTask -TaskPath $TaskPath -ErrorAction SilentlyContinue | Where-Object { $_.TaskName -eq ('LahzaBench-' + $A.run) } |
         ForEach-Object { Unregister-ScheduledTask -TaskName $_.TaskName -TaskPath $TaskPath -Confirm:$false }
       Start-Sleep -Milliseconds 500
       Out-Result @{ killed = $killed; refused = $refused; leftovers = (Run-Processes $runDir)
@@ -371,7 +371,7 @@ try {
     # Fetch + verify fixtures with the shipped fixtures.mjs, into <root>\cache.
     'fixtures' {
       $node = Node-Exe
-      $env:WEFTCUT_BENCH_CACHE = Join-Path $Root 'cache\fixtures'
+      $env:LAHZA_BENCH_CACHE = Join-Path $Root 'cache\fixtures'
       # fetch.mjs reports progress on stderr; under 'Stop' PowerShell 5.1
       # would turn the first such line into a terminating error.
       $ErrorActionPreference = 'Continue'

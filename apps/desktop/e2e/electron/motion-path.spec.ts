@@ -20,10 +20,10 @@ test('motion path creation, point dragging, conversion preview/cancel/apply and 
   try {
     // Exercise insertion with the compact preview used by hosted desktops.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setBounds({ width: 1024, height: 768 }))
-    await newProject(page, { parentFolder: tmpDir('weftcut-e2e-path-'), name: `path-${Date.now()}`, canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-e2e-path-'), name: `path-${Date.now()}`, canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
     const id = await invokeCmd<string>(page, 'add_text_layer', { tStartUs: 0, durationUs: 2_000_000, content: 'Motion path' })
     await waitForHook(page, 'revealLayer')
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), id)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), id)
     const fields = page.getByTestId('position-fields')
     await expect(fields).toBeVisible()
     const original = await position(page, id)
@@ -160,7 +160,7 @@ test('motion path creation, point dragging, conversion preview/cancel/apply and 
 test('path conversion defaults to sparse editable axes and offers explicit frame baking', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-e2e-path-sparse-'), name: `sparse-${Date.now()}`, canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-e2e-path-sparse-'), name: `sparse-${Date.now()}`, canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
     const id = await invokeCmd<string>(page, 'add_text_layer', { tStartUs: 0, durationUs: 2_000_000, content: 'Editable motion' })
     const source: PositionAnimation = {
       mode: 'Path', path: { nodes: [0, 1].map(i => ({ id: randomUUID(), point: { x: 100 + 400 * i, y: 300 },
@@ -171,7 +171,7 @@ test('path conversion defaults to sparse editable axes and offers explicit frame
     }
     await invokeCmd(page, 'set_position', { layerId: id, position: source })
     await waitForHook(page, 'revealLayer')
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), id)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), id)
     const fields = page.getByTestId('position-fields')
     await toXY(fields).click()
     await expect(page.getByRole('button', { name: /Editable curves|可编辑曲线/ })).toHaveAttribute('aria-pressed', 'true')
@@ -203,7 +203,7 @@ test('path conversion defaults to sparse editable axes and offers explicit frame
 test('conversion refuses missed quality targets and jumping positions without changing state', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-e2e-path-quality-'), name: `quality-${Date.now()}`, canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-e2e-path-quality-'), name: `quality-${Date.now()}`, canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
     const id = await invokeCmd<string>(page, 'add_text_layer', { tStartUs: 0, durationUs: 2_000_000, content: 'Quality guard' })
     const source: PositionAnimation = {
       mode: 'XY', y: { mode: 'Static', value: 360 }, x: {
@@ -216,7 +216,7 @@ test('conversion refuses missed quality targets and jumping positions without ch
     await invokeCmd(page, 'set_position', { layerId: id, position: source })
     const applied = await position(page, id)
     await waitForHook(page, 'revealLayer')
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), id)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), id)
     const fields = page.getByTestId('position-fields')
     // Keyframed X/Y take the switcher's fitted branch: it opens the conversion
     // instead of building a path, because there is timing to preserve.

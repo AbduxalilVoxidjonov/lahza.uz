@@ -43,7 +43,7 @@ import { invokeCmd, launchApp, newProject, rootSummary, tmpDir, waitForHook } fr
  */
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const FIXTURE = path.resolve(MEDIA_DIR, 'test_audio_timing_zero_pts.mkv')
 
 /// 30 fps, the fixture's own rate — so the picture partner's re-snap is a whole
@@ -140,7 +140,7 @@ async function seedPair(
   name: string,
 ): Promise<{ mediaId: string; videoLayerId: string; audioLayerId: string }> {
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-e2e-pauses-'),
+    parentFolder: tmpDir('lahza-e2e-pauses-'),
     name: `${name}-${Date.now()}`,
     canvas: CANVAS,
   })
@@ -178,7 +178,7 @@ async function seedPair(
 async function waitForPeaks(page: Page, mediaId: string): Promise<void> {
   await waitForHook(page, 'sampleWaveformRms')
   const probe = (await page.evaluate(
-    ({ id, timesUs }) => (window as any).__weftcutTest.sampleWaveformRms({ mediaId: id, timesUs }),
+    ({ id, timesUs }) => (window as any).__lahzaTest.sampleWaveformRms({ mediaId: id, timesUs }),
     { id: mediaId, timesUs: [1_125_000, 2_000_000] },
   )) as { peaksPerSecond: number; rms: number[] }
   // The island at 1.125 s and the quiet at 2 s, so a peaks file that generated

@@ -2,12 +2,12 @@ import i18n from "../i18n";
 import { uiPixels } from '../settings/layoutTheme';
 import { UI_METRICS } from '../settings/uiMetrics';
 
-/** Dockview component ids for the single WeftCut Panel + tab renderers. Kept
+/** Dockview component ids for the single Lahza Panel + tab renderers. Kept
  *  here (not in the adapter) so the persistence layer can synthesize Panel
  *  definitions on restore without importing the adapter — keeping the module
  *  graph one-directional (adapter → workspaceLayout, never the reverse). */
-export const DOCK_COMPONENT_ID = "weftcut-panel";
-export const DOCK_TAB_COMPONENT_ID = "weftcut-tab";
+export const DOCK_COMPONENT_ID = "lahza-panel";
+export const DOCK_TAB_COMPONENT_ID = "lahza-tab";
 
 export const PANEL_KINDS = [
   "media",
@@ -259,7 +259,7 @@ export function parsePanelId(value: unknown): ParsedPanelId | null {
   return { kind, instance };
 }
 
-/** What a WeftCut Panel carries in its Dockview `params`: both halves of its
+/** What a Lahza Panel carries in its Dockview `params`: both halves of its
  *  own address, so a Panel never parses the id it was mounted under. */
 export interface DockPanelParams extends Record<string, unknown> {
   kind: PanelKind;

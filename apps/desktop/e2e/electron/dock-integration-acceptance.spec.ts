@@ -30,7 +30,7 @@ const SRT_PATH = path.resolve(__dirname, "../fixtures/subtitles/overlapping.srt"
 // the pristine built-in Editing baseline; the app-level Workspace document
 // otherwise persists layout across launches and would leak between specs.
 //
-// Observability is WeftCut-owned: `dockWorkspaceProbe()` reports open Panels,
+// Observability is Lahza-owned: `dockWorkspaceProbe()` reports open Panels,
 // the focused/active Panel, the maximized Panel, and emptiness; the `dockPanel`
 // / `dockTab` driver helpers and `project_summary` carry the rest. No test
 // asserts on Dockview's group classes or serialized JSON.
@@ -66,8 +66,8 @@ interface DockProbe {
 const probe = (page: Page): Promise<DockProbe | null> =>
   page.evaluate(
     () =>
-      (window as { __weftcutTest?: { dockWorkspaceProbe?: () => DockProbe | null } })
-        .__weftcutTest?.dockWorkspaceProbe?.() ?? null,
+      (window as { __lahzaTest?: { dockWorkspaceProbe?: () => DockProbe | null } })
+        .__lahzaTest?.dockWorkspaceProbe?.() ?? null,
   );
 
 const activePanel = async (page: Page): Promise<string | null> =>
@@ -151,7 +151,7 @@ async function openWorkspacesMenu(page: Page): Promise<void> {
 }
 
 async function setupEditor(page: Page, name: string): Promise<void> {
-  const parent = tmpDir(`weftcut-${name}-proj-`);
+  const parent = tmpDir(`lahza-${name}-proj-`);
   await newProject(page, { parentFolder: parent, name, canvas: CANVAS });
   await expect(page.locator(".splash-screen")).toHaveCount(0, { timeout: 15_000 });
   await expect(dockPanel(page)).toHaveCount(PANEL_COUNT);
@@ -392,14 +392,14 @@ test("Preview keeps its resource identity through maximize, restore, and a dock 
         () =>
           (
             window as {
-              __weftcutTest?: {
+              __lahzaTest?: {
                 previewResourceProbe?: () => {
                   generation: number;
                   positionUs: number;
                 } | null;
               };
             }
-          ).__weftcutTest?.previewResourceProbe?.() ?? null,
+          ).__lahzaTest?.previewResourceProbe?.() ?? null,
       );
     await expect.poll(readProbe).not.toBeNull();
 
@@ -511,8 +511,8 @@ test("selection and business Panels keep working after a Panel move and a Worksp
     await page.evaluate(
       (id) =>
         (
-          window as { __weftcutTest?: { revealLayer?: (a: { layerId: string }) => void } }
-        ).__weftcutTest?.revealLayer?.({ layerId: id }),
+          window as { __lahzaTest?: { revealLayer?: (a: { layerId: string }) => void } }
+        ).__lahzaTest?.revealLayer?.({ layerId: id }),
       layerId,
     );
 
@@ -619,8 +619,8 @@ test("Caption cue navigation still selects and seeks after the Caption Panel mov
       .poll(() =>
         page.evaluate(
           () =>
-            (window as { __weftcutTest?: { getPlayheadUs?: () => number } })
-              .__weftcutTest?.getPlayheadUs?.() ?? 0,
+            (window as { __lahzaTest?: { getPlayheadUs?: () => number } })
+              .__lahzaTest?.getPlayheadUs?.() ?? 0,
         ),
       )
       .toBeGreaterThan(0);

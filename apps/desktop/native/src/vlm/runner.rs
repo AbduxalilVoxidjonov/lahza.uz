@@ -615,7 +615,7 @@ async fn describe_chunks(
 /// A per-chunk frame directory, RAII-cleaned once its request is answered.
 fn chunk_dir() -> Result<tempfile::TempDir, DescriptionError> {
     tempfile::Builder::new()
-        .prefix("weftcut-vlm")
+        .prefix("lahza-vlm")
         .tempdir()
         .map_err(|e| DescriptionError::Operation(format!("temp dir: {e}")))
 }

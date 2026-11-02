@@ -376,7 +376,7 @@ describe("two lattices in one ripple", () => {
 // overlap, no negative time, and every track's order exactly as it was.
 
 const PBT_SEED = 0x5249_5050;
-const RUNS = Number(process.env.WEFTCUT_PBT_RUNS ?? 300);
+const RUNS = Number(process.env.LAHZA_PBT_RUNS ?? 300);
 
 interface SpanSpec { gap: number; len: number }
 const spanArb = fc.record({ gap: fc.integer({ min: 0, max: 3 }), len: fc.integer({ min: 1, max: 5 }) });

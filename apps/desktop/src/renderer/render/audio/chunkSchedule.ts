@@ -34,7 +34,7 @@ export function compUsAtCtxTime(a: ClockAnchor, ctxTime: number): number {
   return a.compUs + (ctxTime - a.ctxTime) * 1_000_000;
 }
 
-/// µs → 48 kHz frames, single-sourced via the weftcut-eval wasm leaf (the SAME
+/// µs → 48 kHz frames, single-sourced via the lahza-eval wasm leaf (the SAME
 /// `us_to_frame` the export mixer calls natively) so preview and export place
 /// audio on one grid. The reverse `framesToUs` stays local — it has no export twin.
 export function usToFrames(us: number): number {

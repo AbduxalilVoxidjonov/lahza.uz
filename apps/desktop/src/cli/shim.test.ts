@@ -3,7 +3,7 @@
 // the bridge connects to a fake "app" MCP server over another. Covers the
 // spec's core claims — catalog = synthetic ∪ (app alive ? real : ∅),
 // list_changed on BOTH transitions, actionable down-state errors, and the
-// launch_weftcut close-the-loop flow.
+// launch_lahza close-the-loop flow.
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
@@ -24,8 +24,8 @@ import type { McpAuth, ShimEnv } from './paths.js'
 const SE: ShimEnv = {
   platform: 'win32',
   env: {},
-  execPath: 'C:\\Program Files\\WeftCut\\WeftCut.exe',
-  scriptPath: 'C:\\ud\\cli\\weftcut-mcp.cjs',
+  execPath: 'C:\\Program Files\\Lahza\\Lahza.exe',
+  scriptPath: 'C:\\ud\\cli\\lahza-mcp.cjs',
   homedir: 'C:\\Users\\u',
 }
 const AUTH: McpAuth = { token: 'tok', port: 4711 }
@@ -42,7 +42,7 @@ let hanging: (() => void)[] = []
 
 function fakeAppServer(): Server {
   const s = new Server(
-    { name: 'weftcut', version: '0.0.0' },
+    { name: 'lahza', version: '0.0.0' },
     { capabilities: { tools: {}, resources: {}, prompts: {} } },
   )
   s.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -168,12 +168,12 @@ describe('down state', () => {
   it('lists exactly the synthetic tools, and empty resources/prompts', async () => {
     open = await harness({ appUp: false })
     const tools = await open.client.listTools()
-    expect(tools.tools.map((t) => t.name)).toEqual(['weftcut_status', 'launch_weftcut'])
+    expect(tools.tools.map((t) => t.name)).toEqual(['lahza_status', 'launch_lahza'])
     expect((await open.client.listResources()).resources).toEqual([])
     expect((await open.client.listPrompts()).prompts).toEqual([])
   })
 
-  it('a real tool call fails with an actionable message naming the endpoint and launch_weftcut', async () => {
+  it('a real tool call fails with an actionable message naming the endpoint and launch_lahza', async () => {
     open = await harness({ appUp: false })
     const err = await open.client
       .callTool({ name: 'add_marker', arguments: {} })
@@ -182,7 +182,7 @@ describe('down state', () => {
     expect(err).toBeInstanceOf(McpError)
     const msg = (err as McpError).message
     expect(msg).toContain('http://127.0.0.1:4711/mcp')
-    expect(msg).toContain('launch_weftcut')
+    expect(msg).toContain('launch_lahza')
   })
 
   it('with no auth file the error says the app has never been launched', async () => {
@@ -192,16 +192,16 @@ describe('down state', () => {
       .then(() => null)
       .catch((e: unknown) => e)
     expect((err as McpError).message).toContain('never been launched')
-    const status = await open.client.callTool({ name: 'weftcut_status', arguments: {} })
+    const status = await open.client.callTool({ name: 'lahza_status', arguments: {} })
     expect(JSON.stringify(status.content)).toContain('never been launched')
   })
 
-  it('weftcut_status reports not-running with next steps', async () => {
+  it('lahza_status reports not-running with next steps', async () => {
     open = await harness({ appUp: false })
-    const status = await open.client.callTool({ name: 'weftcut_status', arguments: {} })
+    const status = await open.client.callTool({ name: 'lahza_status', arguments: {} })
     const text = JSON.stringify(status.content)
     expect(text).toContain('not running')
-    expect(text).toContain('launch_weftcut')
+    expect(text).toContain('launch_lahza')
   })
 })
 
@@ -209,7 +209,7 @@ describe('up state', () => {
   it('lists synthetic ∪ real and passes tool calls through', async () => {
     open = await harness({ appUp: true })
     const tools = await open.client.listTools()
-    expect(tools.tools.map((t) => t.name)).toEqual(['weftcut_status', 'launch_weftcut', 'add_marker'])
+    expect(tools.tools.map((t) => t.name)).toEqual(['lahza_status', 'launch_lahza', 'add_marker'])
     const result = await open.client.callTool({ name: 'add_marker', arguments: { t_us: 1 } })
     expect(JSON.stringify(result.content)).toContain('called:add_marker')
     expect((await open.client.listResources()).resources).toHaveLength(1)
@@ -220,26 +220,26 @@ describe('up state', () => {
     open = await harness({ appUp: true })
     await open.client.listTools() // establishes the bridge
     await open.appServer()!.notification({
-      method: 'notifications/weftcut/change',
+      method: 'notifications/lahza/change',
       params: { summary: 'moved a clip' },
     })
     await settle()
-    expect(open.notified).toContain('notifications/weftcut/change')
+    expect(open.notified).toContain('notifications/lahza/change')
   })
 
-  it('weftcut_status reports running', async () => {
+  it('lahza_status reports running', async () => {
     open = await harness({ appUp: true })
-    const status = await open.client.callTool({ name: 'weftcut_status', arguments: {} })
-    expect(JSON.stringify(status.content)).toContain('WeftCut is running')
+    const status = await open.client.callTool({ name: 'lahza_status', arguments: {} })
+    expect(JSON.stringify(status.content)).toContain('Lahza is running')
   })
 
-  it('weftcut_status names the open project, or says none is open', async () => {
+  it('lahza_status names the open project, or says none is open', async () => {
     appSession = { project: { name: 'Demo', dir: '/p/Demo' } }
     open = await harness({ appUp: true })
-    const named = await open.client.callTool({ name: 'weftcut_status', arguments: {} }) as { content: Array<{ text: string }> }
+    const named = await open.client.callTool({ name: 'lahza_status', arguments: {} }) as { content: Array<{ text: string }> }
     expect(named.content[0].text).toContain('Project: Demo (/p/Demo)')
     appSession = { project: null }
-    const none = await open.client.callTool({ name: 'weftcut_status', arguments: {} }) as { content: Array<{ text: string }> }
+    const none = await open.client.callTool({ name: 'lahza_status', arguments: {} }) as { content: Array<{ text: string }> }
     expect(none.content[0].text).toContain('Project: none open')
     expect(none.content[0].text).toContain('open_project')
   })
@@ -254,7 +254,7 @@ describe('transitions', () => {
     await settle()
     expect(open.notified).toContain('notifications/tools/list_changed')
     const tools = await open.client.listTools()
-    expect(tools.tools.map((t) => t.name)).toEqual(['weftcut_status', 'launch_weftcut'])
+    expect(tools.tools.map((t) => t.name)).toEqual(['lahza_status', 'launch_lahza'])
   })
 
   it('app comes up mid-session → next list upgrades and list_changed fires', async () => {
@@ -268,7 +268,7 @@ describe('transitions', () => {
     expect(open.notified).toContain('notifications/tools/list_changed')
   })
 
-  it('launch_weftcut spawns the app, waits for the endpoint, and closes the loop', async () => {
+  it('launch_lahza spawns the app, waits for the endpoint, and closes the loop', async () => {
     let spawned: string | null = null
     open = await harness({
       appUp: false,
@@ -277,26 +277,26 @@ describe('transitions', () => {
         open!.setAppUp(true) // "the app came up"
       },
     })
-    const result = await open.client.callTool({ name: 'launch_weftcut', arguments: {} })
+    const result = await open.client.callTool({ name: 'launch_lahza', arguments: {} })
     expect(spawned).toBe(SE.execPath)
     expect(result.isError).toBeUndefined()
     expect(JSON.stringify(result.content)).toContain('now available')
     expect((await open.client.listTools()).tools.map((t) => t.name)).toContain('add_marker')
   })
 
-  it('launch_weftcut reports a bounded timeout when the endpoint never appears', async () => {
+  it('launch_lahza reports a bounded timeout when the endpoint never appears', async () => {
     let spawned = false
     open = await harness({ appUp: false, spawnApp: () => (spawned = true), launchTimeoutMs: 80 })
-    const result = await open.client.callTool({ name: 'launch_weftcut', arguments: {} })
+    const result = await open.client.callTool({ name: 'launch_lahza', arguments: {} })
     expect(spawned).toBe(true)
     expect(result.isError).toBe(true)
     expect(JSON.stringify(result.content)).toContain('did not come up')
   })
 
-  it('launch_weftcut on an already-running app is a no-op report', async () => {
+  it('launch_lahza on an already-running app is a no-op report', async () => {
     let spawned = false
     open = await harness({ appUp: true, spawnApp: () => (spawned = true) })
-    const result = await open.client.callTool({ name: 'launch_weftcut', arguments: {} })
+    const result = await open.client.callTool({ name: 'launch_lahza', arguments: {} })
     expect(spawned).toBe(false)
     expect(JSON.stringify(result.content)).toContain('already running')
   })
@@ -351,7 +351,7 @@ describe('the app session carries the driving client name, not the shim', () => 
     })
     // The poll loop's start-up connect: nobody has named themselves yet.
     expect(await shim.bridge.ensureUp()).toBe('up')
-    expect(apps[0].getClientVersion()?.name).toBe('weftcut-mcp')
+    expect(apps[0].getClientVersion()?.name).toBe('lahza-mcp')
     const client = new Client({ name: 'claude-code', version: '1' }, { capabilities: {} })
     const [clientT, serverT] = InMemoryTransport.createLinkedPair()
     await shim.server.connect(serverT)
@@ -392,7 +392,7 @@ describe('the app session carries the driving client name, not the shim', () => 
     release()
     await polling
     await settle()
-    expect(apps[0].getClientVersion()?.name).toBe('weftcut-mcp')
+    expect(apps[0].getClientVersion()?.name).toBe('lahza-mcp')
     expect(apps.at(-1)!.getClientVersion()?.name).toBe('claude-code')
     expect(shim.bridge.isUp()).toBe(true)
     await client.close().catch(() => {})
@@ -404,9 +404,9 @@ describe('the app session carries the driving client name, not the shim', () => 
 describe('long tool calls: idle timeout, progress, cancel', () => {
   // The bug (#67): the app hop ran under the SDK's flat 60 s default, and its
   // RequestTimeout was read as "the app went away" — the bridge tore the
-  // session down and the agent was told WeftCut was not running while the
+  // session down and the agent was told Lahza was not running while the
   // app was still working on the call.
-  const FAST = { WEFTCUT_MCP_TOOL_TIMEOUT_MS: '80' }
+  const FAST = { LAHZA_MCP_TOOL_TIMEOUT_MS: '80' }
   const textOf = (r: unknown): string => (r as { content: { text: string }[] }).content[0]!.text
 
   it('timeout with a live app: a still-running tool error, the bridge stays up, the job is not cancelled', async () => {
@@ -417,11 +417,11 @@ describe('long tool calls: idle timeout, progress, cancel', () => {
     const result = await open.client.callTool({ name: 'slow', arguments: {} })
     expect(result.isError).toBe(true)
     const msg = textOf(result)
-    expect(msg).toContain('WeftCut is running')
+    expect(msg).toContain('Lahza is running')
     expect(msg).toContain('still working inside the app')
     expect(msg).toContain('80 ms')
     expect(msg).toContain('joins the in-flight job')
-    expect(msg).toContain('WEFTCUT_MCP_TOOL_TIMEOUT_MS')
+    expect(msg).toContain('LAHZA_MCP_TOOL_TIMEOUT_MS')
     expect(msg).not.toContain('not running')
     expect(open.shim.bridge.isUp()).toBe(true)
     await settle()
@@ -441,12 +441,12 @@ describe('long tool calls: idle timeout, progress, cancel', () => {
     open.freeze() // the app stops answering — the liveness ping included
     const err = await pending
     expect(err).toBeInstanceOf(McpError)
-    expect((err as McpError).message).toContain('WeftCut is not running')
+    expect((err as McpError).message).toContain('Lahza is not running')
     expect(open.shim.bridge.isUp()).toBe(false)
   })
 
-  it('the tool-call timeout comes from WEFTCUT_MCP_TOOL_TIMEOUT_MS, defaulting to 5 min', async () => {
-    open = await harness({ appUp: true, env: { WEFTCUT_MCP_TOOL_TIMEOUT_MS: '150' } })
+  it('the tool-call timeout comes from LAHZA_MCP_TOOL_TIMEOUT_MS, defaulting to 5 min', async () => {
+    open = await harness({ appUp: true, env: { LAHZA_MCP_TOOL_TIMEOUT_MS: '150' } })
     const started = Date.now()
     const result = await open.client.callTool({ name: 'slow', arguments: {} })
     expect(Date.now() - started).toBeGreaterThanOrEqual(140)
@@ -464,11 +464,11 @@ describe('long tool calls: idle timeout, progress, cancel', () => {
     expect(done).toBe(false)
   })
 
-  it('a total cap applies only when WEFTCUT_MCP_TOOL_MAX_TOTAL_MS asks for one', async () => {
-    open = await harness({ appUp: true, env: { WEFTCUT_MCP_TOOL_TIMEOUT_MS: '80', WEFTCUT_MCP_TOOL_MAX_TOTAL_MS: '100' } })
+  it('a total cap applies only when LAHZA_MCP_TOOL_MAX_TOTAL_MS asks for one', async () => {
+    open = await harness({ appUp: true, env: { LAHZA_MCP_TOOL_TIMEOUT_MS: '80', LAHZA_MCP_TOOL_MAX_TOTAL_MS: '100' } })
     const result = await open.client.callTool({ name: 'heartbeat', arguments: {} })
     expect(result.isError).toBe(true)
-    expect(textOf(result)).toContain('WEFTCUT_MCP_TOOL_MAX_TOTAL_MS')
+    expect(textOf(result)).toContain('LAHZA_MCP_TOOL_MAX_TOTAL_MS')
   })
 
   it('app progress re-arms the idle window and is relayed under the UPSTREAM token', async () => {
@@ -500,7 +500,7 @@ describe('long tool calls: idle timeout, progress, cancel', () => {
   })
 
   it('an upstream cancel cancels the app-side call and leaves the bridge up', async () => {
-    open = await harness({ appUp: true, env: { WEFTCUT_MCP_TOOL_TIMEOUT_MS: '5000' } })
+    open = await harness({ appUp: true, env: { LAHZA_MCP_TOOL_TIMEOUT_MS: '5000' } })
     await open.client.listTools()
     await settle()
     const seen = open.notified.length
@@ -524,7 +524,7 @@ describe('long tool calls: idle timeout, progress, cancel', () => {
   it('the stdio client going away does not cancel the app-side call', async () => {
     // The SDK aborts every handler signal on transport close as well; only an
     // explicit notifications/cancelled may reach the app as a cancel.
-    open = await harness({ appUp: true, env: { WEFTCUT_MCP_TOOL_TIMEOUT_MS: '5000' } })
+    open = await harness({ appUp: true, env: { LAHZA_MCP_TOOL_TIMEOUT_MS: '5000' } })
     void open.client.callTool({ name: 'slow', arguments: {} }).catch(() => {})
     await settle()
     expect(appCalls).toHaveLength(1)

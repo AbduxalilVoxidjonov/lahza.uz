@@ -37,7 +37,7 @@ function request(args: Record<string, unknown>): Promise<FrameReply> {
       else request.resolve({ bitmap: data.bitmap ?? null, persisted: data.persisted === true });
     };
     port.start();
-    window.postMessage({ type: "weftcut:motif-frame-port" }, "*", [channel.port2]);
+    window.postMessage({ type: "lahza:motif-frame-port" }, "*", [channel.port2]);
   }
   const id = ++nextId;
   return new Promise((resolve, reject) => {

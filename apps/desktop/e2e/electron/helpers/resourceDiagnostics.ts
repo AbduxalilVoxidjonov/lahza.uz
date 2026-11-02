@@ -1,6 +1,6 @@
 import type { ElectronApplication, Page } from '@playwright/test'
 import { fileURLToPath } from 'node:url'
-import type { WeftcutApi } from '../../../src/shared/ipc'
+import type { LahzaApi } from '../../../src/shared/ipc'
 import fs from 'node:fs'
 import path from 'node:path'
 
@@ -77,7 +77,7 @@ export async function resourceDiagnostics(page: Page) {
       }
     }, addon)) : Promise.resolve({ unavailable: 'app not registered' }),
     bounded(page.evaluate(async () => {
-      const api = (window as unknown as { api: WeftcutApi }).api
+      const api = (window as unknown as { api: LahzaApi }).api
       const settings = await api.backend.invoke('app_settings_get') as { resource_allocation?: unknown; resource_policy?: unknown }
       return { allocation: settings.resource_allocation, policy: settings.resource_policy, sampledStatus: await api.resources.status() }
     })),
@@ -97,9 +97,9 @@ export function startResourceJournal(page: Page, file: string): () => Promise<vo
         resourceDiagnostics(page),
         bounded(page.evaluate(() => {
           const w = window as any
-          const s = w.__weftcutExportState
+          const s = w.__lahzaExportState
           return { kind: s?.kind, detail: s?.detail, step: s?.step, frame: s?.progress?.frame,
-            totalFrames: w.__weftcutExportPerf?.totalFrames }
+            totalFrames: w.__lahzaExportPerf?.totalFrames }
         })),
       ])
       fs.appendFileSync(file, JSON.stringify({ at: Date.now(), reason, resources, export: exportState }) + '\n')

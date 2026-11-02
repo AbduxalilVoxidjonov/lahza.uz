@@ -113,7 +113,7 @@ async function openTimeline(
   tag: string,
 ): Promise<{ mediaId: string; trackIds: string[]; panel: Locator }> {
   await newProject(page, {
-    parentFolder: tmpDir(`weftcut-e2e-marquee-${tag}-`),
+    parentFolder: tmpDir(`lahza-e2e-marquee-${tag}-`),
     name: `e2e-marquee-${tag}-` + Date.now(),
     canvas: { width: 640, height: 480, fpsNum: 30, fpsDen: 1 },
   });
@@ -151,7 +151,7 @@ async function openTimeline(
   await expect
     .poll(() =>
       page.evaluate(
-        () => (window as any).__weftcutTest.dockWorkspaceProbe()?.maximizedPanel ?? null,
+        () => (window as any).__lahzaTest.dockWorkspaceProbe()?.maximizedPanel ?? null,
       ),
     )
     .toBe("timeline");
@@ -268,7 +268,7 @@ async function dragBox(
 
 const selectedLayerId = async (page: Page): Promise<string | null> => {
   await waitForHook(page, "getSelectedLayerId");
-  return page.evaluate(() => (window as any).__weftcutTest.getSelectedLayerId());
+  return page.evaluate(() => (window as any).__lahzaTest.getSelectedLayerId());
 };
 
 // Everything about the marquee's RULES is already covered twice over — by pure
@@ -575,7 +575,7 @@ test.describe("timeline marquee — the rectangles are the ones we think they ar
       // measurable away from the header column's edge — and visible in the
       // screenshot.
       await waitForHook(page, "transportSeekUs");
-      await page.evaluate(() => (window as any).__weftcutTest.transportSeekUs(2_500_000));
+      await page.evaluate(() => (window as any).__lahzaTest.transportSeekUs(2_500_000));
 
       // The two knock-on effects of that `min-h-full`, measured rather than
       // eyeballed: the playhead line and the header column's right divider run

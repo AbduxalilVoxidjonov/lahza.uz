@@ -171,8 +171,8 @@ test('motif authoring: open_motif_draft → install → list → delete', async 
 test('motif staleness: v1→v2 reopen surfaces a row; acknowledge clears it', async () => {
   test.setTimeout(120_000)
   const STALE_ID = 'e2e-stale-' + Date.now()
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-stale-proj-')
-  const userData = tmpDir('weftcut-e2e-stale-userdata-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-stale-proj-')
+  const userData = tmpDir('lahza-e2e-stale-userdata-')
 
   const { app: appHandle, page } = await launchApp({ userDataDir: userData })
   const motifsRoot = path.join(userData, 'data', 'motifs')
@@ -203,7 +203,7 @@ test('motif staleness: v1→v2 reopen surfaces a row; acknowledge clears it', as
     for (let i = 0; i < 2; i++) {
       const r = await page.evaluate(
         (id) =>
-          (window as any).__weftcutTest
+          (window as any).__lahzaTest
             .addMotifLayer({ motifId: id, durationUs: 2_000_000 })
             .then((layerId: string) => ({ ok: true, layerId }))
             .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -224,7 +224,7 @@ test('motif staleness: v1→v2 reopen surfaces a row; acknowledge clears it', as
     // Reopen the project — the on-mount staleness check fires.
     const rr = await page.evaluate(
       (p) =>
-        (window as any).__weftcutTest
+        (window as any).__lahzaTest
           .motifReopenProject({ path: p })
           .then(() => ({ ok: true }))
           .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -274,10 +274,10 @@ test('motif staleness: v1→v2 reopen surfaces a row; acknowledge clears it', as
 test('motif file-watch: disk-placed Motif renders; external rewrite hot-reloads', async () => {
   test.setTimeout(180_000)
   const WATCH_ID = 'e2e-watch-' + Date.now()
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-watch-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-watch-proj-')
   const RED = '#e02424'
   const GREEN = '#1ea64a'
-  const userData = tmpDir('weftcut-e2e-watch-userdata-')
+  const userData = tmpDir('lahza-e2e-watch-userdata-')
 
   const { app: appHandle, page } = await launchApp({ userDataDir: userData })
   const motifsRoot = path.join(userData, 'data', 'motifs')
@@ -294,7 +294,7 @@ test('motif file-watch: disk-placed Motif renders; external rewrite hot-reloads'
       canvas: { width: 320, height: 320, fpsNum: 30, fpsDen: 1 },
     })
     await waitForHook(page, 'addMotifLayer')
-    await waitForHook(page, 'weftcutSampleComposite')
+    await waitForHook(page, 'lahzaSampleComposite')
 
     // 3. Wait for the motif to appear in the catalog (it re-reads disk on each call).
     await waitForMotifInCatalog(page, WATCH_ID)
@@ -302,7 +302,7 @@ test('motif file-watch: disk-placed Motif renders; external rewrite hot-reloads'
     // 4. Place the user Motif.
     const added = await page.evaluate(
       (id) =>
-        (window as any).__weftcutTest
+        (window as any).__lahzaTest
           .addMotifLayer({ motifId: id, durationUs: 2_000_000 })
           .then((layerId: string) => ({ ok: true, layerId }))
           .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -311,7 +311,7 @@ test('motif file-watch: disk-placed Motif renders; external rewrite hot-reloads'
     if (!added.ok) throw new Error('addMotifLayer failed: ' + added.error)
 
     // Helper: poll the composite until `predicate(px)` holds. Re-seek each round;
-    // weftcutSeekUs throws until the PixiPreview bridge registers (swallow it).
+    // lahzaSeekUs throws until the PixiPreview bridge registers (swallow it).
     async function waitForCenter(
       predicate: (px: { r: number; g: number; b: number; a: number }) => boolean,
       label: string,
@@ -321,15 +321,15 @@ test('motif file-watch: disk-placed Motif renders; external rewrite hot-reloads'
       while (Date.now() < deadline) {
         await page.evaluate(() => {
           try {
-            ;(window as any).__weftcutTest.weftcutSeekUs(500_000)
+            ;(window as any).__lahzaTest.lahzaSeekUs(500_000)
           } catch {
             // bridge not ready yet
           }
         })
         await page.waitForTimeout(800)
         const snap = await page.evaluate(() =>
-          (window as any).__weftcutTest
-            .weftcutSampleComposite(160, 160)
+          (window as any).__lahzaTest
+            .lahzaSampleComposite(160, 160)
             .then((p: { r: number; g: number; b: number; a: number }) => ({ ok: true, p }))
             .catch((e: unknown) => ({ ok: false, error: String(e) })),
         )

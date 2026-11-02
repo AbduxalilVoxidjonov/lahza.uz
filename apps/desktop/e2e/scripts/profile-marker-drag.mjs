@@ -64,7 +64,7 @@ if (!fs.existsSync(path.join(base, 'copy-complete'))) {
 fs.writeFileSync(path.join(profile, 'recents.json'), JSON.stringify({ reopen_on_launch: true,
   entries: [{ path: project, name: 'Diagnostic copy', last_opened: new Date().toISOString() }] }));
 const desktop = fileURLToPath(new URL('../../', import.meta.url));
-const env = { ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1' };
+const env = { ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: '1' };
 delete env.ELECTRON_RUN_AS_NODE;
 delete env.ELECTRON_RENDERER_URL;
 if (args['renderer-url']) env.ELECTRON_RENDERER_URL = args['renderer-url'];
@@ -85,7 +85,7 @@ try {
   const page = await app.firstWindow();
   await page.locator('[data-testid="timeline-marker"]').first().waitFor({ timeout: 60_000 });
   await page.bringToFront();
-  await page.evaluate(() => localStorage.setItem('weftcut.debug.editTrace', '1'));
+  await page.evaluate(() => localStorage.setItem('lahza.debug.editTrace', '1'));
   // Warm-cache edits, not startup/inventory time. CPU sampling is optional:
   // compare like-for-like runs, then use a run without it for interaction cost.
   await page.waitForTimeout(12_000);

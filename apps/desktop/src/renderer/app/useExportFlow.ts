@@ -167,15 +167,15 @@ export function useExportFlow(deps: {
   // see where a hung export is stuck (null → starting → preparing → progress →
   // finalizing → complete/error), and to feed driveExport's stall probe: every
   // phase here carries something that CHANGES while the pipeline is alive.
-  // Stripped from prod (static VITE_WEFTCUT_E2E check).
+  // Stripped from prod (static VITE_LAHZA_E2E check).
   useEffect(() => {
-    if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
-    (window as unknown as { __weftcutExportState?: unknown }).__weftcutExportState =
+    if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
+    (window as unknown as { __lahzaExportState?: unknown }).__lahzaExportState =
       exportState;
   }, [exportState]);
 
   // Render & Play: open an Electron window pointing at the
-  // exported MP4 via the weftcut-media:// protocol. The popup HTML lives at
+  // exported MP4 via the lahza-media:// protocol. The popup HTML lives at
   // /render-play.html (vite copies from public/); URL hash carries
   // the asset URL + display path + the localized window title (the page is
   // static HTML with no i18next, so it takes the title from us rather than
@@ -202,7 +202,7 @@ export function useExportFlow(deps: {
           resizable: true,
         });
       } catch (e) {
-        console.error("[weftcut/render-play] failed to open popup:", e);
+        console.error("[lahza/render-play] failed to open popup:", e);
       }
     },
     [t],
@@ -214,7 +214,7 @@ export function useExportFlow(deps: {
   // fallback the user needs.
   const revealExportedFile = useCallback((path: string) => {
     void revealInShell(path).catch((e: unknown) => {
-      console.error("[weftcut/export] failed to reveal exported file:", e);
+      console.error("[lahza/export] failed to reveal exported file:", e);
     });
   }, []);
 

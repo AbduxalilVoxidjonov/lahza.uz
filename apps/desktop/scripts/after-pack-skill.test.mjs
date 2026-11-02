@@ -7,22 +7,22 @@ import afterPackSkill from './after-pack-skill.mjs'
 import { stampSkillVersion, REQUIRED_DOCS, REQUIRED_ASSETS, REQUIRED_LAYERS } from './build-skills-lib.mjs'
 
 const SKILL = `---
-name: weftcut
-description: Drive the WeftCut video editor over its MCP tools.
+name: lahza
+description: Drive the Lahza video editor over its MCP tools.
 ---
 
-# Driving WeftCut
+# Driving Lahza
 `
 
 /// A packed app whose <resources>/skills holds what the caller asks for.
 /// electron-builder hands the hook an appOutDir and a packager that knows where
 /// resources live under it; both are stubbed to that one relationship.
 function packed(t, { version = '0.1.7', staged = version, layers = REQUIRED_LAYERS } = {}) {
-  const appOutDir = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-packed-'))
+  const appOutDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-packed-'))
   t.after(() => fs.rmSync(appOutDir, { recursive: true, force: true }))
   const resources = path.join(appOutDir, 'resources')
   if (staged !== null) {
-    const skill = path.join(resources, 'skills', 'weftcut')
+    const skill = path.join(resources, 'skills', 'lahza')
     fs.mkdirSync(skill, { recursive: true })
     fs.writeFileSync(path.join(skill, 'SKILL.md'), stampSkillVersion(SKILL, staged))
     for (const file of [...layers, ...REQUIRED_DOCS, ...REQUIRED_ASSETS]) {

@@ -205,7 +205,7 @@ pub async fn analyze(
     let tmp = if opts.stats || opts.events {
         Some(
             tempfile::Builder::new()
-                .prefix("weftcut-shot")
+                .prefix("lahza-shot")
                 .tempdir()
                 .context("shot stat temp dir")?,
         )

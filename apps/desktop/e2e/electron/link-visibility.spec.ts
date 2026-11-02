@@ -24,7 +24,7 @@ const snapshot = (page: Page) => rootSummary<LinkSummary>(page);
 const selectedLayerIds = async (page: Page): Promise<string[]> => {
   await waitForHook(page, "getSelectedLayerIds");
   const ids = (await page.evaluate(() =>
-    (window as any).__weftcutTest.getSelectedLayerIds(),
+    (window as any).__lahzaTest.getSelectedLayerIds(),
   )) as string[];
   return ids.slice().sort();
 };
@@ -47,7 +47,7 @@ test.describe("link visibility under A/B Roll display", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-link-vis-"),
+        parentFolder: tmpDir("lahza-e2e-link-vis-"),
         name: "e2e-link-vis-" + Date.now(),
         canvas: { width: 640, height: 480, fpsNum: 30, fpsDen: 1 },
       });

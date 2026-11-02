@@ -31,7 +31,7 @@ test('MCP manages the shared preset library and exports by preset ID with per-jo
     const { preset } = await call('create_export_preset', { name: 'MCP draft', base_preset_id: 'builtin:fullhd',
       settings: { custom_bitrate: 2_000_000, resolution_height: null } });
     await call('set_default_export_preset', { preset_id: preset.id });
-    await call('create_project', { parent_folder: tmpDir('weftcut-mcp-preset-project-'),
+    await call('create_project', { parent_folder: tmpDir('lahza-mcp-preset-project-'),
       name: 'Preset export', width: 640, height: 360, fps_num: 30, fps_den: 1 });
     const trackId = await invokeCmd<string>(page, 'add_track', {});
     await invokeCmd(page, 'add_text_layer', { trackId, content: 'Preset export check', tStartUs: 0, durationUs: 500_000 });
@@ -51,7 +51,7 @@ test('MCP manages the shared preset library and exports by preset ID with per-jo
     await page.getByRole('menuitemradio', { name: /^MCP review/ }).click();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
     expect((await call('get_export_options', { preset_id: preset.id })).settings.audio.bitrate).toBe(128_000);
-    const output = path.join(tmpDir('weftcut-mcp-preset-output-'), 'preset.mp4');
+    const output = path.join(tmpDir('lahza-mcp-preset-output-'), 'preset.mp4');
     const job = await call('start_export', { request_id: 'preset-default', output_path: output,
       settings: { encoder_engine: 'native', hw_accel: 'software', include_audio: false } });
     await expect.poll(async () => (await call('get_export_status', { job_id: job.job_id })).state, { timeout: 60_000 }).toBe('completed');
@@ -97,7 +97,7 @@ test('MCP export reconnects, reports the actual renamed file, and retries public
       return next;
     };
     client = await connect();
-    const created = await client.callTool({name:'create_project',arguments:{parent_folder:tmpDir('weftcut-mcp-export-project-'),name:'MCP export',width:640,height:360,fps_num:30,fps_den:1}});
+    const created = await client.callTool({name:'create_project',arguments:{parent_folder:tmpDir('lahza-mcp-export-project-'),name:'MCP export',width:640,height:360,fps_num:30,fps_den:1}});
     expect(created.isError,JSON.stringify(created)).toBeFalsy();
     // No UI navigation or readiness wait: a cold MCP-created project must be
     // able to admit an export while the editor initializes.
@@ -108,7 +108,7 @@ test('MCP export reconnects, reports the actual renamed file, and retries public
       expect(result.isError, JSON.stringify(result)).toBeFalsy();
       return result.structuredContent as Record<string, any>;
     };
-    const output = path.join(tmpDir('weftcut-mcp-export-output-'), 'clip.mp4');
+    const output = path.join(tmpDir('lahza-mcp-export-output-'), 'clip.mp4');
     writeFileSync(output, 'original');
     const options = await call('get_export_options');
     expect(options.settings_schema.properties.encoder_engine).toBeTruthy();

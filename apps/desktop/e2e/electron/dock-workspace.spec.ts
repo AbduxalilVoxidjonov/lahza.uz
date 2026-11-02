@@ -41,7 +41,7 @@ test("built-in Editing workspace docks every default Panel at NLE proportions", 
       if (win.isMaximized()) win.unmaximize();
       win.setBounds({ x: 0, y: 0, width: 1280, height: 800 });
     });
-    const parent = tmpDir("weftcut-dock-");
+    const parent = tmpDir("lahza-dock-");
     await newProject(page, {
       parentFolder: parent,
       name: "dock-workspace",
@@ -194,7 +194,7 @@ test("built-in Editing workspace docks every default Panel at NLE proportions", 
 test("the Quick Actions grip drags the strip, which takes its axis from where it lands", async () => {
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-quick-actions-");
+    const parent = tmpDir("lahza-quick-actions-");
     await newProject(page, {
       parentFolder: parent,
       name: "quick-actions-drag",
@@ -285,7 +285,7 @@ test("the Quick Actions grip drags the strip, which takes its axis from where it
 test("the Quick Actions bar's thickness resists the splitter beside it", async () => {
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-quick-actions-pin-");
+    const parent = tmpDir("lahza-quick-actions-pin-");
     await newProject(page, {
       parentFolder: parent,
       name: "quick-actions-pin",
@@ -380,7 +380,7 @@ test("the Quick Actions bar's thickness resists the splitter beside it", async (
 test("every panel tab offers right-click close, and the Quick Actions grip closes its strip", async () => {
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-dock-menu-");
+    const parent = tmpDir("lahza-dock-menu-");
     await newProject(page, {
       parentFolder: parent,
       name: "dock-tab-menu",
@@ -434,7 +434,7 @@ test("closing Preview destroys its resources and reopening creates a new instanc
   // requires the pristine built-in layout rather than a leaked prior arrangement.
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-dock-life-");
+    const parent = tmpDir("lahza-dock-life-");
     await newProject(page, {
       parentFolder: parent,
       name: "dock-preview-lifecycle",
@@ -448,12 +448,12 @@ test("closing Preview destroys its resources and reopening creates a new instanc
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest?.previewResourceProbe?.() ?? null,
+          (window as any).__lahzaTest?.previewResourceProbe?.() ?? null,
         ),
       )
       .not.toBeNull();
     const before = await page.evaluate(() =>
-      (window as any).__weftcutTest.previewResourceProbe(),
+      (window as any).__lahzaTest.previewResourceProbe(),
     );
 
     const viewMenu = page.locator(".menu-trigger").nth(2);
@@ -469,7 +469,7 @@ test("closing Preview destroys its resources and reopening creates a new instanc
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe(),
+          (window as any).__lahzaTest.previewResourceProbe(),
         ),
       )
       .toBeNull();
@@ -480,7 +480,7 @@ test("closing Preview destroys its resources and reopening creates a new instanc
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()?.generation ?? null,
+          (window as any).__lahzaTest.previewResourceProbe()?.generation ?? null,
         ),
       )
       .not.toBe(before.generation);
@@ -494,7 +494,7 @@ test("hidden Preview keeps clock resources alive while presentation sleeps", asy
   // built-in positions; a leaked layout would move those drag targets.
   const { app, page } = await launchApp();
   try {
-    const parent = tmpDir("weftcut-dock-hide-");
+    const parent = tmpDir("lahza-dock-hide-");
     await newProject(page, {
       parentFolder: parent,
       name: "dock-preview-hidden",
@@ -508,7 +508,7 @@ test("hidden Preview keeps clock resources alive while presentation sleeps", asy
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest?.previewResourceProbe?.() ?? null,
+          (window as any).__lahzaTest?.previewResourceProbe?.() ?? null,
         ),
       )
       .not.toBeNull();
@@ -516,13 +516,13 @@ test("hidden Preview keeps clock resources alive while presentation sleeps", asy
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()?.playing ?? false,
+          (window as any).__lahzaTest.previewResourceProbe()?.playing ?? false,
         ),
       )
       .toBe(true);
 
     const before = await page.evaluate(() =>
-      (window as any).__weftcutTest.previewResourceProbe(),
+      (window as any).__lahzaTest.previewResourceProbe(),
     );
     // Center-merge onto Preview's content. Native dragTo: the manual
     // mouse-gesture helper does not reliably drive HTML5 center drops on
@@ -532,32 +532,32 @@ test("hidden Preview keeps clock resources alive while presentation sleeps", asy
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()?.visible ?? true,
+          (window as any).__lahzaTest.previewResourceProbe()?.visible ?? true,
         ),
       )
       .toBe(false);
     const hidden = await page.evaluate(() =>
-      (window as any).__weftcutTest.previewResourceProbe(),
+      (window as any).__lahzaTest.previewResourceProbe(),
     );
     expect(hidden.generation).toBe(before.generation);
 
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()?.ownerCompositeCount ?? 0,
+          (window as any).__lahzaTest.previewResourceProbe()?.ownerCompositeCount ?? 0,
         ),
       )
       .toBeGreaterThan(hidden.ownerCompositeCount);
     expect(
       await page.evaluate(() =>
-        (window as any).__weftcutTest.previewResourceProbe()
+        (window as any).__lahzaTest.previewResourceProbe()
           ?.presentedCompositeCount,
       ),
     ).toBe(hidden.presentedCompositeCount);
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()?.positionUs ?? 0,
+          (window as any).__lahzaTest.previewResourceProbe()?.positionUs ?? 0,
         ),
       )
       .toBeGreaterThan(hidden.positionUs);
@@ -566,21 +566,21 @@ test("hidden Preview keeps clock resources alive while presentation sleeps", asy
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()?.visible ?? false,
+          (window as any).__lahzaTest.previewResourceProbe()?.visible ?? false,
         ),
       )
       .toBe(true);
     await expect
       .poll(() =>
         page.evaluate(() =>
-          (window as any).__weftcutTest.previewResourceProbe()
+          (window as any).__lahzaTest.previewResourceProbe()
             ?.presentedCompositeCount ?? 0,
         ),
       )
       .toBeGreaterThan(hidden.presentedCompositeCount);
     expect(
       await page.evaluate(() =>
-        (window as any).__weftcutTest.previewResourceProbe()?.generation,
+        (window as any).__lahzaTest.previewResourceProbe()?.generation,
       ),
     ).toBe(before.generation);
   } finally {
@@ -591,10 +591,10 @@ test("hidden Preview keeps clock resources alive while presentation sleeps", asy
 test("Effect card pointer reordering never disturbs the Dock Tree, and Panel tabs never reorder Effects", async () => {
   // Own userData dir: the test moves Panels, and the autosaved current layout
   // must neither read from nor pollute the shared default userData.
-  const userDataDir = tmpDir("weftcut-dock-fx-data-");
+  const userDataDir = tmpDir("lahza-dock-fx-data-");
   const { app, page } = await launchApp({ userDataDir });
   try {
-    const parent = tmpDir("weftcut-dock-fx-");
+    const parent = tmpDir("lahza-dock-fx-");
     await newProject(page, {
       parentFolder: parent,
       name: "dock-effect-reorder",
@@ -613,7 +613,7 @@ test("Effect card pointer reordering never disturbs the Dock Tree, and Panel tab
       effectIds.push(await invokeCmd<string>(page, "add_effect", { layerId, kind }));
     }
     await page.evaluate(
-      (id) => (window as any).__weftcutTest.revealLayer({ layerId: id }),
+      (id) => (window as any).__lahzaTest.revealLayer({ layerId: id }),
       layerId,
     );
 
@@ -705,10 +705,10 @@ test("Effect card pointer reordering never disturbs the Dock Tree, and Panel tab
 test("View menu creates a custom Workspace from the current arrangement and switches without a save prompt", async () => {
   // Own userData dir: this test mutates the app-level Workspace document, so it
   // must not read from or pollute the shared default userData.
-  const userDataDir = tmpDir("weftcut-ws-ui-data-");
+  const userDataDir = tmpDir("lahza-ws-ui-data-");
   const { app, page } = await launchApp({ userDataDir });
   try {
-    const parent = tmpDir("weftcut-ws-ui-");
+    const parent = tmpDir("lahza-ws-ui-");
     await newProject(page, {
       parentFolder: parent,
       name: "workspace-ui",
@@ -771,7 +771,7 @@ test("View menu creates a custom Workspace from the current arrangement and swit
 });
 
 test("named Workspaces, active selection, and baselines survive a restart", async () => {
-  const userDataDir = tmpDir("weftcut-ws-restart-");
+  const userDataDir = tmpDir("lahza-ws-restart-");
   const layout = (kind: string) => ({
     version: 1,
     empty: false,
@@ -791,7 +791,7 @@ test("named Workspaces, active selection, and baselines survive a restart", asyn
   const first = await launchApp({ userDataDir });
   let cutId: string;
   try {
-    const parent = tmpDir("weftcut-ws-r1-");
+    const parent = tmpDir("lahza-ws-r1-");
     await newProject(first.page, {
       parentFolder: parent,
       name: "workspace-restart",

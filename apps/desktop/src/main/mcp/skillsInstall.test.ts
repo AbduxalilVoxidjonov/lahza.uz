@@ -6,7 +6,7 @@ import { installSkills } from './skillsInstall.js'
 
 const tmps: string[] = []
 function tmpDir(): string {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-skills-install-'))
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-skills-install-'))
   tmps.push(d)
   return d
 }
@@ -17,9 +17,9 @@ afterEach(() => {
 /// Stand-in for out/skills: one skill folder with the doc build-skills.mjs
 /// stages beside it.
 function stageSkills(root: string, body: string): string {
-  fs.mkdirSync(path.join(root, 'weftcut'), { recursive: true })
-  fs.writeFileSync(path.join(root, 'weftcut', 'SKILL.md'), body)
-  fs.writeFileSync(path.join(root, 'weftcut', 'motif-authoring.md'), `doc for ${body}`)
+  fs.mkdirSync(path.join(root, 'lahza'), { recursive: true })
+  fs.writeFileSync(path.join(root, 'lahza', 'SKILL.md'), body)
+  fs.writeFileSync(path.join(root, 'lahza', 'motif-authoring.md'), `doc for ${body}`)
   return root
 }
 
@@ -35,8 +35,8 @@ describe('installSkills', () => {
     const source = stageSkills(tmpDir(), 'skill v1')
     const got = installSkills({ resourcesSkills: source, devSkills: 'X:\\nope', isPackaged: true, userDataDir: userData })
     expect(got).toEqual({ state: 'installed', dir: path.join(userData, 'skills') })
-    expect(fs.readFileSync(path.join(got.dir!, 'weftcut', 'SKILL.md'), 'utf8')).toBe('skill v1')
-    expect(fs.readFileSync(path.join(got.dir!, 'weftcut', 'motif-authoring.md'), 'utf8')).toBe('doc for skill v1')
+    expect(fs.readFileSync(path.join(got.dir!, 'lahza', 'SKILL.md'), 'utf8')).toBe('skill v1')
+    expect(fs.readFileSync(path.join(got.dir!, 'lahza', 'motif-authoring.md'), 'utf8')).toBe('doc for skill v1')
   })
 
   it('refreshes shipped files on every start but keeps what the user added', () => {
@@ -51,7 +51,7 @@ describe('installSkills', () => {
     stageSkills(source, 'skill v2')
     installSkills(opts)
 
-    expect(fs.readFileSync(path.join(userData, 'skills', 'weftcut', 'SKILL.md'), 'utf8')).toBe('skill v2')
+    expect(fs.readFileSync(path.join(userData, 'skills', 'lahza', 'SKILL.md'), 'utf8')).toBe('skill v2')
     expect(fs.readFileSync(mine, 'utf8')).toBe('my own skill')
   })
 
@@ -70,7 +70,7 @@ describe('installSkills', () => {
     expect(got).toEqual({ state: 'stale', dir: path.join(userData, 'skills'), fault: 'bundle_missing' })
   })
 
-  it('a bundle without the weftcut skill is incomplete, not a healthy install', () => {
+  it('a bundle without the lahza skill is incomplete, not a healthy install', () => {
     // The trap this closes: copying an empty tree over a previous launch's good
     // copy succeeds and leaves a usable folder behind, so only the source can
     // tell the difference.
@@ -79,14 +79,14 @@ describe('installSkills', () => {
     const empty = tmpDir()
     const got = installSkills({ resourcesSkills: empty, devSkills: 'X:\\nope', isPackaged: true, userDataDir: userData })
     expect(got).toEqual({ state: 'stale', dir: path.join(userData, 'skills'), fault: 'incomplete' })
-    expect(fs.readFileSync(path.join(userData, 'skills', 'weftcut', 'SKILL.md'), 'utf8')).toBe('skill from a previous launch')
+    expect(fs.readFileSync(path.join(userData, 'skills', 'lahza', 'SKILL.md'), 'utf8')).toBe('skill from a previous launch')
   })
 
   it('a folder without SKILL.md does not count as a skill to hand out', () => {
     const userData = tmpDir()
     const source = tmpDir()
-    fs.mkdirSync(path.join(source, 'weftcut'), { recursive: true })
-    fs.writeFileSync(path.join(source, 'weftcut', 'motif-authoring.md'), 'doc with no skill')
+    fs.mkdirSync(path.join(source, 'lahza'), { recursive: true })
+    fs.writeFileSync(path.join(source, 'lahza', 'motif-authoring.md'), 'doc with no skill')
     expect(installSkills({ resourcesSkills: source, devSkills: 'X:\\nope', isPackaged: true, userDataDir: userData })).toEqual({
       state: 'unavailable',
       dir: null,

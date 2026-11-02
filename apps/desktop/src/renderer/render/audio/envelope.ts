@@ -1,6 +1,6 @@
 // Sampled envelope contract (docs/audio.md §The envelope contract). The
 // drift-prone MATH — dB→linear and keyframe interpolation — now runs the shared
-// weftcut-eval wasm (dbToLinear below + resolveAnimated; ADR 0025), so it can't
+// lahza-eval wasm (dbToLinear below + resolveAnimated; ADR 0025), so it can't
 // diverge from Rust. The SAMPLER STRUCTURE here (the 10 ms grid loop, fade
 // ramps, evalEnvelope lerp) is still parallel to native/src/audio/envelope.rs —
 // keep those in step; the golden (audioEnvelopeGolden.fixture.json) guards them.
@@ -17,7 +17,7 @@ export interface Envelope {
   values: number[];
 }
 
-// dbToLinear (10^(db/20)) comes from the shared weftcut-eval wasm — ONE
+// dbToLinear (10^(db/20)) comes from the shared lahza-eval wasm — ONE
 // formula across renderer preview, the actor, and export. Re-exported so the
 // role-gate twin and docs/audio.md's envelope contract keep a single source.
 export { dbToLinear };

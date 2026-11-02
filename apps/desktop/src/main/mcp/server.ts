@@ -56,7 +56,7 @@ import { clipJobSpec } from '../compute/clipJob.js'
 import { mcpComputeCaller } from './computeCaller.js'
 import { COMPUTE_TOOLS, type ComputeTool } from '../../shared/compute-jobs.js'
 
-type Backend = import('@weftcut/core').Backend
+type Backend = import('@lahza/core').Backend
 
 interface Envelope {
   ok: boolean
@@ -316,7 +316,7 @@ export async function refuseUnheldSources(tsHost: Pick<TsActorHost, 'sourceFiles
     if (!media) continue
     const state = await tsHost.sourceFiles.settle(media)
     if (state === 'missing') return toolErrorResult({ code: 'invalid_request', message: `${name}: the source file ${media.path_abs} is missing — import the original file again to restore it` })
-    if (state === 'changed') return toolErrorResult({ code: 'invalid_request', message: `${name}: ${media.path_abs} was changed outside WeftCut and no longer holds this media — import the original file again to restore it, or import the new file as new media` })
+    if (state === 'changed') return toolErrorResult({ code: 'invalid_request', message: `${name}: ${media.path_abs} was changed outside Lahza and no longer holds this media — import the original file again to restore it, or import the new file as new media` })
   }
   return null
 }
@@ -967,7 +967,7 @@ export function buildMcpServer(backend: Backend, opts: McpServerOptions = {}): S
   // (`app.getVersion()` in `mcp/index.ts`); a bare `electron.exe out/main`
   // dev launch reports Electron's, since there is no package.json in that path.
   const server = new Server(
-    { name: 'weftcut', version: opts.version ?? '0.0.0-dev' },
+    { name: 'lahza', version: opts.version ?? '0.0.0-dev' },
     { capabilities: { tools: {}, resources: { listChanged: true }, prompts: {} }, instructions: MCP_INSTRUCTIONS },
   )
   // One Server per session (`mcp/index.ts`), so this closure resolves to the

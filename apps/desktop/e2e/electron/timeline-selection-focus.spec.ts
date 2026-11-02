@@ -50,7 +50,7 @@ test('primary selection remains visible over clip thumbnails', async ({}, testIn
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-selection-focus-'), name: 'selection-focus',
+      parentFolder: tmpDir('lahza-selection-focus-'), name: 'selection-focus',
       canvas: { width: 640, height: 480, fpsNum: 30, fpsDen: 1 },
     })
     await expect(page.locator('.splash-screen')).toHaveCount(0)

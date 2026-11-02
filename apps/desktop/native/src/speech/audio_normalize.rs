@@ -110,7 +110,7 @@ pub async fn prepare(
         });
     }
     let directory = tempfile::Builder::new()
-        .prefix("weftcut-transcription-")
+        .prefix("lahza-transcription-")
         .tempdir()?;
     let output = directory.path().join("normalized.wav");
     let result = crate::ffmpeg::command()

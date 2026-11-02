@@ -1,6 +1,6 @@
 # Testing
 
-Where WeftCut's tests live, why they're split the way they are, and how to run
+Where Lahza's tests live, why they're split the way they are, and how to run
 each layer. There is **no single `tests/` directory** — that's deliberate (see
 [Why not one directory](#why-not-one-directory)). Tests are grouped by *runner*,
 not scattered by neglect.
@@ -44,15 +44,15 @@ and validate all three platforms' Clippy gates before releasing. A floating
 `stable` changed from 1.98.1 to 1.99.0 between v0.2.1 candidate runs and introduced
 new `async_trait` macro lint failures without any Rust source change.
 
-Four crates under `apps/desktop/native/` (workspace root `weftcut`, members
+Four crates under `apps/desktop/native/` (workspace root `lahza`, members
 `eval`, `conversion` and `decode`). Run from **`apps/desktop`** — both CI and the commands below
 resolve `native/Cargo.toml` and `resources/` relative to it, not the repo root.
 The `test-noop` feature stubs the `napi_*` / ThreadsafeFunction symbols a
 standalone `cargo test` can't link:
 
 ```bash
-cargo test -p weftcut-eval --manifest-path native/Cargo.toml           # eval crate (pure)
-cargo test -p weftcut-conversion --manifest-path native/Cargo.toml     # offline fitting (pure)
+cargo test -p lahza-eval --manifest-path native/Cargo.toml           # eval crate (pure)
+cargo test -p lahza-conversion --manifest-path native/Cargo.toml     # offline fitting (pure)
 cargo test --manifest-path native/Cargo.toml --lib --bins --features test-noop # root napi crate + conformance analyzer
 # decode crate — the repo's only ffmpeg-next consumer: needs FFMPEG_DIR to build
 # AND the bundled libav*.so on the loader path at run (its cargo-test binary has
@@ -113,7 +113,7 @@ preserve the failure pattern with invented examples instead.
 - **`apps/desktop/e2e/fixtures/`** — real-codec media for the conformance
   harness, **generated** by `generate-fixtures.mjs` (needs ffmpeg). The `media/`
   and `decode-bench/` subtrees are gitignored and rebuilt on checkout; point
-  elsewhere with `WEFTCUT_TEST_MEDIA`.
+  elsewhere with `LAHZA_TEST_MEDIA`.
 
 Keep them separate: unit fixtures stay tiny and committed, e2e fixtures are
 large and generated. Merging them would recouple the two and bloat the repo.

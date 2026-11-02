@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result};
-use weftcut_lib::ffmpeg::ffmpeg_path;
+use lahza_lib::ffmpeg::ffmpeg_path;
 
 /// Generalized Goertzel: DFT magnitude (amplitude estimate) at an arbitrary
 /// `freq` over `samples`. `freq` need not land on a bin. ~O(n), no FFT.
@@ -120,7 +120,7 @@ fn tempfile_path(ext: &str) -> PathBuf {
     use std::sync::atomic::{AtomicU64, Ordering};
     static CTR: AtomicU64 = AtomicU64::new(0);
     let id = CTR.fetch_add(1, Ordering::Relaxed);
-    p.push(format!("weftcut-mc-{}-{id}.{ext}", std::process::id()));
+    p.push(format!("lahza-mc-{}-{id}.{ext}", std::process::id()));
     p
 }
 

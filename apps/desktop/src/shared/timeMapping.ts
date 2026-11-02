@@ -1,6 +1,6 @@
 /** Exact microseconds (or a dimensionless ratio). Canonical JSON: reduced,
  * positive denominator, both components safe integers; zero is always 0/1.
- * Arithmetic lives in weftcut-eval, through renderer/timeMapping.ts. */
+ * Arithmetic lives in lahza-eval, through renderer/timeMapping.ts. */
 export interface ExactTime {
   readonly num: number;
   readonly den: number;

@@ -20,7 +20,7 @@ import {
   timeUsAtFrame,
 } from "./frames";
 
-// The primitives are wasm-backed (the shared weftcut-eval crate, loaded by the
+// The primitives are wasm-backed (the shared lahza-eval crate, loaded by the
 // global test setup). This golden verifies the wasm reproduces the fixture
 // (single source).
 

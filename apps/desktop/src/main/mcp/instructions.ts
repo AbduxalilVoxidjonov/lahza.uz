@@ -4,14 +4,14 @@
 // with or without the shipped skill installed, so this is the one message
 // that reaches an agent before its first call.
 //
-// The SAME lines head the shipped skill (`skills/weftcut/SKILL.md`, "In ten
+// The SAME lines head the shipped skill (`skills/lahza/SKILL.md`, "In ten
 // lines"), pinned equal by `instructions.test.ts`, so a client that has the
 // skill reads one etiquette, not two. Per-tool facts stay in the tool
 // descriptions; the long form stays in the skill and docs/mcp.md. Kept under a
 // size a session pays without noticing — the test caps it.
 
 export const MCP_INSTRUCTION_LINES: ReadonlyArray<string> = [
-  "WeftCut is a desktop video editor; the user watches the same project live, and every edit you commit lands in their undo history. A video the user asks you to edit is the project open in WeftCut, named or not.",
+  "Lahza is a desktop video editor; the user watches the same project live, and every edit you commit lands in their undo history. A video the user asks you to edit is the project open in Lahza, named or not.",
   "1. Read `project://tracks` (or `read_project` view \"tracks\") before your first edit; ids come from reads, never memory.",
   "2. Every mutator answers with the committed record (minted ids, the span as it landed, `adjusted` for a grid snap); verify from it before reporting.",
   "3. A refusal (isError) names the cause and the fix: act on it, never retry the call verbatim.",
@@ -20,7 +20,7 @@ export const MCP_INSTRUCTION_LINES: ReadonlyArray<string> = [
   "6. Others may edit concurrently; when a commit fails for that, re-read and reapply.",
   "7. Export: `start_export`; poll `get_export_status` for the completed output_path.",
   "8. Edit the project open in the app; never create one unless asked. With none open, `open_project` or `create_project` the one the user named, else ask. A folder with project.json is a project; if it is not the open one (`project.dir` in `project://session`), ask. Its files change only through tools, TASTE.md aside.",
-  "The weftcut skill (Settings > Agent) carries the long form, common flows and the Motif contract.",
+  "The lahza skill (Settings > Agent) carries the long form, common flows and the Motif contract.",
 ]
 
 export const MCP_INSTRUCTIONS = MCP_INSTRUCTION_LINES.join('\n')

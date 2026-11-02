@@ -4,7 +4,7 @@ import path from 'node:path'
 import { launchApp, invokeCmd, tmpDir } from './helpers/driver'
 
 test('reopening adopts audio caches without rebuilding and close ends import admission', async () => {
-  const folder = tmpDir('weftcut-import-reopen-')
+  const folder = tmpDir('lahza-import-reopen-')
   const source = path.join(folder, 'source.wav')
   const wav = Buffer.alloc(96044)
   wav.write('RIFF'); wav.writeUInt32LE(wav.length - 8, 4); wav.write('WAVEfmt ', 8)

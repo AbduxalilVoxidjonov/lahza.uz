@@ -69,7 +69,7 @@ export function planExportMotifFrame(
               sharedBakedKeyIndex.add(desc.cacheKey, desc.contentFrame);
             }
           } catch (error) {
-            console.warn("[weftcut/export] Motif cache write skipped:", error);
+            console.warn("[lahza/export] Motif cache write skipped:", error);
           } finally { if (canvas) canvas.width = canvas.height = 0; }
         }
         return bitmap;

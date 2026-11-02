@@ -13,11 +13,11 @@ import path from 'node:path'
 const FRONTMATTER = /^---\r?\n([\s\S]*?)\r?\n---(\r?\n|$)/
 
 /// The skill folder name the rest of the system hard-codes: the Settings panel
-/// builds `<userData>/skills/weftcut` by string concatenation (the renderer has
+/// builds `<userData>/skills/lahza` by string concatenation (the renderer has
 /// no `path`), and the install prompt names it to the user's agent. Renaming
-/// `skills/weftcut/` has to fail the build rather than ship a panel pointing at
+/// `skills/lahza/` has to fail the build rather than ship a panel pointing at
 /// a folder nobody staged.
-export const REQUIRED_SKILL = 'weftcut'
+export const REQUIRED_SKILL = 'lahza'
 
 /// Docs copied verbatim into the required skill folder. A skill references
 /// these by bare filename ("read motif-authoring.md next to this file"), so the

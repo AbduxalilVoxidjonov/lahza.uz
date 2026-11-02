@@ -156,7 +156,7 @@ function samplePngPoints(pngPath: string): FrameSamples {
 
 // ── Preview sampling ─────────────────────────────────────────────────────────
 /// Seek the live preview and read the probe points off the composited canvas.
-/// weftcutSeekUs throws until the PixiPreview bridge registers; the caller's
+/// lahzaSeekUs throws until the PixiPreview bridge registers; the caller's
 /// readiness poll absorbs that window, so here a failure is real.
 ///
 /// The 200 ms after the seek is pacing for the re-composite, and it is only
@@ -165,12 +165,12 @@ function samplePngPoints(pngPath: string): FrameSamples {
 /// in front of an assertion is a flake on a loaded runner (e2e/README.md,
 /// "Waiting inside a spec").
 async function collectPreviewFrame(page: Page, tUs: number): Promise<FrameSamples> {
-  await page.evaluate((us) => (window as any).__weftcutTest.weftcutSeekUs(us), tUs)
+  await page.evaluate((us) => (window as any).__lahzaTest.lahzaSeekUs(us), tUs)
   await page.waitForTimeout(200)
   const out = {} as FrameSamples
   for (const pt of Object.keys(PROBE_X) as PointName[]) {
     const s = (await page.evaluate(
-      ([x, y]) => (window as any).__weftcutTest.weftcutSampleComposite(x, y),
+      ([x, y]) => (window as any).__lahzaTest.lahzaSampleComposite(x, y),
       [PROBE_X[pt], PROBE_Y] as const,
     )) as { r: number; g: number; b: number }
     out[pt] = { r: s.r, g: s.g, b: s.b }
@@ -221,9 +221,9 @@ async function waitPreviewSettled(
 /// output dir — the preview-side failure artifacts.
 async function dumpPreviewArtifacts(page: Page, prefix: string): Promise<void> {
   for (const timeName of Object.keys(TIMES) as TimeName[]) {
-    await page.evaluate((us) => (window as any).__weftcutTest.weftcutSeekUs(us), TIMES[timeName])
+    await page.evaluate((us) => (window as any).__lahzaTest.lahzaSeekUs(us), TIMES[timeName])
     await page.waitForTimeout(200)
-    const b64 = (await page.evaluate(() => (window as any).__weftcutTest.capturePreviewFramePng())) as string
+    const b64 = (await page.evaluate(() => (window as any).__lahzaTest.capturePreviewFramePng())) as string
     fs.writeFileSync(test.info().outputPath(`${prefix}-preview-${timeName}.png`), Buffer.from(b64, 'base64'))
   }
 }
@@ -262,7 +262,7 @@ for (const variant of VARIANTS) {
     // Local-only like the other export gates: the export leg needs the real
     // GPU/WebCodecs encode path, absent on headless CI.
     test.skip(
-      process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+      process.env.LAHZA_E2E_NO_EXPORT === '1',
       'transition export leg needs a real GPU/WebCodecs encoder not on headless CI; verified locally',
     )
     const ffmpeg = ffmpegBin()
@@ -273,7 +273,7 @@ for (const variant of VARIANTS) {
     let mcp: Client | null = null
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-transitions-proj-'),
+        parentFolder: tmpDir('lahza-e2e-transitions-proj-'),
         name: `transitions-${variant.name}-` + Date.now(),
         canvas: CANVAS,
       })
@@ -343,16 +343,16 @@ for (const variant of VARIANTS) {
       expect(previewErrs, previewErrs.join('\n')).toEqual([])
 
       // ── Export leg — decode the SAME timestamps, run the SAME assertions ───
-      const output = path.join(tmpDir('weftcut-e2e-transitions-out-'), `${variant.name}.mp4`)
+      const output = path.join(tmpDir('lahza-e2e-transitions-out-'), `${variant.name}.mp4`)
       const exp = await driveExport(page, { outputAbsPath: output }, { hook: 'exportTimeline', timeout: 150_000 })
       if (!exp.done.ok) throw new Error(`exportTimeline failed (${variant.name}): ${exp.done.error}`)
 
       // Duration autofit follows BLUE's shifted end ⇒ 3s @ 30fps ⇒ exactly 90
       // planned frames.
-      const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+      const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
         | { totalFrames: number }
         | null
-      expect(perf, '__weftcutExportPerf must be set after export (E2E build)').not.toBeNull()
+      expect(perf, '__lahzaExportPerf must be set after export (E2E build)').not.toBeNull()
       expect(perf!.totalFrames, '3s composition at 30fps plans 90 frames').toBe(90)
 
       const exportFrames = {} as Record<TimeName, FrameSamples>

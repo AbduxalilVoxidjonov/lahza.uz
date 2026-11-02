@@ -7,7 +7,7 @@ import { analyze } from '../lib/analyze.mjs'
 import { launchApp, tmpDir, newProject, driveExport } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 
 // Standard 1080p30 source for AV1 + HEVC 8-bit smoke — the 6s short fixture
 // (pinned 2s GOPs), sized so sample 150 still lands cross-GOP (GOP 3 of 3)
@@ -185,14 +185,14 @@ test.describe('multi-codec export smoke (Electron)', () => {
   // on implicit/inferred tags instead.
   // -------------------------------------------------------------------------
   test('AV1 export produces an aligned file (Electron)', async () => {
-    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
     test.setTimeout(300000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), 'av1.mp4')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), 'av1.mp4')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-av1-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })
@@ -230,14 +230,14 @@ test.describe('multi-codec export smoke (Electron)', () => {
   // that's the native sink's contract.
   // -------------------------------------------------------------------------
   test('pinned-webcodecs H.264 export produces an aligned file (Electron)', async () => {
-    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
     test.setTimeout(300000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), 'webcodecs-h264.mp4')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), 'webcodecs-h264.mp4')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-wc-h264-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })
@@ -272,14 +272,14 @@ test.describe('multi-codec export smoke (Electron)', () => {
   // is frame-aligned (SSIM ≥ 0.6).
   // -------------------------------------------------------------------------
   test('HEVC export produces an aligned file (Electron)', async () => {
-    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
     test.setTimeout(300000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), 'hevc.mp4')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), 'hevc.mp4')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-hevc-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })
@@ -334,15 +334,15 @@ test.describe('multi-codec export smoke (Electron)', () => {
   test('10-bit HEVC export completes with correct codec shape (Electron) @matrix', async () => {
     test.skip(
       !existsSync(SOURCE_10BIT),
-      `10-bit source not found at ${SOURCE_10BIT} (set WEFTCUT_TEST_MEDIA or run generate-fixtures.mjs)`,
+      `10-bit source not found at ${SOURCE_10BIT} (set LAHZA_TEST_MEDIA or run generate-fixtures.mjs)`,
     )
     test.setTimeout(600000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), '10bit.mp4')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), '10bit.mp4')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-10bit-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })
@@ -397,14 +397,14 @@ test.describe('multi-codec export smoke (Electron)', () => {
   // frame-aligned (SSIM ≥ 0.6).
   // -------------------------------------------------------------------------
   test('pinned-native H.264 export is conformant with explicit color tags (Electron)', async () => {
-    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
     test.setTimeout(300000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), 'native-h264.mp4')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), 'native-h264.mp4')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-native-h264-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })
@@ -451,14 +451,14 @@ test.describe('multi-codec export smoke (Electron)', () => {
   // is 8-bit test_1080p_30fps_6s.mp4.
   // -------------------------------------------------------------------------
   test('ProRes 422 export lands in MOV with 10-bit 4:2:2 (Electron) @matrix', async () => {
-    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
     test.setTimeout(600000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), 'prores.mov')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), 'prores.mov')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-prores-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })
@@ -511,14 +511,14 @@ test.describe('multi-codec export smoke (Electron)', () => {
   // "DNXHR SQ" flavor), and frame-aligned (SSIM ≥ 0.6).
   // -------------------------------------------------------------------------
   test('DNxHR SQ export lands in MOV as 8-bit 4:2:2 (Electron) @matrix', async () => {
-    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+    test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
     test.setTimeout(300000)
-    const OUTPUT = path.join(tmpDir('weftcut-e2e-codecs-out-'), 'dnxhr.mov')
+    const OUTPUT = path.join(tmpDir('lahza-e2e-codecs-out-'), 'dnxhr.mov')
 
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-codecs-proj-'),
+        parentFolder: tmpDir('lahza-e2e-codecs-proj-'),
         name: 'e2e-dnxhr-' + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })

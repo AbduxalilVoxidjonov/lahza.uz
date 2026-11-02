@@ -31,13 +31,13 @@ export class LahzaError extends Error {
   }
 }
 
-/** Where the sidecar lives: `WEFTCUT_LAHZA_DIR`, else the packaged
+/** Where the sidecar lives: `LAHZA_ENGINE_DIR`, else the packaged
  *  `resources/lahza`, else the dev tree's `resources/lahza/<os>` that
  *  `scripts/stage-lahza-engine.mjs` fills. */
 export function resolveLahzaPaths(opts: { packaged: boolean; resourcesPath: string; devRoot: string; env?: NodeJS.ProcessEnv }): LahzaPaths {
   const env = opts.env ?? process.env
   const osDir = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux'
-  const dir = env.WEFTCUT_LAHZA_DIR
+  const dir = env.LAHZA_ENGINE_DIR
     ?? (opts.packaged ? path.join(opts.resourcesPath, 'lahza') : path.join(opts.devRoot, 'resources/lahza', osDir))
   return {
     engine: path.join(dir, process.platform === 'win32' ? 'lahza-engine.exe' : 'lahza-engine'),

@@ -1,4 +1,4 @@
-﻿; WeftCut custom NSIS include.
+﻿; Lahza custom NSIS include.
 ;
 ; electron-builder auto-detects ${buildResources}/installer.nsh (here build/) and
 ; !includes it into the generated installer — no `nsis.include` key is needed
@@ -59,7 +59,7 @@
 !macroend
 
 !macro customFinishPage
-  Function WeftCutStartApp
+  Function LahzaStartApp
     ${If} ${isUpdated}
       StrCpy $1 "--updated"
     ${Else}
@@ -68,10 +68,10 @@
     ${StdUtils.ExecShellAsUser} $0 "$launchLink" "open" "$1"
   FunctionEnd
 
-  Function WeftCutFinishPre
+  Function LahzaFinishPre
     ${If} ${isUpdated}
       ${If} ${isForceRun}
-        Call WeftCutStartApp
+        Call LahzaStartApp
       ${EndIf}
       SetErrorLevel 0
       Quit
@@ -80,8 +80,8 @@
 
   ; Preserve the ordinary first-install finish page and its launch checkbox.
   !define MUI_FINISHPAGE_RUN
-  !define MUI_FINISHPAGE_RUN_FUNCTION "WeftCutStartApp"
-  !define MUI_PAGE_CUSTOMFUNCTION_PRE WeftCutFinishPre
+  !define MUI_FINISHPAGE_RUN_FUNCTION "LahzaStartApp"
+  !define MUI_PAGE_CUSTOMFUNCTION_PRE LahzaFinishPre
   !insertmacro MUI_PAGE_FINISH
 !macroend
 
@@ -108,10 +108,10 @@
 ;
 ; WHY: the assisted installer runs UNELEVATED for a per-user ("only for me")
 ; install — `RequestExecutionLevel user`. With allowToChangeInstallationDirectory
-; on, the directory page will happily accept C:\Program Files\WeftCut, but a
+; on, the directory page will happily accept C:\Program Files\Lahza, but a
 ; non-admin process cannot create or write there. The stock template performs NO
 ; writability check, so extraction fails half-way and the user is shown the
-; misleading "WeftCut cannot be closed" retry loop (extractAppPackage.nsh) and
+; misleading "Lahza cannot be closed" retry loop (extractAppPackage.nsh) and
 ; then a raw "cannot write file" error — with nothing pointing at the real cause
 ; (wrong install location for an unelevated install).
 ;
@@ -138,12 +138,12 @@
     ; "1" once the explanation has been shown for the current invalid path, so
     ; the modal is not re-shown while the path stays invalid; reset to "0" on any
     ; valid path (or all-users mode) so a later re-entry explains itself again.
-    Var weftcutSysDirWarned
+    Var lahzaSysDirWarned
 
     Function .onVerifyInstDir
       ; Per-machine (elevated) installs may write under Program Files — leave them.
       ${If} $installMode == "all"
-        StrCpy $weftcutSysDirWarned "0"
+        StrCpy $lahzaSysDirWarned "0"
         Return
       ${EndIf}
 
@@ -176,13 +176,13 @@
       ${EndIf}
 
       ${If} $R9 == "1"
-        ${IfNot} $weftcutSysDirWarned == "1"
-          StrCpy $weftcutSysDirWarned "1"
+        ${IfNot} $lahzaSysDirWarned == "1"
+          StrCpy $lahzaSysDirWarned "1"
           MessageBox MB_OK|MB_ICONEXCLAMATION "“$INSTDIR”位于受保护的系统目录（Program Files 或 Windows）。$\n当前为“仅为我安装”，没有管理员权限，无法写入该位置。$\n$\n请改用默认安装目录，或点击“上一步”并选择“为所有用户安装（需要管理员权限）”。$\n$\nThis folder is a protected system location (Program Files or Windows). A per-user install cannot write here without administrator rights. Choose a different folder, or go Back and select install for all users."
         ${EndIf}
         Abort ; keeps Next disabled while the path is invalid
       ${Else}
-        StrCpy $weftcutSysDirWarned "0"
+        StrCpy $lahzaSysDirWarned "0"
       ${EndIf}
     FunctionEnd
   !endif

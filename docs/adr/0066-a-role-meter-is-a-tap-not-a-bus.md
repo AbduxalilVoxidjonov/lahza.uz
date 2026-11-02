@@ -99,7 +99,7 @@ what this record is for.
   no frame budget.
 - **Metering is preview-only.** A readout is not a rendering decision, and the
   export mixer has no per-role summing stage to meter. The gate decision itself
-  runs the shared `weftcut-eval` leaf (`role_audible`) that the export planner
+  runs the shared `lahza-eval` leaf (`role_audible`) that the export planner
   links, so the preview meter and the export mix agree by construction and the
   change carries no dual-engine parity obligation.
 
@@ -170,7 +170,7 @@ what this record is for.
   by track (the fold, and the per-role insert this is deliberately not).
 - [ADR 0019](0019-audio-mixes-in-rust-over-conform-pcm.md) — audio mixes in
   Rust over conform PCM (the master meter this extends).
-- [ADR 0025](0025-shared-eval-wasm-leaf-crate.md) — the shared `weftcut-eval`
+- [ADR 0025](0025-shared-eval-wasm-leaf-crate.md) — the shared `lahza-eval`
   leaf both engines run the role gate through.
 - [ADR 0063](0063-audio-effects-are-baked-conform-siblings.md) — audio effects
   are baked conform siblings (where a per-role insert is named again as

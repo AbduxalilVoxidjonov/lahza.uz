@@ -7,7 +7,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 test('an interrupted worker leaves the last started test durable before reporter finalization', { timeout: 5000 }, async () => {
-  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-live-report-'))
+  const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-live-report-'))
   const report = path.join(folder, 'parallel.json')
   const reporter = new URL('../live-reporter.mjs', import.meta.url).href
   const program = `

@@ -1,6 +1,6 @@
 # MCP Server & Agent UX
 
-WeftCut exposes itself as an MCP server. External agents (Claude Desktop, Cursor, Cline, custom Python clients) connect over a localhost server and edit the project through a structured tool surface. Clients connect one of two ways: through the **`weftcut-mcp` stdio shim** (recommended — the config survives app restarts, port changes, and token rotations, and keeps working while the app is closed) or **HTTP-direct** to the in-app endpoint (for clients that cannot spawn stdio servers).
+Lahza exposes itself as an MCP server. External agents (Claude Desktop, Cursor, Cline, custom Python clients) connect over a localhost server and edit the project through a structured tool surface. Clients connect one of two ways: through the **`lahza-mcp` stdio shim** (recommended — the config survives app restarts, port changes, and token rotations, and keeps working while the app is closed) or **HTTP-direct** to the in-app endpoint (for clients that cannot spawn stdio servers).
 
 ## Transport & deployment
 
@@ -11,14 +11,14 @@ WeftCut exposes itself as an MCP server. External agents (Claude Desktop, Cursor
   `Mcp-Session-Id` header); subsequent requests on that session route back to
   the same transport. In-protocol notifications (the change feed below) ride the
   same connection, so there is no separate event endpoint.
-- **The stdio shim (`weftcut-mcp`)** wraps that endpoint for clients: a single
+- **The stdio shim (`lahza-mcp`)** wraps that endpoint for clients: a single
   self-contained bundle (`src/cli/`, built by `scripts/build-cli.mjs`) that
-  runs under `ELECTRON_RUN_AS_NODE` — the WeftCut binary doubles as its Node
+  runs under `ELECTRON_RUN_AS_NODE` — the Lahza binary doubles as its Node
   runtime, so user machines need no Node install. It ships as an extraResource
-  and the app copies it to `<userData>/cli/weftcut-mcp.cjs` at every startup;
+  and the app copies it to `<userData>/cli/lahza-mcp.cjs` at every startup;
   client configs reference THAT copy, the only path stable across upgrades on
   all three OSes (an AppImage mounts at a random point per run). `<userData>`
-  is `<appData>/WeftCut` — Electron names it from package.json's `productName`,
+  is `<appData>/Lahza` — Electron names it from package.json's `productName`,
   which is why that key must stay set: electron-builder's own `productName` is
   never written into the packaged package.json, and without it both dev and
   packaged builds fall back to the scoped package name. The shim
@@ -26,12 +26,12 @@ WeftCut exposes itself as an MCP server. External agents (Claude Desktop, Cursor
   token rotations self-heal, and the config fragment carries no URL and no
   token.
 - **Shim catalog = synthetic ∪ (app reachable ? real catalog : ∅).** Two
-  synthetic tools are always present: `weftcut_status` (endpoint state + next
+  synthetic tools are always present: `lahza_status` (endpoint state + next
   steps, plus a `Project:` line naming the open project or saying none is open,
-  read from the session view while the app is up) and `launch_weftcut` (detached GUI spawn, then waits for the endpoint,
+  read from the session view while the app is up) and `launch_lahza` (detached GUI spawn, then waits for the endpoint,
   bounded). `tools/list_changed` fires on every bridge transition, so one agent
   session upgrades to the full catalog the moment the app comes up — including
-  when `launch_weftcut` itself brought it up — and degrades back to the
+  when `launch_lahza` itself brought it up — and degrades back to the
   synthetic surface when the app closes. Down-state calls fail with the remedy
   in the error **message** (see the error model below). While bridged, the
   change feed is forwarded verbatim, so a shim-connected agent sees exactly
@@ -51,7 +51,7 @@ WeftCut exposes itself as an MCP server. External agents (Claude Desktop, Cursor
   Cursor snippet stays valid across restarts. If the saved port is occupied at
   bind time, the server falls back to a fresh OS-picked port and rewrites the
   file.
-- One server per running WeftCut instance. Multi-instance = multi-port;
+- One server per running Lahza instance. Multi-instance = multi-port;
   surfaced in the connection UI.
 - For remote access (Tailscale, ngrok, codespace): out of scope. Localhost only.
 
@@ -112,25 +112,25 @@ The app's **Connect agent** panel (Settings → Agent):
   created),
   identical to the "In ten lines" head of the shipped skill and pinned equal by
   a test, so a client that never installs the skill still starts with the
-  etiquette. `serverInfo` is `weftcut` at the app's version in a packaged
+  etiquette. `serverInfo` is `lahza` at the app's version in a packaged
   build; a bare `electron.exe out/main/index.js` dev launch reports Electron's,
   because `app.getVersion()` has no package.json to read there.
 - **The agent skill** — the app ships a Claude-format skill that teaches a
   connected agent session etiquette, the orchestration patterns, and the Motif
   authoring contract (the things no single tool description can carry; per-tool
-  facts stay in the tool descriptions). Sources are repo-root `skills/weftcut/`
+  facts stay in the tool descriptions). Sources are repo-root `skills/lahza/`
   plus a verbatim copy of [`motif-authoring.md`](motif-authoring.md), staged to
   `out/skills` by `scripts/build-skills.mjs` (a `build` step), shipped as an
   extraResource, and refreshed to `<userData>/skills/` at every startup — the
   shim's stable-path pattern. The panel shows a copyable install prompt that
   points the user's agent at that copy (for Claude Code:
-  `~/.claude/skills/weftcut`); the manual section prints that folder's path
+  `~/.claude/skills/lahza`); the manual section prints that folder's path
   verbatim and opens it in the OS file manager, for a user doing the copy by
   hand. Every tool / resource / prompt name the skill sources reference is
   pinned to the advertised catalog by `mcp.skill-conformance.test.ts`, so a
   rename fails CI until the prose is updated.
 - **A build without the skill cannot ship, and a launch without it says so.**
-  Two gates assert the bundle's shape (the `weftcut` folder, its `SKILL.md`,
+  Two gates assert the bundle's shape (the `lahza` folder, its `SKILL.md`,
   the copied contract) and its version stamp: `build:skills` over `out/skills`
   and an electron-builder `afterPack` hook over the packed copy. Past those,
   the startup refresh reports a *state* rather than a path —
@@ -142,7 +142,7 @@ The app's **Connect agent** panel (Settings → Agent):
   a dev tree before `build:skills` is a benign fault, and it names the command
   to run.
 - **The fault carries its own recovery.** Every fault that can reach a user is
-  cleared by something outside WeftCut — a full disk emptied, an antivirus
+  cleared by something outside Lahza — a full disk emptied, an antivirus
   quarantine undone, a locked file released, a repaired install, or a
   `build:skills` that has now run — so the fault block offers a "try again"
   that re-runs the install and takes up whatever it finds. It is the only way
@@ -158,10 +158,10 @@ Shim snippet example (paths are machine-specific, generated at runtime from
 ```json
 {
   "mcpServers": {
-    "weftcut": {
-      "command": "C:\\Users\\u\\AppData\\Local\\Programs\\WeftCut\\WeftCut.exe",
-      "args": ["C:\\Users\\u\\AppData\\Roaming\\WeftCut\\cli\\weftcut-mcp.cjs"],
-      "env": { "ELECTRON_RUN_AS_NODE": "1", "WEFTCUT_USERDATA": "C:\\Users\\u\\AppData\\Roaming\\WeftCut" }
+    "lahza": {
+      "command": "C:\\Users\\u\\AppData\\Local\\Programs\\Lahza\\Lahza.exe",
+      "args": ["C:\\Users\\u\\AppData\\Roaming\\Lahza\\cli\\lahza-mcp.cjs"],
+      "env": { "ELECTRON_RUN_AS_NODE": "1", "LAHZA_USERDATA": "C:\\Users\\u\\AppData\\Roaming\\Lahza" }
     }
   }
 }
@@ -170,20 +170,20 @@ Shim snippet example (paths are machine-specific, generated at runtime from
 The same entry from the `Generic` tab, and as the Codex one-liner beside it:
 ```
 transport: stdio
-command:   C:\Users\u\AppData\Local\Programs\WeftCut\WeftCut.exe
-arg:       C:\Users\u\AppData\Roaming\WeftCut\cli\weftcut-mcp.cjs
+command:   C:\Users\u\AppData\Local\Programs\Lahza\Lahza.exe
+arg:       C:\Users\u\AppData\Roaming\Lahza\cli\lahza-mcp.cjs
 env:       ELECTRON_RUN_AS_NODE=1
-env:       WEFTCUT_USERDATA=C:\Users\u\AppData\Roaming\WeftCut
+env:       LAHZA_USERDATA=C:\Users\u\AppData\Roaming\Lahza
 ```
 ```sh
-codex mcp add weftcut --env ELECTRON_RUN_AS_NODE=1 --env "WEFTCUT_USERDATA=C:\Users\u\AppData\Roaming\WeftCut" -- "C:\Users\u\AppData\Local\Programs\WeftCut\WeftCut.exe" "C:\Users\u\AppData\Roaming\WeftCut\cli\weftcut-mcp.cjs"
+codex mcp add lahza --env ELECTRON_RUN_AS_NODE=1 --env "LAHZA_USERDATA=C:\Users\u\AppData\Roaming\Lahza" -- "C:\Users\u\AppData\Local\Programs\Lahza\Lahza.exe" "C:\Users\u\AppData\Roaming\Lahza\cli\lahza-mcp.cjs"
 ```
 
 HTTP-direct snippet example (the advanced path, in Cursor's shape):
 ```json
 {
   "mcpServers": {
-    "weftcut": {
+    "lahza": {
       "url": "http://127.0.0.1:50831/mcp",
       "headers": { "Authorization": "Bearer 8f3a..." }
     }
@@ -244,7 +244,7 @@ project where the UI's Open, New Project and Save As land (and where the two
 tools below land), and clears the record on Close Project. The workspace folder
 is not the signal; it survives Close.
 
-**No project open ⇒ every project tool refuses.** With WeftCut on its start
+**No project open ⇒ every project tool refuses.** With Lahza on its start
 screen, or after Close Project, a call answers only if it is app-scoped —
 `ping`, the Motif library and temporary file-transfer tools (including
 `list_motifs`, `open_motif_draft`, `read_motif`, `update_motif_files`,
@@ -270,7 +270,7 @@ otherwise they ask which one to work in. The session view
 (`read_project { view: "session" }` / `project://session`) reports `project`
 (`null` when nothing is open) and lists `recent_projects` and
 `default_parent_folder`, so "open my last project" resolves without a
-filesystem search. The stdio shim's `weftcut_status` adds the same fact as one
+filesystem search. The stdio shim's `lahza_status` adds the same fact as one
 `Project:` line when the app is up.
 
 - `open_project { path }` → `{ name, dir, replaced }` — the start screen's
@@ -312,7 +312,7 @@ itself is an `isError` result whose text names the folder and the fix, with
 | `project://links` | a composition's links — `{ id, members }` — the root's, or `project://links?composition=<id>` |
 | `project://transitions` | a composition's transitions — the root's, or `project://transitions?composition=<id>` |
 | `project://settings` | the editing preferences `set_project_settings` writes (`auto_pair_audio_on_import`, `prefer_proxies`, `proxy_overrides`, `shot_review`, `pause_review`, `correction_script`) plus `metadata` (`name`, `created_at`, `modified_at`, `description`). `modified_at` moves on every recorded edit — the dirty signal; an unrecorded write leaves it, and undo, redo and a checkpoint restore put back the stamp of the state they return to, so compare it for change, not for order |
-| `project://taste` | the style tokens new layers take and the lint reads: the project's style (`extends` in its `TASTE.md`, else the built-in `weftcut-default`) merged with the `TASTE.md` overrides — `{ style: { name, hash, origin, pinned, pin_matches }, taste: { path, present }, roles, tokens, motifs, fonts?, provenance, prose, diagnostics, revision }`. `motifs` maps a graphic role to the style's example Motifs for it (`{ ids, source, motifs?: [{ id, name, size, graphic_role, props_schema }] }`, TASTE.md's `motifs` replacing the style's per role): a starting point to use, fork or depart from, not a template. `fonts` maps each `tokens.fonts` slot to `{ wanted, resolved, missing }` against the families installed on the app's machine (absent until the system font scan finishes); the style works without the missing ones, which the user may install. `provenance` maps each token path to `style` or `taste`; an invalid field is dropped with a diagnostic and the style's value stands. Pixel tokens are for a 1080-pixel-tall frame. Read fresh on every call (the app never writes `TASTE.md`); with no project open, the default style alone. Also `read_project { view: "taste" }` |
+| `project://taste` | the style tokens new layers take and the lint reads: the project's style (`extends` in its `TASTE.md`, else the built-in `lahza-default`) merged with the `TASTE.md` overrides — `{ style: { name, hash, origin, pinned, pin_matches }, taste: { path, present }, roles, tokens, motifs, fonts?, provenance, prose, diagnostics, revision }`. `motifs` maps a graphic role to the style's example Motifs for it (`{ ids, source, motifs?: [{ id, name, size, graphic_role, props_schema }] }`, TASTE.md's `motifs` replacing the style's per role): a starting point to use, fork or depart from, not a template. `fonts` maps each `tokens.fonts` slot to `{ wanted, resolved, missing }` against the families installed on the app's machine (absent until the system font scan finishes); the style works without the missing ones, which the user may install. `provenance` maps each token path to `style` or `taste`; an invalid field is dropped with a diagnostic and the style's value stands. Pixel tokens are for a 1080-pixel-tall frame. Read fresh on every call (the app never writes `TASTE.md`); with no project open, the default style alone. Also `read_project { view: "taste" }` |
 | `project://session` | the active agent work session (or `null`), recent sessions and the history lock — read after `AgentSessionBusy` — plus the project state: `project` (`{ name, dir }` of the project the user has open, `null` on the start screen or after Close Project), `recent_projects` (the start screen's Recents, `[{ name, path }]`, newest first) and `default_parent_folder` (where New Project would create one, or `null`). The one non-error read of whether a project is open, and what `open_project` / `create_project` draw on (see *No project open* below) |
 | `project://tacks` | every **tack** of this project opening, oldest first — the review ranges agents left for the user (see *Tacks* below). Each is the stored record — `{ id, kind, label, body, status, range, session_id, connection_id, client, activity_id, created_at }` — plus what is derived at read time: `composition_id`, `t_us`, `end_t_us`, `state` (`visible` / `hibernating` / `stale`), `outdated` and `follows`. `project://tacks?composition=<id>` keeps the tacks placed in that composition (`not_found` for an unknown id); unlike the per-composition reads, the bare URI is the whole project opening, because a stale tack is placed nowhere |
 | `project://history` | recent ops + checkpoints (snapshot-free). Each op carries `summary` (English prose), `label_key` + optional `label_args` (its i18n key and interpolation values — `history.*`, see `main/state/history-labels.ts`), `affected` (Track/Layer/Marker refs) and `entity_labels` (names for `affected`, same length and order, resolved against whichever stored snapshot still **holds** each ref — the op's own for an add/update/move, its predecessor's for a delete — so a deleted entity still has a name). An `entity_labels` element is `{"text": "…"}` for a stored name, or `{"label_key": "…", "label_args": {…}}` for a derived one — a clip's kind (`kinds.color`), a track's role (`tracks.roles.a-roll`) or a track's position (`tracks.positional` with `{"n": 3}`) — which the UI translates. The envelope carries `window_start` and `evicted` — see below |
@@ -531,7 +531,7 @@ See [ADR 0060](adr/0060-position-has-xy-and-path-modes.md).
   and snapped layer-local key times.
 - Each spatial node needs only `{ point: {x,y} }`. Optional `in_handle`,
   `out_handle` default to `{x:0,y:0}`, `segment` defaults to `"Line"`,
-  and `tangent_mode` defaults to `"Corner"`. WeftCut generates node IDs;
+  and `tangent_mode` defaults to `"Corner"`. Lahza generates node IDs;
   sending an `id` is refused. Points are in composition
   pixels; handles are relative pixel vectors, not temporal easing controls.
   `segment` describes the span leaving the node. Corner handles are
@@ -605,7 +605,7 @@ Keyframes (animate a layer param's `Animated<T>` track; times are timeline-absol
 - `smooth_keyframes { layer_id, param_key, keyframe_id? }` — set Auto tangents (clamped monotone, solved on write and kept smooth as neighbours move) with Smooth continuity on one key, or on every key when `keyframe_id` is omitted; the adjacent segments become Spline.
 - `set_extrapolation { layer_id, param_key, before?, after? }` — what the track does outside its keys, per side (at least one; the other keeps its value): `Hold` (the end value — the default), `Loop` (repeat the cycle from the first key; a visible jump when first ≠ last, nothing bridges it), `PingPong` (alternate cycles run backwards), `Offset` (each cycle adds the last-minus-first delta), `Continue` (carry the last segment's end velocity on as a line; zero after a Hold or procedural segment). The period is `last.t − first.t`; a single-key track never extrapolates. Refused on a Static track — add keys first.
 - `clear_keyframes { layer_id, param_key, value? }` — collapse to Static (defaults to the first keyframe's value).
-- `set_param_track { layer_id, param_key, track }` — replace the whole track in one undo entry. A static value is `{mode:"Static",value:v}`; animation is `{mode:"Keyframed",value:[{t_us,value}, ...]}`. Key times are timeline-absolute. WeftCut generates fresh UUIDs, returned with committed/snapped times; **do not send `id`**, even when copying a read result. Strip read-only `t_local_us` and `preset_id` as well. Keys default to Linear segments, identity Free tangents and Broken continuity. Optional `in`, `out`, `segment` and `continuity` author precise curves; `extrapolate` defaults to Hold / Hold. Auto/Smooth tangents are solved on write. Read IDs remain valid selectors for `update_keyframe` / `delete_keyframe`; use those for individual edits. Bulk replacement generates new identities on every call.
+- `set_param_track { layer_id, param_key, track }` — replace the whole track in one undo entry. A static value is `{mode:"Static",value:v}`; animation is `{mode:"Keyframed",value:[{t_us,value}, ...]}`. Key times are timeline-absolute. Lahza generates fresh UUIDs, returned with committed/snapped times; **do not send `id`**, even when copying a read result. Strip read-only `t_local_us` and `preset_id` as well. Keys default to Linear segments, identity Free tangents and Broken continuity. Optional `in`, `out`, `segment` and `continuity` author precise curves; `extrapolate` defaults to Hold / Hold. Auto/Smooth tangents are solved on write. Read IDs remain valid selectors for `update_keyframe` / `delete_keyframe`; use those for individual edits. Bulk replacement generates new identities on every call.
 
 Minimal two-key animation (replace `layer_id` with the layer to animate):
 
@@ -1045,7 +1045,7 @@ one-field-at-a-time text with the column of a buffer the caller never sent.
 Connected agents receive change notifications **in-protocol**, over the same
 streamable-HTTP connection — there is no separate event endpoint. Every commit
 the state actor makes is relayed to every live session as a
-`notifications/weftcut/change` MCP notification whose params are the compact
+`notifications/lahza/change` MCP notification whose params are the compact
 change summary — the same payload the renderer's `project:changed` event carries:
 
 ```json
@@ -1182,10 +1182,10 @@ the first call and stopped with the app. A build without it answers every
 milliseconds; only `lahza_place_highlight` converts them to timeline µs.
 
 All but `lahza_place_highlight` touch only Lahza's own library (one Lahza
-project named `WeftCut`), so they answer with no project open. The dock
+project named `Lahza`), so they answer with no project open. The dock
 panel **Lahza** drives the same service.
 
-- `lahza_status {}` → `{ status, setup?, episodes? }` — read-only. Starts the engine if stopped; `status.state` is `unavailable | stopped | starting | ready | failed`, `setup` is the engine's model-setup record and `episodes` the videos already analyzed from WeftCut (`[{ id, title, status, media }]`). Installing models is Lahza Studio's own consented onboarding, never an agent's.
+- `lahza_status {}` → `{ status, setup?, episodes? }` — read-only. Starts the engine if stopped; `status.state` is `unavailable | stopped | starting | ready | failed`, `setup` is the engine's model-setup record and `episodes` the videos already analyzed from Lahza (`[{ id, title, status, media }]`). Installing models is Lahza Studio's own consented onboarding, never an agent's.
 - `lahza_analyze_video { path, force_lite? }` → `{ episode_id, job }`. Imports a local video into Lahza and starts its analysis; poll `lahza_get_job`. An unsupported codec is refused with the engine's own code.
 - `lahza_get_job { job_id }` → `{ job: { id, kind, status, progress, stage, error, result, meta } }` — read-only. Analyze and export jobs alike; an export's `result` holds `video`, `srt`, `vtt`, `caption`, `cover`.
 - `lahza_list_highlights { episode_id }` → `{ episode, clips }` — read-only, best `score` first. A clip carries `start_ms`/`end_ms` in source time, `title`, `kind`, `reason`, and the `cuts` and `hook` that shape it.

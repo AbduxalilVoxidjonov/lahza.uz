@@ -38,7 +38,7 @@ apps/desktop/
       generate-fixtures.mjs        # orchestrator (npm run fixtures)
       color_baseline.json          # expected color error for the color encodings
       gradient_baseline.json       # expected error for the 10-bit gradient fixture
-      media/                       # generated clips (gitignored); WEFTCUT_TEST_MEDIA overrides
+      media/                       # generated clips (gitignored); LAHZA_TEST_MEDIA overrides
         color_manifest.json        # patch layout for color-conformance (generated)
         .gitkeep
     scripts/                       # standalone color diagnostics (color-*.mjs)
@@ -48,10 +48,10 @@ apps/desktop/
 
 Backend commands are driven from a spec via `window.api.backend.invoke(cmd, args)`
 (the renderer bridge), wrapped by `driver.ts`'s `invokeCmd` / `summary`. The
-import→place→export flow goes through the dev-only `window.__weftcutTest` hook
+import→place→export flow goes through the dev-only `window.__lahzaTest` hook
 (see [`apps/desktop/e2e/README.md`](../apps/desktop/e2e/README.md)).
 
-`WEFTCUT_TEST_MEDIA` can point the E2E specs at an external fixture directory;
+`LAHZA_TEST_MEDIA` can point the E2E specs at an external fixture directory;
 otherwise they use `apps/desktop/e2e/fixtures/media`.
 
 ## Fixture Generation
@@ -188,14 +188,14 @@ instance.
 **Prerequisites** (run once, or when stale). From `apps/desktop` unless noted:
 
 ```bash
-npm run napi:build                    # build the @weftcut/core native addon
+npm run napi:build                    # build the @lahza/core native addon
 npm run ffmpeg:fetch                   # bundled ffmpeg (run-e2e wires it into FFMPEG/PATH)
 ( cd e2e && npm run fixtures )         # generate test media (needs ffmpeg)
 npm run build:e2e                      # build WITH the E2E hook — see warning
 ```
 
-> **The build must carry `VITE_WEFTCUT_E2E=1`** (what `npm run build:e2e`
-> sets, on every OS). The `window.__weftcutTest` control surface is gated on
+> **The build must carry `VITE_LAHZA_E2E=1`** (what `npm run build:e2e`
+> sets, on every OS). The `window.__lahzaTest` control surface is gated on
 > that flag and tree-shaken from any other build. `npm run e2e` preflights the
 > built bundle and refuses to start against a flag-less build — the old
 > symptom was every export spec timing out in `waitForHook` (30 s) with no

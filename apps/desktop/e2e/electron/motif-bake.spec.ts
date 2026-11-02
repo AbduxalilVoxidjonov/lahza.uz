@@ -19,9 +19,9 @@ const addon = fileURLToPath(new URL('../../native/index.js', import.meta.url))
 
 test('Pre-bake now moves a clip ahead of unfinished background work @serial', async () => {
   test.setTimeout(120_000)
-  const { app, page } = await launchApp({ env: { WEFTCUT_MOTIF_CAPTURE: 'png' } })
+  const { app, page } = await launchApp({ env: { LAHZA_MOTIF_CAPTURE: 'png' } })
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-bake-order-'), name: 'Ordered preparation',
+    await newProject(page, { parentFolder: tmpDir('lahza-bake-order-'), name: 'Ordered preparation',
       canvas: { width: 64, height: 64, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { prebake_motifs: false } })
     const layers: { layerId: string; key: string }[] = []
@@ -30,8 +30,8 @@ test('Pre-bake now moves a clip ahead of unfinished background work @serial', as
         size: [64, 64], default_duration_s: 2, props_schema: {} },
         `<!doctype html><body><script>motif.define({frame(t){document.body.style.background='rgb(${50+i*50},'+Math.floor(t*60)+',100)'}})</script>`)
       const motifId = await publishMotifDraft(page, draft)
-      const layerId = await page.evaluate(motifId => (window as any).__weftcutTest.addMotifLayer({ motifId, durationUs: 2_000_000 }), motifId)
-      const key = await page.evaluate(id => (window as any).__weftcutTest.cacheKeyForLayer(id), layerId)
+      const layerId = await page.evaluate(motifId => (window as any).__lahzaTest.addMotifLayer({ motifId, durationUs: 2_000_000 }), motifId)
+      const key = await page.evaluate(id => (window as any).__lahzaTest.cacheKeyForLayer(id), layerId)
       layers.push({ layerId, key })
     }
     await app.evaluate((_electron, addon) => {
@@ -53,7 +53,7 @@ test('Pre-bake now moves a clip ahead of unfinished background work @serial', as
     const active = layers.find(l => before.statuses[l.key]?.done > 0)!
     const target = layers.findLast(l => before.statuses[l.key]?.done === 0)!
     expect(active).toBeTruthy(); expect(target).toBeTruthy()
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), target.layerId)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), target.layerId)
     const block = page.locator(`[data-layer-id="${target.layerId}"]`)
     await block.click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Pre-bake now', exact: true }).click()
@@ -72,19 +72,19 @@ test('Pre-bake now moves a clip ahead of unfinished background work @serial', as
 for (const missingFrame of [null, 7] as const) {
 test(`Motif pre-bake survives a cold app restart and captures only missing frames (${missingFrame ?? 'complete'}) @serial`, async () => {
   test.setTimeout(120_000)
-  const userDataDir = tmpDir('weftcut-bake-reopen-user-')
-  let running = await launchApp({ userDataDir, env: { WEFTCUT_MOTIF_CAPTURE: 'png' } })
+  const userDataDir = tmpDir('lahza-bake-reopen-user-')
+  let running = await launchApp({ userDataDir, env: { LAHZA_MOTIF_CAPTURE: 'png' } })
   try {
     await newProject(running.page, {
-      parentFolder: tmpDir('weftcut-bake-reopen-project-'), name: 'persistent-bake',
+      parentFolder: tmpDir('lahza-bake-reopen-project-'), name: 'persistent-bake',
       canvas: { width: 480, height: 480, fpsNum: 30, fpsDen: 1 },
     })
     await invokeCmd(running.page, 'app_settings_set', { patch: { prebake_motifs: true } })
     await waitForHook(running.page, 'prebakeLayerAndWait')
-    const layerId = await running.page.evaluate(() => (window as any).__weftcutTest.addMotifLayer({
+    const layerId = await running.page.evaluate(() => (window as any).__lahzaTest.addMotifLayer({
       motifId: 'countdown', durationUs: 1_000_000, props: { seconds: 1 },
     })) as string
-    const key = await running.page.evaluate(layerId => (window as any).__weftcutTest.cacheKeyForLayer(layerId), layerId) as string
+    const key = await running.page.evaluate(layerId => (window as any).__lahzaTest.cacheKeyForLayer(layerId), layerId) as string
     await expect.poll(async () => (await invokeCmd<MotifBakeSnapshot>(running.page, 'motif_bake_snapshot')).statuses[key]?.phase,
       { timeout: 30_000 }).toBe('ready')
     const projectPath = await invokeCmd<string>(running.page, 'workspace_dir')
@@ -94,7 +94,7 @@ test(`Motif pre-bake survives a cold app restart and captures only missing frame
     ))
     await running.app.close()
     if (missingFrame !== null) await fs.unlink(path.join(baked.hashDir, `${missingFrame}.wfrm`))
-    running = await launchApp({ userDataDir, env: { WEFTCUT_MOTIF_CAPTURE: 'png' } })
+    running = await launchApp({ userDataDir, env: { LAHZA_MOTIF_CAPTURE: 'png' } })
     await waitForHook(running.page, 'motifReopenProject')
     // Install before opening the project: the new renderer has no cached or
     // in-flight frame reads yet. Clearing L0 after prewarming is insufficient,
@@ -113,16 +113,16 @@ test(`Motif pre-bake survives a cold app restart and captures only missing frame
       })
     }, hashCacheKey(key))
     await invokeCmd(running.page, 'motif_capture_diagnostics', { reset: true })
-    await running.page.evaluate(path => (window as any).__weftcutTest.motifReopenProject({ path }), projectPath)
-    await waitForHook(running.page, 'weftcutSampleComposite')
+    await running.page.evaluate(path => (window as any).__lahzaTest.motifReopenProject({ path }), projectPath)
+    await waitForHook(running.page, 'lahzaSampleComposite')
     await expect.poll(() => running.page.evaluate(async () => {
-      try { await (window as any).__weftcutTest.weftcutSampleComposite(240, 240); return true }
+      try { await (window as any).__lahzaTest.lahzaSampleComposite(240, 240); return true }
       catch { return false }
     }), { timeout: 15_000 }).toBe(true)
     await waitForHook(running.page, 'renderMotifSpriteFrames')
     // Exercise the real reader for every frame with a new renderer/L0 cache.
     await running.page.evaluate(async () => {
-      await (window as any).__weftcutTest.renderMotifSpriteFrames({
+      await (window as any).__lahzaTest.renderMotifSpriteFrames({
         motifId: 'countdown', fpsNum: 30, fpsDen: 1, durationUs: 1_000_000, props: { seconds: 1 },
         times: Array.from({ length: 30 }, (_, i) => ({ tInLayerUs: Math.round(i * 1_000_000 / 30) })),
       })
@@ -131,7 +131,7 @@ test(`Motif pre-bake survives a cold app restart and captures only missing frame
     // a broken startup declaration. Seeking must retain persisted completion.
     await expect.poll(async () => (await invokeCmd<MotifBakeSnapshot>(running.page, 'motif_bake_snapshot')).statuses[key]?.phase,
       { timeout: 30_000 }).toBe('ready')
-    await running.page.evaluate(layerId => (window as any).__weftcutTest.revealLayer({ layerId }), layerId)
+    await running.page.evaluate(layerId => (window as any).__lahzaTest.revealLayer({ layerId }), layerId)
     // The one-second fixture is too narrow for the status dot at default zoom.
     await running.page.locator(`[data-layer-id="${layerId}"]`).hover()
     await running.page.keyboard.down('Control')
@@ -140,12 +140,12 @@ test(`Motif pre-bake survives a cold app restart and captures only missing frame
     const dot = running.page.locator(`[data-layer-id="${layerId}"] .motif-bake-dot`)
     for (const us of [900_000, 100_000, 700_000, 0]) {
       await running.page.evaluate(({ key, us }) => {
-        const h = (window as any).__weftcutTest
+        const h = (window as any).__lahzaTest
         h.clearMotifCacheKey(key)
-        h.weftcutSeekUs(us)
+        h.lahzaSeekUs(us)
       }, { key, us })
       await expect(dot).toHaveAttribute('title', 'Pre-baked')
-      await running.page.evaluate(() => (window as any).__weftcutTest.weftcutSampleComposite(240, 240))
+      await running.page.evaluate(() => (window as any).__lahzaTest.lahzaSampleComposite(240, 240))
     }
     expect(await running.app.evaluate(() => (globalThis as any).__staleMotifMissDelivered)).toBe(true)
     const diagnostics = await invokeCmd<CaptureDiagnostics>(running.page, 'motif_capture_diagnostics')
@@ -165,7 +165,7 @@ for (const mode of ['native', 'png', 'readback-failure', 'warm-cache'] as const)
     const needsGpu = mode === 'native' || mode === 'readback-failure'
     test.skip(needsGpu && process.platform !== 'win32', 'D3D11 capture is Windows-only')
     test.setTimeout(120_000)
-    const { app, page } = await launchApp({ env: { WEFTCUT_MOTIF_CAPTURE: needsGpu ? 'texture' : 'png' } })
+    const { app, page } = await launchApp({ env: { LAHZA_MOTIF_CAPTURE: needsGpu ? 'texture' : 'png' } })
     try {
       if (needsGpu) {
         test.skip(!await supportsMotifSharedTextures(app), 'Chromium cannot share D3D textures; PNG compatibility cases still run')
@@ -192,21 +192,21 @@ for (const mode of ['native', 'png', 'readback-failure', 'warm-cache'] as const)
         }
       }, { addon, mode })
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-bake-'), name: `bake-${mode}`,
+        parentFolder: tmpDir('lahza-bake-'), name: `bake-${mode}`,
         canvas: { width: 480, height: 480, fpsNum: 30, fpsDen: 1 },
       })
       await waitForHook(page, 'prebakeLayerAndWait')
       await invokeCmd(page, 'motif_capture_diagnostics', { reset: true })
-      const layerId = await page.evaluate(() => (window as any).__weftcutTest.addMotifLayer({
+      const layerId = await page.evaluate(() => (window as any).__lahzaTest.addMotifLayer({
         motifId: 'countdown', durationUs: 1_000_000, props: { seconds: 1 },
       })) as string
       await expect.poll(() => page.evaluate(async () => {
-        try { await (window as any).__weftcutTest.weftcutSampleComposite(240, 240); return true }
+        try { await (window as any).__lahzaTest.lahzaSampleComposite(240, 240); return true }
         catch (error) { return String(error) }
       }), { timeout: 15_000, intervals: [25] }).toBe(true)
       if (mode === 'warm-cache') {
         await page.evaluate(async () => {
-          await (window as any).__weftcutTest.renderMotifSpriteFrames({
+          await (window as any).__lahzaTest.renderMotifSpriteFrames({
             motifId: 'countdown', fpsNum: 30, fpsDen: 1, durationUs: 1_000_000, props: { seconds: 1 },
             times: Array.from({ length: 30 }, (_, i) => ({ tInLayerUs: Math.round(i * 1_000_000 / 30) })),
           })
@@ -214,7 +214,7 @@ for (const mode of ['native', 'png', 'readback-failure', 'warm-cache'] as const)
       }
       const beforeBake = capturesFor(await invokeCmd<CaptureDiagnostics>(page, 'motif_capture_diagnostics'), 'countdown')
       const baked = await page.evaluate(async layerId => {
-        const hook = (window as any).__weftcutTest
+        const hook = (window as any).__lahzaTest
         return hook.prebakeLayerAndWait({ layerId, expectedFrames: 30 })
       }, layerId) as { hashDir: string; frameCount: number }
       const files = await fs.readdir(baked.hashDir)
@@ -255,10 +255,10 @@ for (const mode of ['native', 'png', 'readback-failure', 'warm-cache'] as const)
 
 test('Motif background work survives renderer reload and reuses pages across multiple contents @serial', async ({}, testInfo) => {
   test.setTimeout(120_000)
-  const { app, page } = await launchApp({ env: { WEFTCUT_MOTIF_CAPTURE: 'png' } })
+  const { app, page } = await launchApp({ env: { LAHZA_MOTIF_CAPTURE: 'png' } })
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-bake-many-'), name: 'Many contents',
+      parentFolder: tmpDir('lahza-bake-many-'), name: 'Many contents',
       canvas: { width: 64, height: 64, fpsNum: 30, fpsDen: 1 },
     })
     await invokeCmd(page, 'app_settings_set', { patch: { prebake_motifs: false } })
@@ -271,8 +271,8 @@ test('Motif background work survives renderer reload and reuses pages across mul
         motif.define({ frame(t) { document.body.style.background = 'rgb(${40 + i * 40},' + Math.floor(t * 60) + ',180)'; }});
       </script></body></html>`)
       const motifId = await publishMotifDraft(page, draft)
-      const layerId = await page.evaluate(motifId => (window as any).__weftcutTest.addMotifLayer({ motifId, durationUs: 2_000_000 }), motifId) as string
-      const cacheKey = await page.evaluate(layerId => (window as any).__weftcutTest.cacheKeyForLayer(layerId), layerId) as string
+      const layerId = await page.evaluate(motifId => (window as any).__lahzaTest.addMotifLayer({ motifId, durationUs: 2_000_000 }), motifId) as string
+      const cacheKey = await page.evaluate(layerId => (window as any).__lahzaTest.cacheKeyForLayer(layerId), layerId) as string
       layers.push({ layerId, motifId, cacheKey })
     }
     // Clear only measurements; all actual frame artifacts begin cold in this
@@ -310,10 +310,10 @@ test('Motif background work survives renderer reload and reuses pages across mul
 
 test('Motif background preparation resumes automatically after a failed workspace switch in the same generation @serial', async ({}, testInfo) => {
   test.setTimeout(120_000)
-  const { app, page } = await launchApp({ env: { WEFTCUT_MOTIF_CAPTURE: 'png' } })
+  const { app, page } = await launchApp({ env: { LAHZA_MOTIF_CAPTURE: 'png' } })
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-bake-failed-open-'), name: 'Preparation recovery',
+      parentFolder: tmpDir('lahza-bake-failed-open-'), name: 'Preparation recovery',
       canvas: { width: 64, height: 64, fpsNum: 30, fpsDen: 1 },
     })
     await invokeCmd(page, 'app_settings_set', { patch: { prebake_motifs: false } })
@@ -325,10 +325,10 @@ test('Motif background preparation resumes automatically after a failed workspac
     </script></body></html>`)
     const motifId = await publishMotifDraft(page, draft)
     await waitForHook(page, 'addMotifLayer')
-    const layerId = await page.evaluate(motifId => (window as any).__weftcutTest.addMotifLayer({
+    const layerId = await page.evaluate(motifId => (window as any).__lahzaTest.addMotifLayer({
       motifId, durationUs: 2_000_000,
     }), motifId) as string
-    const cacheKey = await page.evaluate(layerId => (window as any).__weftcutTest.cacheKeyForLayer(layerId), layerId) as string
+    const cacheKey = await page.evaluate(layerId => (window as any).__lahzaTest.cacheKeyForLayer(layerId), layerId) as string
     const workspace = await invokeCmd<string>(page, 'workspace_dir')
 
     // Hold one actual encode after three frames have persisted. The workspace
@@ -354,7 +354,7 @@ test('Motif background preparation resumes automatically after a failed workspac
     expect(before.statuses[cacheKey]?.done).toBeLessThan(60)
     expect(before.statuses[cacheKey]?.phase).not.toBe('ready')
 
-    const missing = path.join(tmpDir('weftcut-missing-project-'), 'does-not-exist')
+    const missing = path.join(tmpDir('lahza-missing-project-'), 'does-not-exist')
     await expect(invokeCmd(page, 'project_open', { path: missing })).rejects.toThrow(/ProjectFolderMissing/)
     expect(await invokeCmd<string>(page, 'workspace_dir')).toBe(workspace)
     const session = await invokeCmd<{ generation: number }>(page, 'motif_bake_session')

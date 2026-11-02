@@ -43,7 +43,7 @@ function handleFor(kfs: object): number {
 /// when the track is missing or has no keyframes.
 ///
 /// Genuinely-keyframed tracks (≥2 keys) delegate to the wasm
-/// `weftcut-eval::eval` — the SAME crate the actor + export run — so preview,
+/// `lahza-eval::eval` — the SAME crate the actor + export run — so preview,
 /// export, and the Rust side interpolate identically (Hold / Linear / Spline /
 /// Elastic / Bounce, plus the track's extrapolation outside the key range).
 /// Static / empty / single-key tracks short-circuit in JS to avoid a wasm call
@@ -65,7 +65,7 @@ export function resolveAnimated<T extends number>(
 }
 
 /// Color twin of `resolveAnimated`. Genuinely-keyframed color tracks (≥2 keys)
-/// delegate to the wasm `weftcut-eval::eval::<Rgba8>` (OkLab + premultiplied
+/// delegate to the wasm `lahza-eval::eval::<Rgba8>` (OkLab + premultiplied
 /// alpha) — the SAME leaf math native export runs — so preview and export
 /// interpolate color identically. Reuses the shared `handleFor` WeakMap: handles
 /// are globally unique, so color/scalar never collide even though their resident

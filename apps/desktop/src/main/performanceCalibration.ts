@@ -18,20 +18,20 @@ export function installPerformanceCalibration(cacheDirectory: string): void {
     supported: process.platform === 'win32',
     toolsAvailable: () => fs.existsSync(tools.ffmpeg) && fs.existsSync(tools.ffprobe),
     prepareFixture: signal => ensureCalibrationFixture(path.join(cacheDirectory, 'performance-calibration'), tools, signal),
-    runsDirectory: path.join(os.tmpdir(), 'weftcut-performance-calibration'),
+    runsDirectory: path.join(os.tmpdir(), 'lahza-performance-calibration'),
     // The isolated process keeps a fixed measurement protocol, but it must
     // reserve its peak workload in the parent authority before it launches.
     reserve: () => reserveResources(0, 256 + PLAYBACK_CALIBRATION.performance.frame_ring_mib
       + PLAYBACK_CALIBRATION.performance.gpu_buffer_mib
       + Math.max(...PLAYBACK_CALIBRATION.counts) * (64 + PLAYBACK_CALIBRATION.width * PLAYBACK_CALIBRATION.height * 24 / MIB)),
     launch(input, directory) {
-      const env: NodeJS.ProcessEnv = { ...process.env, WEFTCUT_CALIBRATION_INPUT: input,
-        WEFTCUT_CALIBRATION_OUTPUT: path.join(directory, 'report.json') }
+      const env: NodeJS.ProcessEnv = { ...process.env, LAHZA_CALIBRATION_INPUT: input,
+        LAHZA_CALIBRATION_OUTPUT: path.join(directory, 'report.json') }
       for (const key of Object.keys(env)) {
-        if (key.startsWith('WEFTCUT_HW_') || key.startsWith('WEFTCUT_FORCE_') || key === 'ELECTRON_RUN_AS_NODE') delete env[key]
+        if (key.startsWith('LAHZA_HW_') || key.startsWith('LAHZA_FORCE_') || key === 'ELECTRON_RUN_AS_NODE') delete env[key]
       }
       return spawn(process.execPath, [...(app.isPackaged ? [] : [path.join(import.meta.dirname, 'index.js')]),
-        '--weftcut-calibration', `--user-data-dir=${path.join(directory, 'profile')}`],
+        '--lahza-calibration', `--user-data-dir=${path.join(directory, 'profile')}`],
       { env, stdio: 'ignore', windowsHide: true })
     },
   })

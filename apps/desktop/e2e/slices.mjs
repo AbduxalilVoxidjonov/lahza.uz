@@ -17,7 +17,7 @@
 // grows — only a snapshot refresh when the pack drifts out of balance, which
 // scripts/e2e-split.test.mjs measures.
 //
-// What the one variable does to a run is playwright.config.ts (§WEFTCUT_E2E_ONLY),
+// What the one variable does to a run is playwright.config.ts (§LAHZA_E2E_ONLY),
 // and the orthogonal per-PR/nightly tier split is e2e/README.md §Tiers.
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
@@ -50,7 +50,7 @@ export const LEGS = {
 /// Metal lanes, Motif capture on the GPU host, every @serial spec (the
 /// determinism PNGs come from there), the per-OS ffmpeg build's codec matrix,
 /// and the export conformance gates that only a real GPU holds to the strict
-/// SSIM floor (electron-ci §WEFTCUT_E2E_SSIM_FLOOR). ADR 0141 is the decision.
+/// SSIM floor (electron-ci §LAHZA_E2E_SSIM_FLOOR). ADR 0141 is the decision.
 ///
 /// Rules, asserted in scripts/e2e-split.test.mjs: a listed spec exists, is
 /// listed once, has no @serial test (the serial project is never sliced and
@@ -307,7 +307,7 @@ export function sliceEnv(name, os) {
   if (slice.own.length === 0) {
     throw new Error(`e2e slice "${name}" on ${os} owns no spec file — an empty restriction would run the whole suite`);
   }
-  return { WEFTCUT_E2E_ONLY: slice.own.join(",") };
+  return { LAHZA_E2E_ONLY: slice.own.join(",") };
 }
 
 /// How far the snapshot has drifted from the directory: specs on disk it has not
@@ -332,8 +332,8 @@ export function snapshotDrift({ files = specFiles(), snapshot = readSnapshot() }
 /// @serial tests mostly live elsewhere, and Playwright kills the whole leg with
 /// "No tests found" before a spec runs.
 function shellAssignment(name, os) {
-  const { WEFTCUT_E2E_ONLY } = sliceEnv(name, os);
-  return `OWN='${WEFTCUT_E2E_ONLY}'\n`;
+  const { LAHZA_E2E_ONLY } = sliceEnv(name, os);
+  return `OWN='${LAHZA_E2E_ONLY}'\n`;
 }
 
 /// `node e2e/slices.mjs --table` → the pack per OS with its costs, for a human

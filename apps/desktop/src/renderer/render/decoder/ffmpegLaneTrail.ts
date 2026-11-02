@@ -23,7 +23,7 @@ export function noteHardwareSelection(layerId: string, mediaId: string, diagnost
   if (!diagnostic || JSON.stringify(prior.diagnostic) === JSON.stringify(diagnostic)) return;
   const message = `hardware decode selection: layer ${layerId} media ${mediaId} software (${diagnostic.kind}: ${diagnostic.reason})`;
   emit(diagnostic.kind === 'failed' ? 'warn' : 'info', message);
-  if (diagnostic.kind === 'failed') console.warn(`[weftcut/decode] ${message}`);
+  if (diagnostic.kind === 'failed') console.warn(`[lahza/decode] ${message}`);
 }
 /** Record BEFORE asynchronous recovery. The count survives source recreation
  * and re-promotion, so a late hardware frame cannot erase a mid-sample failure. */

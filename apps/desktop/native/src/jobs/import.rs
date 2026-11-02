@@ -656,7 +656,7 @@ mod tests {
     async fn scoped_copies_progress_under_transcode_load_and_cancel_while_waiting() {
         // The production queue uses the global governor. Isolate it from other
         // tests instead of substituting an unscoped queue that skips admission.
-        const CHILD: &str = "WEFTCUT_COPY_ADMISSION_TEST_CHILD";
+        const CHILD: &str = "LAHZA_COPY_ADMISSION_TEST_CHILD";
         if std::env::var_os(CHILD).is_none() {
             let status = std::process::Command::new(std::env::current_exe().unwrap())
                 .args(["--exact", "jobs::import::tests::scoped_copies_progress_under_transcode_load_and_cancel_while_waiting", "--nocapture"])

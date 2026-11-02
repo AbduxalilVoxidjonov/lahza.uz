@@ -54,7 +54,7 @@ export interface ExportProjectSnapshot {
   mediaColor: Record<string, VideoColorSpaceInit | undefined>;
   /// `media_id → absolute ORIGINAL file path`, resolved on the main thread for
   /// media the export routes through the native decode session. The napi
-  /// `exportSwOpen` opens a filesystem path (not a `weftcut-media://` asset
+  /// `exportSwOpen` opens a filesystem path (not a `lahza-media://` asset
   /// URL), and the Worker can't resolve one itself — so the main thread
   /// pre-resolves it here, exactly as it pre-resolves the asset URLs above.
   /// Present only for native-routed media (see `ExportRequest.nativeDecode`).

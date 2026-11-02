@@ -2,12 +2,12 @@
 
 Updated 2026-09-05. This is the maintained reference for the capability matrix
 and platform boundaries formerly tracked as a permanently open
-[issue #7](https://github.com/WeftCut/WeftCut/issues/7).
+[issue #7](https://api.github.com/repositories/1246738326/issues/7).
 That issue retains the original dated investigations and comments.
-[Issue #15](https://github.com/WeftCut/WeftCut/issues/15) closed on 2026-09-05:
+[Issue #15](https://api.github.com/repositories/1246738326/issues/15) closed on 2026-09-05:
 its three-platform verification was completed; remaining host requirements
-belong to [#35](https://github.com/WeftCut/WeftCut/issues/35), and optional
-implementation work belongs to [#21](https://github.com/WeftCut/WeftCut/issues/21).
+belong to [#35](https://api.github.com/repositories/1246738326/issues/35), and optional
+implementation work belongs to [#21](https://api.github.com/repositories/1246738326/issues/21).
 
 A hardware pass means the spec asserted engagement of the named lane. A skip
 means no measurement was made. Building an installer does not verify that a
@@ -34,7 +34,7 @@ unsupported hardware. H.264 gates retain overlapping import/source swaps.
 
 On macOS the VideoToolbox H.264 and HEVC Main10 cells are mandatory, including
 all four H.264 color charts. ProRes is host-dependent. To require additional
-known capabilities, set `WEFTCUT_REQUIRE_HW_VARIANTS` to a comma-separated list
+known capabilities, set `LAHZA_REQUIRE_HW_VARIANTS` to a comma-separated list
 such as `d3d11va-h264` or `videotoolbox-prores`; valid variants are
 `nvdec-h264`, `vaapi-h264`, `d3d11va-h264`, `videotoolbox-h264`,
 `videotoolbox-hevc10`, `videotoolbox-prores`. This strengthens assertions; it
@@ -107,15 +107,15 @@ still comes from `node scripts/gen-order-fixture.mjs` in `apps/desktop/e2e`.
 ## CI coverage and its limits
 
 The latest audited main run,
-[33904374835](https://github.com/WeftCut/WeftCut/actions/runs/33904374835)
+[33904374835](https://api.github.com/repositories/1246738326/actions/runs/33904374835)
 on `7ed8de20`, passed all 19 jobs. It includes TypeScript checks and unit
 tests, build-script tests, Rust tests plus rustfmt/clippy on three OSes,
 14 E2E slices, unsigned packaging on each OS, and cross-OS determinism.
-The [2026-09-04 nightly](https://github.com/WeftCut/WeftCut/actions/runs/33854892205)
+The [2026-09-04 nightly](https://api.github.com/repositories/1246738326/actions/runs/33854892205)
 also passed. These runs predate the Linux-nightly decode opt-in described below.
 
 The Stryker 10 upgrade was verified by a fresh main-branch
-[mutation run 33941526966](https://github.com/WeftCut/WeftCut/actions/runs/33941526966)
+[mutation run 33941526966](https://api.github.com/repositories/1246738326/actions/runs/33941526966)
 on 2026-09-05: initial run 1,464 tests, final mutation score **83.77%** against
 the 75% break threshold, completed successfully in about 11 minutes overall.
 
@@ -129,15 +129,15 @@ opt-in: Linux 3/3 green, each 16 passed / 1 hardware-only skip in 17–21 min;
 Windows 3/3 failed the same backward clip-reuse test, each 15 passed /
 1 skipped / 1 failed. The failure was its total test budget, not evidence of
 decode instability. Evidence:
-[Linux](https://github.com/WeftCut/WeftCut/actions/runs/33888127766),
-[Windows](https://github.com/WeftCut/WeftCut/actions/runs/33899875905).
+[Linux](https://api.github.com/repositories/1246738326/actions/runs/33888127766),
+[Windows](https://api.github.com/repositories/1246738326/actions/runs/33899875905).
 
 The workflow now selects these gates for **Linux nightly**, in the existing
 slices at one worker; push/PR cost stays unchanged. Windows and macOS still
-require dispatch opt-in. [#37](https://github.com/WeftCut/WeftCut/issues/37)
+require dispatch opt-in. [#37](https://api.github.com/repositories/1246738326/issues/37)
 tracks validation of the backward cell's 1,500-second total budget and the
 900-second limits on its two wide searches. The first candidate's
-[Windows replay](https://github.com/WeftCut/WeftCut/actions/runs/33942673085)
+[Windows replay](https://api.github.com/repositories/1246738326/actions/runs/33942673085)
 completed the export in 47.5 s but hit the first analyzer call's 600-second
 default, so changing the total alone was insufficient. Ordinary analyzer
 calls keep that default; export stall detection and all assertions are unchanged.
@@ -238,7 +238,7 @@ VAAPI encode is still unmeasured because NVENC wins selection on that bench.
 The former x86_64 macOS sidecar failed HEVC VideoToolbox session creation under
 Rosetta with `-12908` (5/5), while native arm64 passed. `8f8b4fbc` replaced it
 with a versioned, SHA-256-pinned arm64 sidecar; HEVC then selected hardware
-and the conformance/codec suites passed. WeftCut's macOS target is Apple Silicon.
+and the conformance/codec suites passed. Lahza's macOS target is Apple Silicon.
 
 ### 10. Linux WebCodecs encode hardware hints
 

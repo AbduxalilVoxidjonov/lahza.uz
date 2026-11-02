@@ -16,7 +16,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/bridge/events", () => ({ listen: vi.fn(async () => () => {}) }));
 
 vi.mock("@/bridge/ipc", () => ({
-  convertFileSrc: (path: string) => `weftcut-media://test/${path}`,
+  convertFileSrc: (path: string) => `lahza-media://test/${path}`,
 }));
 
 vi.mock("../ipc", async (importOriginal) => {

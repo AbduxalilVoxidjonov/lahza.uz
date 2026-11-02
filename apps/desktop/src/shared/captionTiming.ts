@@ -9,7 +9,7 @@ export interface CaptionTiming {
   words: CaptionWord[]
   source?: { id: string; signature: string }
 }
-export const CAPTION_TIMING_KEY = 'weftcut.caption_timing'
+export const CAPTION_TIMING_KEY = 'lahza.caption_timing'
 
 export interface TranscriptPayload {
   source?: { id: string; signature: string; project_id: string; composition_id: string }

@@ -75,7 +75,7 @@ function makeHandle(
     layerId: "L0",
     mediaId: "m0",
     handleKey: "m0#0",
-    proxyAssetUrl: "weftcut-media://ignored",
+    proxyAssetUrl: "lahza-media://ignored",
     nativeExport: { sourcePath: "C:/orig/tiny.mov", outFormat, creditWindow: 6 },
     ...(sourceColor ? { sourceColor } : {}),
   };

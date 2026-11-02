@@ -103,7 +103,7 @@ describe("PerfTelemetryBridge", () => {
     expect(mocks.getSystemStats).not.toHaveBeenCalled();
     expect(mocks.getPreviewGpuBudget).not.toHaveBeenCalled();
     expect(mocks.emit).not.toHaveBeenCalled();
-    expect(mocks.listeners.has("weftcut://perf-hud-reset")).toBe(false);
+    expect(mocks.listeners.has("lahza://perf-hud-reset")).toBe(false);
   });
 
   it("starts every sampler on open and tears it down on close", async () => {
@@ -133,7 +133,7 @@ describe("PerfTelemetryBridge", () => {
       await Promise.resolve();
     });
     expect(requestAnimationFrame).toHaveBeenCalledOnce();
-    expect(mocks.listeners.has("weftcut://perf-hud-reset")).toBe(true);
+    expect(mocks.listeners.has("lahza://perf-hud-reset")).toBe(true);
 
     await act(async () => {
       vi.advanceTimersByTime(1_000);
@@ -143,7 +143,7 @@ describe("PerfTelemetryBridge", () => {
     expect(mocks.getSystemStats).toHaveBeenCalledOnce();
     expect(mocks.getPreviewGpuBudget).toHaveBeenCalledOnce();
     expect(mocks.emit).toHaveBeenCalledWith(
-      "weftcut://perf-hud-snapshot",
+      "lahza://perf-hud-snapshot",
       expect.objectContaining({
         playheadUs: 123,
         hwBudget: {
@@ -155,7 +155,7 @@ describe("PerfTelemetryBridge", () => {
     );
 
     await act(async () => {
-      mocks.listeners.get("weftcut://perf-hud-reset")?.({ payload: undefined });
+      mocks.listeners.get("lahza://perf-hud-reset")?.({ payload: undefined });
       await Promise.resolve();
     });
     expect(compositor.resetPerfPeaks).toHaveBeenCalledOnce();
@@ -172,7 +172,7 @@ describe("PerfTelemetryBridge", () => {
       await Promise.resolve();
     });
     expect(cancelAnimationFrame).toHaveBeenCalledOnce();
-    expect(mocks.disposers.get("weftcut://perf-hud-reset")).toHaveBeenCalledOnce();
+    expect(mocks.disposers.get("lahza://perf-hud-reset")).toHaveBeenCalledOnce();
 
     await act(async () => {
       vi.advanceTimersByTime(2_000);

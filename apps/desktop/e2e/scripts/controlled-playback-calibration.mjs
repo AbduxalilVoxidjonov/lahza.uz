@@ -15,7 +15,7 @@ const plan = { protocol: PLAYBACK_CALIBRATION, fixtureSha256: fixture.sha256,
 const id = createHash('sha256').update(JSON.stringify(plan)).digest('hex');
 if (process.argv.includes('--plan-only')) { console.log(JSON.stringify({ id, ...plan }, null, 2)); process.exit(0); }
 const main = path.join(desktop, 'out/main/calibration.js');
-if (!fs.existsSync(main)) throw new Error('Build with VITE_WEFTCUT_E2E=1 before running calibration');
+if (!fs.existsSync(main)) throw new Error('Build with VITE_LAHZA_E2E=1 before running calibration');
 const dir = path.resolve(desktop, '../../.scratch/performance-calibration', `controlled-${new Date().toISOString().replaceAll(':', '-')}`);
 fs.mkdirSync(dir, { recursive: true });
 const inputPath = path.join(dir, 'input.json');
@@ -46,8 +46,8 @@ process.once('SIGINT', stop);
 const watchdog = setTimeout(() => { markIncomplete('Run watchdog expired'); save(); app?.process().kill(); }, 360_000);
 try {
   // Clear tuning overrides: they must not silently change the recorded protocol.
-  const env = { ...process.env, WEFTCUT_CALIBRATION_INPUT: inputPath };
-  for (const key of Object.keys(env)) if (key.startsWith('WEFTCUT_HW_') || key.startsWith('WEFTCUT_FORCE_')) delete env[key];
+  const env = { ...process.env, LAHZA_CALIBRATION_INPUT: inputPath };
+  for (const key of Object.keys(env)) if (key.startsWith('LAHZA_HW_') || key.startsWith('LAHZA_FORCE_')) delete env[key];
   app = await electron.launch({ executablePath: electronBinPath(), args: [main, `--user-data-dir=${path.join(dir, 'profile')}`], env, timeout: 30_000 });
   const page = await app.firstWindow();
   page.on('pageerror', error => errors.push(String(error)));

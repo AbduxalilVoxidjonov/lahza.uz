@@ -30,6 +30,17 @@
 // wrong) or a post-verify install failure discards the partial.
 
 import { createHash } from "node:crypto";
+
+/** GitHub asset API URLs need the binary representation, including on resume. */
+export function contentRequestHeaders(url: string, rangeStart?: number): Record<string, string> {
+  const headers: Record<string, string> = {};
+  const parsed = new URL(url);
+  if (parsed.hostname === "api.github.com" && /^\/repositories\/\d+\/releases\/assets\/\d+$/.test(parsed.pathname)) {
+    headers.Accept = "application/octet-stream";
+  }
+  if (rangeStart) headers.Range = `bytes=${rangeStart}-`;
+  return headers;
+}
 import type {
   ContentArtifact,
   ContentDownloadProgress,
@@ -45,6 +56,8 @@ export interface ContentFs {
   /** Recursive + force — a no-op when the path is missing. */
   rm(path: string): void;
   rename(from: string, to: string): void;
+  /** Mark a file executable (0755). Optional: a no-op where it is absent (Windows). */
+  chmodExec?(path: string): void;
   /** Byte size of a file, or null when it does not exist. */
   statBytes(path: string): number | null;
   /** Names (not paths) of a directory's direct children; [] when missing. */
@@ -573,10 +586,10 @@ async function installVerified(
       await deps.extractTar(partialPath, stagingDir);
       deps.fs.rm(partialPath);
     } else {
-      deps.fs.rename(
-        partialPath,
-        deps.join(stagingDir, ...artifact.entryPath.split("/")),
-      );
+      const target = deps.join(stagingDir, ...artifact.entryPath.split("/"));
+      deps.fs.rename(partialPath, target);
+      // A raw program (yt-dlp) arrives without an exec bit; tar entries keep theirs.
+      if (artifact.executable) deps.fs.chmodExec?.(target);
     }
     await deps.sealInstall?.(stagingDir);
     finishInstall(deps, item, artifact, stagingDir, finalDir);

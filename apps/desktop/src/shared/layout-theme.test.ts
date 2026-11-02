@@ -44,6 +44,6 @@ describe('layout theme launch argument', () => {
 
   it('ignores a missing or unknown preset', () => {
     expect(readLayoutThemeArgument(['electron', '--type=renderer'])).toBeNull();
-    expect(readLayoutThemeArgument(['--weftcut-layout-theme=8k-standard'])).toBeNull();
+    expect(readLayoutThemeArgument(['--lahza-layout-theme=8k-standard'])).toBeNull();
   });
 });

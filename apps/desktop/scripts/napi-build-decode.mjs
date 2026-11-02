@@ -1,4 +1,4 @@
-// Builds @weftcut/native-decode with the env ffmpeg-next needs. Precedence:
+// Builds @lahza/native-decode with the env ffmpeg-next needs. Precedence:
 // explicit FFMPEG_DIR env > fetched resources/ffmpeg-lgpl/<os> (canonical).
 //
 // Also owns the Linux link flags and the dev-time co-location of the runtime
@@ -51,7 +51,7 @@ if (process.platform === 'linux') {
   env.RUSTFLAGS = env.RUSTFLAGS ? `${env.RUSTFLAGS} ${rpath}` : rpath
 }
 
-// Linux x64: the same glibc sysroot as @weftcut/core (napi-linux-sysroot.mjs).
+// Linux x64: the same glibc sysroot as @lahza/core (napi-linux-sysroot.mjs).
 // bindgen still runs the host libclang; napi points it at the sysroot's headers.
 const sysroot = linuxSysroot(env)
 execSync(

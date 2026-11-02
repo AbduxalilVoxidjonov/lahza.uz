@@ -13,7 +13,7 @@ import { uuidV7Gen } from '../state/ids'
 import { blankProject } from '../state/model'
 
 const RUST_CATALOG = readFileSync('fixtures/mcp/rust-catalog-snapshot.json', 'utf8')
-const VIEW = { style: { name: 'weftcut-default' }, tokens: { text: {} }, revision: 'r1' }
+const VIEW = { style: { name: 'lahza-default' }, tokens: { text: {} }, revision: 'r1' }
 
 function host(open: boolean) {
   const idGen = uuidV7Gen()

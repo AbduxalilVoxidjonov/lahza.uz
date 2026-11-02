@@ -1,0 +1,45 @@
+{
+  "schema": "lahza.template/1",
+  "id": "uz.lahza.tpl.event-rhythm",
+  "version": "1.0.0",
+  "name": {
+    "uz": "Tadbir — ritmli lavhalar",
+    "uz-Cyrl": "Тадбир — ритмли лавҳалар",
+    "ru": "Мероприятие — ритмичная нарезка",
+    "en": "Event — rhythmic highlights"
+  },
+  "description": {
+    "uz": "To'y, konferensiya yoki konsertdan 20-30 soniyalik ritmli narezka: 1,2-3 soniyalik eng yorqin kadrlar, musiqa ostida, yumshoq dissolve va sekin push-in.",
+    "uz-Cyrl": "Тўй, конференция ёки концертдан 20-30 сонияли ритмли нарезка: 1,2-3 сонияли энг ёрқин кадрлар, мусиқа остида, юмшоқ dissolve ва секин push-in.",
+    "ru": "Ритмичная нарезка на 20-30 секунд со свадьбы, конференции или концерта: самые яркие кадры по 1,2-3 секунды под музыку, мягкий dissolve и медленный наезд.",
+    "en": "A 20-30 second rhythmic cut from a wedding, conference or concert: the brightest 1.2-3 second shots set to music, soft dissolves and slow push-ins."
+  },
+  "category": "tadbir",
+  "builtin": true,
+  "aspect": "9:16",
+  "fps": 30.0,
+  "target_duration_ms": 25000,
+  "min_shot_ms": 1200,
+  "max_shot_ms": 3000,
+  "selection": "scenes",
+  "order": "ball",
+  "max_per_source": 4,
+  "respect_sentences": false,
+  "reframe": "auto",
+  "transition": {"plugin": "uz.lahza.tr.dissolve", "dur_ms": 300},
+  "fx": [
+    {
+      "plugin": "uz.lahza.motion.push-in",
+      "trigger": "every_n",
+      "every_n": 2,
+      "params": {"zoom": 1.08},
+      "min_gap_ms": 2000
+    }
+  ],
+  "captions": false,
+  "music": {"required": true, "gain_db": -6.0, "duck": false, "fade_in_ms": 300, "fade_out_ms": 2000},
+  "source_gain_db": 0.0,
+  "mute_sources": true,
+  "loudnorm_lufs": -14.0,
+  "logo": false
+}

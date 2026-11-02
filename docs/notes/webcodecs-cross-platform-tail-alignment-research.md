@@ -27,7 +27,7 @@
 本文用三种标签区分证据强度：
 
 - **[直接证据]** 规范、上游源码、仓库代码、提交或本机探针直接证明的事实。
-- **[相似案例]** 上游出现过相似症状，但没有证据表明与 WeftCut 根因相同。
+- **[相似案例]** 上游出现过相似症状，但没有证据表明与 Lahza 根因相同。
 - **[推断]** 由现有证据得到、仍需用失败产物或日志验证的判断。
 
 ## 结论先行
@@ -36,13 +36,13 @@
 
 2. **三个平台现象不是同一个 bug。**
 
-   - macOS：解码器在输入窗口尾部保留 2 帧（有 B 帧时观察到 4 帧），`decodeQueueSize === 0` 但输出尚未齐；这是平台解码延迟暴露了 WeftCut 对“输入已接收 = 输出已完成”的错误假设。
+   - macOS：解码器在输入窗口尾部保留 2 帧（有 B 帧时观察到 4 帧），`decodeQueueSize === 0` 但输出尚未齐；这是平台解码延迟暴露了 Lahza 对“输入已接收 = 输出已完成”的错误假设。
    - Linux 硬件帧黑屏：本机探针中硬件 BGRA 帧通过 `drawImage`、`createImageBitmap`、WebGL 和 `copyTo()` 均为纯黑，而软件 I420 全部正确；这是 Chromium/驱动/硬件帧 backing 的平台边界，不能用时间基设计解释。
    - Linux 尾帧 +1：当前 decoder/ring 与 proxy-before-export 两阶段都未复现整帧错位；若换到有可用 VideoEncoder 的 Linux 设备后仍能复现，再按完整导出下游、历史 clamp/时序和时间基边界依次缩小范围。“只在 Linux 被看见”不足以证明 Linux 解码器改错了 PTS。
 
 3. **macOS workaround 的判断方向正确，但实现是经验上界，不是协议级证明。** WebCodecs 明确允许内部 pending output 只在后续输入到来时输出，只有 `flush()` 必须排空；`decodeQueueSize` 只表示待解码请求，不表示待输出帧。给窗口多喂 `REORDER_MARGIN = 16` 个包能推动已观察到的 H.264 尾部滞留，并已修复该测试，但 `16` 不是 WebCodecs 对所有 codec/backend 的完成保证。
 
-4. **跨平台差异有平台成分，也有设计责任。** Chromium 在 Linux、macOS、Windows 会选择不同软件/硬件 backend、帧池和内存 backing；延迟、池容量和可读性确实可能不同。应用仍须只依赖 WebCodecs 保证的契约：按 PTS 选帧、显式 EOS drain、有限背压、及时 `close()`，并在硬件帧不可用时降级。当前自定义的“有限 GOP 调度 + ring + clamp”把这些复杂度留在了 WeftCut 内部。
+4. **跨平台差异有平台成分，也有设计责任。** Chromium 在 Linux、macOS、Windows 会选择不同软件/硬件 backend、帧池和内存 backing；延迟、池容量和可读性确实可能不同。应用仍须只依赖 WebCodecs 保证的契约：按 PTS 选帧、显式 EOS drain、有限背压、及时 `close()`，并在硬件帧不可用时降级。当前自定义的“有限 GOP 调度 + ring + clamp”把这些复杂度留在了 Lahza 内部。
 
 5. **后续实现审计发现并修复了一个能确定产生 `N→N+1` 的 ring 漏洞，但它仍不是历史 Linux 失败根因的证明。** 旧 `evictBefore()` 按 `pts + duration <= target` 删除帧；当独立量化的 duration 在两个 PTS 间留下 1µs gap 时，它会先删掉最大 `PTS <= target` 的 lower neighbour，随后 `frameAt()` 只能返回 future frame。回归测试已用 `PTS=66,666 / next=100,000 / target=99,999` 固化该错误形状。当前实现改为始终保留 lower neighbour、按最大 `PTS <= target` 选帧，并仅在 exact PTS、收到严格更晚 PTS或 EOS 后确认身份。历史失败缺少 PTS 产物，不能倒推它必然走过同一分支。
 
@@ -87,7 +87,7 @@
 
 ## 对 macOS 修复的复核
 
-提交 [`4d957078`](https://github.com/WeftCut/WeftCut/commit/4d95707889aa94aeb7956839a0b3084a10aeda7e) 把 `REORDER_MARGIN = 16` 的额外输入从部分 lane 推广到全部 Lite decode lane。
+提交 [`4d957078`](https://github.com/AbduxalilVoxidjonov/lahza.uz/commit/4d95707889aa94aeb7956839a0b3084a10aeda7e) 把 `REORDER_MARGIN = 16` 的额外输入从部分 lane 推广到全部 Lite decode lane。
 
 **[直接证据] 修复与观察到的故障链一致：**
 
@@ -106,7 +106,7 @@
 
 ## Linux 硬件黑帧不是尾帧 +1
 
-提交 [`4a30765b`](https://github.com/WeftCut/WeftCut/commit/4a30765b27b78d3ae40450a6544d1d715c40262a) 记录了同一 Linux/NVIDIA 主机上的隔离探针（结论同时归档在 codec-matrix 的 tracker 讨论里）：
+提交 [`4a30765b`](https://github.com/AbduxalilVoxidjonov/lahza.uz/commit/4a30765b27b78d3ae40450a6544d1d715c40262a) 记录了同一 Linux/NVIDIA 主机上的隔离探针（结论同时归档在 codec-matrix 的 tracker 讨论里）：
 
 - **[直接证据]** software I420 在 Window/Worker 以及四条导入/回读路径都正常；
 - **[直接证据]** hardware BGRA 在四条路径都读成纯黑，包括 `VideoFrame.copyTo()`；
@@ -114,7 +114,7 @@
 
 Chromium 的 [VideoDecoder broker 源码](https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/modules/webcodecs/video_decoder_broker.cc) 也直接显示 `prefer-software` 会排除 external/platform decoder，其他偏好则可能选择不同 decoder factory；Chromium 的 [decoder 类型列表](https://chromium.googlesource.com/chromium/src/+/main/media/base/decoder.h) 同时包含 FFmpeg、VA-API/V4L2/OOP Linux、D3D11、MediaCodec 和 VideoToolbox 等实现。
 
-**[判断]** 在该设备上 pin `preferSoftware` 是正确的 correctness fallback。有效的非黑输入经公开读取路径无错误地变成全黑，更接近 Chromium/驱动互操作缺陷，而不是 WeftCut PTS 设计导致。应用层的设计责任是探测/降级和资源释放，不是“修正”硬件帧像素。
+**[判断]** 在该设备上 pin `preferSoftware` 是正确的 correctness fallback。有效的非黑输入经公开读取路径无错误地变成全黑，更接近 Chromium/驱动互操作缺陷，而不是 Lahza PTS 设计导致。应用层的设计责任是探测/降级和资源释放，不是“修正”硬件帧像素。
 
 ## 时间模型中已确认并修复的风险
 
@@ -123,18 +123,18 @@ Chromium 的 [VideoDecoder broker 源码](https://chromium.googlesource.com/chro
 1. FFmpeg/container 的整数 PTS + rational time base；
 2. Mediabunny `EncodedPacket.timestamp` 的 JavaScript 秒数；
 3. WebCodecs `EncodedVideoChunk` / `VideoFrame` 的整数微秒；
-4. WeftCut normalized source-content 微秒；
+4. Lahza normalized source-content 微秒；
 5. composition 的 rational frame grid。
 
 **[直接证据] 调查时存在两类风险：**
 
 - Mediabunny 1.45.4 的 `EncodedPacket.microsecondTimestamp` 与 duration 用 `Math.trunc(seconds * 1e6)`，`toEncodedVideoChunk()` 将该值交给 WebCodecs；
-- WeftCut 旧 `packetToSourceUs()` 却用 `Math.round(seconds * 1e6)` 判断 seek/dispatch 边界，导致同一首 packet 在非零起点可被调度成 source `0µs`、却由 decoder 输出为 `-1µs`；
+- Lahza 旧 `packetToSourceUs()` 却用 `Math.round(seconds * 1e6)` 判断 seek/dispatch 边界，导致同一首 packet 在非零起点可被调度成 source `0µs`、却由 decoder 输出为 `-1µs`；
 - composition grid 用 `Math.round(i * 1e6 * fpsDen / fpsNum)`；
 - `ExportFrameStore` 旧 eviction 以独立量化后的 PTS/duration 做半开区间删除，能在间隙中先删掉 lower neighbour，再让 `frameAt` 返回 future frame；
 - export worker 的尾部 eviction 还包含 `srcBUs + 1` 这样的微秒哨兵。
 
-一微秒差异本身不等于一帧偏移；但当它落在半开区间、seek key、eviction 或 EOS clamp 的判定边界上，确实可能改变所选相邻帧。WHATWG 的 [rational seek issue #609](https://github.com/whatwg/html/issues/609) 记录了同类基本问题：JS 浮点秒换算到媒体容器 rational integer 后，精确帧 seek 可能落到前一帧末尾；其 29.97 fps 例子建议保留 rational time。**这是同一问题类别的直接先例，不是 WeftCut +1 根因的证明。**
+一微秒差异本身不等于一帧偏移；但当它落在半开区间、seek key、eviction 或 EOS clamp 的判定边界上，确实可能改变所选相邻帧。WHATWG 的 [rational seek issue #609](https://github.com/whatwg/html/issues/609) 记录了同类基本问题：JS 浮点秒换算到媒体容器 rational integer 后，精确帧 seek 可能落到前一帧末尾；其 29.97 fps 例子建议保留 rational time。**这是同一问题类别的直接先例，不是 Lahza +1 根因的证明。**
 
 **[直接证据 + 限定]** 30 fps 探针把 composition target 与 decoder PTS 的量化差量出来：100/300 帧是 `-1µs`，但 10 次运行都没有 logical index mismatch。两种时钟允许有 1µs 数值差；真正的问题是旧代码让同一 source packet 在 dispatch 与 decoder output 中使用不同值，并让 duration/eviction 隐式改变帧身份。
 
@@ -154,20 +154,20 @@ FFmpeg 自身为此提供 [`av_rescale_q*` 和 `av_add_stable`](https://www.ffmp
 
 在本次检查的 WebCodecs 规范、Chromium issue/source、W3C WebCodecs issues、FFmpeg 文档与 Mediabunny 源码中，**没有找到与“Linux-only、导出完成、仅尾部像素从 N 稳定跳到 N+1”完全相同且根因已确认的公开案例**。找到的是下面这些强相关但不能等同的案例：
 
-| 上游材料 | 证据分类 | 与 WeftCut 的关系 |
+| 上游材料 | 证据分类 | 与 Lahza 的关系 |
 | --- | --- | --- |
-| Chromium [issue 455794276](https://issues.chromium.org/issues/455794276)：同一代码在 macOS/desktop gLinux 正常，laptop gLinux 32 帧后 stall，`flush()` 超时；代码把输出 `VideoFrame` 长期留在 Map，最终以 intended behavior/Won't Fix 关闭 | **[相似案例]** | 直接证明 frame-pool 容量可以随设备而异，且未释放帧会让 flush 看似挂死；不证明 WeftCut macOS reorder-tail 或 Linux +1 是同一根因。 |
-| W3C WebCodecs [issue #119](https://github.com/w3c/webcodecs/issues/119)：硬/软解码 frame 的 backing/crop/readback 行为不同；报告者观察约 10 个未销毁 frame 后 stall，维护者说明 zero-copy `ImageBitmap` 可能继续持有 frame clone | **[相似案例]** | 与 WeftCut 的 frame-pool deadlock 和 Linux hardware-frame 可读性同类；不是本机全黑探针的复现。 |
-| Chromium 2026 变更 [“Don't always destroy decoders after flush()”](https://chromium.googlesource.com/chromium/src/+/854a999672f4d454fc363bff752e7c07c02fea54)：旧 flush/reinitialize 会使 Android 尚未渲染的 buffer 失效 | **[相似案例]** | 说明 flush 与 outstanding hardware frame 的生命周期确有平台实现陷阱；平台和 API 路径不同，不能据此认定 WeftCut 同根。 |
+| Chromium [issue 455794276](https://issues.chromium.org/issues/455794276)：同一代码在 macOS/desktop gLinux 正常，laptop gLinux 32 帧后 stall，`flush()` 超时；代码把输出 `VideoFrame` 长期留在 Map，最终以 intended behavior/Won't Fix 关闭 | **[相似案例]** | 直接证明 frame-pool 容量可以随设备而异，且未释放帧会让 flush 看似挂死；不证明 Lahza macOS reorder-tail 或 Linux +1 是同一根因。 |
+| W3C WebCodecs [issue #119](https://github.com/w3c/webcodecs/issues/119)：硬/软解码 frame 的 backing/crop/readback 行为不同；报告者观察约 10 个未销毁 frame 后 stall，维护者说明 zero-copy `ImageBitmap` 可能继续持有 frame clone | **[相似案例]** | 与 Lahza 的 frame-pool deadlock 和 Linux hardware-frame 可读性同类；不是本机全黑探针的复现。 |
+| Chromium 2026 变更 [“Don't always destroy decoders after flush()”](https://chromium.googlesource.com/chromium/src/+/854a999672f4d454fc363bff752e7c07c02fea54)：旧 flush/reinitialize 会使 Android 尚未渲染的 buffer 失效 | **[相似案例]** | 说明 flush 与 outstanding hardware frame 的生命周期确有平台实现陷阱；平台和 API 路径不同，不能据此认定 Lahza 同根。 |
 | FFmpeg [send/receive 解码 API](https://ffmpeg.org/doxygen/trunk/group__lavc__encdec.html)：输入/输出解耦，codec 可因 B 帧或流水线内部缓存，EOS 必须 drain 到 EOF | **[直接语义先例]** | 与 WebCodecs pending-output 语义一致，支持 macOS 根因判断；不是 Chromium bug 报告。 |
-| Mediabunny [当前 `media-sink.ts`](https://github.com/Vanilagy/mediabunny/blob/main/src/media-sink.ts)：因 B 帧使 packet 迭代上界难定义，顺序 sample 路径不设 end packet；无输出时允许最多 40 的 decode queue，并在末尾 flush/close | **[直接设计对照]** | 说明成熟上层 sink 也必须处理“不知道要多喂多少包”和 decoder 启动延迟。WeftCut 绕过该高层 sink，自行承担 bounded range/ring/clamp 的正确性。 |
-| WHATWG [issue #609](https://github.com/whatwg/html/issues/609)：浮点秒到 rational container time 的舍入可精确落到相邻帧 | **[相似问题类别]** | 强化“统一 rational time/rounding”方向；它讨论 HTML media seek，不是 WeftCut export。 |
+| Mediabunny [当前 `media-sink.ts`](https://github.com/Vanilagy/mediabunny/blob/main/src/media-sink.ts)：因 B 帧使 packet 迭代上界难定义，顺序 sample 路径不设 end packet；无输出时允许最多 40 的 decode queue，并在末尾 flush/close | **[直接设计对照]** | 说明成熟上层 sink 也必须处理“不知道要多喂多少包”和 decoder 启动延迟。Lahza 绕过该高层 sink，自行承担 bounded range/ring/clamp 的正确性。 |
+| WHATWG [issue #609](https://github.com/whatwg/html/issues/609)：浮点秒到 rational container time 的舍入可精确落到相邻帧 | **[相似问题类别]** | 强化“统一 rational time/rounding”方向；它讨论 HTML media seek，不是 Lahza export。 |
 
 因此，互联网资料支持两点：**跨设备 decode delay/frame pool/backing 差异是真实存在的；浮点时间换算造成相邻帧边界错误也是真实存在的。** 但没有资料替代我们对 Linux 失败产物做逐阶段 PTS 对账。
 
 ## 归责矩阵
 
-| 现象 | 平台实现责任 | WeftCut 设计责任 | 当前结论 |
+| 现象 | 平台实现责任 | Lahza 设计责任 | 当前结论 |
 | --- | --- | --- | --- |
 | macOS 窗口尾部少出 2/4 帧 | backend 决定具体延迟量 | 不应把 queue=0/有限输入当输出完成；需 progress/EOS 设计 | 主要是应用假设被平台差异暴露；workaround 与根因一致，但 16 是经验值。 |
 | Linux HW frame 四路读回全黑 | 很高；有效 frame 的像素互操作失败 | 应探测并 software/native fallback | `preferSoftware` workaround 正确，与尾帧时间基无关。 |

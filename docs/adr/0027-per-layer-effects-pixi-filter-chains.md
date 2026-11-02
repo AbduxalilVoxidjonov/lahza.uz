@@ -14,7 +14,7 @@ migration. Reintroducing it has to satisfy three pulls at once:
 - **Stay coherent with the 10-bit path.** The export composites into
   `rgba16float` (ADR 0022); a filter must not silently quantize the signal.
 - **Ride existing infrastructure.** Keyframes (`Animated<T>` + the shared
-  `weftcut-eval` leaf crate, ADR 0025), undo, the actor/MCP surface, and the
+  `lahza-eval` leaf crate, ADR 0025), undo, the actor/MCP surface, and the
   dual-engine discipline already exist; effects should reuse them, not fork
   them.
 
@@ -83,7 +83,7 @@ Supporting decisions:
 - **`preview_effects_enabled` stays an AppSetting / MCP escape hatch — no UI
   control is surfaced for it.** A global effects bypass is not how editors
   answer effect cost: the established answer is caching or pre-rendering, and
-  where a global bypass does exist it reads as an A/B comparison tool. WeftCut
+  where a global bypass does exist it reads as an A/B comparison tool. Lahza
   already serves that need at the granularity that matters, because every
   effect carries its own `enabled` toggle in the inspector — so a second,
   coarser switch would buy a comparison the inspector already makes while
@@ -108,6 +108,6 @@ Supporting decisions:
 
 - ADR 0021 — color converges at ingest; working space = output space.
 - ADR 0022 — 10-bit float16 composite (the rgba16float pool technique reused).
-- ADR 0025 — shared `weftcut-eval` wasm leaf crate (the keyframe engine reused).
+- ADR 0025 — shared `lahza-eval` wasm leaf crate (the keyframe engine reused).
 - [`render.md`](../render.md), [`data-model.md`](../data-model.md),
   [`mcp.md`](../mcp.md), [`security.md`](../security.md).

@@ -74,7 +74,7 @@ axes; the overlay-over-three-layers invariant is unchanged by that reshape.
 ### The native runtime is a conditionally-first-class split addon
 
 Native decode — its hardware and software lanes, and their `ffmpeg-next`
-linkage — lives in its own addon, `@weftcut/native-decode`, separate from the
+linkage — lives in its own addon, `@lahza/native-decode`, separate from the
 core addon. The isolation is structural, not a packaging nicety: a missing
 `avcodec` entry in a single addon's import table fails that addon's
 `require()` outright. If native decode lived inside the core addon, a
@@ -82,7 +82,7 @@ missing DLL on one machine would take jobs, export, and the MCP surface down
 with it, none of which touch `ffmpeg-next` at all.
 
 Main loads the component lazily, once, in a try/catch around
-`require('@weftcut/native-decode')`. Failure is not an error state — it is
+`require('@lahza/native-decode')`. Failure is not an error state — it is
 the ordinary "this machine doesn't have it yet" case. The native tiers drop
 out of `auto`'s resolution order, the decode-engine setting's native option
 is grayed out with the failure reason, and the rest of the application stays

@@ -290,7 +290,7 @@ export class FfmpegSource implements PreviewDecodeSession {
             // instead of turning a temporary budget refusal into a black clip.
             // eslint-disable-next-line no-console
             console.warn(
-              `[weftcut/ffmpeg] capacity reclaim failed for ${this.layerId}`,
+              `[lahza/ffmpeg] capacity reclaim failed for ${this.layerId}`,
               reclaimErr,
             );
           }
@@ -316,7 +316,7 @@ export class FfmpegSource implements PreviewDecodeSession {
         // a LogBus lane-trail row alone lets a bench DRIFT cell name the fact
         // but not the cause.
         console.warn(
-          `[weftcut/decode] decoder hardware-lane error: ${reason} — falling back to software at open (media ${this.mediaId})`,
+          `[lahza/decode] decoder hardware-lane error: ${reason} — falling back to software at open (media ${this.mediaId})`,
         );
         await this.closeTransportForFallback();
         // A dispose that landed during that await already resolved (it saw
@@ -354,7 +354,7 @@ export class FfmpegSource implements PreviewDecodeSession {
       // to pass `previewGpu:open`; this path makes no capacity assumption.
       // eslint-disable-next-line no-console
       console.warn(
-        `[weftcut/ffmpeg] hardware transport close failed for ${this.layerId}`,
+        `[lahza/ffmpeg] hardware transport close failed for ${this.layerId}`,
         closeErr,
       );
     }
@@ -499,7 +499,7 @@ export class FfmpegSource implements PreviewDecodeSession {
       // dying mid-run is the one event whose REASON must survive into a
       // report ("the lane fell" vs "AcquireSync timed out under 3×4K").
       console.warn(
-        `[weftcut/decode] decoder hardware-lane error: ${reason} — falling back to software (media ${this.mediaId})`,
+        `[lahza/decode] decoder hardware-lane error: ${reason} — falling back to software (media ${this.mediaId})`,
       );
       markHwUnusable(this.mediaId, reason);
       this.budgetSpill = false;

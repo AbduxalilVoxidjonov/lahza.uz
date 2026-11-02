@@ -47,7 +47,7 @@ async function expectItemVisible(item: Locator) {
 test('long menus fit the window, scroll to the last item and resize while open', async () => {
   const { app, page } = await launchApp();
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-menu-overflow-'), name: 'Menu overflow',
+    await newProject(page, { parentFolder: tmpDir('lahza-menu-overflow-'), name: 'Menu overflow',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } });
     await invokeCmd(page, 'app_settings_set', { patch: { layout_theme: '4k-wide' } });
     await resize(app, 1000, 640);

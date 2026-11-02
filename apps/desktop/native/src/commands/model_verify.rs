@@ -121,7 +121,7 @@ fn test_wav() -> Vec<u8> {
 
 pub async fn verify_model(a: VerifyModelArgs) -> Result<VerifyResult, String> {
     let tmp = tempfile::Builder::new()
-        .prefix("weftcut-model-test")
+        .prefix("lahza-model-test")
         .tempdir()
         .map_err(|e| e.to_string())?;
     let device = if a.local.as_ref().and_then(|l| l.device.as_deref()) == Some("cpu") {

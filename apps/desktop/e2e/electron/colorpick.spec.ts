@@ -32,9 +32,9 @@ async function waitForBlueComposite(page: import('@playwright/test').Page): Prom
     const r = await page.evaluate(async () => {
       try {
         const w = window as any
-        if (typeof w.__weftcutTest?.weftcutSeekUs !== 'function') return null
-        w.__weftcutTest.weftcutSeekUs(500_000)
-        return (await w.__weftcutTest.weftcutSampleComposite(320, 180)) as { r: number; g: number; b: number; a: number }
+        if (typeof w.__lahzaTest?.lahzaSeekUs !== 'function') return null
+        w.__lahzaTest.lahzaSeekUs(500_000)
+        return (await w.__lahzaTest.lahzaSampleComposite(320, 180)) as { r: number; g: number; b: number; a: number }
       } catch {
         return null
       }
@@ -47,13 +47,13 @@ async function waitForBlueComposite(page: import('@playwright/test').Page): Prom
 
 test('colorpick: chromakey eyedropper picks canvas blue; one undo reverts', async () => {
   test.skip(
-    process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+    process.env.LAHZA_E2E_NO_EXPORT === '1',
     'needs a real-GL extract.pixels readback; verified locally',
   )
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
 
-  const parent = tmpDir('weftcut-colorpick-')
+  const parent = tmpDir('lahza-colorpick-')
   await newProject(page, {
     parentFolder: parent,
     name: 'colorpick',
@@ -71,7 +71,7 @@ test('colorpick: chromakey eyedropper picks canvas blue; one undo reverts', asyn
   // Select the layer so PropertyPanel mounts the effects section.
   await waitForHook(page, 'revealLayer')
   await page.evaluate(
-    (id) => (window as unknown as { __weftcutTest: { revealLayer(a: { layerId: string }): void } }).__weftcutTest.revealLayer({ layerId: id }),
+    (id) => (window as unknown as { __lahzaTest: { revealLayer(a: { layerId: string }): void } }).__lahzaTest.revealLayer({ layerId: id }),
     layerId,
   )
   // Bring the Effect tab forward: the pristine baseline docks it inactive behind
@@ -138,7 +138,7 @@ test('colorpick: chromakey eyedropper picks canvas blue; one undo reverts', asyn
 async function setupDesktopPick() {
   const { app, page } = await launchApp()
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-screen-pick-'), name: 'screen-pick',
+    parentFolder: tmpDir('lahza-screen-pick-'), name: 'screen-pick',
     canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 },
   })
   const layerId = await invokeCmd<string>(page, 'add_color_layer', {
@@ -147,13 +147,13 @@ async function setupDesktopPick() {
   await invokeCmd(page, 'add_effect', { layerId, kind: 'chromakey' })
   await waitForBlueComposite(page)
   await waitForHook(page, 'revealLayer')
-  await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId)
+  await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId)
   await page.locator('.weft-dock-tab-label', { hasText: 'Effect' }).click()
   return { app, page, layerId, button: page.getByTestId('effect-colorpick-0') }
 }
 
 for (const backend of ['auto', 'webgl'] as const) test(`colorpick: samples the actual effect input under grading, occlusion and transforms (${backend})`, async ({}, info) => {
-  test.skip(process.env.WEFTCUT_E2E_NO_EXPORT === '1', 'requires real GPU input readback')
+  test.skip(process.env.LAHZA_E2E_NO_EXPORT === '1', 'requires real GPU input readback')
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
   page.on('console', message => {
@@ -164,7 +164,7 @@ for (const backend of ['auto', 'webgl'] as const) test(`colorpick: samples the a
     // Exercise Pixi's real WebGL fallback without changing product renderer
     // selection. This isolated page has no preview until newProject below.
     if (backend === 'webgl') await page.evaluate(() => Object.defineProperty(navigator, 'gpu', { value: undefined, configurable: true }))
-    const folder = tmpDir('weftcut-effect-input-')
+    const folder = tmpDir('lahza-effect-input-')
     await newProject(page, { parentFolder: folder, name: 'input', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     // Asymmetric pixels expose vertical flips, stale frame reads and offset
     // mistakes. The right half is transparent, not another selectable color.
@@ -189,13 +189,13 @@ for (const backend of ['auto', 'webgl'] as const) test(`colorpick: samples the a
     await invokeCmd(page, 'add_color_layer', { trackId: coverTrack, tStartUs: 0, durationUs: 2_000_000, color: { r: 255, g: 0, b: 0, a: 255 } })
     await expect.poll(() => page.evaluate(async () => {
       try {
-        const w = window as any; w.__weftcutTest.weftcutSeekUs(500_000)
-        const p = await w.__weftcutTest.weftcutSampleComposite(120, 80)
+        const w = window as any; w.__lahzaTest.lahzaSeekUs(500_000)
+        const p = await w.__lahzaTest.lahzaSampleComposite(120, 80)
         return [p.r, p.g, p.b]
       } catch { return null }
     }), { timeout: 15_000 }).toEqual([255, 0, 0])
     await waitForHook(page, 'revealLayer')
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId)
     await page.locator('.weft-dock-tab-label', { hasText: 'Effect' }).click()
     const button = page.getByTestId('effect-colorpick-1')
     const targetParams = async () => (await summary(page)).tracks.flatMap(t => t.layers).find(l => l.id === layerId)!.effects.find(e => e.id === key)!.params
@@ -242,7 +242,7 @@ for (const backend of ['auto', 'webgl'] as const) test(`colorpick: samples the a
 })
 
 test('colorpick: desktop overlay commits once, undo restores, Escape cancels @serial', async ({}, info) => {
-  test.skip(process.platform !== 'win32' || process.env.WEFTCUT_E2E_NO_EXPORT === '1',
+  test.skip(process.platform !== 'win32' || process.env.LAHZA_E2E_NO_EXPORT === '1',
     'real interactive Windows desktop capture; other platforms need their own capture/permission gate')
   test.setTimeout(120_000)
   const { app, page, layerId, button } = await setupDesktopPick()
@@ -347,7 +347,7 @@ test('colorpick: desktop overlay commits once, undo restores, Escape cancels @se
 })
 
 test('colorpick: desktop capture failure returns to usable in-app picking @serial', async () => {
-  test.skip(process.env.WEFTCUT_E2E_NO_EXPORT === '1', 'real preview pixel extraction')
+  test.skip(process.env.LAHZA_E2E_NO_EXPORT === '1', 'real preview pixel extraction')
   test.setTimeout(120_000)
   const { app, page, layerId, button } = await setupDesktopPick()
   try {

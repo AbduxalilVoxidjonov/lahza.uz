@@ -91,7 +91,7 @@ preserved. Extra spoken text remains and unmatched manuscript text is not
 inserted. Repeated contexts with conflicting spellings abstain. No acoustic
 model, cloud request, or forced alignment is part of this operation.
 
-New transcriptions retain optional version-1 `weftcut.caption_timing` metadata
+New transcriptions retain optional version-1 `lahza.caption_timing` metadata
 on each caption: text, caption duration, timing provenance, relative word
 spans, and a source identity/signature when available. The renderer's
 transcription response captures the source before asynchronous recognition;

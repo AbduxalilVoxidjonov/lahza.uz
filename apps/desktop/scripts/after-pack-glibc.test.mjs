@@ -8,9 +8,9 @@ import afterPackGlibc, { linuxLibraries } from './after-pack-glibc.mjs'
 /// A packed Linux app whose unpacked addon directories hold the named files.
 /// A name mapped to a string is a symlink to that target, as the SONAME chain is.
 function packed(t, files = {}) {
-  const appOutDir = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-packed-'))
+  const appOutDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-packed-'))
   t.after(() => fs.rmSync(appOutDir, { recursive: true, force: true }))
-  const modules = path.join(appOutDir, 'resources', 'app.asar.unpacked', 'node_modules', '@weftcut')
+  const modules = path.join(appOutDir, 'resources', 'app.asar.unpacked', 'node_modules', '@lahza')
   for (const addon of ['core', 'native-decode']) fs.mkdirSync(path.join(modules, addon), { recursive: true })
   for (const [name, link] of Object.entries(files)) {
     const file = path.join(modules, name)

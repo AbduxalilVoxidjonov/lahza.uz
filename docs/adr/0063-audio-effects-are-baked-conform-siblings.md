@@ -23,7 +23,7 @@ Two forces point away from treating audio like the visual chain.
   when a filter cannot keep up.
 - **The conform *is* the working format.** Every audio consumer already reads
   `Cache/audio/{hash}.conform`: the preview mixer Range-reads it over
-  `weftcut-media://` and never decodes, and the Rust export mixer seeks into it
+  `lahza-media://` and never decodes, and the Rust export mixer seeks into it
   by frame ([ADR 0019](0019-audio-mixes-in-rust-over-conform-pcm.md)). A
   processed file with the same header, rate, channel count and frame count is
   therefore consumable by both, unchanged — no reader, no plan and no scheduler

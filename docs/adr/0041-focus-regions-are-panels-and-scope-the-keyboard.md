@@ -47,7 +47,7 @@ ate the keystroke.
 
 ### A focus region is a dock Panel, and it needs no new taxonomy
 
-`PANEL_REGISTRY` already enumerates the Panel kinds and `WeftCutPanelRenderer`
+`PANEL_REGISTRY` already enumerates the Panel kinds and `LahzaPanelRenderer`
 already wraps every Panel's content in one element, so the Panel root becomes
 the region: `tabIndex={-1}` plus `data-focus-region={kind}`. One edit covers
 every Panel, present and future.

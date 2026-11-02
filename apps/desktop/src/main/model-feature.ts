@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs";
 import { randomUUID, createHash } from "node:crypto";
-import type { Backend } from "@weftcut/core";
+import type { Backend } from "@lahza/core";
 import { CONTENT_CATALOG } from "../shared/content-catalog";
 import { MODEL_DEFINITIONS, type ModelLocalConfig } from "../shared/inference-models";
 import type { ContentPlatformKey } from "../shared/content-download";

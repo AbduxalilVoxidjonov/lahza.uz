@@ -23,10 +23,10 @@ describe("rasterMotifFrame", () => {
     expect(captureMotifFrame).toHaveBeenCalledWith("countdown", 2.5, { seconds: 5 }, 480, 480, undefined, undefined, undefined, 30000, 1001);
   });
 
-  it("bumps window.__weftcutMotifPerf.renders when present", async () => {
-    (globalThis as Record<string, unknown>).window = { __weftcutMotifPerf: { renders: 0 } };
+  it("bumps window.__lahzaMotifPerf.renders when present", async () => {
+    (globalThis as Record<string, unknown>).window = { __lahzaMotifPerf: { renders: 0 } };
     await rasterMotifFrame("countdown", 0, {}, 480, 480);
-    expect(((globalThis as Record<string, unknown>).window as { __weftcutMotifPerf: { renders: number } }).__weftcutMotifPerf.renders).toBe(1);
+    expect(((globalThis as Record<string, unknown>).window as { __lahzaMotifPerf: { renders: number } }).__lahzaMotifPerf.renders).toBe(1);
   });
 });
 

@@ -35,7 +35,7 @@ export function linuxHardwareAbsent(hardware, auto = false) {
 export function hardwareRequired(lane, codec, platform, requiredVariants = '') {
   const allowed = new Set(['nvdec-h264', 'vaapi-h264', 'd3d11va-h264', 'videotoolbox-h264', 'videotoolbox-hevc10', 'videotoolbox-prores'])
   const selected = requiredVariants.split(',').map(x => x.trim()).filter(Boolean)
-  for (const item of selected) if (!allowed.has(item)) throw new Error(`Unknown WEFTCUT_REQUIRE_HW_VARIANTS value: ${item}`)
+  for (const item of selected) if (!allowed.has(item)) throw new Error(`Unknown LAHZA_REQUIRE_HW_VARIANTS value: ${item}`)
   return selected.includes(`${lane}-${codec}`)
     || (platform === 'darwin' && lane === 'videotoolbox' && ['h264', 'hevc10'].includes(codec))
 }

@@ -38,7 +38,7 @@
     },
     {
       "name": "ping",
-      "description": "Liveness check. Returns 'pong' to confirm the WeftCut MCP server is reachable.",
+      "description": "Liveness check. Returns 'pong' to confirm the Lahza MCP server is reachable.",
       "inputSchema": {
         "type": "object"
       },
@@ -351,7 +351,7 @@
     {
       "uri": "project://current",
       "name": "Current project",
-      "description": "The full open WeftCut project as JSON. Re-fetch after change events.",
+      "description": "The full open Lahza project as JSON. Re-fetch after change events.",
       "mimeType": "application/json"
     },
     {

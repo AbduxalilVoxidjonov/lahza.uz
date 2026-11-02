@@ -173,7 +173,7 @@ export async function runOne(plan: PlannedRun): Promise<RunResult> {
     app_resources: null, media_wait: null, motifs: null, workdir_copy: null, final_message: null, user_replies: [], exit: null, error: null,
     started_at: startedAt.toISOString(), duration_ms: 0,
   }
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-bench-'))
+  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-bench-'))
   const workdir = path.join(scratch, 'work')
   fs.mkdirSync(workdir)
   let session: HostSession | undefined
@@ -197,7 +197,7 @@ export async function runOne(plan: PlannedRun): Promise<RunResult> {
     result.models = s.models ?? null
     result.skill = { path: plan.skill_path, sha256: hashDir(plan.skill_path) }
     const driver = driverNamed(plan.driver)
-    client = new Client({ name: 'weftcut-bench', version: '1' }, { capabilities: {} })
+    client = new Client({ name: 'lahza-bench', version: '1' }, { capabilities: {} })
     await client.connect(new StreamableHTTPClientTransport(new URL(s.runnerTransport.url), {
       requestInit: { headers: { Authorization: `Bearer ${s.runnerTransport.bearer_token}` } },
       ...(s.runnerTransport.fetch ? { fetch: s.runnerTransport.fetch } : {}),

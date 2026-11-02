@@ -1,9 +1,9 @@
 {
-  "name": "@weftcut/desktop",
+  "name": "@lahza/desktop",
   "productName": "Lahza Studio",
-  "version": "0.5.4",
-  "description": "Lahza Studio: Uzbek video editor built on WeftCut",
-  "homepage": "https://github.com/WeftCut/WeftCut",
+  "version": "0.5.5",
+  "description": "Lahza Studio: Uzbek video editor built on Lahza",
+  "homepage": "https://github.com/AbduxalilVoxidjonov/lahza.uz",
   "author": {
     "name": "UncleChair",
     "email": "voidgun1998@gmail.com"
@@ -40,7 +40,7 @@
     "napi:build:decode": "node scripts/napi-build-decode.mjs",
     "analyzer:build": "cargo build --manifest-path native/Cargo.toml --bin media_conformance --features jobs,export",
     "mcp:catalog:snapshot": "node scripts/snapshot-mcp-catalog.mjs",
-    "mcp:catalog:check": "node scripts/snapshot-mcp-catalog.mjs && git diff --exit-code fixtures/mcp/rust-catalog-snapshot.json",
+    "mcp:catalog:check": "node scripts/snapshot-mcp-catalog.mjs --check",
     "e2e": "node scripts/run-e2e.mjs",
     "e2e:timings": "node scripts/e2e-timings-snapshot.mjs",
     "ffmpeg:fetch": "node scripts/fetch-ffmpeg.mjs",
@@ -53,8 +53,8 @@
     "@modelcontextprotocol/sdk": "^1.31.0",
     "@pixi/react": "^8.0.5",
     "@tailwindcss/vite": "^4.3.3",
-    "@weftcut/core": "file:native",
-    "@weftcut/native-decode": "file:native/decode",
+    "@lahza/core": "file:native",
+    "@lahza/native-decode": "file:native/decode",
     "builder-util-runtime": "^9.7.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

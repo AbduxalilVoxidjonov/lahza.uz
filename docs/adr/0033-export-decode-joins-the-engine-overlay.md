@@ -47,7 +47,7 @@ the export dialog's routing-summary line derives from the same table
 
 ### The session API is dedicated, and flow control is a credit window
 
-`@weftcut/native-decode` gains an export session (`export_sw`):
+`@lahza/native-decode` gains an export session (`export_sw`):
 `open(path, outFormat)` → session + stream metadata, `decodeRange(a, b)`
 performs GOP-aligned exact coverage of the presentation range and emits frames
 in presentation order, `close()` tears down. Rust owns GOP walking, reorder,

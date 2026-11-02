@@ -58,7 +58,7 @@ app.whenReady().then(async () => {
       bundle: true, platform: name === 'renderer' ? 'browser' : 'node',
       format: name === 'renderer' ? 'iife' : 'cjs', globalName: name === 'renderer' ? 'bakeBench' : undefined,
       external: ['electron'], alias: { '@': path.join(root, 'apps/desktop/src/renderer') },
-      define: { 'import.meta.dirname': JSON.stringify(path.join(root, 'apps/desktop/src/main')), 'import.meta.env.VITE_WEFTCUT_E2E': '"0"' } });
+      define: { 'import.meta.dirname': JSON.stringify(path.join(root, 'apps/desktop/src/main')), 'import.meta.env.VITE_LAHZA_E2E': '"0"' } });
   }
   capture = require(path.join(work, 'capture.cjs'));
   capture.setRuntimeSource(require(path.join(work, 'runtime.cjs')).MOTIF_RUNTIME_SOURCE);

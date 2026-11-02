@@ -149,7 +149,7 @@ const shapeOf = (s: Wire) => ({
 const selectedLayerIds = async (page: Page): Promise<string[]> => {
   await waitForHook(page, 'getSelectedLayerIds')
   const ids = (await page.evaluate(() =>
-    (window as unknown as { __weftcutTest: { getSelectedLayerIds(): string[] } }).__weftcutTest.getSelectedLayerIds(),
+    (window as unknown as { __lahzaTest: { getSelectedLayerIds(): string[] } }).__lahzaTest.getSelectedLayerIds(),
   )) as string[]
   return ids.slice().sort()
 }
@@ -167,7 +167,7 @@ async function seedSplitPair(
   cutsUs: readonly number[],
 ): Promise<{ videoLayerId: string; audioLayerId: string }> {
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-e2e-ripple-'),
+    parentFolder: tmpDir('lahza-e2e-ripple-'),
     name: 'e2e-ripple-' + Date.now(),
     canvas: CANVAS,
   })
@@ -444,8 +444,8 @@ test.describe('ripple delete', () => {
       const selectedGap = () =>
         page.evaluate(() =>
           (window as unknown as {
-            __weftcutTest: { getSelectedGap(): { trackId: string; s: number; e: number } | null }
-          }).__weftcutTest.getSelectedGap(),
+            __lahzaTest: { getSelectedGap(): { trackId: string; s: number; e: number } | null }
+          }).__lahzaTest.getSelectedGap(),
         )
       await expect.poll(selectedGap).toEqual({ trackId: aRoll, s: 2_000_000, e: 4_000_000 })
       // The highlight is the store's gap, drawn on the lane it names.

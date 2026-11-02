@@ -65,7 +65,7 @@ test('the lane paints markers, and one toggle silences them from either surface'
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-markers-')
+    const parent = tmpDir('lahza-markers-')
     await newProject(page, { parentFolder: parent, name: 'timeline-markers', canvas: CANVAS })
     // REQUIRED before any pointer gesture: the splash overlay outlives the
     // first dock render and swallows mousedown while the target is visible.
@@ -190,7 +190,7 @@ test('markers are authorable from the keyboard and the lane — no MCP client an
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-marker-authoring-')
+    const parent = tmpDir('lahza-marker-authoring-')
     await newProject(page, { parentFolder: parent, name: 'marker-authoring', canvas: CANVAS })
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
 
@@ -213,7 +213,7 @@ test('markers are authorable from the keyboard and the lane — no MCP client an
     await waitForHook(page, 'getPlayheadUs')
     await page.locator('[data-testid="timeline-ruler"]').click({ position: { x: 200, y: 10 } })
     await expect
-      .poll(() => page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs()))
+      .poll(() => page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs()))
       .toBeGreaterThan(0)
 
     // ── M drops an unlabelled point marker at the playhead's frame ─────────
@@ -262,7 +262,7 @@ test('a marker moves by being dragged in its lane, and a drag that goes nowhere 
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-marker-drag-')
+    const parent = tmpDir('lahza-marker-drag-')
     await newProject(page, { parentFolder: parent, name: 'marker-drag', canvas: CANVAS })
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
 
@@ -270,7 +270,7 @@ test('a marker moves by being dragged in its lane, and a drag that goes nowhere 
     const markerTUs = async (): Promise<number> =>
       (await rootSummary<{ markers: Array<{ t_us: number }> }>(page)).markers[0].t_us
     const playheadUs = () =>
-      page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs() as number)
+      page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs() as number)
 
     // Same premise as the authoring spec above: real duration first, or the
     // ruler seek clamps back to frame 0 over an autofitted-to-nothing timeline.
@@ -332,13 +332,13 @@ test('the marker keys walk the marks in order and go dead at each end of the lis
   test.setTimeout(120_000)
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-marker-walk-')
+    const parent = tmpDir('lahza-marker-walk-')
     await newProject(page, { parentFolder: parent, name: 'marker-walk', canvas: CANVAS })
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
 
     const marks = page.locator('[data-testid="timeline-marker"]')
     const playheadUs = () =>
-      page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs() as number)
+      page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs() as number)
 
     // Same premise as the two specs above: real duration FIRST, or every seek
     // here clamps to frame 0 over a timeline autofitted to nothing.
@@ -360,7 +360,7 @@ test('the marker keys walk the marks in order and go dead at each end of the lis
     await waitForHook(page, 'transportSeekUs')
     await expect
       .poll(async () => {
-        await page.evaluate(() => (window as any).__weftcutTest.transportSeekUs(0))
+        await page.evaluate(() => (window as any).__lahzaTest.transportSeekUs(0))
         return playheadUs()
       })
       .toBe(0)

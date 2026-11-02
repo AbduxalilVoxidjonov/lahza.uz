@@ -161,7 +161,7 @@ test('Motif local and Blob workers retain offline CSP and deny JS eval', async (
         try {for (const source of ['./probe-worker.js', blob]) {
           const w = new Worker(source);
           const result = new Promise((resolve,reject)=>{w.onmessage=e=>resolve(e.data);w.onerror=reject;});
-          w.postMessage({local:location.origin+'/local.txt',urls:['https://example.invalid/asset','http://127.0.0.1:40000/asset','motif://countdown/index.html','file:///not-a-motif','weftcut-media://not-a-motif']});
+          w.postMessage({local:location.origin+'/local.txt',urls:['https://example.invalid/asset','http://127.0.0.1:40000/asset','motif://countdown/index.html','file:///not-a-motif','lahza-media://not-a-motif']});
           window.results.push(await result);
         }} finally {URL.revokeObjectURL(blob);}
       },frame(){document.body.style.background='red';}});
@@ -187,7 +187,7 @@ test('Motif local and Blob workers retain offline CSP and deny JS eval', async (
 })
 
 test('Motif Draco + Basis package animates through the export frame stream', async () => {
-  test.skip(process.env.WEFTCUT_E2E_NO_EXPORT === '1', 'Video encoding unavailable on this runner')
+  test.skip(process.env.LAHZA_E2E_NO_EXPORT === '1', 'Video encoding unavailable on this runner')
   test.setTimeout(180_000)
   const zip = path.join(tmpDir('motif-codec-export-'), 'model.zip')
   writeFileSync(zip, zipSync(packageFiles('etc1s.ktx2')))
@@ -199,7 +199,7 @@ test('Motif Draco + Basis package animates through the export frame stream', asy
     const result = await driveExport(page, { motifId, outputAbsPath: output, durationUs: 1_000_000 }, { hook: 'exportMotifClip', timeout: 150_000 })
     expect(result.done.ok, result.done.error).toBe(true)
     expect(readFileSync(output).length).toBeGreaterThan(1000)
-    const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+    const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
     expect(perf.motif.framesRead).toBe(30)
     const frame = (index: number) => execFileSync(process.env.FFMPEG || 'ffmpeg', [
       '-v','error','-i',output,'-vf',`select=eq(n\\,${index})`,'-frames:v','1','-f','rawvideo','-pix_fmt','rgb24','pipe:1',

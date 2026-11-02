@@ -28,9 +28,9 @@ async function capture(page: Page, name: string) {
 async function seek(page: Page, us: number) {
   // The hook is installed before async Pixi initialization registers the
   // transport. Seeking in that gap is a no-op, even though the timeline exists.
-  await page.waitForFunction(() => (window as any).__weftcutTest?.previewResourceProbe?.() != null)
-  await page.evaluate(us => (window as any).__weftcutTest.transportSeekUs(us), us)
-  await expect.poll(() => page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs())).toBe(us)
+  await page.waitForFunction(() => (window as any).__lahzaTest?.previewResourceProbe?.() != null)
+  await page.evaluate(us => (window as any).__lahzaTest.transportSeekUs(us), us)
+  await expect.poll(() => page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs())).toBe(us)
 }
 
 test('visual effect keyframes: inspector, timeline editing, navigation, easing, drag and instance identity', async () => {
@@ -41,13 +41,13 @@ test('visual effect keyframes: inspector, timeline editing, navigation, easing, 
   try {
     // Match the compact desktop used by the hosted Windows runner.
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0]!.setContentSize(1024, 720))
-    await newProject(page, { parentFolder: tmpDir('weftcut-effect-channels-'), name: 'Effect channels',
+    await newProject(page, { parentFolder: tmpDir('lahza-effect-channels-'), name: 'Effect channels',
       canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
     const id = await invokeCmd<string>(page, 'add_text_layer', {
       tStartUs: 0, durationUs: 4_000_000, content: 'KEYFRAME CHANNELS',
     })
     await waitForHook(page, 'revealLayer')
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), id)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), id)
     await page.locator('.weft-dock-tab[data-panel-kind="effect"]').click()
     const panel = dockPanel(page, 'effect')
     const addBlur = async () => {
@@ -169,13 +169,13 @@ test('visual effect keyframes: inspector, timeline editing, navigation, easing, 
 test('path progress is discovered and editable as a timeline channel', async () => {
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-progress-channel-'), name: 'Progress channel',
+    await newProject(page, { parentFolder: tmpDir('lahza-progress-channel-'), name: 'Progress channel',
       canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 } })
     const id = await invokeCmd<string>(page, 'add_text_layer', {
       tStartUs: 0, durationUs: 3_000_000, content: 'PATH PROGRESS',
     })
     await waitForHook(page, 'revealLayer')
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), id)
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), id)
     await page.getByTestId('position-fields').getByRole('button', { name: /^Path$/ }).click()
     const progress = page.getByTestId('position-fields').locator('.anim-field').filter({ hasText: /progress/i })
     // A mode switch preserves the static position. Explicitly animate progress

@@ -4,7 +4,7 @@ import { resolveAnimatedColor } from "./animated";
 import type { Rgba } from "../ipc";
 import fixture from "./animatedColorGolden.fixture.json";
 
-// resolveAnimatedColor is wasm-backed (the shared weftcut-eval crate, loaded by
+// resolveAnimatedColor is wasm-backed (the shared lahza-eval crate, loaded by
 // the global test setup). This golden verifies the wasm preview reproduces the
 // SAME fixture as the native `state/animated.rs::golden_color_vectors_match_fixture`
 // — both green ⇒ native↔wasm color parity (no OkLab/premult drift across the

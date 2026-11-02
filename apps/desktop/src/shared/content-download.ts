@@ -46,15 +46,34 @@ export interface ContentArtifact {
   /// whisper.cpp Windows build dynamically imports. Absent where the payload
   /// asks for nothing the app does not already guarantee.
   prerequisiteKey?: string;
+  /// A raw payload (`archive: "none"`) that is itself a program — yt-dlp. The
+  /// installer marks it executable (mode 0755) on POSIX; tar entries already
+  /// carry their modes, so this matters only for the raw lane.
+  executable?: boolean;
 }
 
+/// An item whose artifact cannot be pinned yet (private/gated upstream, no
+/// published digest). It carries NO platforms, is never downloaded, and shows
+/// as `unavailable`; the record exists so the URL source, the license and the
+/// exact way to finish pinning are written down next to every other entry.
+export interface ContentPending {
+  /// Why the item cannot be pinned today.
+  reason: string;
+  /// The exact steps that produce url + bytes + sha256 once the upstream is reachable.
+  howToPin: string;
+}
 /// The local-engine config fields a catalog artifact can fill:
 /// [`LocalEngineConfig`](./speech-config.ts) for speech items,
 /// [`VlmLocalEngineConfig`](./vlm-config.ts) for vision ones. One union rather
 /// than two because an artifact declares its own layout; which family may name
 /// which field is a catalog invariant (content-catalog.test.ts), since only
 /// vision needs `mmproj` and only FunASR needs `tokens`.
-export type ContentField = "binary" | "model" | "tokens" | "mmproj";
+///
+/// `entry` is the first-run components lane (tool / package / skill-pack
+/// items): the payload's main file, which no engine config consumes — it
+/// exists so every artifact still names the entry point the status check
+/// probes.
+export type ContentField = "binary" | "model" | "tokens" | "mmproj" | "entry";
 
 /// Which speech backend consumes an item. The main-process auto-fill consumer
 /// keys off this instead of hard-coding item ids; what the item's files fill is
@@ -82,7 +101,22 @@ export interface VlmConsumer {
 /// install, never an in-place mutation.
 export interface ContentItem {
   id: string;
-  kind: "speech-runtime" | "speech-model" | "vlm-runtime" | "vlm-model";
+  kind:
+    | "speech-runtime"
+    | "speech-model"
+    | "vlm-runtime"
+    | "vlm-model"
+    /// First-run companion components (not wired to a model profile): a
+    /// standalone program (yt-dlp), an npm package tarball (Remotion,
+    /// HyperFrames) or a source/skill pack (Remotion Skills, OpenMontage).
+    | "tool"
+    | "package"
+    | "skill-pack";
+  /// Fetched on its own at app start when missing and the machine is online
+  /// (the "components" first-run lane). Model-profile items stay on-demand.
+  autoInstall?: boolean;
+  /// Present instead of `platforms` content while the artifact is unpinned.
+  pending?: ContentPending;
   version: string;
   /// i18n key for the human label (en-US + zh-CN).
   labelKey: string;
@@ -176,3 +210,28 @@ export function contentPlatformKey(
       return null;
   }
 }
+
+/// One row of the Settings "Components" list (`components_list` IPC): a
+/// catalog item of kind tool / package / skill-pack joined with its on-disk
+/// status and queue entry, so the renderer needs no catalog knowledge.
+export interface ComponentView {
+  id: string;
+  labelKey: string;
+  kind: ContentItem["kind"];
+  license: string;
+  bytes: number;
+  status: ContentItemStatus["state"];
+  /// Live queue state while pending or failed.
+  queue?: ContentQueueEntry;
+  /// Set while the item is unpinned (see ContentPending); never downloadable.
+  pendingReason?: string;
+}
+
+export interface ComponentsView {
+  /// Electron's net.isOnline() at the time of the call.
+  online: boolean;
+  components: ComponentView[];
+}
+
+/// Component kinds the first-run lane owns (everything else is a model-profile dependency).
+export const COMPONENT_KINDS: ReadonlyArray<ContentItem["kind"]> = ["tool", "package", "skill-pack"];

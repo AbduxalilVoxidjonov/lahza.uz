@@ -37,28 +37,28 @@ import {
 
 /// The stdio face of the shim: a real MCP server, not a byte pipe. Its
 /// catalog is `synthetic ∪ (app reachable ? real catalog : ∅)` — the two
-/// synthetic tools are ALWAYS present, so an agent can discover WeftCut and
+/// synthetic tools are ALWAYS present, so an agent can discover Lahza and
 /// bring it up even when nothing is listening yet, and `tools/list_changed`
 /// fires on every bridge transition so the same session upgrades (and
 /// downgrades) in place.
 
 const SYNTHETIC_TOOLS: Tool[] = [
   {
-    name: 'weftcut_status',
+    name: 'lahza_status',
     description:
-      'Report whether the WeftCut desktop app is currently running and reachable, and which ' +
+      'Report whether the Lahza desktop app is currently running and reachable, and which ' +
       'project it has open. Returns the endpoint state and what to do next when it is not running. ' +
-      'Costs nothing; call this first when WeftCut tools appear to be missing or failing.',
+      'Costs nothing; call this first when Lahza tools appear to be missing or failing.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
   {
-    name: 'launch_weftcut',
+    name: 'launch_lahza',
     description:
-      'Launch the WeftCut desktop app (opens its GUI window on the user’s machine) and ' +
-      'wait until its MCP endpoint is reachable. On success the full WeftCut tool catalog ' +
+      'Launch the Lahza desktop app (opens its GUI window on the user’s machine) and ' +
+      'wait until its MCP endpoint is reachable. On success the full Lahza tool catalog ' +
       'becomes available in this session automatically (tools/list_changed). Safe to call ' +
       'when already running — reports that instead of launching twice. Use after ' +
-      'weftcut_status says the app is not running.',
+      'lahza_status says the app is not running.',
     inputSchema: { type: 'object', properties: {}, additionalProperties: false },
   },
 ]
@@ -111,7 +111,7 @@ export interface ShimOptions {
   se: ShimEnv
   userDataDir: string
   /** What `initialize` reports as the shim's own version — distinct from the
-   *  app's, which rides the bridge and is reported by `weftcut_status`.
+   *  app's, which rides the bridge and is reported by `lahza_status`.
    *  `main.ts` passes the build stamp; absent reports `0.0.0-dev`. */
   version?: string
   /// Test seams. Defaults: read mcp_auth.json / streamable HTTP / detached spawn.
@@ -148,7 +148,7 @@ export function createShim(opts: ShimOptions): Shim {
   const launchPollMs = opts.launchPollMs ?? 1_000
 
   const server = new Server(
-    { name: 'weftcut-mcp', version: opts.version ?? '0.0.0-dev' },
+    { name: 'lahza-mcp', version: opts.version ?? '0.0.0-dev' },
     {
       capabilities: {
         tools: { listChanged: true },
@@ -176,7 +176,7 @@ export function createShim(opts: ShimOptions): Shim {
     onDown: broadcastCatalogChanged,
     clientName: () => server.getClientVersion()?.name,
     onNotification: (n) => {
-      // The app's change feed (notifications/weftcut/change), forwarded so a
+      // The app's change feed (notifications/lahza/change), forwarded so a
       // shim-connected agent sees edits exactly like an HTTP-direct one.
       server.notification(n as { method: string; params?: Record<string, unknown> }).catch(() => {})
     },
@@ -194,14 +194,14 @@ export function createShim(opts: ShimOptions): Shim {
     if (!auth) {
       return new McpError(
         ErrorCode.InternalError,
-        `WeftCut has never been launched on this machine (no mcp_auth.json under ${userDataDir}). ` +
-          'Ask the user to open WeftCut once so it creates its MCP endpoint, then call weftcut_status.',
+        `Lahza has never been launched on this machine (no mcp_auth.json under ${userDataDir}). ` +
+          'Ask the user to open Lahza once so it creates its MCP endpoint, then call lahza_status.',
       )
     }
     return new McpError(
       ErrorCode.InternalError,
-      `WeftCut is not running (nothing answering at ${endpointUrl(auth)}). ` +
-        'Call the launch_weftcut tool to start it, or ask the user to open WeftCut; ' +
+      `Lahza is not running (nothing answering at ${endpointUrl(auth)}). ` +
+        'Call the launch_lahza tool to start it, or ask the user to open Lahza; ' +
         'the full tool catalog appears in this session automatically once the app is up.',
     )
   }
@@ -213,15 +213,15 @@ export function createShim(opts: ShimOptions): Shim {
   const timeoutMessage = (e: BridgeTimeoutError, tool?: string): string => {
     if (e.method !== 'tools/call') {
       return (
-        `WeftCut is running, but did not answer ${e.method} within ${duration(e.timeoutMs)}. ` +
-        'Retry the request; call weftcut_status if it keeps happening.'
+        `Lahza is running, but did not answer ${e.method} within ${duration(e.timeoutMs)}. ` +
+        'Retry the request; call lahza_status if it keeps happening.'
       )
     }
     const waited = e.total
       ? `within the ${duration(e.timeoutMs)} total limit set by ${TOOL_MAX_TOTAL_ENV}`
       : `within ${duration(e.timeoutMs)} of no progress from the app`
     return (
-      `WeftCut is running, and ${tool ?? 'the tool'} is still working inside the app: it did not finish ${waited}. ` +
+      `Lahza is running, and ${tool ?? 'the tool'} is still working inside the app: it did not finish ${waited}. ` +
       'The call was not cancelled. Call the same tool again with the same arguments to keep waiting — ' +
       'an identical retry joins the in-flight job instead of starting a new one. ' +
       `To wait longer per call, raise ${TOOL_TIMEOUT_ENV} (milliseconds) in this MCP server's env config.`
@@ -258,7 +258,7 @@ export function createShim(opts: ShimOptions): Shim {
       const auth = readAuthFn()
       return text(
         [
-          `WeftCut is running${v ? ` (${v.name} ${v.version})` : ''}.`,
+          `Lahza is running${v ? ` (${v.name} ${v.version})` : ''}.`,
           auth ? `Endpoint: ${endpointUrl(auth)}` : '',
           await projectLine(),
           'The full tool catalog is available in this session.',
@@ -271,16 +271,16 @@ export function createShim(opts: ShimOptions): Shim {
     if (!auth) {
       return text(
         [
-          'WeftCut is not running, and has never been launched on this machine ' +
+          'Lahza is not running, and has never been launched on this machine ' +
             `(no mcp_auth.json under ${userDataDir}).`,
-          'Ask the user to open WeftCut once so it creates its MCP endpoint, then call weftcut_status again.',
+          'Ask the user to open Lahza once so it creates its MCP endpoint, then call lahza_status again.',
         ].join('\n'),
       )
     }
     return text(
       [
-        `WeftCut is not running (nothing answering at ${endpointUrl(auth)}).`,
-        'Call launch_weftcut to start it, or ask the user to open WeftCut. ' +
+        `Lahza is not running (nothing answering at ${endpointUrl(auth)}).`,
+        'Call launch_lahza to start it, or ask the user to open Lahza. ' +
           'The full tool catalog appears automatically once the app is up.',
       ].join('\n'),
     )
@@ -288,35 +288,35 @@ export function createShim(opts: ShimOptions): Shim {
 
   async function launchResult(): Promise<ReturnType<typeof text>> {
     if ((await bridge.ensureUp()) === 'up') {
-      return text('WeftCut is already running — the full tool catalog is available.')
+      return text('Lahza is already running — the full tool catalog is available.')
     }
     const target = launchTarget(se)
     if (!target.launchable) {
       return text(
         'This shim is running under a plain Node interpreter (dev), so it does not know the ' +
-          'WeftCut app binary to launch. Start the app manually (npm run dev), or set the ' +
-          'WEFTCUT_APP environment variable to a launchable WeftCut executable.',
+          'Lahza app binary to launch. Start the app manually (npm run dev), or set the ' +
+          'LAHZA_APP environment variable to a launchable Lahza executable.',
         true,
       )
     }
     try {
       spawnApp(target.path)
     } catch (e) {
-      return text(`Failed to launch WeftCut (${target.path}): ${e instanceof Error ? e.message : String(e)}`, true)
+      return text(`Failed to launch Lahza (${target.path}): ${e instanceof Error ? e.message : String(e)}`, true)
     }
     const deadline = Date.now() + launchTimeoutMs
     while (Date.now() < deadline) {
       await sleep(launchPollMs)
       if ((await bridge.ensureUp()) === 'up') {
         return text(
-          'WeftCut launched and its MCP endpoint is up. The full tool catalog is now available ' +
+          'Lahza launched and its MCP endpoint is up. The full tool catalog is now available ' +
             'in this session (tools/list_changed was sent).',
         )
       }
     }
     return text(
-      `WeftCut was launched (${target.path}) but its MCP endpoint did not come up within ` +
-        `${Math.round(launchTimeoutMs / 1000)}s. The app may still be starting — call weftcut_status to re-check.`,
+      `Lahza was launched (${target.path}) but its MCP endpoint did not come up within ` +
+        `${Math.round(launchTimeoutMs / 1000)}s. The app may still be starting — call lahza_status to re-check.`,
       true,
     )
   }
@@ -341,8 +341,8 @@ export function createShim(opts: ShimOptions): Shim {
 
   server.setRequestHandler(CallToolRequestSchema, async (req, extra) => {
     const name = req.params.name
-    if (name === 'weftcut_status') return statusResult()
-    if (name === 'launch_weftcut') return launchResult()
+    if (name === 'lahza_status') return statusResult()
+    if (name === 'launch_lahza') return launchResult()
     await bridge.ensureUp()
     try {
       return await bridge.forward('tools/call', req.params, CallToolResultSchema, upstream(req, extra, closed))

@@ -173,6 +173,6 @@ and the rule honours every intent the filtered view can express.
 Photoshop, After Effects and every layer-panel editor order top-of-stack
 first and reorder by dragging the layer, not its container — that convention
 carries over. NLEs (Premiere, Resolve) instead reorder by dragging clips
-across typed tracks, which 0042 already declined: WeftCut's tracks are
+across typed tracks, which 0042 already declined: Lahza's tracks are
 by-products, so the layer panel is the honest surface, and the playhead scope
 is what a timeline-less stack view needs that Photoshop does not.

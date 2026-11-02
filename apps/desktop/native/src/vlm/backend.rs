@@ -17,7 +17,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Video-understanding engines WeftCut can drive. `Qwen3Vl` and `MiniCpmV` are
+/// Video-understanding engines Lahza can drive. `Qwen3Vl` and `MiniCpmV` are
 /// local one-shot `llama-mtmd-cli` sidecars (a GGUF model + mmproj on disk);
 /// `ByoEndpoint` is any OpenAI-compatible `/v1/chat/completions`. All three
 /// ingest the SAME timestamped multi-image input (frames + injected `<t s>` text

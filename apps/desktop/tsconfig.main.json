@@ -3,7 +3,7 @@
   // lib: the main process has no document/window, so accidental DOM use here is
   // now a type error (preload, which DOES run in the renderer's DOM context, has
   // its own tsconfig.preload.json). Web-platform globals the main process does
-  // use legitimately (Response/ReadableStream/URL for the weftcut-media
+  // use legitimately (Response/ReadableStream/URL for the lahza-media
   // protocol) come from @types/node, not DOM.
   //
   // `references: tsconfig.web.json` + `disableSourceOfProjectReferenceRedirect`

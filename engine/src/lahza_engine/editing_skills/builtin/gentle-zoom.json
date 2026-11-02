@@ -1,0 +1,18 @@
+{
+  "schema": "lahza.skill/1",
+  "id": "gentle-zoom",
+  "name": "Gentle zoom",
+  "version": "1.0.0",
+  "description": "Use Lahza’s built-in push-in on the first three seconds of the target shot.",
+  "permissions": [
+    "timeline.modify"
+  ],
+  "actions": [
+    {
+      "at_ms": 0,
+      "duration_ms": 3000,
+      "type": "motion",
+      "preset": "push-in"
+    }
+  ]
+}

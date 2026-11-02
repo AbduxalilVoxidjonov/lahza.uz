@@ -31,7 +31,7 @@ pub fn shared_client() -> &'static Client {
     static CLIENT: OnceLock<Client> = OnceLock::new();
     CLIENT.get_or_init(|| {
         Client::builder()
-            .user_agent(concat!("weftcut/", env!("CARGO_PKG_VERSION")))
+            .user_agent(concat!("lahza/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(CONNECT_TIMEOUT)
             .build()
             .expect("reqwest::Client::build with rustls-tls cannot fail")
@@ -86,7 +86,7 @@ pub async fn send_with_retry(
             return Ok(response);
         };
         tracing::warn!(
-            target: "weftcut::inference",
+            target: "lahza::inference",
             "{label} {status} (attempt {attempt}); retrying in {delay:?}",
         );
         drop(response);

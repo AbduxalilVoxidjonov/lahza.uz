@@ -64,7 +64,7 @@
     --color-surface-sunken: var(--surface-sunken);
     --color-surface-raised: var(--surface-raised);
     --color-track-lane: var(--track-lane);
-    /* Match the legacy stack in styles.css :root — WeftCut deliberately uses
+    /* Match the legacy stack in styles.css :root — Lahza deliberately uses
        the system font; swapping fonts is a separate design decision. */
     --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
     --color-sidebar-ring: var(--sidebar-ring);
@@ -178,7 +178,7 @@
     --sidebar-ring: oklch(0.708 0 0);
 }
 
-/* WeftCut's dark-only application palette (html.dark is hardwired in
+/* Lahza's dark-only application palette (html.dark is hardwired in
    index.html). Surface and stroke steps are intentionally centralized here;
    feature styles consume roles instead of maintaining local near-black ramps. */
 .dark {

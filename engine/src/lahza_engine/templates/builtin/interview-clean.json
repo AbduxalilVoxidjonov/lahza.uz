@@ -1,0 +1,62 @@
+{
+  "schema": "lahza.template/1",
+  "id": "uz.lahza.tpl.interview-clean",
+  "version": "1.0.0",
+  "name": {
+    "uz": "Intervyu — toza",
+    "uz-Cyrl": "Интервью — тоза",
+    "ru": "Интервью — чистый стиль",
+    "en": "Interview — clean"
+  },
+  "description": {
+    "uz": "Ekspert yoki mehmon bilan intervyudan 45-60 soniyalik toza montaj: eng yaxshi javoblar, ixcham subtitr, spiker plashkasi va yumshoq fade o'tishlar.",
+    "uz-Cyrl": "Эксперт ёки меҳмон билан интервьюдан 45-60 сонияли тоза монтаж: энг яхши жавоблар, ихчам субтитр, спикер плашкаси ва юмшоқ fade ўтишлар.",
+    "ru": "Чистый монтаж на 45-60 секунд из интервью с экспертом или гостем: лучшие ответы, аккуратные субтитры, плашка спикера и мягкие переходы.",
+    "en": "A clean 45-60 second cut from an expert or guest interview: the best answers, tidy captions, a speaker lower third and soft fades."
+  },
+  "category": "intervyu",
+  "builtin": true,
+  "aspect": "9:16",
+  "fps": 30.0,
+  "target_duration_ms": 55000,
+  "min_shot_ms": 4000,
+  "max_shot_ms": 40000,
+  "selection": "highlight",
+  "order": "ball",
+  "max_per_source": 3,
+  "respect_sentences": true,
+  "reframe": "auto",
+  "transition": {"plugin": "uz.lahza.tr.fade", "dur_ms": 250},
+  "fx": [],
+  "captions": true,
+  "caption_style": {
+    "name": "Toza plashka",
+    "font_family": "Inter",
+    "font_size": 60,
+    "bold": true,
+    "primary_color": "#FFFFFF",
+    "highlight_color": "#FFFFFF",
+    "outline_color": "#000000",
+    "outline_width": 0.0,
+    "box": true,
+    "box_color": "#000000",
+    "box_opacity": 0.55,
+    "position": "lower",
+    "animation": "none",
+    "max_words": 6,
+    "max_lines": 2,
+    "remove_fillers": true
+  },
+  "hook_text": {
+    "text": "{shou}",
+    "dur_ms": 4000,
+    "kind": "lower_third",
+    "position": "lower",
+    "animation": "slide_up"
+  },
+  "music": {"required": false, "gain_db": -26.0, "duck": true, "fade_in_ms": 1000, "fade_out_ms": 2000},
+  "source_gain_db": 0.0,
+  "mute_sources": false,
+  "loudnorm_lufs": -14.0,
+  "logo": true
+}

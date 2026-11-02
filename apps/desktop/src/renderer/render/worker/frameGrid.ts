@@ -1,5 +1,5 @@
 // The export worker's entry point to the composition frame grid. Both functions
-// delegate to the `weftcut-eval` leaf (`renderer/frames.ts`), so the export grid
+// delegate to the `lahza-eval` leaf (`renderer/frames.ts`), so the export grid
 // is LITERALLY the same code the actor, the ruler, and preview resolve — not a
 // worker-local reimplementation.
 //

@@ -1,4 +1,4 @@
-//! weftcut-eval: the pure, dependency-light "WYSIWYG math" shared by the napi
+//! lahza-eval: the pure, dependency-light "WYSIWYG math" shared by the napi
 //! crate's state/audio helpers and export (native build) and by the renderer +
 //! TS actor (wasm32 build). No imbl / uuid / napi / tokio / serde / schemars in
 //! the shipped artifact.

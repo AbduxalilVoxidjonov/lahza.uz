@@ -585,22 +585,22 @@ mod tests {
     /// Opt-in LIVE smoke of the whole local path — frame extraction → the exact
     /// `llama-mtmd-cli` command → stdout capture → parser. `#[ignore]` by default
     /// (needs a GPU-class machine + a multi-GB GGUF), same stance as the
-    /// real-ffmpeg smokes. Set the four `WEFTCUT_VLM_*` env vars and run:
+    /// real-ffmpeg smokes. Set the four `LAHZA_VLM_*` env vars and run:
     /// `cargo test --features test-noop -- --ignored --nocapture live_qwen_describe`.
     #[tokio::test]
-    #[ignore = "live: needs llama-mtmd-cli + Qwen GGUF + mmproj + a video (WEFTCUT_VLM_* env)"]
+    #[ignore = "live: needs llama-mtmd-cli + Qwen GGUF + mmproj + a video (LAHZA_VLM_* env)"]
     async fn live_qwen_describe() {
         use super::super::describer::{DescribeRequest, Focus, Language};
         use super::super::frame_extract::{plan_anchors, sample_frames};
         use super::super::parser::parse_raw;
 
         let (Ok(cli), Ok(model), Ok(mmproj), Ok(video)) = (
-            std::env::var("WEFTCUT_VLM_CLI"),
-            std::env::var("WEFTCUT_VLM_MODEL"),
-            std::env::var("WEFTCUT_VLM_MMPROJ"),
-            std::env::var("WEFTCUT_VLM_VIDEO"),
+            std::env::var("LAHZA_VLM_CLI"),
+            std::env::var("LAHZA_VLM_MODEL"),
+            std::env::var("LAHZA_VLM_MMPROJ"),
+            std::env::var("LAHZA_VLM_VIDEO"),
         ) else {
-            eprintln!("live_qwen_describe skipped — set WEFTCUT_VLM_CLI/MODEL/MMPROJ/VIDEO");
+            eprintln!("live_qwen_describe skipped — set LAHZA_VLM_CLI/MODEL/MMPROJ/VIDEO");
             return;
         };
 
@@ -633,7 +633,7 @@ mod tests {
                 // Overridable from the env so the live smoke can eyeball a
                 // non-English answer, which is the only way this path's language
                 // rule is ever actually observed.
-                language: Language::parse(std::env::var("WEFTCUT_VLM_LANGUAGE").ok().as_deref()),
+                language: Language::parse(std::env::var("LAHZA_VLM_LANGUAGE").ok().as_deref()),
                 task: Task::Timeline,
             })
             .await

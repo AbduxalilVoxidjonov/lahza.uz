@@ -14,7 +14,7 @@ export const PERF_MONITOR_WINDOW_CLOSED_EVENT = WIN_CLOSED_EVENT;
 
 const PERF_MONITOR_WINDOW_OPTIONS = {
   url: "/?perfHud=1",
-  title: "WeftCut — Performance",
+  title: "Lahza — Performance",
   width: 640,
   height: 560,
   minWidth: 380,

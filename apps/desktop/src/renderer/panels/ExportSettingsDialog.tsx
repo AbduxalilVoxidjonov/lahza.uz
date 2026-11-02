@@ -125,7 +125,7 @@ export function ExportSettingsDialog({ comp, durationUs, hasTenBitSource, onCanc
   const markedRange = resolveMarkedRange(markedInUs, markedOutUs, durationUs);
   const [settings, setSettings] = useState<ExportSettings | null>(null);
   const [location, setLocation] = useState<string>("");
-  const [filename, setFilename] = useState<string>("weftcut-export");
+  const [filename, setFilename] = useState<string>("lahza-export");
   const [pathCheck, setPathCheck] = useState<'checking' | 'free' | 'exists' | 'error'>('checking');
   const [pathCheckRevision, setPathCheckRevision] = useState(0);
   const [suggestedName, setSuggestedName] = useState<string | null>(null);

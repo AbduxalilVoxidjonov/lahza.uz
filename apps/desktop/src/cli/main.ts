@@ -17,28 +17,28 @@ import {
 /// on user machines — so build time is the only moment the version is knowable.
 /// A source run (Vitest, `node src/cli/main.ts`) has no define at all, which is
 /// why the identifier is read through `typeof` rather than used directly.
-declare const __WEFTCUT_VERSION__: string | undefined
-const SHIM_VERSION = typeof __WEFTCUT_VERSION__ === 'string' ? __WEFTCUT_VERSION__ : '0.0.0-dev'
+declare const __LAHZA_VERSION__: string | undefined
+const SHIM_VERSION = typeof __LAHZA_VERSION__ === 'string' ? __LAHZA_VERSION__ : '0.0.0-dev'
 
-/// weftcut-mcp — the WeftCut MCP connection shim.
+/// lahza-mcp — the Lahza MCP connection shim.
 ///
 /// Default mode (no args) is an MCP server on stdio that bridges to the
 /// running app's streamable-HTTP endpoint; the subcommands are the
 /// terminal-facing connection helpers. Exit codes: 0 ok, 2 usage, 3 the app
 /// is not reachable (info / list-tools).
 
-const HELP = `weftcut-mcp — WeftCut MCP connection shim
+const HELP = `lahza-mcp — Lahza MCP connection shim
 
 usage:
-  weftcut-mcp                 MCP server on stdio (what client configs run)
-  weftcut-mcp info            print endpoint, token, and whether the app is running
-  weftcut-mcp print-config    print the mcpServers config fragment for MCP clients
-  weftcut-mcp list-tools      connect to the running app and list its MCP tools
-  weftcut-mcp help            this text
+  lahza-mcp                 MCP server on stdio (what client configs run)
+  lahza-mcp info            print endpoint, token, and whether the app is running
+  lahza-mcp print-config    print the mcpServers config fragment for MCP clients
+  lahza-mcp list-tools      connect to the running app and list its MCP tools
+  lahza-mcp help            this text
 
 The app's endpoint + bearer token are read from <userData>/mcp_auth.json at
 every connect, so configs stay valid across app restarts, port changes, and
-token rotations. Override the userData directory with WEFTCUT_USERDATA.`
+token rotations. Override the userData directory with LAHZA_USERDATA.`
 
 async function runStdio(se: ShimEnv, userDataDir: string): Promise<void> {
   const shim = createShim({ se, userDataDir, version: SHIM_VERSION })
@@ -94,7 +94,7 @@ async function withBridge<T>(
 async function runInfo(userDataDir: string): Promise<void> {
   const auth = readAuth(userDataDir)
   console.log(`userData:  ${userDataDir}`)
-  console.log(`auth file: ${authFilePath(userDataDir)}${auth ? '' : ' (missing — launch WeftCut once)'}`)
+  console.log(`auth file: ${authFilePath(userDataDir)}${auth ? '' : ' (missing — launch Lahza once)'}`)
   if (!auth) {
     console.log('running:   no')
     process.exitCode = 3
@@ -116,8 +116,8 @@ async function runListTools(userDataDir: string): Promise<void> {
   if (!listing) {
     console.error(
       auth
-        ? `WeftCut is not running (nothing answering at ${endpointUrl(auth)}). Launch the app and retry.`
-        : `WeftCut has never been launched on this machine (no mcp_auth.json under ${userDataDir}).`,
+        ? `Lahza is not running (nothing answering at ${endpointUrl(auth)}). Launch the app and retry.`
+        : `Lahza has never been launched on this machine (no mcp_auth.json under ${userDataDir}).`,
     )
     process.exitCode = 3
     return

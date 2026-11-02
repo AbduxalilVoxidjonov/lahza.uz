@@ -1,4 +1,4 @@
-// Build the weftcut-eval leaf crate to wasm32 and base64-embed the bytes into a
+// Build the lahza-eval leaf crate to wasm32 and base64-embed the bytes into a
 // generated TS module the renderer imports. Run via `npm run build:wasm` (and
 // automatically before dev/build/test via the pre* hooks). The output module is
 // gitignored — it is a build artifact, regenerated from the Rust source.
@@ -30,7 +30,7 @@ function main() {
     [
       'build',
       '-p',
-      'weftcut-eval',
+      'lahza-eval',
       '--manifest-path',
       manifest,
       '--target',
@@ -40,12 +40,12 @@ function main() {
     { stdio: 'inherit', env: cargoEnv },
   )
 
-  const wasm = resolve(root, 'native/target/wasm32-unknown-unknown/release/weftcut_eval.wasm')
+  const wasm = resolve(root, 'native/target/wasm32-unknown-unknown/release/lahza_eval.wasm')
   const b64 = readFileSync(wasm).toString('base64')
   // Separate invocation prevents hosted features reaching the standalone eval.
-  execFileSync('cargo', ['build', '-p', 'weftcut-conversion', '--manifest-path', manifest,
+  execFileSync('cargo', ['build', '-p', 'lahza-conversion', '--manifest-path', manifest,
     '--target', 'wasm32-unknown-unknown', '--release'], { stdio: 'inherit', env: cargoEnv })
-  const conversion = readFileSync(resolve(root, 'native/target/wasm32-unknown-unknown/release/weftcut_conversion.wasm')).toString('base64')
+  const conversion = readFileSync(resolve(root, 'native/target/wasm32-unknown-unknown/release/lahza_conversion.wasm')).toString('base64')
   mkdirSync(dirname(out), { recursive: true })
   writeFileSync(
     out,

@@ -65,7 +65,7 @@ test('preview panel owns both letterbox axes while the Pixi canvas stays centere
   const { app, page } = launched
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-preview-layout-'),
+      parentFolder: tmpDir('lahza-e2e-preview-layout-'),
       name: `e2e-preview-layout-${Date.now()}`,
       canvas: { width: 1600, height: 900, fpsNum: 30, fpsDen: 1 },
     })
@@ -108,7 +108,7 @@ test('the preview zooms about the pointer and pans with no tool armed', async ()
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-preview-zoom-'),
+      parentFolder: tmpDir('lahza-e2e-preview-zoom-'),
       name: `preview-zoom-${Date.now()}`,
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
     })

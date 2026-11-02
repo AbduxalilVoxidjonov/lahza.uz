@@ -1,11 +1,11 @@
 {
-  "name": "@weftcut/core",
+  "name": "@lahza/core",
   "version": "0.0.0",
   "license": "MIT",
   "main": "index.js",
   "types": "index.d.ts",
   "files": ["index.js", "index.d.ts", "*.node"],
-  "napi": { "binaryName": "weftcut-core" },
+  "napi": { "binaryName": "lahza-core" },
   "devDependencies": { "@napi-rs/cli": "^3.10.5" },
   "scripts": { "build": "napi build --platform --release" }
 }

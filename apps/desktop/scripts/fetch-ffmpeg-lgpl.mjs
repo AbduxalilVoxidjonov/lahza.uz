@@ -1,5 +1,5 @@
 // Stages an LGPL SHARED ffmpeg build (per-OS) into resources/ffmpeg-lgpl/<os>/.
-// This is the DISTRIBUTION decode runtime for @weftcut/native-decode: the
+// This is the DISTRIBUTION decode runtime for @lahza/native-decode: the
 // shared libs ship beside the addon; include/ + lib/ serve as FFMPEG_DIR for
 // building the addon (CI + fresh dev machines).
 //   - Windows/Linux: downloaded from BtbN (see BUILDS).

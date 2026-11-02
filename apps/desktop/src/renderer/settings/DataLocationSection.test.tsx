@@ -57,7 +57,7 @@ beforeEach(async () => {
   events.listeners.clear();
   events.unlisten.mockReset();
   ipc.dataRootCurrent.mockReset().mockResolvedValue({
-    path: "/home/u/.config/WeftCut/data",
+    path: "/home/u/.config/Lahza/data",
     isFallback: false,
   });
   ipc.dataRootPendingCleanup.mockReset().mockResolvedValue(null);
@@ -72,7 +72,7 @@ describe("DataLocationSection", () => {
   it("shows the current data root fetched on mount", async () => {
     render(<DataLocationSection onError={onError} />);
     expect(
-      await screen.findByText("/home/u/.config/WeftCut/data"),
+      await screen.findByText("/home/u/.config/Lahza/data"),
     ).toBeTruthy();
     // Not a fallback → no annotation badge.
     expect(screen.queryByText(/Fallback/)).toBeNull();
@@ -80,7 +80,7 @@ describe("DataLocationSection", () => {
 
   it("annotates the fallback default when a configured root is unavailable", async () => {
     ipc.dataRootCurrent.mockResolvedValue({
-      path: "/home/u/.config/WeftCut/data",
+      path: "/home/u/.config/Lahza/data",
       isFallback: true,
     });
     render(<DataLocationSection onError={onError} />);
@@ -96,7 +96,7 @@ describe("DataLocationSection", () => {
     );
 
     render(<DataLocationSection onError={onError} />);
-    await screen.findByText("/home/u/.config/WeftCut/data");
+    await screen.findByText("/home/u/.config/Lahza/data");
 
     await userEvent.click(screen.getByRole("button", { name: "Change…" }));
     // The migration subscribes to progress for its duration.
@@ -141,14 +141,14 @@ describe("DataLocationSection", () => {
     });
 
     render(<DataLocationSection onError={onError} />);
-    await screen.findByText("/home/u/.config/WeftCut/data");
+    await screen.findByText("/home/u/.config/Lahza/data");
 
     await userEvent.click(screen.getByRole("button", { name: "Change…" }));
 
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("target disk is full");
     // data_root unchanged: the current path is still displayed, no relaunch.
-    expect(screen.getByText("/home/u/.config/WeftCut/data")).toBeTruthy();
+    expect(screen.getByText("/home/u/.config/Lahza/data")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Restart to apply" }),
     ).toBeNull();
@@ -159,7 +159,7 @@ describe("DataLocationSection", () => {
     ipc.dataRootPickAndMigrate.mockResolvedValue({ ok: false, cancelled: true });
 
     render(<DataLocationSection onError={onError} />);
-    await screen.findByText("/home/u/.config/WeftCut/data");
+    await screen.findByText("/home/u/.config/Lahza/data");
 
     await userEvent.click(screen.getByRole("button", { name: "Change…" }));
 
@@ -173,12 +173,12 @@ describe("DataLocationSection", () => {
   });
 
   it("deletes the old copy only on explicit confirm", async () => {
-    ipc.dataRootPendingCleanup.mockResolvedValue({ oldPath: "/old/WeftCut/data" });
+    ipc.dataRootPendingCleanup.mockResolvedValue({ oldPath: "/old/Lahza/data" });
 
     render(<DataLocationSection onError={onError} />);
     // Post-relaunch cleanup prompt surfaces.
     expect(await screen.findByText("Delete old data copy?")).toBeTruthy();
-    expect(screen.getByText(/\/old\/WeftCut\/data/)).toBeTruthy();
+    expect(screen.getByText(/\/old\/Lahza\/data/)).toBeTruthy();
 
     await userEvent.click(
       screen.getByRole("button", { name: "Delete old copy" }),
@@ -191,7 +191,7 @@ describe("DataLocationSection", () => {
   });
 
   it("keeps the old copy and dismisses when the user declines", async () => {
-    ipc.dataRootPendingCleanup.mockResolvedValue({ oldPath: "/old/WeftCut/data" });
+    ipc.dataRootPendingCleanup.mockResolvedValue({ oldPath: "/old/Lahza/data" });
 
     render(<DataLocationSection onError={onError} />);
     expect(await screen.findByText("Delete old data copy?")).toBeTruthy();

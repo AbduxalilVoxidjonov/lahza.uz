@@ -50,7 +50,7 @@ Persist the Decode Route as the **source of truth**, with readiness folded in:
   data model, guarded by a tiny three-string wire golden (the `snapFrameGolden`
   / `roleGateGolden` discipline). `decide()` / `job_for` stay Rust-only;
   `resolveDecode` stays TS-only — there is no logic twin to share, so the
-  `weftcut-eval` leaf (WYSIWYG math only) is deliberately not involved.
+  `lahza-eval` leaf (WYSIWYG math only) is deliberately not involved.
 
 ## Considered options
 
@@ -91,5 +91,5 @@ Persist the Decode Route as the **source of truth**, with readiness folded in:
 - ADR 0009 — two-axis proxy decision (this ADR supersedes its "no
   persisted-schema change" non-goal).
 - ADR 0011 — export master vs preview proxy (the two payload kinds).
-- ADR 0025 — shared `weftcut-eval` wasm leaf (deliberately not extended here).
+- ADR 0025 — shared `lahza-eval` wasm leaf (deliberately not extended here).
 - [`CONTEXT.md`](../../CONTEXT.md), [`docs/data-model.md`](../data-model.md).

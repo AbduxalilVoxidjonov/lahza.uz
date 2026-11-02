@@ -6,16 +6,16 @@ status: accepted
 
 ## Context
 
-WeftCut put **eye / M / S / lock** on every track header, inheriting
+Lahza put **eye / M / S / lock** on every track header, inheriting
 Premiere's per-track audio-control model. That model fought two
-established WeftCut decisions:
+established Lahza decisions:
 
 - The A/B-roll redesign made tracks **kind-agnostic** and introduced
   **combined-row rendering** — one track row holds a camera's picture
   and its dialogue together, half-height. Mute and Solo are audio-only
   (`mix.rs` only ever gated Audio layers), yet they rendered on rows
   that read as "video." On a combined camera row the user could not tell
-  what M/S acted on. WeftCut had adopted Final Cut's *visual* model
+  what M/S acted on. Lahza had adopted Final Cut's *visual* model
   (audio as a sub-lane under the picture) but bolted on Premiere's
   *control* model (per-track M/S); that seam was the confusion the
   2026-06-13 integration spec (since retired) tried to paper over with

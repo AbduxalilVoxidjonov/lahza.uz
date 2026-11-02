@@ -1,12 +1,12 @@
 //! Offline position conversion. A single Rust implementation owns sampling,
 //! fitting, simplification and verification; TS transports records and IDs only.
 //! Dynamic authoring buffers live here, outside the allocation-free eval Wasm.
-use serde::{Deserialize, Serialize};
-use weftcut_eval::{
+use lahza_eval::{
     eval_precise,
     path::{self, Node, Point},
     Extrapolate, Extrapolation, Kf,
 };
+use serde::{Deserialize, Serialize};
 mod spatial;
 mod temporal;
 #[cfg(test)]
@@ -14,7 +14,7 @@ mod tests;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
-pub use weftcut_eval::MAX_RESIDENT_KEYFRAMES as MAX_KEYS;
+pub use lahza_eval::MAX_RESIDENT_KEYFRAMES as MAX_KEYS;
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Track {
     pub keys: Vec<Kf>,
@@ -46,7 +46,7 @@ pub struct Options {
 }
 impl Options {
     fn time(&self, f: i64) -> f64 {
-        weftcut_eval::time_us_at_frame(f, self.fps_num, self.fps_den) as f64
+        lahza_eval::time_us_at_frame(f, self.fps_num, self.fps_den) as f64
     }
     fn validate(&self) -> Result<(), &'static str> {
         if self.fps_num == 0
@@ -156,7 +156,7 @@ fn boundaries(
                     times.push(at);
                 }
                 if i > 0
-                    && track.keys[i - 1].segment == weftcut_eval::Segment::Hold
+                    && track.keys[i - 1].segment == lahza_eval::Segment::Hold
                     && jumps(track.keys[i - 1].value, key.value)
                     && if reverse {
                         at >= start && at < end
@@ -247,9 +247,9 @@ pub fn convert(request: Request) -> Result<Conversion, &'static str> {
                 keys: vec![Kf {
                     t_us: 0.0,
                     value,
-                    in_: weftcut_eval::IN_IDENTITY,
-                    out: weftcut_eval::OUT_IDENTITY,
-                    segment: weftcut_eval::Segment::Linear,
+                    in_: lahza_eval::IN_IDENTITY,
+                    out: lahza_eval::OUT_IDENTITY,
+                    segment: lahza_eval::Segment::Linear,
                 }],
                 extrapolate: Extrapolation::HOLD,
             };

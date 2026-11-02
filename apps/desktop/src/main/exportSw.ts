@@ -12,7 +12,7 @@
 // group), so a renderer crash/reload mid-export can leave native threads alive
 // with no owner — closeAllExportSw reaps them.
 import type { BrowserWindow, WebContents } from 'electron'
-import type { NativeDecode } from '@weftcut/native-decode'
+import type { NativeDecode } from '@lahza/native-decode'
 import type { ExportSwOpenReply } from '../shared/ipc'
 import { reserveDecoderResources } from './resources'
 

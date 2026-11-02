@@ -5,8 +5,8 @@ import type { AppSettings } from '../../src/shared/app-settings';
 test('export presets can be managed in the export dialog and reused after restart', async ({}, testInfo) => {
   test.setTimeout(120_000);
   const longName = '审阅交付版本_'.padEnd(40, 'W');
-  const userDataDir = tmpDir('weftcut-preset-profile-');
-  const parentFolder = tmpDir('weftcut-preset-projects-');
+  const userDataDir = tmpDir('lahza-preset-profile-');
+  const parentFolder = tmpDir('lahza-preset-projects-');
   const first = await launchApp({ userDataDir });
   try {
     const { page } = first;

@@ -12,7 +12,7 @@
 // selection gate upstream decides when a GPU session is even opened.
 import { sharedTexture } from 'electron'
 import type { BrowserWindow, ColorSpace, SharedTextureImported } from 'electron'
-import type { NativeDecode, PreviewGpuAdapter } from '@weftcut/native-decode'
+import type { NativeDecode, PreviewGpuAdapter } from '@lahza/native-decode'
 import {
   HW_BUDGET_EXCEEDED,
   HW_BUDGET_RESERVATION_MISMATCH,
@@ -87,7 +87,7 @@ function releaseImports(
 }
 
 /// Barrier strategy applied before a slot is acked, read ONCE from
-/// `WEFTCUT_HW_BARRIER` and reported on every open reply (see `HwBarrierMode`
+/// `LAHZA_HW_BARRIER` and reported on every open reply (see `HwBarrierMode`
 /// for what each mode does, and note that under `rendererFence` the barrier runs
 /// in the RENDERER, not the preload). Main owns the decision rather than either
 /// of them so one process reads the environment and every session agrees on the
@@ -105,9 +105,9 @@ const HW_BARRIER_MODES: readonly HwBarrierMode[] = [
 ]
 const HW_BARRIER_DEFAULT: HwBarrierMode = 'rendererFence'
 const HW_BARRIER_MODE: HwBarrierMode = HW_BARRIER_MODES.includes(
-  (process.env.WEFTCUT_HW_BARRIER ?? '') as HwBarrierMode,
+  (process.env.LAHZA_HW_BARRIER ?? '') as HwBarrierMode,
 )
-  ? (process.env.WEFTCUT_HW_BARRIER as HwBarrierMode)
+  ? (process.env.LAHZA_HW_BARRIER as HwBarrierMode)
   : HW_BARRIER_DEFAULT
 
 /// Live HW-session count (for the renderer's budget-aware resolution + tests).

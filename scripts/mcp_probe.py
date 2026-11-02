@@ -1,4 +1,4 @@
-"""Tiny MCP probe for WeftCut (Streamable HTTP transport).
+"""Tiny MCP probe for Lahza (Streamable HTTP transport).
 
 Lives outside the Cargo / Vite trees so it doesn't get picked up by any
 build script. Run against a live dev app as:
@@ -25,12 +25,12 @@ import sys
 import urllib.error
 import urllib.request
 
-# The app's userData is Electron's default for the product name, `%APPDATA%\WeftCut`
+# The app's userData is Electron's default for the product name, `%APPDATA%\Lahza`
 # (dev and packaged alike), unless it was launched with `--user-data-dir` — then
-# point WEFTCUT_USERDATA at that directory. `dev.weftcut.desktop` is the appId,
+# point LAHZA_USERDATA at that directory. `dev.lahza.desktop` is the appId,
 # not the folder.
 CONFIG_PATH = os.path.join(
-    os.environ.get("WEFTCUT_USERDATA") or os.path.expandvars(r"%APPDATA%\WeftCut"),
+    os.environ.get("LAHZA_USERDATA") or os.path.expandvars(r"%APPDATA%\Lahza"),
     "mcp_auth.json",
 )
 

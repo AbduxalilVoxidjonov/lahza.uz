@@ -23,7 +23,7 @@ export interface BridgeDeps {
   makeTransport?: (auth: McpAuth) => Transport
   onUp: () => void
   onDown: () => void
-  /// Server-initiated notifications from the app (the weftcut/change feed),
+  /// Server-initiated notifications from the app (the lahza/change feed),
   /// forwarded verbatim to the stdio client.
   onNotification: (n: { method: string; params?: unknown }) => void
   /// The downstream client's name (what the agent's client declared to the
@@ -48,7 +48,7 @@ export interface ForwardOptions {
 
 /// What the shim calls itself upstream until the downstream client has named
 /// itself.
-const SHIM_CLIENT_NAME = 'weftcut-mcp'
+const SHIM_CLIENT_NAME = 'lahza-mcp'
 
 /// Close a client AND its app-side session (the DELETE), best-effort.
 async function endSession(c: Client): Promise<void> {
@@ -297,7 +297,7 @@ export class Bridge {
 
 export class BridgeDownError extends Error {
   constructor() {
-    super('WeftCut is not reachable')
+    super('Lahza is not reachable')
   }
 }
 
@@ -309,6 +309,6 @@ export class BridgeTimeoutError extends Error {
     readonly timeoutMs: number,
     readonly total: boolean,
   ) {
-    super(`WeftCut did not answer ${method} within ${timeoutMs} ms`)
+    super(`Lahza did not answer ${method} within ${timeoutMs} ms`)
   }
 }

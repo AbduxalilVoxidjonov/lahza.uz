@@ -23,7 +23,7 @@ test('post-drag timing correlates all phases on a dense synthetic timeline', asy
   }
   app.process().stdout?.on('data', collect)
   try {
-    const parent = tmpDir('weftcut-edit-latency-')
+    const parent = tmpDir('lahza-edit-latency-')
     await newProject(page, { parentFolder: parent, name: 'seed',
       canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'add_color_layer', { tStartUs: 0, durationUs: 62_000_000 })
@@ -45,7 +45,7 @@ test('post-drag timing correlates all phases on a dense synthetic timeline', asy
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
     const marker = page.locator(`[data-testid="timeline-marker"][data-marker-id="${root.markers[0].id}"]`)
     await expect(marker).toBeVisible()
-    await page.evaluate(() => localStorage.setItem('weftcut.debug.editTrace', '1'))
+    await page.evaluate(() => localStorage.setItem('lahza.debug.editTrace', '1'))
     const box = await marker.boundingBox()
     if (!box) throw new Error('Missing marker geometry')
     await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)

@@ -37,7 +37,7 @@ if ($Action -eq 'screens') {
  }) | ConvertTo-Json -Compress
  exit
 }
-if (!$Title.StartsWith('WeftCut colorpick probe overlay ')) { throw 'Input target is not a probe overlay' }
+if (!$Title.StartsWith('Lahza colorpick probe overlay ')) { throw 'Input target is not a probe overlay' }
 $targetWindow=[ColorpickInput]::FindWindow([IntPtr]::Zero,$Title)
 if ($targetWindow -eq [IntPtr]::Zero) { throw 'Probe window not found' }
 [void][ColorpickInput]::SetForegroundWindow($targetWindow)

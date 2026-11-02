@@ -65,8 +65,8 @@ async fn live_unicode_whisper_paths() {
     };
     let dir = fixture();
     let model = dir.path().join("模型.bin");
-    link_file(&installed("WEFTCUT_WHISPER_MODEL"), &model);
-    let binary = runtime(&installed("WEFTCUT_WHISPER_CLI"), dir.path());
+    link_file(&installed("LAHZA_WHISPER_MODEL"), &model);
+    let binary = runtime(&installed("LAHZA_WHISPER_CLI"), dir.path());
     let engine = WhisperCpp::new(binary, model, Some(4), Some("cpu".into()));
     let cache = crate::cache::CacheLayout::new(dir.path().join("项目, 缓存"));
     let extracted = crate::speech::audio_extract::extract_audio_window(
@@ -102,9 +102,9 @@ async fn live_unicode_funasr_paths() {
     let dir = fixture();
     let model = dir.path().join("模型.onnx");
     let tokens = dir.path().join("词表.txt");
-    link_file(&installed("WEFTCUT_FUNASR_MODEL"), &model);
-    link_file(&installed("WEFTCUT_FUNASR_TOKENS"), &tokens);
-    let binary = runtime(&installed("WEFTCUT_FUNASR_CLI"), dir.path());
+    link_file(&installed("LAHZA_FUNASR_MODEL"), &model);
+    link_file(&installed("LAHZA_FUNASR_TOKENS"), &tokens);
+    let binary = runtime(&installed("LAHZA_FUNASR_CLI"), dir.path());
     let engine = FunAsr::new(binary, model, tokens, Some(4), Some("cpu".into()));
     let raw = engine
         .transcribe(TranscribeRequest {
@@ -129,9 +129,9 @@ async fn live_unicode_vlm_paths() {
     let dir = fixture();
     let model = dir.path().join("模型.gguf");
     let projector = dir.path().join("视觉.gguf");
-    link_file(&installed("WEFTCUT_VLM_MODEL"), &model);
-    link_file(&installed("WEFTCUT_VLM_MMPROJ"), &projector);
-    let binary = runtime(&installed("WEFTCUT_VLM_CLI"), dir.path());
+    link_file(&installed("LAHZA_VLM_MODEL"), &model);
+    link_file(&installed("LAHZA_VLM_MMPROJ"), &projector);
+    let binary = runtime(&installed("LAHZA_VLM_CLI"), dir.path());
     let frame = dir.path().join("图像, 第一帧.png");
     image::RgbImage::from_pixel(64, 64, image::Rgb([40, 100, 180]))
         .save(&frame)
@@ -146,10 +146,10 @@ async fn live_unicode_vlm_paths() {
     )
     .await
     .expect("ffmpeg must sample a Unicode/comma image into a Unicode/comma directory");
-    let style = match std::env::var("WEFTCUT_VLM_STYLE").as_deref() {
+    let style = match std::env::var("LAHZA_VLM_STYLE").as_deref() {
         Ok("minicpm") => OutputStyle::MiniCpmVText,
         Ok("qwen") | Err(_) => OutputStyle::Qwen3VlJson,
-        Ok(other) => panic!("unknown WEFTCUT_VLM_STYLE: {other}"),
+        Ok(other) => panic!("unknown LAHZA_VLM_STYLE: {other}"),
     };
     let engine = LlamaMtmdSidecar::new(binary, model, projector, None, style);
     let raw = engine

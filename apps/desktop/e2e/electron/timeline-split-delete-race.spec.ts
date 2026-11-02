@@ -40,7 +40,7 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-split-delete-race-'),
+      parentFolder: tmpDir('lahza-split-delete-race-'),
       name: `split-delete-${Date.now()}`,
       canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 },
     })
@@ -49,7 +49,7 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
     expect(imported.kind).toBe('Video')
     await waitForHook(page, 'revealLayer')
     await page.evaluate(
-      (layerId) => (window as any).__weftcutTest.revealLayer({ layerId }),
+      (layerId) => (window as any).__lahzaTest.revealLayer({ layerId }),
       imported.layerId,
     )
 
@@ -86,8 +86,8 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
         release,
         released,
       }
-      ;(globalThis as any).__weftcutSummaryRaceGate = gate
-      ;(globalThis as any).__weftcutE2EBackendInvokeInterceptor = async (
+      ;(globalThis as any).__lahzaSummaryRaceGate = gate
+      ;(globalThis as any).__lahzaE2EBackendInvokeInterceptor = async (
         cmd: string,
         args: Record<string, unknown> | undefined,
         next: (
@@ -111,7 +111,7 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
       patch: { label: 'summary-race-probe' },
     })
     await page.waitForFunction(
-      () => (globalThis as any).__weftcutSummaryRaceGate?.captured === 1,
+      () => (globalThis as any).__lahzaSummaryRaceGate?.captured === 1,
     )
 
     const rightIndex = await blocks.evaluateAll((nodes) => {
@@ -130,8 +130,8 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
       .toBe(1)
     // The old publication is now stale relative to the delete event. Releasing
     // it lets the bounded reader discard it and fetch the newest revision.
-    await page.evaluate(() => { (globalThis as any).__weftcutSummaryRaceGate.release() })
-    await page.waitForFunction(() => (globalThis as any).__weftcutSummaryRaceGate?.delivered === 1)
+    await page.evaluate(() => { (globalThis as any).__lahzaSummaryRaceGate.release() })
+    await page.waitForFunction(() => (globalThis as any).__lahzaSummaryRaceGate?.delivered === 1)
     await expect(blocks).toHaveCount(1)
     const cutLayer = videoLayers(await readSummary(page))[0]!
     expect(cutLayer.id).toBe(imported.layerId)
@@ -163,8 +163,8 @@ test('an older summary cannot restore a VideoClip after split-right-delete', asy
   } finally {
     await page
       .evaluate(() => {
-        delete (globalThis as any).__weftcutE2EBackendInvokeInterceptor
-        delete (globalThis as any).__weftcutSummaryRaceGate
+        delete (globalThis as any).__lahzaE2EBackendInvokeInterceptor
+        delete (globalThis as any).__lahzaSummaryRaceGate
       })
       .catch(() => {})
     await app.close()

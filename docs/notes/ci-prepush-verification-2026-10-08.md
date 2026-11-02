@@ -5,7 +5,7 @@ Reviewed the two most recent `electron-ci` failures against local `main`
 
 ## Findings
 
-- [Run 37712381349](https://github.com/WeftCut/WeftCut/actions/runs/37712381349):
+- [Run 37712381349](https://api.github.com/repositories/1246738326/actions/runs/37712381349):
   the 4K Relaxed header-search test failed on both macOS and Windows, including
   retries. English text needed 61/58 px but received 18/0 px respectively.
   Linux and the checks/native jobs passed.
@@ -14,7 +14,7 @@ Reviewed the two most recent `electron-ci` failures against local `main`
   but the worker error still fails the job. The uploaded report has no call
   stack or trace identifying whether launch, fetch or close stalled. This
   remains an unresolved Windows flake, not a confirmed media-serving defect.
-- [Run 37639633512](https://github.com/WeftCut/WeftCut/actions/runs/37639633512)
+- [Run 37639633512](https://api.github.com/repositories/1246738326/actions/runs/37639633512)
   also failed the popup-layering script's Windows path comparison and the
   macOS small-dialog geometry test. Both pass in the newer run, so no further
   changes were made for those failures. Other retry-only failures from that
@@ -56,6 +56,6 @@ fix for the Windows timeout.
 - Narrow-header screenshot reviewed at 960 px; search, menus, locale control
   and caption buttons remain visible without overlap.
 
-Logs and local E2E output are under `/tmp/weftcut-ci-*` and
+Logs and local E2E output are under `/tmp/lahza-ci-*` and
 `apps/desktop/reports/ci-header/`. The viewport tests ran in Linux Electron;
 native macOS/Windows behavior still needs the next CI run. No push was made.

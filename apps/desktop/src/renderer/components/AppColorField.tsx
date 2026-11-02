@@ -34,7 +34,7 @@ export interface AppColorFieldProps {
   withEyeDropper?: boolean;
 }
 
-/// The one color swatch for every WeftCut form. A skinned native
+/// The one color swatch for every Lahza form. A skinned native
 /// `<input type="color">` — keeps the OS picker (no custom popover). Does NOT
 /// debounce: callers whose commit triggers an expensive re-render (e.g. PropertyPanel
 /// CDP re-capture) must keep their own debounce. The eyedropper commits through

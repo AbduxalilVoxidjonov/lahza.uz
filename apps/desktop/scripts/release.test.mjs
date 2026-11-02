@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
-import { validateVersion, planRelease, setVersion, readVersion, validateAssets, releaseNotes } from './release.mjs'
+import { validateVersion, planRelease, setVersion, readVersion, validateAssets, releaseNotes, remoteTagCommit } from './release.mjs'
 
 test('only increasing stable versions become releases; unpublished versions retry', () => {
   for (const bad of ['0.1.001', 'v0.1.1', '0.1.1-beta.1', '0.1.1+001', '1.2', null]) {
@@ -19,7 +19,7 @@ test('only increasing stable versions become releases; unpublished versions retr
 })
 
 test('version command keeps both packages and all lockfile version entries in sync', async t => {
-  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-version-'))
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'lahza-version-'))
   t.after(() => fs.rm(root, { recursive: true, force: true }))
   await fs.mkdir(path.join(root, 'apps/desktop'), { recursive: true })
   await fs.writeFile(path.join(root, 'package.json'), JSON.stringify({ version: '0.0.0' }))
@@ -35,12 +35,12 @@ test('version command keeps both packages and all lockfile version entries in sy
 })
 
 async function assets(t) {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'weftcut-release-'))
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'lahza-release-'))
   t.after(() => fs.rm(dir, { recursive: true, force: true }))
   const data = Buffer.from('installer fixture')
   const sha512 = createHash('sha512').update(data).digest('base64')
   // Per-target os/arch names, as electron-builder writes them (release.mjs INSTALLERS).
-  const files = [['win', 'x64', 'exe'], ['linux', 'x86_64', 'AppImage'], ['linux', 'amd64', 'deb'], ['mac', 'arm64', 'dmg']].map(([os, arch, ext]) => ({ url: `WeftCut-${os}-${arch}.${ext}`, size: data.length, sha512 }))
+  const files = [['win', 'x64', 'exe'], ['linux', 'x86_64', 'AppImage'], ['linux', 'amd64', 'deb'], ['mac', 'arm64', 'dmg']].map(([os, arch, ext]) => ({ url: `LahzaStudio-${os}-${arch}.${ext}`, size: data.length, sha512 }))
   for (const file of files) await fs.writeFile(path.join(dir, file.url), data)
   await fs.writeFile(path.join(dir, 'LahzaStudio-win-x64.exe.blockmap'), 'blockmap fixture')
   await fs.writeFile(path.join(dir, 'LahzaStudio-mac-arm64.dmg.blockmap'), 'blockmap fixture')
@@ -77,9 +77,9 @@ test('release notes name every installer the validator requires', () => {
   for (const file of ['LahzaStudio-win-x64.exe', 'LahzaStudio-linux-x86_64.AppImage', 'LahzaStudio-linux-amd64.deb', 'LahzaStudio-mac-arm64.dmg']) {
     assert.ok(notes.includes(file), `notes omit ${file}`)
   }
-  assert.doesNotMatch(notes, /WeftCut-\d+\.\d+\.\d+/)
+  assert.doesNotMatch(notes, /Lahza-\d+\.\d+\.\d+/)
   // The Gatekeeper escape hatch is the one line a blocked macOS user needs verbatim.
-  assert.ok(notes.includes('xattr -dr com.apple.quarantine /Applications/WeftCut.app'))
+  assert.ok(notes.includes('xattr -dr com.apple.quarantine /Applications/LahzaStudio.app'))
 })
 test('release validation refuses corrupt installer bytes', async t => {
   const dir = await assets(t)
@@ -93,4 +93,18 @@ test('release validation refuses stale manifests and unexpected assets', async t
   // An Intel DMG has no leg that builds it; one appearing means a stray file.
   await fs.writeFile(path.join(dir, 'LahzaStudio-mac-x64.dmg'), '')
   await assert.rejects(validateAssets(dir, '0.1.1'), /Unexpected release asset/)
+})
+test('release validation refuses an asset at GitHub\'s 2 GiB limit', async t => {
+  const dir = await assets(t)
+  // Sparse file: no real disk use. The size check runs before any hashing.
+  await fs.truncate(path.join(dir, 'LahzaStudio-mac-arm64.dmg.blockmap'), 2 * 1024 ** 3).catch(async () => {
+    await fs.writeFile(path.join(dir, 'LahzaStudio-mac-arm64.dmg.blockmap'), '')
+    await fs.truncate(path.join(dir, 'LahzaStudio-mac-arm64.dmg.blockmap'), 2 * 1024 ** 3)
+  })
+  await assert.rejects(validateAssets(dir, '0.1.1'), /2 GiB limit/)
+})
+test('a pushed tag resolves to its commit, peeling annotated tags', () => {
+  const sha = 'a'.repeat(40), peeled = 'b'.repeat(40)
+  assert.equal(remoteTagCommit(`${sha}\trefs/tags/v0.1.1`), sha)
+  assert.equal(remoteTagCommit(`${sha}\trefs/tags/v0.1.1\n${peeled}\trefs/tags/v0.1.1^{}`), peeled)
 })

@@ -36,7 +36,7 @@ test('settings buttons and form controls scale across every category', async () 
 test('timeline typography follows the theme and ruler labels remain separated', async () => {
   const { app, page } = await launchApp({ locale: 'zh-CN' });
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-timeline-type-'), name: 'Timeline type',
+    await newProject(page, { parentFolder: tmpDir('lahza-timeline-type-'), name: 'Timeline type',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } });
     const { tracks } = await rootSummary<{ tracks: Array<{ id: string; role: string | null }> }>(page);
     const layerId = await invokeCmd<string>(page, 'add_color_layer', {
@@ -94,7 +94,7 @@ test('native window minimums follow every theme immediately', async () => {
 test('panel constraints and chrome scale together when a layout theme changes', async () => {
   const { app, page } = await launchApp({ locale: 'zh-CN' });
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-constraints-'), name: 'Constraints',
+    await newProject(page, { parentFolder: tmpDir('lahza-constraints-'), name: 'Constraints',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } });
     const strip = page.locator('.weft-dock-panel[data-panel-kind="quick-actions"]');
     await expect(strip).toBeVisible();
@@ -114,7 +114,7 @@ test('header search text fits the 4K relaxed theme', async () => {
   const { app, page } = await launchApp({ locale: 'zh-CN' });
   const viewport = await page.context().newCDPSession(page);
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-search-layout-'), name: 'Search layout',
+    await newProject(page, { parentFolder: tmpDir('lahza-search-layout-'), name: 'Search layout',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } });
     await invokeCmd(page, 'app_settings_set', { patch: { layout_theme: '4k-wide' } });
     await expect(page.locator('html')).toHaveAttribute('data-layout-theme', '4k-wide');
@@ -161,7 +161,7 @@ test('header search text fits the 4K relaxed theme', async () => {
 });
 
 test('layout themes resize typography and portal dialogs, fit a small window and survive restart', async () => {
-  const userDataDir = tmpDir('weftcut-layout-theme-');
+  const userDataDir = tmpDir('lahza-layout-theme-');
   const first = await launchApp({ locale: 'zh-CN', userDataDir });
   const viewport = await first.page.context().newCDPSession(first.page);
   try {

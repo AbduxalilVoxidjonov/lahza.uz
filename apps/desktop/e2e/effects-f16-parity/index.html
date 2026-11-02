@@ -132,7 +132,7 @@ void main(){ float v = vUV.x < 0.5 ? 0.4 : 0.6; finalColor=vec4(v,v,v,1.0); }`;
             return { filterPoolTextureFormat: fmt };
           });
 
-          // Pass the gradient through a BlurFilter (WeftCut's Tier-A v1 filter).
+          // Pass the gradient through a BlurFilter (Lahza's Tier-A v1 filter).
           const outRT = RenderTexture.create({ width: W, height: H, format: "rgba16float" });
           const stage = new Container();
           const sp = new Sprite(srcRT);

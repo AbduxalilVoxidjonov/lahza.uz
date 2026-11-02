@@ -9,6 +9,6 @@ export async function syncNativeMenu(projection: MenuProjection): Promise<void> 
   try {
     await window.api.menu.sync(projection);
   } catch (e) {
-    console.warn("[weftcut/menu] native menu sync failed:", e);
+    console.warn("[lahza/menu] native menu sync failed:", e);
   }
 }

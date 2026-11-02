@@ -172,7 +172,7 @@ export class MotifCaptureService {
           // Readback failure is independent from OSR/display transport. A PNG
           // retry needs no renderer and subsequent persistence skips readback.
           if (!(error instanceof ReadbackUnavailable)) {
-            console.warn('[weftcut/motif] Shared-texture capture failed; using PNG fallback:', error)
+            console.warn('[lahza/motif] Shared-texture capture failed; using PNG fallback:', error)
             this.useTexture = false
             this.deps.setTextureEnabled(false)
           }
@@ -273,7 +273,7 @@ export class MotifCaptureService {
           }, key, high, isCurrent)
         } catch (error) {
           if (this.keepsTexturePath(args, error, writeFailed)) throw error
-          console.warn('[weftcut/motif] Shared-texture capture failed; using PNG fallback:', error)
+          console.warn('[lahza/motif] Shared-texture capture failed; using PNG fallback:', error)
           this.useTexture = false
           this.deps.setTextureEnabled(false)
         }

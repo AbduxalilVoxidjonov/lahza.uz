@@ -9,7 +9,7 @@ import type { ModelProfile } from "../shared/inference-models";
 
 const roots: string[] = [];
 function setup() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "weftcut-model-downloads-test-")); roots.push(root);
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lahza-model-downloads-test-")); roots.push(root);
   const downloads = path.join(root, "downloads"), partials = path.join(root, "partials");
   fs.mkdirSync(downloads); fs.mkdirSync(partials);
   const rm = vi.fn((target: string) => {
@@ -22,7 +22,7 @@ function setup() {
 }
 afterEach(() => {
   for (const root of roots.splice(0)) {
-    if (path.dirname(root) !== path.resolve(os.tmpdir()) || !path.basename(root).startsWith("weftcut-model-downloads-test-")) throw new Error("Unsafe test cleanup");
+    if (path.dirname(root) !== path.resolve(os.tmpdir()) || !path.basename(root).startsWith("lahza-model-downloads-test-")) throw new Error("Unsafe test cleanup");
     fs.rmSync(root, { recursive: true, force: true });
   }
 });

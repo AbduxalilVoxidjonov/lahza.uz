@@ -5,14 +5,14 @@ import { fileURLToPath } from 'node:url'
 import { analyze, analyzeGradientRow } from '../lib/analyze.mjs'
 import { launchApp, newProject, driveExport, importAndPlaceMedia, invokeCmd, tmpDir, exportSsimFloor } from './helpers/driver'
 
-const MEDIA = process.env.WEFTCUT_TEST_MEDIA || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/media')
+const MEDIA = process.env.LAHZA_TEST_MEDIA || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/media')
 
 test('resource rejection explains recovery and opens performance settings without changing the budget', async ({}, testInfo) => {
   const { app, page } = await launchApp({ locale: 'zh-CN' })
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-budget-help-'), name: 'Budget help', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-budget-help-'), name: 'Budget help', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     const media = await importAndPlaceMedia(page, { mediaAbsPath: path.join(MEDIA, 'test_1080p_30fps_6s.mp4') })
-    await page.evaluate(mediaId => (window as any).__weftcutTest.waitMediaExportReady({ mediaId }), media.mediaId)
+    await page.evaluate(mediaId => (window as any).__lahzaTest.waitMediaExportReady({ mediaId }), media.mediaId)
     const before = await invokeCmd<any>(page, 'app_settings_get')
     // Exercise the real authority and Electron's wrapped rejection, independently
     // of the machine's memory size or other active resource leases.
@@ -22,7 +22,7 @@ test('resource rejection explains recovery and opens performance settings withou
         acquire(event, { ...request, memoryMiB }))
     }, before.resource_allocation.work_mib + 1)
     const result = await driveExport(page, {
-      outputAbsPath: path.join(tmpDir('weftcut-budget-help-out-'), 'out.mp4'),
+      outputAbsPath: path.join(tmpDir('lahza-budget-help-out-'), 'out.mp4'),
       settings: { audio: { include: false }, decodeEngine: 'webcodecs' },
     }, { hook: 'exportTimeline' })
     expect(result.done.ok).toBe(false)
@@ -45,15 +45,15 @@ for (const memoryMiB of [2304, 4096]) test(`bounded WebCodecs 10-bit export drai
   test.setTimeout(300_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-bounded10-project-'), name: 'Bounded 10-bit', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-bounded10-project-'), name: 'Bounded 10-bit', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: memoryMiB } } })
-    const output = path.join(tmpDir('weftcut-bounded10-output-'), 'export.mp4')
+    const output = path.join(tmpDir('lahza-bounded10-output-'), 'export.mp4')
     const result = await driveExport(page, {
       mediaAbsPath: path.join(MEDIA, 'test_1080p_gradient10_h264.mp4'), outputAbsPath: output,
       settings: { decodeEngine: 'webcodecs', codec: 'hevc', bitDepth: 10, container: 'mp4', audio: { include: false } },
     })
     expect(result.done.ok, result.done.error).toBe(true)
-    const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+    const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
     await testInfo.attach('export-performance', { body: JSON.stringify(perf), contentType: 'application/json' })
     expect(perf.resourcePlan.memoryMiB).toBeLessThanOrEqual(Math.floor(memoryMiB * .4))
     expect(perf.sources[0].buffer.capacityFrames).toBe(memoryMiB === 2304 ? 12 : 24)
@@ -72,10 +72,10 @@ test('cancelling bounded production releases export leases and permits a subsequ
   test.setTimeout(180_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-bounded-cancel-'), name: 'Cancel bounded export', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-bounded-cancel-'), name: 'Cancel bounded export', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: 2304 } } })
     const media = await importAndPlaceMedia(page, { mediaAbsPath: path.join(MEDIA, 'test_1080p_30fps_6s.mp4') })
-    await page.evaluate(mediaId => (window as any).__weftcutTest.waitMediaExportReady({ mediaId }), media.mediaId)
+    await page.evaluate(mediaId => (window as any).__lahzaTest.waitMediaExportReady({ mediaId }), media.mediaId)
     await app.evaluate(({ ipcMain }) => {
       const acquire = ipcMain._invokeHandlers.get('resources:acquire')!
       const leases = new Set<string>()
@@ -93,16 +93,16 @@ test('cancelling bounded production releases export leases and permits a subsequ
       })
       ipcMain.on('resources:release', (_event, id: string) => leases.delete(id))
     })
-    const outDir = tmpDir('weftcut-bounded-cancel-output-')
+    const outDir = tmpDir('lahza-bounded-cancel-output-')
     await page.evaluate(outputAbsPath => {
       const w = window as any
       w.__cancelExportDone = false
-      void w.__weftcutTest.exportTimeline({ outputAbsPath, settings: { decodeEngine: 'webcodecs', audio: { include: false } } })
+      void w.__lahzaTest.exportTimeline({ outputAbsPath, settings: { decodeEngine: 'webcodecs', audio: { include: false } } })
         .catch(() => {}) // cancellation produces no output file
         .finally(() => { w.__cancelExportDone = true })
     }, path.join(outDir, 'cancelled.mp4'))
     await page.waitForFunction(() => {
-      const state = (window as any).__weftcutExportState
+      const state = (window as any).__lahzaExportState
       if (state?.kind !== 'progress' || state.progress.frame < 6) return false
       state.onCancel()
       return true
@@ -111,7 +111,7 @@ test('cancelling bounded production releases export leases and permits a subsequ
     await expect.poll(() => app.evaluate(() => (globalThis as any).__cancelExportLeases.size)).toBe(0)
     const result = await driveExport(page, { outputAbsPath: path.join(outDir, 'completed.mp4'), settings: { decodeEngine: 'webcodecs', audio: { include: false } } }, { hook: 'exportTimeline' })
     expect(result.done.ok, result.done.error).toBe(true)
-    expect(await page.evaluate(() => (window as any).__weftcutExportPerf.totalFrames)).toBe(180)
+    expect(await page.evaluate(() => (window as any).__lahzaExportPerf.totalFrames)).toBe(180)
   } finally { await app.close() }
 })
 
@@ -119,13 +119,13 @@ test('1080p export streams within a 2304 MiB memory target', async () => {
   test.setTimeout(180_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-bounded-project-'), name: 'Bounded export', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-bounded-project-'), name: 'Bounded export', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: 2304 } } })
     const source = path.join(MEDIA, 'test_1080p_30fps_6s.mp4')
-    const output = path.join(tmpDir('weftcut-bounded-output-'), 'export.mp4')
+    const output = path.join(tmpDir('lahza-bounded-output-'), 'export.mp4')
     const result = await driveExport(page, { mediaAbsPath: source, outputAbsPath: output, settings: { includeAudio: false, decodeEngine: 'webcodecs' } })
     expect(result.done.ok, result.done.error).toBe(true)
-    const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+    const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
     expect(perf.totalFrames).toBe(180)
     expect(perf.totalDispatched).toBeLessThanOrEqual(182)
     expect(perf.sources).toHaveLength(1)
@@ -139,10 +139,10 @@ test('trimmed long-GOP export fits the working allowance and preserves source fr
   test.setTimeout(180_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-preroll-project-'), name: 'Preroll', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-preroll-project-'), name: 'Preroll', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: 4096 } } })
     const source = path.join(MEDIA, 'test_1080p_30fps_eostail.mp4')
-    const outDir = tmpDir('weftcut-preroll-output-')
+    const outDir = tmpDir('lahza-preroll-output-')
     const output = path.join(outDir, 'trimmed.mp4')
     // Keyframes are at 0 and 5s: reaching 4.5s requires decoding 135 pictures
     // which should never be retained or charged as an entire resident GOP.
@@ -152,7 +152,7 @@ test('trimmed long-GOP export fits the working allowance and preserves source fr
       settings: { includeAudio: false },
     })
     expect(result.done.ok, result.done.error).toBe(true)
-    const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+    const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
     expect(perf.totalFrames).toBe(9)
     const reference = path.join(outDir, 'reference.mp4')
     const trimmed = spawnSync(process.env.FFMPEG || 'ffmpeg', [
@@ -176,19 +176,19 @@ for (const { label, memory, stepUs, clips, expectedFrames } of [
   test.setTimeout(240_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-sequential-project-'), name: 'Sequential clips', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-sequential-project-'), name: 'Sequential clips', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: memory } } })
     const source = path.join(MEDIA, 'test_1080p_30fps_6s.mp4')
     const first = await importAndPlaceMedia(page, { mediaAbsPath: source })
     for (let i = 0; i < clips; i++) {
       const startUs = i * stepUs
       const layerId = i === 0 ? first.layerId : (await page.evaluate(
-        args => (window as any).__weftcutTest.placeMediaLayer(args),
+        args => (window as any).__lahzaTest.placeMediaLayer(args),
         { mediaId: first.mediaId, tStartUs: startUs },
       )).layerId
       await invokeCmd(page, 'trim_layer', { layerId, edge: 'out', newTUs: startUs + 300_000 })
     }
-    await page.evaluate(id => (window as any).__weftcutTest.waitMediaExportReady({ mediaId: id }), first.mediaId)
+    await page.evaluate(id => (window as any).__lahzaTest.waitMediaExportReady({ mediaId: id }), first.mediaId)
     // Track actual decoder leases rather than relying on a process RSS floor
     // that differs between hardware and software rendering. Even six retained
     // decoders still exceed this budget; sequential clips need only one.
@@ -209,11 +209,11 @@ for (const { label, memory, stepUs, clips, expectedFrames } of [
       })
       ipcMain.on('resources:release', (_event, id: string) => leases.delete(id))
     })
-    const outputDir = tmpDir('weftcut-sequential-output-')
+    const outputDir = tmpDir('lahza-sequential-output-')
     const output = path.join(outputDir, 'sequence.mp4')
     const result = await driveExport(page, { outputAbsPath: output, settings: { audio: { include: false }, decodeEngine: 'webcodecs' } }, { hook: 'exportTimeline' })
     expect(result.done.ok, result.done.error).toBe(true)
-    const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+    const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
     expect(perf.totalFrames).toBe(expectedFrames)
     expect(perf.sources).toHaveLength(clips)
     expect(await app.evaluate(() => (globalThis as any).__sequentialDecoders.peak)).toBe(1)
@@ -235,16 +235,16 @@ test('Motif and video export reduces in-flight frames to fit the 2304 MiB memory
   test.setTimeout(180_000)
   const { app, page } = await launchApp()
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-motif-budget-'), name: 'Motif budget', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-motif-budget-'), name: 'Motif budget', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
     await invokeCmd(page, 'app_settings_set', { patch: { resource_policy: { memory_mib: 2304 } } })
     const source = await importAndPlaceMedia(page, { mediaAbsPath: path.join(MEDIA, 'test_1080p_30fps_6s.mp4') })
     await invokeCmd(page, 'trim_layer', { layerId: source.layerId, edge: 'out', newTUs: 2_000_000 })
-    await page.evaluate(id => (window as any).__weftcutTest.waitMediaExportReady({ mediaId: id }), source.mediaId)
-    const output = path.join(tmpDir('weftcut-motif-budget-out-'), 'out.mp4')
+    await page.evaluate(id => (window as any).__lahzaTest.waitMediaExportReady({ mediaId: id }), source.mediaId)
+    const output = path.join(tmpDir('lahza-motif-budget-out-'), 'out.mp4')
     const result = await driveExport(page, { motifId: 'text-fx', outputAbsPath: output, durationUs: 2_000_000,
       settings: { encoderEngine: 'native', audio: { include: false } } }, { hook: 'exportMotifClip' })
     expect(result.done.ok, result.done.error).toBe(true)
-    const perf = await page.evaluate(() => (window as any).__weftcutExportPerf)
+    const perf = await page.evaluate(() => (window as any).__lahzaExportPerf)
     await testInfo.attach('export-performance', { body: JSON.stringify(perf), contentType: 'application/json' })
     expect(perf.totalFrames).toBe(60)
     expect(perf.resourcePlan.memoryMiB).toBeLessThanOrEqual(921)

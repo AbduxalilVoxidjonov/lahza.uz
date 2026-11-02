@@ -239,8 +239,8 @@ async function persistVideo(win) {
 // Result 5 — renderer color paths (POC_COLOR=1).
 //
 // The gap: every prior result verified pixels ONLY via 2D `drawImage` +
-// `getImageData`, which honors `VideoFrame.colorSpace`. WeftCut's real renderer
-// uploads to WebGPU/Pixi, and a known WeftCut finding is that Pixi v8's
+// `getImageData`, which honors `VideoFrame.colorSpace`. Lahza's real renderer
+// uploads to WebGPU/Pixi, and a known Lahza finding is that Pixi v8's
 // `device.queue.copyExternalImageToTexture({source: videoFrame})` IGNORES the
 // frame's colorSpace and always converts with the BT.709 matrix — so a correctly
 // BT.601-tagged frame mis-converts. UNVERIFIED for our shared NV12 textures: does
@@ -329,7 +329,7 @@ async function colorTest(win) {
 // this fixes, with numbers, is documented in native/src/convert.rs.
 //
 // Two textures from the SAME solid clip, in the SAME run:
-//   - refDraw      = 2D drawImage of the RAW NV12 frame (601-tagged) — WeftCut's
+//   - refDraw      = 2D drawImage of the RAW NV12 frame (601-tagged) — Lahza's
 //                    existing-pipeline reference (~[20,220,40]).
 //   - bgraViaWebGPU= copyExternalImageToTexture readback of the NATIVE-CONVERTED
 //                    BGRA texture (the path that was WRONG for raw NV12).

@@ -3,7 +3,7 @@
 // with the app, so a regression in fetching/staging can never produce a
 // distributable that violates its own third-party licenses.
 //
-//   1. LGPL lane — @weftcut/native-decode's in-process ffmpeg runtime: banner
+//   1. LGPL lane — @lahza/native-decode's in-process ffmpeg runtime: banner
 //      must be LGPL-clean (no --enable-gpl/--enable-nonfree, shared build),
 //      closing the LGPL §6 "GPL builds can never ship by accident" gate at
 //      package time (docs/adr/0030; issue #5 §Packaging).

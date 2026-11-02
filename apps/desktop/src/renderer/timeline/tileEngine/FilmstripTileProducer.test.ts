@@ -25,7 +25,7 @@ vi.mock("../../ipc", () => ({
   getFilmstripTile: vi.fn(),
 }));
 vi.mock("@/bridge/ipc", () => ({
-  convertFileSrc: vi.fn((path: string) => `weftcut-media://test/${path}`),
+  convertFileSrc: vi.fn((path: string) => `lahza-media://test/${path}`),
 }));
 
 // The producer's fetch pipeline reads the ambient `fetch`/`createImageBitmap`
@@ -170,8 +170,8 @@ describe("filmstrip tile producer (shared engine)", () => {
 
     expect(vi.mocked(convertFileSrc)).toHaveBeenCalledWith("/cache/tile-3-5.jpg");
     // The composition matters: fetch must receive convertFileSrc's RETURN
-    // value (the weftcut-media:// URL), not the raw ipc path.
-    expect(fetchMock).toHaveBeenCalledWith("weftcut-media://test//cache/tile-3-5.jpg");
+    // value (the lahza-media:// URL), not the raw ipc path.
+    expect(fetchMock).toHaveBeenCalledWith("lahza-media://test//cache/tile-3-5.jpg");
     expect(value.tUs).toBe(index * spacingUs(lod));
     expect(value.bitmap).toBe(fakeBitmap);
     // Assert the REGISTERED bytes callback, not a locally recomputed formula.

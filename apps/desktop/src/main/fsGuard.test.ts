@@ -56,7 +56,7 @@ describe('isAllowed', () => {
   const USER = path.resolve('/home/u/userData')
   // The data root is user-relocatable and can live OUTSIDE userData; the backend
   // media cache + user Motifs now live under it, so it is an admitted root.
-  const DATA = path.resolve('/mnt/media/weftcut-data')
+  const DATA = path.resolve('/mnt/media/lahza-data')
   const roots = [TEMP, USER, DATA]
 
   it('accepts a path under any root', () => {

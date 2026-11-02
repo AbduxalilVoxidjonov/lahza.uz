@@ -1,7 +1,7 @@
 // apps/desktop/bench/hosts/remote.ts
 //
 // The app on another machine (Windows), driven over SSH; the agent and the
-// runner stay here. Per run, under <USERPROFILE>\weftcut-bench on the host:
+// runner stay here. Per run, under <USERPROFILE>\lahza-bench on the host:
 //
 //   runs\<slug>\profile   isolated userData seeded from the user's profile
 //                         (config files re-pointed, model files hard-linked)
@@ -32,7 +32,7 @@ const BENCH_DIR = path.dirname(HERE)
 export interface RemoteOptions {
   /** ssh alias (~/.ssh/config). */
   alias: string
-  /** The WeftCut checkout on the host, already built (`out\main\index.js`). */
+  /** The Lahza checkout on the host, already built (`out\main\index.js`). */
   repo: string
   /** Keep the run directory (profile, project, mirror) after the run. */
   keep: boolean
@@ -60,7 +60,7 @@ async function hostInfo(ssh: Ssh, opts: RemoteOptions): Promise<{ root: string; 
   if (!infoCache.has(k)) infoCache.set(k, (async () => {
     const home = (await ssh.exec('echo %USERPROFILE%')).stdout.trim().split(/\r?\n/).pop()?.trim()
     if (!home || !/^[A-Za-z]:\\/.test(home)) throw new Error(`cannot read %USERPROFILE% on ${opts.alias} (got ${JSON.stringify(home)}); is it a Windows host?`)
-    const root = win.join(home, 'weftcut-bench')
+    const root = win.join(home, 'lahza-bench')
     // The helper and the fixture tooling, refreshed every invocation.
     const fx = path.join(BENCH_DIR, 'fixtures')
     await ssh.sftp([
@@ -162,7 +162,7 @@ export async function startRemoteHost(opts: HostStartOptions & RemoteOptions): P
       electron: win.join(opts.repo, 'node_modules', 'electron', 'dist', 'electron.exe'),
       cwd: appDir,
       args: ['--lang=en-US', `--user-data-dir=${profile}`, win.join(appDir, 'out', 'main', 'index.js')],
-      env: { LANG: 'en_US.UTF-8', LANGUAGE: 'en_US:en', LC_ALL: 'en_US.UTF-8', WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1' },
+      env: { LANG: 'en_US.UTF-8', LANGUAGE: 'en_US:en', LC_ALL: 'en_US.UTF-8', LAHZA_SUPPRESS_ELEVATION_NOTICE: '1' },
       ffmpeg_dir: win.join(appDir, 'resources', 'ffmpeg', 'win'),
     })
     pid = Number(launched.pid)

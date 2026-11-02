@@ -247,7 +247,7 @@ export class TransitionNodeManager {
       }).catch(() => {});
     } else {
       // eslint-disable-next-line no-console
-      console.warn(`[weftcut/transitions] ${message}`);
+      console.warn(`[lahza/transitions] ${message}`);
     }
   }
 }

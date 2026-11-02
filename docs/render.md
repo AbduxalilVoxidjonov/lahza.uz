@@ -38,7 +38,7 @@ apps/desktop/src/renderer/render/
   PlaybackEngine.ts          — visual attachment to the session transport
   decoder/
     SourceDecoderPool.ts     — per-clip VideoDecoder + ring; refcounted shared mediabunny Input per source; idle-dispose
-    mediaInput.ts            — opens a mediabunny Input over a weftcut-media:// Range CustomSource (AssetRangeSource)
+    mediaInput.ts            — opens a mediabunny Input over a lahza-media:// Range CustomSource (AssetRangeSource)
     PacketPump.ts            — single-flight async packet→decoder loop (getKeyPacket/getNextPacket)
     probeSourceDecodable.ts  — export pre-flight: can this machine's WebCodecs decode the original?
     FrameRing.ts             — 1 s lookahead / 0.5 s lookbehind per clip; stores ImageBitmap snapshots
@@ -105,7 +105,7 @@ Compositor first resolves the view's `AnimTrack<T>` properties at the
 layer-local time via `render/resolveView.ts` — numeric tracks through
 `render/animated.ts`'s `resolveAnimated`, color tracks through its
 `resolveAnimatedColor` twin (OkLab + premultiplied alpha), both calling
-the shared `weftcut-eval` wasm (the SAME crate Rust links natively, so
+the shared `lahza-eval` wasm (the SAME crate Rust links natively, so
 there is one keyframe engine, not a hand-mirrored pair;
 [ADR 0025](adr/0025-shared-eval-wasm-leaf-crate.md)) — then
 hands the resolved scalar view to the sprite to update its texture /
@@ -339,9 +339,9 @@ released.
 ### Byte handling
 
 The source is never fully resident in memory. The mediabunny `Input`
-reads through a `weftcut-media://` Range `CustomSource` (`AssetRangeSource`):
+reads through a `lahza-media://` Range `CustomSource` (`AssetRangeSource`):
 each read issues an HTTP `Range` request and returns exactly the
-requested bytes. The `weftcut-media:` custom protocol handler (registered
+requested bytes. The `lahza-media:` custom protocol handler (registered
 in the main process) honors Range — the same path HTML5 `<video>` seeks
 through — whereas a plain `fetch(url)` buffers the whole body before
 exposing `body.getReader()`, defeating streaming.
@@ -372,7 +372,7 @@ for every clip under the playhead; with one shared ring, N
 overlapping clips of the same media wrote N conflicting anchors per
 tick, the ring evicted its own contents, and the decoder reset once
 per overlapping clip per tick — observable as a continuous
-`[weftcut/pixi] decoder reset:` log spam with no clip ever painting
+`[lahza/pixi] decoder reset:` log spam with no clip ever painting
 a stable frame.
 
 Per-clip decoders give each layer a stable anchor + lookahead at the
@@ -664,7 +664,7 @@ dual-path because export has no `navigator.gpu`, bilinear-only
 sampling with no mips, and a fresh colour-conformance pass.
 
 **Export is the one case that could reopen it**, and it is still
-unmeasured: `__weftcutExportPerf` `compositeMs` is the instrument,
+unmeasured: `__lahzaExportPerf` `compositeMs` is the instrument,
 and 4K export is where the blit would matter. Do not start without
 that number. The staged plan, if it ever arrives, lives in the issue
 tracker, not here.
@@ -801,7 +801,7 @@ frame alignment in the offset clip's exclusive region.
 With this grouping, dispatch sits on the inherent floor for every
 forward-marching timeline shape — single-clip, sequential re-use,
 different-phase overlap, and mid-GOP range entry, each measured against
-its floor via the worker's `__weftcutExportPerf` counters during
+its floor via the worker's `__lahzaExportPerf` counters during
 development.
 Source time per pipeline is `t + phase`, monotonic in `t`, so backward
 re-seeks never fire in normal export; the residual costs — one decode

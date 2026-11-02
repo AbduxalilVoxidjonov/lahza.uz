@@ -438,7 +438,7 @@ pub(super) async fn compare_frames(
     let (path_b, t_b) = resolve_frame_ref(&args.b, "b")?;
 
     let tmp = tempfile::Builder::new()
-        .prefix("weftcut-cmp")
+        .prefix("lahza-cmp")
         .tempdir()
         .map_err(|e| McpToolError::internal_error(format!("temp dir: {e}"), None))?;
     let img_a = jobs::shot::extract_rgb(&path_a, t_a, &tmp.path().join("a.png"))
@@ -1032,7 +1032,7 @@ mod tests {
     async fn detect_pauses_reads_the_injected_peaks_path_and_reports_fx() {
         let b = Backend::new_for_test(std::sync::Arc::new(crate::events::VecEventSink::new()));
         b.init().await.unwrap();
-        let dir = std::env::temp_dir().join(format!("weftcut-pauses-{}", Uuid::now_v7()));
+        let dir = std::env::temp_dir().join(format!("lahza-pauses-{}", Uuid::now_v7()));
         std::fs::create_dir_all(&dir).unwrap();
         let fx_peaks = dir.join("fx.v4.peaks");
         // 4 s of speech over room tone, with 1 s of tone alone from 0.5 s; the

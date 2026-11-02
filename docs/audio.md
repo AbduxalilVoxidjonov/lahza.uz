@@ -64,7 +64,7 @@ the load repair. See [data-model.md](data-model.md) for the enforcement contract
 ## The conform cache
 
 Every imported media with an audio stream gets a conform file —
-WeftCut's equivalent of Premiere's CFA conform, and chosen for the
+Lahza's equivalent of Premiere's CFA conform, and chosen for the
 same reason Premiere states for theirs: the cache format **is** the
 engine working format, so the hot path never converts.
 
@@ -85,7 +85,7 @@ capped at 2, interleaved.**
   >2-channel sources downmix to stereo at conform. Consumers up-mix
   mono via the pan law (below).
 - **Interleaved** because the preview reads time-windows over
-  `weftcut-media://` HTTP Range requests — one window, one contiguous
+  `lahza-media://` HTTP Range requests — one window, one contiguous
   byte range.
 
 File layout (little-endian, sibling of the `.peaks` format):
@@ -162,7 +162,7 @@ the artifact being played ages out as the oldest unit in the cache.
 ## The envelope contract
 
 The heart of the design. For each audio layer, the shared keyframe engine
-(now the single `weftcut-eval` leaf — compiled natively for Rust and to
+(now the single `lahza-eval` leaf — compiled natively for Rust and to
 wasm for the renderer, see [`render.md`](render.md) and
 [ADR 0025](adr/0025-shared-eval-wasm-leaf-crate.md)) resolves two
 envelopes over the layer's local time span:
@@ -192,7 +192,7 @@ ramp between the two grid points that straddle it. Accepted; 10 ms is
 well under a frame.
 
 The envelope sampler's drift-prone math is single-sourced in the
-`weftcut-eval` leaf (native for Rust, wasm for the renderer): `db_to_linear`
+`lahza-eval` leaf (native for Rust, wasm for the renderer): `db_to_linear`
 (`10^(dB/20)`), the keyframe interpolation it samples, the **fade ramp**
 (`fade_multiplier`), and the **equal-power pan law** (`pan_coeffs`). The
 sampler STRUCTURE around them — the 10 ms grid loop and the per-sample lerp —
@@ -200,7 +200,7 @@ is still parallel Rust/TS code, guarded by `audioEnvelopeGolden.fixture.json`.
 
 Pan law: the equal-power law is a time-varying 2×2 mix matrix
 `[a,b,c,d]` (`out_l = a·l + b·r`, `out_r = c·l + d·r`), computed by
-`weftcut-eval::pan_coeffs`. The canonical pan control points are the
+`lahza-eval::pan_coeffs`. The canonical pan control points are the
 COEFFICIENTS, sampled on the 10 ms grid; both consumers lerp coefficients
 (export per-sample, preview via `setValueCurveAtTime`) — the same grid →
 lerp discipline as gain, so parity holds by construction. The
@@ -218,7 +218,7 @@ per layer:  AudioBufferSourceNode (chunk)
                                  the role's gain is folded into it here)
               → ChannelSplitter → 4×GainNode → ChannelMerger
                                 (pan matrix; coefficient curves from the
-                                 weftcut-eval pan law — mono uses 2 gains)
+                                 lahza-eval pan law — mono uses 2 gains)
               → trim GainNode   (micro-fades, re-anchor masking)
               → roleBus(role).gain
 role bus:   gain (UNITY, permanently) → master.input
@@ -250,7 +250,7 @@ deliberately *not* the per-role processing bus the Roles section defers:
 [ADR 0066](adr/0066-a-role-meter-is-a-tap-not-a-bus.md).
 
 **Feeding:** chunks are read straight from the conform file over
-`weftcut-media://` HTTP Range requests (loop-read until the exact byte
+`lahza-media://` HTTP Range requests (loop-read until the exact byte
 count, the established Range discipline) and de-interleaved into
 `AudioBuffer`s — **no decode in the renderer, ever**. Chunk length 1 s, lookahead 3 s,
 at most 8 live chunks and 8 cached PCM buffers per layer. Buffers are shared
@@ -331,7 +331,7 @@ separate future step; UI stalls can still delay command delivery or refill.
 
 The mute/solo half of these rules is evaluated against the project's `audio_roles`
 table, so it is consistent whatever track a layer lives on. The mute/solo
-DECISION itself now runs the shared `weftcut-eval` leaf (`role_audible` — native
+DECISION itself now runs the shared `lahza-eval` leaf (`role_audible` — native
 in the export planner `audible_audio_layers`, wasm in the preview gate
 `roleGate.ts`; [ADR 0025](adr/0025-shared-eval-wasm-leaf-crate.md)) and is guarded
 by the `roleGateGolden.fixture.json` cross-language golden. The layer-selection

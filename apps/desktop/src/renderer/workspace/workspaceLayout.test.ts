@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 
 import {
-  WEFTCUT_LAYOUT_VERSION,
+  LAHZA_LAYOUT_VERSION,
   createEditingLayout,
   normalizeLayout,
   resolveWorkspaceLayout,
@@ -19,7 +19,7 @@ function leaf(views: string[], extra: Record<string, unknown> = {}) {
 
 function nonEmpty(root: unknown, grid: Record<string, unknown> = {}) {
   return {
-    version: WEFTCUT_LAYOUT_VERSION,
+    version: LAHZA_LAYOUT_VERSION,
     empty: false,
     dockview: {
       grid: { root, orientation: "HORIZONTAL", width: 1000, height: 720, ...grid },
@@ -38,8 +38,8 @@ describe("normalizeLayout", () => {
   });
 
   it("preserves an intentionally empty layout as a valid, distinct state", () => {
-    expect(normalizeLayout({ version: WEFTCUT_LAYOUT_VERSION, empty: true })).toEqual({
-      version: WEFTCUT_LAYOUT_VERSION,
+    expect(normalizeLayout({ version: LAHZA_LAYOUT_VERSION, empty: true })).toEqual({
+      version: LAHZA_LAYOUT_VERSION,
       empty: true,
       dockview: null,
       placements: {},
@@ -48,7 +48,7 @@ describe("normalizeLayout", () => {
 
   it("carries closed-Panel placement metadata through, dropping unknown kinds", () => {
     const result = normalizeLayout({
-      version: WEFTCUT_LAYOUT_VERSION,
+      version: LAHZA_LAYOUT_VERSION,
       empty: true,
       placements: {
         caption: { siblings: ["attribute", "caption"], index: 1 },
@@ -163,7 +163,7 @@ describe("normalizeLayout", () => {
   // the one restore has to put back untouched.
   it("keeps a stored timeline slot in its own cell at its own size", () => {
     const result = normalizeLayout({
-      version: WEFTCUT_LAYOUT_VERSION,
+      version: LAHZA_LAYOUT_VERSION,
       empty: false,
       dockview: {
         grid: {
@@ -222,7 +222,7 @@ describe("normalizeLayout", () => {
 
   it("binds the timeline slot to a composition, and folds it back", () => {
     const stored = {
-      version: WEFTCUT_LAYOUT_VERSION,
+      version: LAHZA_LAYOUT_VERSION,
       empty: false,
       dockview: {
         grid: {
@@ -271,9 +271,9 @@ describe("normalizeLayout", () => {
   });
 
   it("rejects a structurally broken tree", () => {
-    expect(normalizeLayout({ version: WEFTCUT_LAYOUT_VERSION, empty: false, dockview: {} })).toBeNull();
+    expect(normalizeLayout({ version: LAHZA_LAYOUT_VERSION, empty: false, dockview: {} })).toBeNull();
     expect(
-      normalizeLayout({ version: WEFTCUT_LAYOUT_VERSION, empty: false, dockview: { grid: {} } }),
+      normalizeLayout({ version: LAHZA_LAYOUT_VERSION, empty: false, dockview: { grid: {} } }),
     ).toBeNull();
   });
 });
@@ -393,7 +393,7 @@ describe("resolveWorkspaceLayout", () => {
 
   it("falls through a corrupt current to a valid saved baseline", () => {
     const candidates = resolveWorkspaceLayout({
-      current: { version: WEFTCUT_LAYOUT_VERSION, empty: false, dockview: { grid: {} } },
+      current: { version: LAHZA_LAYOUT_VERSION, empty: false, dockview: { grid: {} } },
       saved: validSaved,
     });
     expect(candidates.map((c) => c.source)).toEqual(["saved"]);
@@ -401,7 +401,7 @@ describe("resolveWorkspaceLayout", () => {
 
   it("includes an intentionally empty current as a valid candidate", () => {
     const candidates = resolveWorkspaceLayout({
-      current: { version: WEFTCUT_LAYOUT_VERSION, empty: true },
+      current: { version: LAHZA_LAYOUT_VERSION, empty: true },
       saved: null,
     });
     expect(candidates).toHaveLength(1);

@@ -44,7 +44,7 @@ if (!isPerfHudWindow) {
   });
 }
 const showSplashDebugControl =
-  import.meta.env.DEV || import.meta.env.VITE_WEFTCUT_E2E === "1";
+  import.meta.env.DEV || import.meta.env.VITE_LAHZA_E2E === "1";
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing from index.html");
@@ -249,11 +249,11 @@ function Root() {
     };
   }, []);
 
-  // E2E-only: expose `window.__weftcutTest.newProjectAndEnter` so the E2E
+  // E2E-only: expose `window.__lahzaTest.newProjectAndEnter` so the E2E
   // suite can create a project + enter the editor headlessly. The dynamic
-  // import behind the static `VITE_WEFTCUT_E2E` check is stripped from prod.
+  // import behind the static `VITE_LAHZA_E2E` check is stripped from prod.
   useEffect(() => {
-    if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
+    if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
     void import("./testhook/e2eHook").then(
       ({ installBootstrapHook, installMotifTestHooks, installMotifHook, installAudioTestHooks, installDecodeBenchHooks }) => {
         installBootstrapHook(

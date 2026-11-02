@@ -388,7 +388,7 @@ fences a frame on a proven surface
 A GPU copy moves the frame into our pool before releasing the OSR surface. A
 failure of the texture output itself disables it for the session; a hung
 host, a disk error or the Motif's own failure never does.
-`WEFTCUT_MOTIF_CAPTURE=png` forces the previous path for diagnosis.
+`LAHZA_MOTIF_CAPTURE=png` forces the previous path for diagnosis.
 See [ADR 0078](adr/0078-motifs-cache-pixels-and-transfer-persistent-textures.md)
 and [the measured conformance cases](../poc/motif-frame-cache/FINDINGS.md).
 

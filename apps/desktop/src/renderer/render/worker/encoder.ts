@@ -101,7 +101,7 @@ export class EncoderSink {
       output: (chunk, metadata) => this.onEncodedChunk(chunk, metadata),
       error: (e: unknown) => {
         // eslint-disable-next-line no-console
-        console.error("[weftcut/export] encoder error:", e);
+        console.error("[lahza/export] encoder error:", e);
       },
     });
     this.encoder.configure(init.config);

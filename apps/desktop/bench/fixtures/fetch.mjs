@@ -6,11 +6,11 @@
 //   node bench/fixtures/fetch.mjs --list       ids, licenses, sizes
 //   ... --json                                 also print one `@@META@@{id: fixture.json}` line
 //
-// Downloads into bench/.cache/fixtures/ (git-ignored; WEFTCUT_BENCH_CACHE
+// Downloads into bench/.cache/fixtures/ (git-ignored; LAHZA_BENCH_CACHE
 // overrides), verifies sha256, trims where the fixture says so, transcodes to
 // the H.264/AAC MP4 the bench imports, and prints each MP4's path. Exits
 // non-zero on any failure, hash mismatches included. Needs ffmpeg (with
-// libx264) and ffprobe on PATH (WEFTCUT_BENCH_FFMPEG / WEFTCUT_BENCH_FFPROBE
+// libx264) and ffprobe on PATH (LAHZA_BENCH_FFMPEG / LAHZA_BENCH_FFPROBE
 // override).
 
 import { fixtureIds, loadManifest, resolveFixtureWithMeta } from './fixtures.mjs'

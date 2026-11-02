@@ -1,15 +1,15 @@
-// Level-0 availability gate for the optional @weftcut/native-decode component
+// Level-0 availability gate for the optional @lahza/native-decode component
 // (ADR 0030 §Conditional first-class). Main tries the require ONCE in
 // a try/catch; failure means the Native decode engine is unavailable — the app
 // keeps working, the setting grays out with `reason`, `auto` skips Native tiers.
 //
 // Why a separate addon: a missing avcodec DLL in a single addon's import table
-// would fail the entire require('@weftcut/core') — jobs/export/MCP would die
+// would fail the entire require('@lahza/core') — jobs/export/MCP would die
 // with it. Isolation is structural, not optional (docs/adr/0030).
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import os from 'node:os'
-import type { NativeDecode } from '@weftcut/native-decode'
+import type { NativeDecode } from '@lahza/native-decode'
 
 export type OnComponentEvent = (err: Error | null, json: string) => void
 
@@ -26,7 +26,7 @@ export interface NativeDecodeComponent {
   lanes: string[]
 }
 
-type ComponentModule = typeof import('@weftcut/native-decode')
+type ComponentModule = typeof import('@lahza/native-decode')
 
 /// Testable core: injectable require + DLL dir. On Windows the ffmpeg shared
 /// DLLs resolve via the process PATH at dlopen time, so prepend the bundled
@@ -81,7 +81,7 @@ export function loadNativeDecode(onEvent: OnComponentEvent): NativeDecodeCompone
 /// docs/adr/0030.
 function requireComponent(require_: NodeRequire): () => ComponentModule {
   if (process.platform !== 'linux') {
-    return () => require_('@weftcut/native-decode') as ComponentModule
+    return () => require_('@lahza/native-decode') as ComponentModule
   }
   return () => {
     const orig = process.dlopen
@@ -90,7 +90,7 @@ function requireComponent(require_: NodeRequire): () => ComponentModule {
     process.dlopen = (module, filename, flags?: number) =>
       orig.call(process, module, filename, (flags ?? 0) | deep)
     try {
-      return require_('@weftcut/native-decode') as ComponentModule
+      return require_('@lahza/native-decode') as ComponentModule
     } finally {
       process.dlopen = orig
     }

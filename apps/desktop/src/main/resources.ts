@@ -17,7 +17,7 @@ interface NativeResources {
   resourcesRetainRaster(paths: string[]): void;
 }
 let native: NativeResources | undefined;
-const getNative = () => native ??= createRequire(import.meta.url)('@weftcut/core') as NativeResources;
+const getNative = () => native ??= createRequire(import.meta.url)('@lahza/core') as NativeResources;
 
 /** The native authority is also used by native background jobs. No per-window
  * semaphore can manufacture additional compute or working-memory capacity. */
@@ -26,7 +26,7 @@ export function configureResources(allocation: ResourceAllocation): void {
   void getNative().resourcesCacheWritten(true).catch(error => console.warn('Cache maintenance could not start', error));
 }
 export function decoderResourceMiB(path: string): number {
-  return (createRequire(import.meta.url)('@weftcut/native-decode') as { decodeMemoryMib(path: string): number }).decodeMemoryMib(path);
+  return (createRequire(import.meta.url)('@lahza/native-decode') as { decodeMemoryMib(path: string): number }).decodeMemoryMib(path);
 }
 export function tryExportPlan(options: number[], nativeEncoder: boolean): import('../shared/export-resources').ExportAdmission {
   return JSON.parse(getNative().resourcesPlanExport(JSON.stringify(options), nativeEncoder));
@@ -35,7 +35,7 @@ export function waitForResourceChange(revision: number): Promise<void> { return 
 export function releaseResourceId(id: number): void { getNative().resourcesRelease(id); }
 export function reserveDecoderResources(path: string, finalizationId?: number): () => void {
   if (!native) return () => {}; // isolated managers/tests; app bootstrap installs the authority
-  const decode = createRequire(import.meta.url)('@weftcut/native-decode') as {
+  const decode = createRequire(import.meta.url)('@lahza/native-decode') as {
     configureDecodeThreads(threads: number): void; decodeMemoryMib(path: string): number;
   };
   const threads = resourceAllocation().task_threads;

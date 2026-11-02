@@ -7,7 +7,7 @@
 // to the native producer; in-flight bytes remain charged through napi and IPC.
 // Sessions close when their renderer disappears or navigates away.
 import type { BrowserWindow } from 'electron'
-import type { NativeDecode } from '@weftcut/native-decode'
+import type { NativeDecode } from '@lahza/native-decode'
 import { reserveDecoderResources } from './resources'
 
 const sessions = new Map<string, { win: BrowserWindow; cleanup: () => void; release: () => void }>()

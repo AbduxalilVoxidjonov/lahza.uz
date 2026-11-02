@@ -1,14 +1,14 @@
 # Third-party notices
 
-WeftCut's own source code is licensed under the [MIT License](LICENSE).
+Lahza's own source code is licensed under the [MIT License](LICENSE).
 Packaged distributions (installers) additionally bundle the third-party
 components below, each under its own license. None of them changes the license
-of WeftCut's own code — see [docs/licensing.md](docs/licensing.md) for how the
+of Lahza's own code — see [docs/licensing.md](docs/licensing.md) for how the
 boundaries work.
 
 ## FFmpeg — LGPL shared libraries (in-process decode)
 
-The `@weftcut/native-decode` addon dynamically links FFmpeg shared libraries
+The `@lahza/native-decode` addon dynamically links FFmpeg shared libraries
 (`libavcodec`, `libavformat`, `libavutil`, `libswscale`, `libswresample`,
 `libavfilter`, `libavdevice`) built **without** `--enable-gpl` or
 `--enable-nonfree`. These libraries are licensed under the
@@ -28,7 +28,7 @@ The `@weftcut/native-decode` addon dynamically links FFmpeg shared libraries
 
 ## FFmpeg — GPL command-line binaries (encode/transcode sidecar)
 
-WeftCut bundles stock `ffmpeg` and `ffprobe` command-line binaries and runs
+Lahza bundles stock `ffmpeg` and `ffprobe` command-line binaries and runs
 them strictly as **separate subprocesses** (proxy transcodes, audio conform,
 export encode/mux). These builds enable GPL components (x264, x265, …) and are
 licensed under the **GNU General Public License version 3**.

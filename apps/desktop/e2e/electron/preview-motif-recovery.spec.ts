@@ -9,7 +9,7 @@ declare global {
 }
 
 const probe = (page: Page) => page.evaluate(() =>
-  (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.previewResourceProbe())
+  (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.previewResourceProbe())
 
 // Compare authored content independent of CSS canvas size. Averaging accent
 // coverage in a small grid tolerates display resampling while distinguishing
@@ -42,7 +42,7 @@ async function picture(page: Page) {
 
 async function setup(page: Page) {
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-recovery-project-'), name: 'Recovery',
+    parentFolder: tmpDir('lahza-recovery-project-'), name: 'Recovery',
     canvas: { width: 480, height: 480, fpsNum: 30, fpsDen: 1 },
   })
   await waitForHook(page, 'previewRecovery')
@@ -59,7 +59,7 @@ test('@serial motif preview survives LRU eviction, GPU unload and a failed prese
   try {
     await setup(page)
     await page.evaluate(async () => {
-      const hook = (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest
+      const hook = (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest
       // Sibling sprites must keep their shared canonical bitmap alive.
       await hook.motifAddCountdown()
       await hook.motifAddCountdown()
@@ -75,7 +75,7 @@ test('@serial motif preview survives LRU eviction, GPU unload and a failed prese
     for (let round = 0; round < 3; round++) {
       const before = (await probe(page))!
       const pressure = await page.evaluate(() =>
-        (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.previewRecovery('evict-and-unload'))
+        (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.previewRecovery('evict-and-unload'))
       console.log('[preview-recovery] pressure', round, pressure)
       expect(pressure.sources).toBe(2)
       expect(pressure.liveBitmaps).toBe(1)
@@ -86,25 +86,25 @@ test('@serial motif preview survives LRU eviction, GPU unload and a failed prese
 
     // A real low-priority ticker callback consumes the injected exception.
     await page.evaluate(() => {
-      const hook = (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest
+      const hook = (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest
       hook.transportPlay()
       return hook.previewRecovery('throw-next-present')
     })
     await expect.poll(async () => (await probe(page))!.positionUs).toBeGreaterThan(500_000)
     await expect.poll(() => errors.filter((error) => error.includes('[e2e] one failed preview present')).length).toBe(1)
-    await page.evaluate(() => (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.transportPause())
+    await page.evaluate(() => (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.transportPause())
     const paused = (await probe(page))!
     await page.waitForTimeout(200)
     expect((await probe(page))!.positionUs).toBe(paused.positionUs)
-    await page.evaluate(() => (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.transportPlay())
+    await page.evaluate(() => (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.transportPlay())
     await expect.poll(async () => (await probe(page))!.positionUs).toBeGreaterThan(paused.positionUs + 500_000)
     await page.evaluate(() => {
-      const hook = (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest
+      const hook = (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest
       hook.transportPause()
-      hook.weftcutSeekUs(2_500_000)
+      hook.lahzaSeekUs(2_500_000)
     })
     const reference = await page.evaluate(() =>
-      (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.captureMotifFrame({
+      (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.captureMotifFrame({
         motifId: 'countdown', tSec: 2.5, props: { seconds: 5, accent: '#ff4d4d' }, width: 480, height: 480,
       }))
     const expected = accentGrid(PNG.sync.read(Buffer.from(reference, 'base64')))
@@ -125,7 +125,7 @@ test('@serial paused motif recovers after a real capture bitmap rejection withou
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   page.on('console', (message) => {
-    if (message.type() === 'error' && message.text().includes('[weftcut/motifs] preview frame failed')) failures.push(message.text())
+    if (message.type() === 'error' && message.text().includes('[lahza/motifs] preview frame failed')) failures.push(message.text())
   })
   try {
     await setup(page)
@@ -142,7 +142,7 @@ test('@serial paused motif recovers after a real capture bitmap rejection withou
         return Reflect.apply(decode, window, args)
       }) as typeof createImageBitmap
     })
-    await page.evaluate(() => (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.motifAddCountdown())
+    await page.evaluate(() => (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.motifAddCountdown())
     await expect.poll(() => probe(page), { timeout: 30_000 }).not.toBeNull()
     // Keep the outage past the first two retries. A finite three-attempt budget
     // would strand this paused target after the producer becomes healthy.
@@ -175,12 +175,12 @@ test('@serial motif content progresses when frame delivery is slower than the di
         if (args[0] instanceof ImageBitmap) await new Promise(resolve => setTimeout(resolve, 80))
         return bitmap
       }) as typeof createImageBitmap
-      return (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.motifAddCountdown()
+      return (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.motifAddCountdown()
     })
     await expect.poll(async () => (await picture(page)).accent, { timeout: 30_000 }).toBeGreaterThan(200)
     const initial = await picture(page)
     const rows = await page.evaluate(async () => {
-      const h = (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest
+      const h = (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest
       const rows = []
       h.transportPlay()
       for (let i = 0; i < 48; i++) {
@@ -198,7 +198,7 @@ test('@serial motif content progresses when frame delivery is slower than the di
     expect(Math.max(...rows.map(row => row!.heldMs))).toBeLessThan(500)
     expect((await picture(page)).hash).not.toBe(initial.hash)
     await expect.poll(() => page.evaluate(() =>
-      (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.compositorPerfSnapshot()?.motifs?.[0]?.lagFrames),
+      (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.compositorPerfSnapshot()?.motifs?.[0]?.lagFrames),
     { timeout: 20_000 }).toBe(0)
     expect(errors).toEqual([])
     await testInfo.attach('motif-progress.json', { body: JSON.stringify(rows), contentType: 'application/json' })

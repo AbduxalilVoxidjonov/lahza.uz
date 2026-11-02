@@ -22,7 +22,7 @@ these files, credit it as below, say it was modified, and keep the license.
   published under CC BY. The stricter of the two is followed here.
 - **Changes:** cut to the window from 43.447 s to 258.647 s of the original
   (a stream copy), then transcoded from VP9/Opus WebM to H.264/AAC MP4 for the
-  WeftCut agent bench. The derivative is shared under CC BY-SA 4.0.
+  Lahza agent bench. The derivative is shared under CC BY-SA 4.0.
 - **Credit line:** "How does your memory work" by Universiteit van Nederland
   (speaker: Dr. Lisa Genzel, Radboud University), CC BY-SA 4.0, via Wikimedia
   Commons; trimmed and transcoded.
@@ -36,7 +36,7 @@ these files, credit it as below, say it was modified, and keep the license.
   the Commons file page.
 - **Changes:** cut to the window from 96.567 s to 338.967 s of the original
   (a stream copy), then transcoded from VP9/Opus WebM to H.264/AAC MP4 for the
-  WeftCut agent bench. The derivative is shared under CC BY-SA 4.0.
+  Lahza agent bench. The derivative is shared under CC BY-SA 4.0.
 - **Credit line:** "How can we explore planets beyond our solar system" by
   Universiteit van Nederland (speaker: Dr. Yamila Miguel, Leiden University),
   CC BY-SA 4.0, via Wikimedia Commons; trimmed and transcoded.
@@ -49,7 +49,7 @@ these files, credit it as below, say it was modified, and keep the license.
   Videography by Rabbit Hole Productions, LLC. Organized by Wikimedia NYC.
   Speaker: Ann Matsuuchi.
 - **License:** [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
-- **Changes:** transcoded from AV1/Opus WebM to H.264/AAC MP4 for the WeftCut
+- **Changes:** transcoded from AV1/Opus WebM to H.264/AAC MP4 for the Lahza
   agent bench; otherwise used whole.
 - **Credit line:** "WikiConference North America - 2025 - Ann Matsuuchi -
   students have good experiences editing Wikipedia" by Lane Rasberry

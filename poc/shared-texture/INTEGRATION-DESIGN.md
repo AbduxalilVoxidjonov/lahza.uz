@@ -13,7 +13,7 @@ decoding them with native ffmpeg on the GPU and handing frames to the renderer o
 shared texture. It is **opt-in, preview-only, and additive**: nothing about the
 existing path changes unless the user flips a switch. **10-bit is deferred to v2** —
 the Result-7 probe (§5a) found the P010 import blocked, and deferring it keeps the
-native path aligned with WeftCut's existing SDR-only / 10-bit→proxy color stance.
+native path aligned with Lahza's existing SDR-only / 10-bit→proxy color stance.
 
 ## 1. The re-baseline (read this first — it overrides FINDINGS §4b)
 
@@ -68,9 +68,9 @@ The POC becomes, in effect, **a decode module**: a different front-end that prod
    as-is. Pending decision: ship **8-bit-only v1** (10-bit stays on proxy, no
    regression) or add a **native P010→BGRA convert**. 8-bit hard codecs (8-bit HEVC,
    VP9, AV1) are unaffected and validated.
-   **Consistency note (from the §3.6 audit):** WeftCut's existing color path
+   **Consistency note (from the §3.6 audit):** Lahza's existing color path
    (`ffprobeColorSpace.ts`) is *deliberately SDR-only* and already states 10-bit
-   sources "take WeftCut's proxy path" — so deferring 10-bit in the native path
+   sources "take Lahza's proxy path" — so deferring 10-bit in the native path
    matches the codebase's existing 10-bit stance; it is not a new gap, and the P010
    blocker simply keeps the native path aligned with that stance.
 
@@ -217,7 +217,7 @@ it is **not** ported to Rust for v1.
 ## 5. Verification
 
 - **Probe first, in the `poc/shared-texture/` harness, before touching
-  `@weftcut/core`** ("Result 7"). It must prove **two** things (the only remaining
+  `@lahza/core`** ("Result 7"). It must prove **two** things (the only remaining
   unknowns):
   1. **Color** — `createImageBitmap(getVideoFrame())` is correct for raw **NV12**
      8-bit (601 & 709) **and a new P010 10-bit clip**. The `colorSpace` tag passed to
@@ -255,7 +255,7 @@ pinned; pinning it could open a third, shader-free path but is unproven.
   the original) is *expected* to differ from it. Conformance assertions must compare
   native ↔ ground-truth, not native ↔ proxy, or they will false-fail.
 - **v1 merge gated on the local `media_conformance` harness** (Playwright `_electron`,
-  `VITE_WEFTCUT_E2E=1`, local-only / skip CI): drag in HEVC + 10-bit → toggle on →
+  `VITE_LAHZA_E2E=1`, local-only / skip CI): drag in HEVC + 10-bit → toggle on →
   verify instant preview, seek/scrub/pause, forced-failure fallback, and
   multi-source-over-cap overflow.
 

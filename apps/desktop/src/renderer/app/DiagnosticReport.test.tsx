@@ -7,7 +7,7 @@ import { DiagnosticReport, PreviousSessionReport, diagnosticIssueUrl } from './D
 import type { DiagnosticSummary } from '../../shared/diagnostics'
 
 const summary: DiagnosticSummary = {
-  available: true, environment: 'WeftCut 1.2.3 | linux x64',
+  available: true, environment: 'Lahza 1.2.3 | linux x64',
   previousSession: { id: 'test', version: '1.2.2', startedAt: '2026-01-01T00:00:00Z', reason: 'unclean-exit' },
 }
 function stub(value = summary) {
@@ -78,10 +78,10 @@ it('can report without diagnostic storage and only acknowledges after the browse
 
 it('prefills previous and current versions but never places attachments or local paths in the URL', () => {
   const url = new URL(diagnosticIssueUrl(summary))
-  expect(url.origin + url.pathname).toBe('https://github.com/WeftCut/WeftCut/issues/new')
+  expect(url.origin + url.pathname).toBe('https://github.com/AbduxalilVoxidjonov/lahza.uz/issues/new')
   expect(url.searchParams.get('template')).toBe('bug_report.yml')
-  expect(url.searchParams.get('what')).toContain('WeftCut 1.2.2')
-  expect(url.searchParams.get('version')).toContain('WeftCut 1.2.3')
+  expect(url.searchParams.get('what')).toContain('Lahza 1.2.2')
+  expect(url.searchParams.get('version')).toContain('Lahza 1.2.3')
   expect(url.searchParams.get('what')).toContain('unclean-exit')
   expect(url.href).not.toContain('/tmp/')
 })

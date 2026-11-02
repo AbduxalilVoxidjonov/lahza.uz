@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir, rootSummary } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 // Animated (multi-frame) gif. detect_kind must now classify it IMAGE (an
 // animated image looped by the renderer, NO proxy), and it must animate + loop
 // + export. ffmpeg-gated on fixture presence (run: cd apps/desktop/e2e && npm
@@ -34,7 +34,7 @@ test.describe('animated gif is a looping Image (Electron)', () => {
     test.setTimeout(120000)
     const { app, page } = await launchApp()
     try {
-      const PROJECT_PARENT = tmpDir('weftcut-e2e-gif-proj-')
+      const PROJECT_PARENT = tmpDir('lahza-e2e-gif-proj-')
       await newProject(page, {
         parentFolder: PROJECT_PARENT,
         name: 'e2e-gif-' + Date.now(),
@@ -67,7 +67,7 @@ test.describe('animated gif is a looping Image (Electron)', () => {
     test.setTimeout(120000)
     const { app, page } = await launchApp()
     try {
-      const PROJECT_PARENT = tmpDir('weftcut-e2e-gif-proj-')
+      const PROJECT_PARENT = tmpDir('lahza-e2e-gif-proj-')
       await newProject(page, {
         parentFolder: PROJECT_PARENT,
         name: 'e2e-gif-anim-' + Date.now(),
@@ -78,7 +78,7 @@ test.describe('animated gif is a looping Image (Electron)', () => {
       // First call: discover the loop period + frame count.
       const probe = await page.evaluate(
         (id) =>
-          (window as any).__weftcutTest.renderImageOverlaySpriteFrames({
+          (window as any).__lahzaTest.renderImageOverlaySpriteFrames({
             mediaId: id,
             durationUs: 10_000_000,
             maxWidth: 1920,
@@ -94,7 +94,7 @@ test.describe('animated gif is a looping Image (Electron)', () => {
       const mid = Math.floor(total / 2)
       const res = await page.evaluate(
         ({ id, total, mid }) =>
-          (window as any).__weftcutTest.renderImageOverlaySpriteFrames({
+          (window as any).__lahzaTest.renderImageOverlaySpriteFrames({
             mediaId: id,
             durationUs: 10_000_000,
             maxWidth: 1920,
@@ -117,7 +117,7 @@ test.describe('animated gif is a looping Image (Electron)', () => {
     test.setTimeout(180000)
     const { app, page } = await launchApp()
     try {
-      const PROJECT_PARENT = tmpDir('weftcut-e2e-gif-proj-')
+      const PROJECT_PARENT = tmpDir('lahza-e2e-gif-proj-')
       await newProject(page, {
         parentFolder: PROJECT_PARENT,
         name: 'e2e-gif-export-' + Date.now(),
@@ -127,7 +127,7 @@ test.describe('animated gif is a looping Image (Electron)', () => {
 
       const outPath = path.resolve(PROJECT_PARENT, `gif-export-${Date.now()}.mp4`)
       await page.evaluate(
-        (out) => (window as any).__weftcutTest.exportTimeline({ outputAbsPath: out }),
+        (out) => (window as any).__lahzaTest.exportTimeline({ outputAbsPath: out }),
         outPath,
       )
       expect(existsSync(outPath), 'export produced a file').toBe(true)

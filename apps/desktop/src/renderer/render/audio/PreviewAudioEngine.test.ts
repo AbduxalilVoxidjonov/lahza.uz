@@ -55,7 +55,7 @@ function setup(startUs = 0) {
     enabled: true, locked: false, muted: false, solo: false, role: "audio-a",
     transient: false, layers: [layer] };
   const summary = summaryFixture({ root: { duration_us: 10_000_000, tracks: [track] } });
-  const source = { url: "weftcut-media://tone.conform" as string | null };
+  const source = { url: "lahza-media://tone.conform" as string | null };
   const engine = new PreviewAudioEngine(graph, () => source.url);
   engine.setProject(summary, ROOT_ID);
   return { engine, ctx, sources, summary, graph, source, layer, track };
@@ -254,7 +254,7 @@ describe("session-owned preview audio transport", () => {
     engine.setProject(summary, ROOT_ID);
     engine.play(); await settle();
     expect(engine.snapshot().phase).toBe("preparing");
-    source.url = "weftcut-media://ready.conform";
+    source.url = "lahza-media://ready.conform";
     engine.refresh(); await settle();
     expect(engine.snapshot().phase).toBe("playing");
     engine.dispose();
@@ -298,9 +298,9 @@ describe("session-owned preview audio transport", () => {
     engine.setProject(summary, ROOT_ID); await settle();
     expect(reads.opens).toHaveLength(1);
     const beforeSwap = [...sources];
-    source.url = "weftcut-media://baked.conform";
+    source.url = "lahza-media://baked.conform";
     engine.refresh(); await settle(); engine.refresh(); await settle();
-    expect(reads.opens).toEqual(["weftcut-media://tone.conform", "weftcut-media://baked.conform"]);
+    expect(reads.opens).toEqual(["lahza-media://tone.conform", "lahza-media://baked.conform"]);
     expect(beforeSwap.every((s) => s.stop.mock.calls.length > 0)).toBe(true);
     source.url = null;
     engine.refresh(); await settle();
@@ -470,7 +470,7 @@ describe("session-owned preview audio transport", () => {
     const { engine } = setup();
     engine.play(); await settle();
     expect(engine.snapshot()).toMatchObject({ phase: "error", error: "NetworkError: PCM fetch failed" });
-    expect(logged).toHaveBeenCalledWith("[weftcut/audio] playback failed: NetworkError: PCM fetch failed");
+    expect(logged).toHaveBeenCalledWith("[lahza/audio] playback failed: NetworkError: PCM fetch failed");
     reads.failRead = false;
     engine.play(); await settle();
     expect(engine.snapshot().phase).toBe("playing");

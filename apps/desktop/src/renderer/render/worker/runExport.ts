@@ -448,8 +448,8 @@ export async function runExport(init: RunExportInit): Promise<RunExportResult> {
       } else if (ev.type === "done") {
         // E2E-only: surface the worker's perf counters for the harness to read
         // (stripped from prod by the static env check).
-        if (import.meta.env.VITE_WEFTCUT_E2E === "1" && ev.perf) {
-          (window as unknown as { __weftcutExportPerf?: unknown }).__weftcutExportPerf =
+        if (import.meta.env.VITE_LAHZA_E2E === "1" && ev.perf) {
+          (window as unknown as { __lahzaExportPerf?: unknown }).__lahzaExportPerf =
             { ...ev.perf, resourcePlan: init.resourcePlan, motif: motifProducer?.stats };
         }
         cleanup();

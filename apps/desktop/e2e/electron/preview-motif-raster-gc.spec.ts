@@ -42,7 +42,7 @@ function invoke(page: import('@playwright/test').Page, channel: string, args: un
 async function reopen(page: import('@playwright/test').Page, projectPath: string): Promise<void> {
   const r = await page.evaluate(
     (p) =>
-      (window as any).__weftcutTest
+      (window as any).__lahzaTest
         .motifReopenProject({ path: p })
         .then(() => ({ ok: true }))
         .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -53,7 +53,7 @@ async function reopen(page: import('@playwright/test').Page, projectPath: string
 
 test('@serial raster GC keeps frames when a motif is unresolvable, reclaims true orphans', async () => {
   test.setTimeout(180_000)
-  const userData = tmpDir('weftcut-e2e-raster-gc-userdata-')
+  const userData = tmpDir('lahza-e2e-raster-gc-userdata-')
   const motifsRoot = path.join(userData, 'data', 'motifs')
   let { app, page } = await launchApp({ userDataDir: userData })
   try {
@@ -62,7 +62,7 @@ test('@serial raster GC keeps frames when a motif is unresolvable, reclaims true
     writeFileSync(path.join(motifsRoot, MOTIF_ID, 'index.html'), motifHtml())
 
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-raster-gc-proj-'),
+      parentFolder: tmpDir('lahza-e2e-raster-gc-proj-'),
       name: 'raster-gc',
       canvas: { width: 320, height: 320, fpsNum: 30, fpsDen: 1 },
     })
@@ -78,7 +78,7 @@ test('@serial raster GC keeps frames when a motif is unresolvable, reclaims true
       .toBe(true)
     const added = await page.evaluate(
       (id) =>
-        (window as any).__weftcutTest
+        (window as any).__lahzaTest
           .addMotifLayer({ motifId: id, durationUs: 2_000_000 })
           .then((layerId: string) => ({ ok: true, layerId }))
           .catch((e: unknown) => ({ ok: false, error: String(e) })),

@@ -79,13 +79,13 @@ const linkMembersOf = (c: WireComposition, layerId: string): string[] =>
 
 const selectedLayerIds = async (page: Page): Promise<string[]> => {
   const ids = (await page.evaluate(() =>
-    (window as any).__weftcutTest.getSelectedLayerIds(),
+    (window as any).__lahzaTest.getSelectedLayerIds(),
   )) as string[];
   return ids.slice().sort();
 };
 
 const openComposition = (page: Page): Promise<{ id: string } | null> =>
-  page.evaluate(() => (window as any).__weftcutTest.getOpenComposition());
+  page.evaluate(() => (window as any).__lahzaTest.getOpenComposition());
 
 const clip = (page: Page, layerId: string): Locator =>
   page.locator(`.timeline-layer[data-layer-id="${layerId}"]`);
@@ -121,11 +121,11 @@ async function seekAndSettle(page: Page, us: number): Promise<void> {
     .poll(
       async () => {
         await page.evaluate(
-          (t) => (window as any).__weftcutTest.transportSeekUs(t),
+          (t) => (window as any).__lahzaTest.transportSeekUs(t),
           us,
         );
         return page.evaluate(() =>
-          (window as any).__weftcutTest.getPlayheadUs(),
+          (window as any).__lahzaTest.getPlayheadUs(),
         );
       },
       { timeout: 20_000 },
@@ -139,7 +139,7 @@ test.describe("Move to…", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-move-to-comp-"),
+        parentFolder: tmpDir("lahza-e2e-move-to-comp-"),
         name: PROJECT_NAME,
         canvas: CANVAS,
       });

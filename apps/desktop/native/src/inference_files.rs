@@ -19,7 +19,7 @@ impl InferenceFiles {
         Ok(Self {
             dir: Arc::new(
                 tempfile::Builder::new()
-                    .prefix("weftcut-inference-")
+                    .prefix("lahza-inference-")
                     .tempdir()?,
             ),
         })

@@ -18,7 +18,7 @@ interface PerfTelemetryProbe {
 const isDarwin = process.platform === 'darwin'
 
 test('the on-demand Dev Performance Monitor is singleton and sleeps on close @serial', async () => {
-  const projectParent = tmpDir('weftcut-perf-monitor-')
+  const projectParent = tmpDir('lahza-perf-monitor-')
   const { app, page: main } = await launchApp()
   try {
     await newProject(main, {
@@ -30,13 +30,13 @@ test('the on-demand Dev Performance Monitor is singleton and sleeps on close @se
       tStartUs: 0,
       durationUs: 1_000_000,
     })
-    await main.waitForFunction(() => !!(window as any).__weftcutPerfTelemetry)
+    await main.waitForFunction(() => !!(window as any).__lahzaPerfTelemetry)
 
     // Release/E2E builds are not development builds: no diagnostic dropdown or
     // Preview overlay may leak into normal application chrome.
     await expect(main.getByRole('button', { name: /Dev/ })).toHaveCount(0)
     await expect(main.locator('[data-testid="perf-hud"]')).toHaveCount(0)
-    expect(await main.evaluate(() => (window as any).__weftcutPerfTelemetry)).toMatchObject({
+    expect(await main.evaluate(() => (window as any).__lahzaPerfTelemetry)).toMatchObject({
       active: false,
       rafActive: false,
       compositorPollActive: false,
@@ -80,7 +80,7 @@ test('the on-demand Dev Performance Monitor is singleton and sleeps on close @se
     }
     await expect(hudWin.locator('[data-testid="perf-hud-window"]')).toBeVisible()
     await expect.poll(
-      () => main.evaluate(() => (window as any).__weftcutPerfTelemetry as PerfTelemetryProbe),
+      () => main.evaluate(() => (window as any).__lahzaPerfTelemetry as PerfTelemetryProbe),
     ).toMatchObject({
       active: true,
       rafActive: true,
@@ -89,10 +89,10 @@ test('the on-demand Dev Performance Monitor is singleton and sleeps on close @se
       resetListenerActive: true,
     })
     await expect.poll(
-      () => main.evaluate(() => (window as any).__weftcutPerfTelemetry.compositorPolls),
+      () => main.evaluate(() => (window as any).__lahzaPerfTelemetry.compositorPolls),
     ).toBeGreaterThan(0)
     await expect.poll(
-      () => main.evaluate(() => (window as any).__weftcutPerfTelemetry.systemPolls),
+      () => main.evaluate(() => (window as any).__lahzaPerfTelemetry.systemPolls),
     ).toBeGreaterThan(0)
 
     // The monitor's own close button closes only that window. The main bridge
@@ -105,7 +105,7 @@ test('the on-demand Dev Performance Monitor is singleton and sleeps on close @se
     }
     await expect.poll(() => app.windows().length).toBe(1)
     await expect.poll(
-      () => main.evaluate(() => (window as any).__weftcutPerfTelemetry as PerfTelemetryProbe),
+      () => main.evaluate(() => (window as any).__lahzaPerfTelemetry as PerfTelemetryProbe),
     ).toMatchObject({
       active: false,
       rafActive: false,
@@ -114,11 +114,11 @@ test('the on-demand Dev Performance Monitor is singleton and sleeps on close @se
       resetListenerActive: false,
     })
     const stopped = await main.evaluate(
-      () => (window as any).__weftcutPerfTelemetry as PerfTelemetryProbe,
+      () => (window as any).__lahzaPerfTelemetry as PerfTelemetryProbe,
     )
     await main.waitForTimeout(1_250)
     const idle = await main.evaluate(
-      () => (window as any).__weftcutPerfTelemetry as PerfTelemetryProbe,
+      () => (window as any).__lahzaPerfTelemetry as PerfTelemetryProbe,
     )
     expect(idle.compositorPolls).toBe(stopped.compositorPolls)
     expect(idle.systemPolls).toBe(stopped.systemPolls)

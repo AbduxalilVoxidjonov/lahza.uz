@@ -1156,7 +1156,7 @@ mod tests {
     async fn memory_sampling_does_not_multiply_rss_by_live_threads() {
         // Other tests spawn ffmpeg/model children concurrently. Isolate this
         // process tree so the comparison is about threads, not those jobs.
-        const CHILD: &str = "WEFTCUT_MEMORY_SAMPLE_TEST_CHILD";
+        const CHILD: &str = "LAHZA_MEMORY_SAMPLE_TEST_CHILD";
         if std::env::var_os(CHILD).is_none() {
             let status = std::process::Command::new(std::env::current_exe().unwrap())
                 .args([

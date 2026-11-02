@@ -130,7 +130,7 @@ impl Transcriber for OpenAiCompatTranscriber {
             return Err(map_status(status, retry_after_s, body, bytes.len()));
         }
         tracing::info!(
-            target: "weftcut::speech",
+            target: "lahza::speech",
             "transcription endpoint answered {status} to verbose_json; retrying as srt",
         );
         let (status, retry_after_s, body) = send(TranscriptFormat::Srt).await?;

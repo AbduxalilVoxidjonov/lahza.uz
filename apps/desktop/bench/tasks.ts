@@ -40,7 +40,7 @@ export interface BenchTask {
   plan_gate?: boolean
   /** The project's TASTE.md, written into the project folder after setup and
    *  before the agent starts: the style it works in. Absent: none, so
-   *  `weftcut-default`. */
+   *  `lahza-default`. */
   taste?: string
   checklist: ChecklistItem[]
 }

@@ -10,7 +10,7 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Speech engines WeftCut can drive. `OpenAi` is a cloud HTTP API; `WhisperCpp`
+/// Speech engines Lahza can drive. `OpenAi` is a cloud HTTP API; `WhisperCpp`
 /// and `FunAsr` are local one-shot CLI sidecars (transcription only, needing a
 /// binary + model on disk); `ByoEndpoint` is any OpenAI-compatible
 /// `/v1/audio/transcriptions` server the user points us at.

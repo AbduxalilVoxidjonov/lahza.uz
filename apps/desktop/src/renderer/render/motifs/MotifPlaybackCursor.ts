@@ -157,7 +157,7 @@ export class MotifPlaybackCursor {
       if (this.boundFrame !== null && this.boundFrame >= d.contentFrame) return;
       if (!isCaptureSuperseded(error)) {
         this.retryAt = performance.now() + RETRY_MS[Math.min(this.failures++, RETRY_MS.length - 1)]!;
-        if (this.failures <= 3 || this.failures % 10 === 0) console.error('[weftcut/motifs] preview frame failed', error);
+        if (this.failures <= 3 || this.failures % 10 === 0) console.error('[lahza/motifs] preview frame failed', error);
       }
     } finally {
       if (this.pending === request) {

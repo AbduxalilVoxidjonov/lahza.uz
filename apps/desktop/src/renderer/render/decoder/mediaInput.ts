@@ -1,4 +1,4 @@
-// Opens a weftcut-media:// media file through mediabunny, lazily, and exposes the
+// Opens a lahza-media:// media file through mediabunny, lazily, and exposes the
 // primary video track + an EncodedPacketSink for it. Explicit format list
 // (MP4/MOV/Matroska/WebM) — NOT ALL_FORMATS — to keep the bundle lean.
 

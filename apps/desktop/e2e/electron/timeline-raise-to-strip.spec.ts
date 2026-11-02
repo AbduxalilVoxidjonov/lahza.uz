@@ -49,7 +49,7 @@ test.describe('timeline drop strip — an existing clip', () => {
     const { app, page } = await launchApp()
     try {
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-raise-strip-'),
+        parentFolder: tmpDir('lahza-e2e-raise-strip-'),
         name: 'e2e-raise-strip-' + Date.now(),
         canvas: { width: 640, height: 480, fpsNum: 30, fpsDen: 1 },
       })
@@ -63,7 +63,7 @@ test.describe('timeline drop strip — an existing clip', () => {
       // the drag below needs no separate arming click.
       await waitForHook(page, 'revealLayer')
       await page.evaluate(
-        (id) => (window as any).__weftcutTest.revealLayer({ layerId: id }),
+        (id) => (window as any).__lahzaTest.revealLayer({ layerId: id }),
         layerId,
       )
       const clip = page.locator('.timeline-layer').first()

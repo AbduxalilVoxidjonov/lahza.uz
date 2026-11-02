@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AppSettingsPatch } from '../../shared/app-settings'
+import type { UpdateStatus } from '../../shared/updates'
 import '../i18n'
 import { UpdateDialog } from './UpdateDialog'
 import { UpdateButton } from './UpdateButton'
@@ -22,7 +23,7 @@ function setup(autoInstall = true, skipped?: string) {
     const { skipped_update_version: _, ...settings } = useAppSettingsStore.getState().settings
     return { ...settings, ...(patch.skipped_update_version ? { skipped_update_version: patch.skipped_update_version } : {}) }
   })
-  const ready = { phase: 'ready', version: '1.2.0' }
+  const ready: UpdateStatus = { phase: 'ready', version: '1.2.0' }
   const restart = vi.fn().mockResolvedValue('restarting')
   const download = vi.fn().mockResolvedValue('ready')
   const api = { updates: { status: vi.fn().mockResolvedValue(ready), check: vi.fn().mockResolvedValue(ready), restart, download } }
@@ -33,6 +34,22 @@ function setup(autoInstall = true, skipped?: string) {
 const skippedVersion = () => useAppSettingsStore.getState().settings.skipped_update_version
 
 describe('update dialog', () => {
+  it('offers the Mac DMG without saving, quitting or restarting the running app', async () => {
+    const api = setup()
+    const status: UpdateStatus = { phase: 'available', version: '1.2.0', installation: 'manual' }
+    api.check.mockResolvedValue(status)
+    api.status.mockResolvedValue(status)
+    api.download.mockResolvedValue('opened')
+    render(<UpdateDialog onClose={vi.fn()} />)
+    const button = await screen.findByRole('button', { name: 'Download DMG' })
+    expect(screen.getByText(/drag Lahza Studio into Applications/)).toBeTruthy()
+    expect(api.download).not.toHaveBeenCalled()
+    fireEvent.click(button)
+    await waitFor(() => expect(api.download).toHaveBeenCalledOnce())
+    expect(api.restart).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alert')).toBeNull()
+    expect(screen.queryByRole('dialog', { name: 'Saving and restarting…' })).toBeNull()
+  })
   it('restarts once with a blocking saving state, leaving an opt-out unchanged', async () => {
     const { restart } = setup(false)
     render(<UpdateDialog onClose={vi.fn()} />)

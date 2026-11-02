@@ -26,10 +26,10 @@ import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir, waitForH
 //   B. smpte170m-tagged chart — still selects BT.601 (no over-correction:
 //      a fix that hard-codes 709 would pass leg A and fail this one).
 // Same run requirements as preview-sw-conformance.spec.ts: a
-// VITE_WEFTCUT_E2E=1 build and the built native-decode component.
+// VITE_LAHZA_E2E=1 build and the built native-decode component.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const CHART_709 = path.resolve(MEDIA_DIR, 'test_1080p_color_709ltd_prores.mov')
 const CHART_601 = path.resolve(MEDIA_DIR, 'test_1080p_color_601ltd_prores.mov')
 const MANIFEST = path.resolve(MEDIA_DIR, 'color_manifest.json')
@@ -71,7 +71,7 @@ async function runChartLeg(label: string, fixture: string): Promise<void> {
   test.skip(!existsSync(fixture), `${label} chart fixture not found at ${fixture} (npm run fixtures)`)
   test.skip(!existsSync(MANIFEST), `color manifest not found at ${MANIFEST} (npm run fixtures)`)
   test.setTimeout(240_000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-sw-color-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-preview-sw-color-proj-')
   const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as {
     width: number
     height: number
@@ -84,7 +84,7 @@ async function runChartLeg(label: string, fixture: string): Promise<void> {
   // and never exercise the SOFTWARE path it gates. Forcing a lane the addon
   // never advertises ('software' is not an HW lane) leaves the HW resolver no
   // candidate — clean software fallback, every host.
-  const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: 'software' } })
+  const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: 'software' } })
   const consoleLines: string[] = []
   page.on('console', (m) => consoleLines.push(`[${m.type()}] ${m.text()}`))
   page.on('pageerror', (e) => consoleLines.push(`[pageerror] ${String(e)}`))
@@ -109,14 +109,14 @@ async function runChartLeg(label: string, fixture: string): Promise<void> {
 
     await waitForHook(page, 'mediaDecodeRouteKind')
     await page.waitForFunction(
-      (id) => (window as unknown as { __weftcutTest: { mediaDecodeRouteKind(m: string): string | null } }).__weftcutTest.mediaDecodeRouteKind(id) === 'native-sw',
+      (id) => (window as unknown as { __lahzaTest: { mediaDecodeRouteKind(m: string): string | null } }).__lahzaTest.mediaDecodeRouteKind(id) === 'native-sw',
       mediaId,
       { timeout: 90_000, polling: 500 },
     )
     await page.waitForFunction(
       () => {
         try {
-          ;(window as unknown as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe()
+          ;(window as unknown as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe()
           return true
         } catch {
           return false
@@ -129,14 +129,14 @@ async function runChartLeg(label: string, fixture: string): Promise<void> {
     // Seek once, then poll read-only until the SW lane has decoded + bound the
     // target frame (re-seeking every poll would restart the scrub debounce).
     await page.evaluate(
-      (us) => (window as unknown as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us),
+      (us) => (window as unknown as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us),
       SEEK_US,
     )
     await page.waitForFunction(
       ([id, target]) => {
-        const p = (window as unknown as { __weftcutTest: { activeClipProbe(id?: string): {
+        const p = (window as unknown as { __lahzaTest: { activeClipProbe(id?: string): {
           sourceKind: string; ringSize: number; ringLastPtsUs: number | null; spriteBound: boolean
-        } | null } }).__weftcutTest.activeClipProbe(id)
+        } | null } }).__lahzaTest.activeClipProbe(id)
         if (!p) return null
         if (p.sourceKind !== 'sw') return null // the gate is about the NATIVE SW lane
         if (p.ringSize < 1) return null
@@ -156,7 +156,7 @@ async function runChartLeg(label: string, fixture: string): Promise<void> {
       const cx = patch.x + Math.floor(patch.w / 2)
       const cy = patch.y + Math.floor(patch.h / 2)
       const s = (await page.evaluate(
-        ([x, y]) => (window as unknown as { __weftcutTest: { weftcutSampleComposite(x: number, y: number): Promise<{ r: number; g: number; b: number }> } }).__weftcutTest.weftcutSampleComposite(x, y),
+        ([x, y]) => (window as unknown as { __lahzaTest: { lahzaSampleComposite(x: number, y: number): Promise<{ r: number; g: number; b: number }> } }).__lahzaTest.lahzaSampleComposite(x, y),
         [cx, cy] as const,
       )) as { r: number; g: number; b: number }
       const got: [number, number, number] = [s.r, s.g, s.b]

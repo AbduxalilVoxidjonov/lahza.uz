@@ -18,10 +18,10 @@ use super::color::Rgba;
 use super::ids::KeyframeId;
 use super::time::TimeUs;
 
-// The engine vocabulary lives in the `weftcut-eval` leaf crate (one source of
+// The engine vocabulary lives in the `lahza-eval` leaf crate (one source of
 // truth shared with the renderer via wasm). `value_at` below delegates to it
 // through a POD `Kf` slice; `Animated<T>` itself (imbl-backed) stays here.
-pub use weftcut_eval::{
+pub use lahza_eval::{
     unit_bezier, EaseDir, Extrapolate, Extrapolation, Segment, IN_IDENTITY, OUT_IDENTITY,
 };
 
@@ -47,7 +47,7 @@ pub enum Continuity {
 
 /// One side of a key: a control point in the owning segment's unit square
 /// (`x` = fraction of the segment's time span, `y` = fraction of its value
-/// span). The arriving side is stored UN-MIRRORED — see `weftcut_eval::Kf`.
+/// span). The arriving side is stored UN-MIRRORED — see `lahza_eval::Kf`.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Tangent {
     pub x: f64,
@@ -364,8 +364,8 @@ impl<T: Clone + PartialEq> Animated<T> {
 
 /// The engine-facing slice of one key: coordinates and segment class only
 /// (modes and continuity are authoring state the engine never reads).
-fn eval_kf<T: Clone, U>(k: &Keyframe<T>, value: U) -> weftcut_eval::Kf<U> {
-    weftcut_eval::Kf {
+fn eval_kf<T: Clone, U>(k: &Keyframe<T>, value: U) -> lahza_eval::Kf<U> {
+    lahza_eval::Kf {
         t_us: k.t_us as f64 + k.time_fraction.map_or(0.0, |f| f.value()),
         value,
         out: (k.out.x, k.out.y),
@@ -375,11 +375,11 @@ fn eval_kf<T: Clone, U>(k: &Keyframe<T>, value: U) -> weftcut_eval::Kf<U> {
 }
 
 impl Animated<f64> {
-    /// Materialize the keyframes as POD `weftcut_eval::Kf` for slice evaluation
+    /// Materialize the keyframes as POD `lahza_eval::Kf` for slice evaluation
     /// (empty for `Static`). HOIST this out of per-sample loops (e.g. the audio
-    /// envelope sampler) and call `weftcut_eval::eval_f64_ext` on the slice
+    /// envelope sampler) and call `lahza_eval::eval_f64_ext` on the slice
     /// directly, rather than paying the collection on every sample.
-    pub fn eval_kfs(&self) -> Vec<weftcut_eval::Kf> {
+    pub fn eval_kfs(&self) -> Vec<lahza_eval::Kf> {
         match self {
             Animated::Static(_) => Vec::new(),
             Animated::Keyframed(kfs, _) => kfs.iter().map(|k| eval_kf(k, k.value)).collect(),
@@ -387,7 +387,7 @@ impl Animated<f64> {
     }
 
     /// Resolve the value at owner-local `t_us`. `Static(v)` → `v`; otherwise
-    /// delegates to the shared `weftcut_eval::eval_f64_ext` over a `Kf` slice
+    /// delegates to the shared `lahza_eval::eval_f64_ext` over a `Kf` slice
     /// with the stored extrapolation, so preview, export, and the renderer
     /// interpolate identically. See the leaf for the empty/single/segment/
     /// extrapolation semantics (mirrors `render/animated.ts::resolveAnimated`).
@@ -395,17 +395,17 @@ impl Animated<f64> {
         match self {
             Animated::Static(v) => *v,
             Animated::Keyframed(_, ex) => {
-                weftcut_eval::eval_f64_ext(&self.eval_kfs(), *ex, t_us, default)
+                lahza_eval::eval_f64_ext(&self.eval_kfs(), *ex, t_us, default)
             }
         }
     }
 }
 
 impl Animated<Rgba> {
-    /// Materialize the keyframes as POD `weftcut_eval::Kf<Rgba8>` for slice
+    /// Materialize the keyframes as POD `lahza_eval::Kf<Rgba8>` for slice
     /// evaluation (empty for `Static`). Parallels `Animated<f64>::eval_kfs`;
     /// each `Rgba` value crosses to the leaf via `Rgba::to_eval`.
-    pub fn eval_kfs(&self) -> Vec<weftcut_eval::Kf<weftcut_eval::Rgba8>> {
+    pub fn eval_kfs(&self) -> Vec<lahza_eval::Kf<lahza_eval::Rgba8>> {
         match self {
             Animated::Static(_) => Vec::new(),
             Animated::Keyframed(kfs, _) => {
@@ -415,7 +415,7 @@ impl Animated<Rgba> {
     }
 
     /// Resolve the color at owner-local `t_us`. `Static(v)` → `v`; otherwise
-    /// delegates to the shared generic `weftcut_eval::eval::<Rgba8>` over a
+    /// delegates to the shared generic `lahza_eval::eval::<Rgba8>` over a
     /// `Kf<Rgba8>` slice, which interpolates in OkLab + premultiplied alpha (see
     /// `Rgba8::lerp`) and extrapolates through `Rgba8::offset`. Same
     /// empty/single/segment/extrapolation semantics as `Animated<f64>::value_at`.
@@ -423,7 +423,7 @@ impl Animated<Rgba> {
         match self {
             Animated::Static(v) => *v,
             Animated::Keyframed(_, ex) => {
-                let out = weftcut_eval::eval::<weftcut_eval::Rgba8>(
+                let out = lahza_eval::eval::<lahza_eval::Rgba8>(
                     &self.eval_kfs(),
                     *ex,
                     t_us,

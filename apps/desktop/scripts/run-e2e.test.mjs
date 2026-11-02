@@ -210,7 +210,7 @@ test('a replay restricts as its own OS does, not as the widest OS does', () => {
   // silently, since both invocations look identical and both come back green.
   const runs = planE2ERuns([])
   const ownedOn = (platform, slice) =>
-    planSlicedRuns(runs, slice, platform).at(-1).env.WEFTCUT_E2E_ONLY.split(',')
+    planSlicedRuns(runs, slice, platform).at(-1).env.LAHZA_E2E_ONLY.split(',')
   assert.ok(LEGS['macos-latest'] < LEGS['windows-latest'], 'this guard assumes macOS runs fewer legs')
   const macLegs = slicesFor('macos-latest').map((slice) => slice.name)
   const macTotal = macLegs.flatMap((slice) => ownedOn('darwin', slice)).sort()
@@ -248,7 +248,7 @@ after(() => {
 })
 
 function makeRoot({ ffmpeg = true, addon = true, out = true, hook = true, analyzer = true } = {}) {
-  const root = mkdtempSync(path.join(os.tmpdir(), 'weftcut-run-e2e-'))
+  const root = mkdtempSync(path.join(os.tmpdir(), 'lahza-run-e2e-'))
   tmpRoots.push(root)
   if (analyzer) {
     const dir = path.join(root, 'native', 'target', 'debug')
@@ -269,7 +269,7 @@ function makeRoot({ ffmpeg = true, addon = true, out = true, hook = true, analyz
   if (out) {
     const dir = path.join(root, 'out', 'renderer', 'assets')
     mkdirSync(dir, { recursive: true })
-    writeFileSync(path.join(dir, 'index.js'), hook ? 'window.__weftcutTest={}' : 'render()')
+    writeFileSync(path.join(dir, 'index.js'), hook ? 'window.__lahzaTest={}' : 'render()')
   }
   return root
 }
@@ -291,7 +291,7 @@ test('preflight wires bundled ffmpeg, PATH, and the local decode gates', () => {
     env.PATH,
     `${path.join(root, 'resources', 'ffmpeg', 'linux')}${path.delimiter}/usr/bin`,
   )
-  assert.equal(env.WEFTCUT_DECODE_E2E, '1')
+  assert.equal(env.LAHZA_DECODE_E2E, '1')
   assert.equal(notes.length, 3)
 })
 
@@ -301,7 +301,7 @@ test('the preflight always names which e2e tier is about to run', () => {
   const root = makeRoot()
   const lean = prepareE2EEnv({ DISPLAY: ':0' }, LINUX(root))
   assert.match(lean.notes.join('\n'), /@matrix cells excluded/)
-  const full = prepareE2EEnv({ DISPLAY: ':0', WEFTCUT_E2E_FULL: '1' }, LINUX(root))
+  const full = prepareE2EEnv({ DISPLAY: ':0', LAHZA_E2E_FULL: '1' }, LINUX(root))
   assert.match(full.notes.join('\n'), /@matrix cells included/)
 })
 
@@ -318,11 +318,11 @@ test('an explicit FFMPEG wins and leaves PATH untouched', () => {
 test('decode gates stay off under CI and honor an explicit opt-out', () => {
   const root = makeRoot()
   const ci = prepareE2EEnv({ DISPLAY: ':0', CI: 'true' }, LINUX(root))
-  assert.equal(ci.env.WEFTCUT_DECODE_E2E, undefined)
-  const optOut = prepareE2EEnv({ DISPLAY: ':0', WEFTCUT_DECODE_E2E: '0' }, LINUX(root))
-  assert.equal(optOut.env.WEFTCUT_DECODE_E2E, '0')
+  assert.equal(ci.env.LAHZA_DECODE_E2E, undefined)
+  const optOut = prepareE2EEnv({ DISPLAY: ':0', LAHZA_DECODE_E2E: '0' }, LINUX(root))
+  assert.equal(optOut.env.LAHZA_DECODE_E2E, '0')
   const noAddon = prepareE2EEnv({ DISPLAY: ':0' }, LINUX(makeRoot({ addon: false })))
-  assert.equal(noAddon.env.WEFTCUT_DECODE_E2E, undefined)
+  assert.equal(noAddon.env.LAHZA_DECODE_E2E, undefined)
 })
 
 // electron-ci.yml's `decode_e2e` dispatch input is wired to this variable
@@ -334,10 +334,10 @@ test('decode gates stay off under CI and honor an explicit opt-out', () => {
 test('an explicit decode opt-IN survives CI, which is what the dispatch input rides on', () => {
   const root = makeRoot()
   const { env } = prepareE2EEnv(
-    { DISPLAY: ':0', CI: 'true', WEFTCUT_DECODE_E2E: '1' },
+    { DISPLAY: ':0', CI: 'true', LAHZA_DECODE_E2E: '1' },
     LINUX(root),
   )
-  assert.equal(env.WEFTCUT_DECODE_E2E, '1')
+  assert.equal(env.LAHZA_DECODE_E2E, '1')
 })
 
 test('a missing or flag-less build is a fatal preflight error', () => {
@@ -346,7 +346,7 @@ test('a missing or flag-less build is a fatal preflight error', () => {
   assert.match(noOut.errors[0], /build:e2e/)
   const noHook = prepareE2EEnv({ DISPLAY: ':0' }, LINUX(makeRoot({ hook: false })))
   assert.equal(noHook.errors.length, 1)
-  assert.match(noHook.errors[0], /VITE_WEFTCUT_E2E/)
+  assert.match(noHook.errors[0], /VITE_LAHZA_E2E/)
 })
 
 test('a display-less Linux run fails fast locally but not under CI', () => {

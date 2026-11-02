@@ -1,7 +1,7 @@
 //! Time and rate primitives. Time is `i64` microseconds; never round-trip through
 //! `f64` seconds except at API boundaries — precision loss starts past the hour mark.
 //!
-//! The frame-snap ALGORITHM lives in the `weftcut-eval` leaf crate so there is ONE
+//! The frame-snap ALGORITHM lives in the `lahza-eval` leaf crate so there is ONE
 //! source of truth for the frame grid across the renderer↔Rust boundary (the
 //! renderer consumes the same crate compiled to wasm). `Rational` stays here: it
 //! carries the serde + schemars derives the project schema needs, which the leaf
@@ -17,7 +17,7 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-pub use weftcut_eval::{US_PER_MS, US_PER_SEC};
+pub use lahza_eval::{US_PER_MS, US_PER_SEC};
 
 pub type TimeUs = i64;
 
@@ -45,21 +45,21 @@ impl Rational {
 }
 
 /// Round `t_us` DOWN to the nearest canvas-fps frame boundary.
-/// Delegates to the shared i128 algorithm in `weftcut-eval`.
+/// Delegates to the shared i128 algorithm in `lahza-eval`.
 pub fn snap_frame_floor(t_us: TimeUs, fps: Rational) -> TimeUs {
-    weftcut_eval::snap_frame_floor(t_us, fps.num, fps.den)
+    lahza_eval::snap_frame_floor(t_us, fps.num, fps.den)
 }
 
 /// Round `t_us` UP to the nearest canvas-fps frame boundary.
-/// Delegates to the shared i128 algorithm in `weftcut-eval`.
+/// Delegates to the shared i128 algorithm in `lahza-eval`.
 pub fn snap_frame_ceil(t_us: TimeUs, fps: Rational) -> TimeUs {
-    weftcut_eval::snap_frame_ceil(t_us, fps.num, fps.den)
+    lahza_eval::snap_frame_ceil(t_us, fps.num, fps.den)
 }
 
 /// Round `t_us` to the NEAREST canvas-fps frame boundary (half-up). This is the
 /// snap used for every timeline mutation (move, trim, split, seek); see the leaf
 /// for the half-up OUTPUT rounding that aligns with the demuxer's source-PTS
-/// rounding. Delegates to the shared i128 algorithm in `weftcut-eval`.
+/// rounding. Delegates to the shared i128 algorithm in `lahza-eval`.
 pub fn snap_frame_round(t_us: TimeUs, fps: Rational) -> TimeUs {
-    weftcut_eval::snap_frame_round(t_us, fps.num, fps.den)
+    lahza_eval::snap_frame_round(t_us, fps.num, fps.den)
 }

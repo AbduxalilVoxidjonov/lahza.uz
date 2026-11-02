@@ -35,7 +35,7 @@ import {
 // be far enough apart to prove which file the mixer opened.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 /// 12 s of pink noise with a noise-ONLY head and a 440 Hz tone from 2 s. Its
 /// spans and their measured levels are recorded in the fixture manifest; see
 /// `NOISY_SPEECH_LEVELS` in `fixtures/generate.mjs`.
@@ -249,7 +249,7 @@ async function exportAudioOnly(page: Page, output: string): Promise<void> {
 
 async function bootProject(page: Page, name: string): Promise<void> {
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-e2e-denoise-proj-'),
+    parentFolder: tmpDir('lahza-e2e-denoise-proj-'),
     name: `${name}-${Date.now()}`,
     canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
   })
@@ -319,7 +319,7 @@ test.describe('audio denoise (Electron)', () => {
       const baked = await fxState(page, layerId)
       console.log(`[e2e] denoise bake ready: ${baked?.ready?.audio_path}`)
 
-      const outDir = tmpDir('weftcut-e2e-denoise-out-')
+      const outDir = tmpDir('lahza-e2e-denoise-out-')
       const withFx = path.join(outDir, 'denoise-on.m4a')
       await exportAudioOnly(page, withFx)
 
@@ -375,7 +375,7 @@ test.describe('audio denoise (Electron)', () => {
       // tab forward: the pristine baseline docks it inactive behind Attribute,
       // which leaves the picker rendered but hidden.
       await page.evaluate(
-        (id) => (window as any).__weftcutTest.revealLayer({ layerId: id }),
+        (id) => (window as any).__lahzaTest.revealLayer({ layerId: id }),
         layerId,
       )
       await page.locator('.weft-dock-tab-label', { hasText: 'Effect' }).click()

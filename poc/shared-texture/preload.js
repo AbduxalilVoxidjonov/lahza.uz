@@ -569,7 +569,7 @@ ipcRenderer.on('poc-color-done', () => {
 //
 // Two variants arrive in order:
 //   'ref'  = the RAW NV12 frame tagged BT.601 — we read it back via 2D drawImage
-//            (the reference WeftCut already gets right).
+//            (the reference Lahza already gets right).
 //   'bgra' = the NATIVE-CONVERTED BGRA texture (matrix:'rgb') — we read it back
 //            via copyExternalImageToTexture (the WebGPU path that mangled raw
 //            NV12 in Result 5) AND via 2D drawImage (sanity) AND

@@ -191,7 +191,7 @@ pub async fn transcribe_network(
     };
 
     let dir = tempfile::Builder::new()
-        .prefix("weftcut-stt-pieces")
+        .prefix("lahza-stt-pieces")
         .tempdir()?;
     let total = pieces.len() as u32;
     let mut parts = Vec::with_capacity(pieces.len());

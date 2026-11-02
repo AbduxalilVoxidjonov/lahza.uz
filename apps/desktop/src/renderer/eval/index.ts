@@ -1,5 +1,5 @@
 // Single source of truth for the WYSIWYG math: thin typed wrappers over the
-// weftcut-eval wasm module (compiled from native/eval — the SAME crate the native
+// lahza-eval wasm module (compiled from native/eval — the SAME crate the native
 // audio and state code link natively; the main-process TS actor re-exports these
 // same wrappers through `main/state/snap.ts`). Tracks are uploaded once per
 // (handle, version) into a resident buffer and evaluated per-frame with
@@ -130,7 +130,7 @@ function encodeSegment(seg: Segment): [number, number, number, number] {
     case 'Bounce':
       return [6, dirCode(seg.dir), 0, 0]
     default:
-      console.assert(false, `weftcut-eval: unknown segment kind, evaluating as Linear`, seg)
+      console.assert(false, `lahza-eval: unknown segment kind, evaluating as Linear`, seg)
       return [1, 0, 0, 0]
   }
 }
@@ -152,7 +152,7 @@ function encodeExtrapolate(mode: Extrapolate): number {
     case 'Continue':
       return 4
     default:
-      console.assert(false, `weftcut-eval: unknown extrapolate mode '${String(mode)}', evaluating as Hold`)
+      console.assert(false, `lahza-eval: unknown extrapolate mode '${String(mode)}', evaluating as Hold`)
       return 0
   }
 }
@@ -162,7 +162,7 @@ function dirCode(dir: string): number {
   if (dir === 'In') return 0
   if (dir === 'Out') return 1
   if (dir === 'InOut') return 2
-  console.assert(false, `weftcut-eval: unknown ease dir '${dir}', evaluating as In`)
+  console.assert(false, `lahza-eval: unknown ease dir '${dir}', evaluating as In`)
   return 0
 }
 
@@ -329,7 +329,7 @@ export function loadTrack(
   if (kfs.length > MAX_KEYFRAMES && !warnedOverflow) {
     warnedOverflow = true
     console.warn(
-      `weftcut-eval: an animated property has ${kfs.length} keyframes; only the ` +
+      `lahza-eval: an animated property has ${kfs.length} keyframes; only the ` +
         `first ${MAX_KEYFRAMES} are evaluated in the wasm preview. Native export ` +
         `uses all of them, so preview may diverge from export. Known limit — see ` +
         `docs/render.md.`,
@@ -411,7 +411,7 @@ export function loadColorTrack(
   if (kfs.length > MAX_KEYFRAMES && !warnedColorOverflow) {
     warnedColorOverflow = true
     console.warn(
-      `weftcut-eval: an animated color property has ${kfs.length} keyframes; only ` +
+      `lahza-eval: an animated color property has ${kfs.length} keyframes; only ` +
         `the first ${MAX_KEYFRAMES} are evaluated in the wasm preview. Native export ` +
         `uses all of them, so preview may diverge from export. Known limit — see ` +
         `docs/render.md.`,

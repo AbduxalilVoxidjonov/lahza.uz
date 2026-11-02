@@ -2,7 +2,7 @@
 // scripts/build-cli.mjs ships), spawn it as a child process on stdio, and
 // bridge it to a real express + StreamableHTTPServerTransport fake app — the
 // same server shape the Electron main process hosts. Proves the packaged
-// artefact works: stdio framing, WEFTCUT_USERDATA discovery, bearer auth,
+// artefact works: stdio framing, LAHZA_USERDATA discovery, bearer auth,
 // catalog union, and the down-state degradation.
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -55,7 +55,7 @@ async function startFakeApp(): Promise<number> {
           transports.set(id, transport!)
         },
       })
-      const server = new Server({ name: 'weftcut', version: '0.0.0' }, { capabilities: { tools: {} } })
+      const server = new Server({ name: 'lahza', version: '0.0.0' }, { capabilities: { tools: {} } })
       server.setRequestHandler(ListToolsRequestSchema, async () => ({
         tools: [{ name: 'add_marker', description: 'Add a marker.', inputSchema: { type: 'object' as const } }],
       }))
@@ -79,7 +79,7 @@ async function withShimClient<T>(use: (client: Client) => Promise<T>): Promise<T
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [bundle],
-    env: { ...process.env, WEFTCUT_USERDATA: tmp } as Record<string, string>,
+    env: { ...process.env, LAHZA_USERDATA: tmp } as Record<string, string>,
     stderr: 'ignore',
   })
   const client = new Client({ name: 'itest', version: '0' }, { capabilities: {} })
@@ -92,8 +92,8 @@ async function withShimClient<T>(use: (client: Client) => Promise<T>): Promise<T
 }
 
 beforeAll(async () => {
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-shim-itest-'))
-  bundle = path.join(tmp, 'weftcut-mcp.cjs')
+  tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-shim-itest-'))
+  bundle = path.join(tmp, 'lahza-mcp.cjs')
   await build({
     entryPoints: [path.join(HERE, 'main.ts')],
     outfile: bundle,
@@ -116,7 +116,7 @@ describe('bundled shim over real stdio + HTTP', () => {
   it('serves synthetic ∪ real and passes calls through (bearer included)', async () => {
     await withShimClient(async (client) => {
       const tools = await client.listTools()
-      expect(tools.tools.map((t) => t.name)).toEqual(['weftcut_status', 'launch_weftcut', 'add_marker'])
+      expect(tools.tools.map((t) => t.name)).toEqual(['lahza_status', 'launch_lahza', 'add_marker'])
       const result = await client.callTool({ name: 'add_marker', arguments: {} })
       expect(JSON.stringify(result.content)).toContain('called:add_marker')
     })
@@ -130,8 +130,8 @@ describe('bundled shim over real stdio + HTTP', () => {
     fs.writeFileSync(path.join(tmp, 'mcp_auth.json'), JSON.stringify({ token: TOKEN, port }))
     await withShimClient(async (client) => {
       const tools = await client.listTools()
-      expect(tools.tools.map((t) => t.name)).toEqual(['weftcut_status', 'launch_weftcut'])
-      const status = await client.callTool({ name: 'weftcut_status', arguments: {} })
+      expect(tools.tools.map((t) => t.name)).toEqual(['lahza_status', 'launch_lahza'])
+      const status = await client.callTool({ name: 'lahza_status', arguments: {} })
       expect(JSON.stringify(status.content)).toContain('not running')
     })
   }, 20_000)
@@ -139,13 +139,13 @@ describe('bundled shim over real stdio + HTTP', () => {
   it('print-config emits the machine-specific stdio fragment', () => {
     const out = spawnSync(process.execPath, [bundle, 'print-config'], {
       encoding: 'utf8',
-      env: { ...process.env, WEFTCUT_USERDATA: tmp },
+      env: { ...process.env, LAHZA_USERDATA: tmp },
     })
     const parsed = JSON.parse(out.stdout) as {
-      mcpServers: { weftcut: { command: string; args: string[]; env: Record<string, string> } }
+      mcpServers: { lahza: { command: string; args: string[]; env: Record<string, string> } }
     }
-    expect(parsed.mcpServers.weftcut.args).toEqual([bundle])
-    expect(parsed.mcpServers.weftcut.env.WEFTCUT_USERDATA).toBe(tmp)
+    expect(parsed.mcpServers.lahza.args).toEqual([bundle])
+    expect(parsed.mcpServers.lahza.env.LAHZA_USERDATA).toBe(tmp)
     expect(JSON.stringify(parsed)).not.toContain(TOKEN)
   }, 20_000)
 })

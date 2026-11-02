@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { expect, it, vi } from 'vitest'
 import type { BrowserWindow } from 'electron'
-import type { NativeDecode } from '@weftcut/native-decode'
+import type { NativeDecode } from '@lahza/native-decode'
 import { openPreviewSw, consumePreviewSw, closePreviewSw } from './previewSw'
 
 it('enables native credit before requests, accepts only owner receipts and closes on renderer loss', () => {

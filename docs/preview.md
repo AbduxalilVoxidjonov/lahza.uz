@@ -105,7 +105,7 @@ the pump frontier that decoding through the gap would burn
 seconds. See [ADR 0003](adr/0003-forward-gop-crossing-no-decoder-reset.md).
 
 The source is never fully resident in memory. mediabunny reads through
-a `weftcut-media://` HTTP Range `CustomSource` (`AssetRangeSource`),
+a `lahza-media://` HTTP Range `CustomSource` (`AssetRangeSource`),
 pulling only the bytes a packet needs; the `PacketPump`'s `getKeyPacket` /
 `getNextPacket` calls await those uncached Range reads natively. See
 [`render.md`](render.md#byte-handling) for the byte contract.
@@ -206,7 +206,7 @@ proxy wait. The export dialog renders this section's picker options verbatim
 `FfmpegSource` is the deep module: one class over two interchangeable
 *transports* against one stable `FrameRing`. It privately owns the
 capability-cache lookup, the HW allow-list, the class-key probe, and the
-sticky HW→SW verdict. It needs the optional `@weftcut/native-decode`
+sticky HW→SW verdict. It needs the optional `@lahza/native-decode`
 component; where that isn't loadable, `auto` resolves to the Lite engine and
 **Standard** is grayed out. See [ADR 0030](adr/0030-decode-engine-overlay-and-native-component.md)
 for why the component is a separate, conditionally-loaded addon and what it

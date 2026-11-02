@@ -16,7 +16,7 @@ export const WORKSPACE_DOC_VERSION = 2;
 export const EDITING_WORKSPACE_ID = "editing";
 
 /** One Workspace profile: a named Dock arrangement with an auto-saved current
- *  layout and an explicit reset baseline. Both layout slots are opaque WeftCut
+ *  layout and an explicit reset baseline. Both layout slots are opaque Lahza
  *  snapshots (the renderer owns the schema); null means "fall back". */
 export interface WorkspaceProfile {
   id: string;

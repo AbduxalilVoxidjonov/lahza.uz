@@ -1,0 +1,31 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.color.cool",
+  "version": "1.0.0",
+  "kind": "color",
+  "name": {
+    "uz": "Sovuq",
+    "uz-Cyrl": "Совуқ",
+    "ru": "Холодный",
+    "en": "Cool"
+  },
+  "description": {
+    "uz": "Sovuq, ko'kish tus",
+    "uz-Cyrl": "Совуқ, кўкиш тус",
+    "ru": "Холодный голубоватый тон",
+    "en": "Cool bluish tone"
+  },
+  "backend": "color",
+  "preset": "cool",
+  "params": [
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 1.0
+    }
+  ],
+  "default_trigger": null,
+  "license": "Lahza"
+}

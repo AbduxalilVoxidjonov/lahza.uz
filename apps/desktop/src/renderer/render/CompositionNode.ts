@@ -1125,7 +1125,7 @@ export class CompositionNode {
         : rsFromExportProxy(host.proxyAssetUrl(mediaId));
     if (!rs) {
       // eslint-disable-next-line no-console
-      console.warn(`[weftcut/pixi] no decode source for media ${mediaId} (clip ${key})`);
+      console.warn(`[lahza/pixi] no decode source for media ${mediaId} (clip ${key})`);
       return null;
     }
     if (rs.status === "unsupported") {
@@ -1214,7 +1214,7 @@ export class CompositionNode {
     // anchor tick (or first decoded frame's onFirstFrame callback) will paint.
     void source.ensureReady().catch((e: unknown) => {
       // eslint-disable-next-line no-console
-      console.error(`[weftcut/pixi] ensureReady ${mediaId} failed`, e);
+      console.error(`[lahza/pixi] ensureReady ${mediaId} failed`, e);
     });
     if (existing) {
       // Revival path: keep the sprite (the bound texture from the
@@ -1246,7 +1246,7 @@ export class CompositionNode {
     };
     this.clips.set(layer.id, clip);
     // eslint-disable-next-line no-console
-    console.log(`[weftcut/pixi] clip ${key} → media ${mediaId} attached`);
+    console.log(`[lahza/pixi] clip ${key} → media ${mediaId} attached`);
     return clip;
   }
 
@@ -1307,7 +1307,7 @@ export class CompositionNode {
     state.timer = setInterval(poll, 120);
     state.deadline = setTimeout(() => this.abandonSwap(clip.layerId), 8000);
     // eslint-disable-next-line no-console
-    console.log(`[weftcut/pixi] begin source-swap ${clip.key} → ${rs.key}`);
+    console.log(`[lahza/pixi] begin source-swap ${clip.key} → ${rs.key}`);
     // A warm source can notify synchronously. Install timers first so that
     // completing inside onFirstFrame clears them rather than leaking a poll.
     handle.onFirstFrame(poll);
@@ -1363,7 +1363,7 @@ export class CompositionNode {
     if (!old.disposed) this.host.pool.release(oldPoolKey);
     this.host.scheduleRepaint();
     // eslint-disable-next-line no-console
-    console.log(`[weftcut/pixi] completed source-swap ${clip.key} → ${state.key}`);
+    console.log(`[lahza/pixi] completed source-swap ${clip.key} → ${state.key}`);
   }
 
   /// Tear down an in-flight swap without repointing: clear its timers and
@@ -1485,7 +1485,7 @@ export class CompositionNode {
         clip.loggedNull = true;
         // eslint-disable-next-line no-console
         console.log(
-          `[weftcut/pixi] frameAt(${srcTUs}) → null for ${clip.key} ` +
+          `[lahza/pixi] frameAt(${srcTUs}) → null for ${clip.key} ` +
             `(ringFirst=${clip.source.ring.firstPtsUs()} ` +
             `ringLast=${clip.source.ring.lastPtsUs()})`,
         );
@@ -1541,7 +1541,7 @@ export class CompositionNode {
     if (!url) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[weftcut/pixi] no asset URL for media ${mediaId} (image ${layer.id})`,
+        `[lahza/pixi] no asset URL for media ${mediaId} (image ${layer.id})`,
       );
       return null;
     }
@@ -1570,7 +1570,7 @@ export class CompositionNode {
     this.images.set(layer.id, image);
     // eslint-disable-next-line no-console
     console.log(
-      `[weftcut/pixi] image ${layer.id} → media ${mediaId} attached`,
+      `[lahza/pixi] image ${layer.id} → media ${mediaId} attached`,
     );
     return image;
   }
@@ -1630,7 +1630,7 @@ export class CompositionNode {
     const color: ActiveColor = { layerId: layer.id, sprite, effects: new EffectChain() };
     this.colors.set(layer.id, color);
     // eslint-disable-next-line no-console
-    console.log(`[weftcut/pixi] color ${layer.id} attached`);
+    console.log(`[lahza/pixi] color ${layer.id} attached`);
     return color;
   }
 
@@ -1655,7 +1655,7 @@ export class CompositionNode {
     const text: ActiveText = { layerId: layer.id, sprite, effects: new EffectChain() };
     this.texts.set(layer.id, text);
     // eslint-disable-next-line no-console
-    console.log(`[weftcut/pixi] text ${layer.id} attached`);
+    console.log(`[lahza/pixi] text ${layer.id} attached`);
     return text;
   }
 
@@ -1704,7 +1704,7 @@ export class CompositionNode {
     this.activeMotifs.set(layer.id, tmpl);
     // eslint-disable-next-line no-console
     console.log(
-      `[weftcut/pixi] motif ${layer.id} → ${motifId} attached`,
+      `[lahza/pixi] motif ${layer.id} → ${motifId} attached`,
     );
     return tmpl;
   }
@@ -1758,7 +1758,7 @@ export class CompositionNode {
         this.warnedDepth = true;
         // eslint-disable-next-line no-console
         console.warn(
-          `[weftcut/pixi] group ${layer.id} nests deeper than ${MAX_COMPOSITION_DEPTH}; not drawn`,
+          `[lahza/pixi] group ${layer.id} nests deeper than ${MAX_COMPOSITION_DEPTH}; not drawn`,
         );
       }
       return null;
@@ -1793,7 +1793,7 @@ export class CompositionNode {
     const ref: ActiveRef = { layerId: layer.id, compositionId, sprite, effects: new EffectChain() };
     this.refs.set(layer.id, ref);
     // eslint-disable-next-line no-console
-    console.log(`[weftcut/pixi] group ${layer.id} → composition ${compositionId} attached`);
+    console.log(`[lahza/pixi] group ${layer.id} → composition ${compositionId} attached`);
     return ref;
   }
 

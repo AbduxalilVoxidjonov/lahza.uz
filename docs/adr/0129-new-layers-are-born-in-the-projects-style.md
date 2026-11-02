@@ -35,7 +35,7 @@ defaults, for agents and the UI alike, with a way back to it after edits.
 - Tokens are read from `project://taste` at each creation, so an edit to
   TASTE.md reaches the next layer without a reload. Pixel tokens scale with the
   composition height from a 1080-pixel reference.
-- `weftcut-default` is chosen so that untagged text and the look of
+- `lahza-default` is chosen so that untagged text and the look of
   transcript captions are stored exactly as before. Only tagged roles change,
   and long transcript cues are broken to 42 characters × 2 lines and 1.2–6 s.
 

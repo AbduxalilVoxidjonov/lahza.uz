@@ -10,7 +10,7 @@
 
 ## Decision
 
-WeftCut can migrate to MCP `2026-07-28`. The repository already requires
+Lahza can migrate to MCP `2026-07-28`. The repository already requires
 Node.js `>=22`, while the evaluated TypeScript SDK v2 packages require Node.js
 `>=20`, so there is no runtime-version blocker.
 
@@ -79,7 +79,7 @@ References:
 [GitHub advisory](https://github.com/advisories/GHSA-frvp-7c67-39w9) and
 [upstream compatibility work](https://github.com/modelcontextprotocol/typescript-sdk/pull/2549).
 
-## Protocol changes that affect WeftCut
+## Protocol changes that affect Lahza
 
 | Area | Current behavior | MCP `2026-07-28` target |
 | --- | --- | --- |
@@ -88,7 +88,7 @@ References:
 | Discovery | Server information comes from initialization | Implement `server/discover` |
 | HTTP | Sessionful Streamable HTTP transport | One new POST per JSON-RPC message |
 | Metadata | Negotiated once per session | Protocol/capability information in request `_meta`; server information in result `_meta` |
-| Notifications | Unsolicited `notifications/weftcut/change` per session | Long-lived `subscriptions/listen` response stream |
+| Notifications | Unsolicited `notifications/lahza/change` per session | Long-lived `subscriptions/listen` response stream |
 | Results | Existing application payloads | Wire results include `resultType` and cache hints |
 | Resource errors | Resource absence currently maps to `-32601` | Resource absence maps to `-32602 Invalid Params` |
 | Browser security | Host validation; Origin deliberately unrestricted | Validate every supplied Origin and return `403` for invalid values |
@@ -112,7 +112,7 @@ currently:
 - accepts a new connection only when the body is an initialize request;
 - generates and returns `Mcp-Session-Id`;
 - validates Host but intentionally leaves Origin unrestricted;
-- broadcasts `notifications/weftcut/change` to active servers.
+- broadcasts `notifications/lahza/change` to active servers.
 
 Keep this path intact for legacy clients while introducing a separate modern
 handler. Authentication must run before either handler.
@@ -215,7 +215,7 @@ SDK version rather than copied blindly from this planning note.
 
 ## Change notification design
 
-The current `notifications/weftcut/change` message is an unsolicited,
+The current `notifications/lahza/change` message is an unsolicited,
 session-scoped custom notification. It has no direct modern-core equivalent.
 
 Use this core mapping:
@@ -254,7 +254,7 @@ This recommendation follows the standard subscription model and the
 - manually review imports, method registration, context types, errors,
   manifests, Electron externalization, and E2E helpers.
 
-The codemod does not understand WeftCut's transport architecture and must not be
+The codemod does not understand Lahza's transport architecture and must not be
 treated as the completed migration.
 
 ### 3. Introduce the modern handler
@@ -320,7 +320,7 @@ inspection after automated coverage passes.
 ## Open decisions
 
 - the exact allowlist for supplied browser Origins;
-- whether the compact WeftCut change summary warrants a negotiated extension;
+- whether the compact Lahza change summary warrants a negotiated extension;
 - whether the modern and legacy server factories should share one handler
   registry or use thin adapters over the same domain operations;
 - the client-adoption threshold and release window for legacy retirement;

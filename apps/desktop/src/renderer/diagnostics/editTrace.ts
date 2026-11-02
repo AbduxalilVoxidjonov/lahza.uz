@@ -6,8 +6,8 @@ const DRAG_COMMANDS = new Set(['update_marker', 'move_layer', 'move_layers',
 export function newEditTraceId(command: string): string | undefined {
   if (!DRAG_COMMANDS.has(command)) return undefined
   try {
-    const setting = localStorage.getItem('weftcut.debug.editTrace')
-    if (setting === '0' || (setting !== '1' && import.meta.env.VITE_WEFTCUT_EDIT_TRACE !== '1')) return undefined
+    const setting = localStorage.getItem('lahza.debug.editTrace')
+    if (setting === '0' || (setting !== '1' && import.meta.env.VITE_LAHZA_EDIT_TRACE !== '1')) return undefined
     return `edit-${crypto.randomUUID()}`
   } catch { return undefined }
 }

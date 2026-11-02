@@ -359,7 +359,7 @@ pub async fn mux_to_file(
     } else {
         Some(
             tempfile::Builder::new()
-                .prefix(".weftcut-export-")
+                .prefix(".lahza-export-")
                 .suffix(&suffix)
                 .tempfile_in(parent)
                 .context("create staged export")?

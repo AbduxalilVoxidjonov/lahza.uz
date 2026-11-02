@@ -11,7 +11,7 @@
 //
 // Run it after touching the ruler, the timeline scroll plumbing, or
 // state/timelineScrollStore.ts:
-//   1. npm run build:e2e            (the run needs the __weftcutTest hook)
+//   1. npm run build:e2e            (the run needs the __lahzaTest hook)
 //   2. node apps/desktop/e2e/scripts/ruler-node-count.mjs
 //   or: npm run e2e -- --ruler-gate (runs it after the Playwright projects)
 //
@@ -72,15 +72,15 @@ if (!fs.existsSync(MAIN)) {
   process.exit(2);
 }
 
-const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-rulergate-'));
-const projectParent = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-rulergate-proj-'));
+const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-rulergate-'));
+const projectParent = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-rulergate-proj-'));
 const ELECTRON_EXE = electronBinPath();
 
 const { _electron } = await import('@playwright/test');
 const app = await _electron.launch({
   executablePath: fs.existsSync(ELECTRON_EXE) ? ELECTRON_EXE : undefined,
   args: [`--user-data-dir=${userData}`, MAIN],
-  env: { ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1' },
+  env: { ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: '1' },
 });
 
 let exitCode = 1;
@@ -92,15 +92,15 @@ try {
   // run cannot create a project at all.
   try {
     await page.waitForFunction(
-      () => typeof window.__weftcutTest?.newProjectAndEnter === 'function',
+      () => typeof window.__lahzaTest?.newProjectAndEnter === 'function',
       undefined,
       { timeout: 30_000 },
     );
   } catch {
-    throw new InvalidRun('window.__weftcutTest is absent — rebuild with `npm run build:e2e`.');
+    throw new InvalidRun('window.__lahzaTest is absent — rebuild with `npm run build:e2e`.');
   }
   await page.evaluate(
-    (o) => window.__weftcutTest.newProjectAndEnter(o),
+    (o) => window.__lahzaTest.newProjectAndEnter(o),
     { parentFolder: projectParent, name: 'ruler-node-count', canvas: { width: 1920, height: 1080, fpsNum: FPS, fpsDen: 1 } },
   );
   await page.waitForSelector('[data-testid="timeline-ruler"]', { timeout: 60_000 });

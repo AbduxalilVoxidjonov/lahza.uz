@@ -17,17 +17,17 @@ import { launchApp, newProject, importAndPlaceMedia, invokeCmd, tmpDir } from '.
 // Lane per platform, like preview-hw-color / preview-hw-conformance: d3d11va on
 // Windows (the shared-texture path where the freeze was first found),
 // videotoolbox on macOS, nvdec/vaapi on Linux. Each leg pins its lane with
-// WEFTCUT_FORCE_HW_LANE and SKIPS CLEANLY when that lane did not engage on this
+// LAHZA_FORCE_HW_LANE and SKIPS CLEANLY when that lane did not engage on this
 // machine, so one spec covers every host with no per-machine config.
 //
-// Opt-in through WEFTCUT_DECODE_E2E: it needs a VITE_WEFTCUT_E2E=1 build,
+// Opt-in through LAHZA_DECODE_E2E: it needs a VITE_LAHZA_E2E=1 build,
 // the native-decode addon and an engaged HW-decode lane. Hosted Macs can run
 // VideoToolbox; other hosted runners may skip after probing their lane.
 // The gate also runs on a shared-texture-capable Windows box. This spec and
 // the four-worker export set on a real-GPU host are what guard the regression.
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const H264 = path.resolve(MEDIA_DIR, 'test_1080p_h264.mp4')
 const CANVAS = { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 }
 const REOPEN_ROUNDS = 8
@@ -35,9 +35,9 @@ const REOPEN_ROUNDS = 8
 type HwLane = 'nvdec' | 'vaapi' | 'd3d11va' | 'videotoolbox'
 
 // Read HERE, not inside a test: launchApp spreads a spec's env last, so an
-// operator's outer WEFTCUT_FORCE_HW_LANE (the skip-path audit seam the other
+// operator's outer LAHZA_FORCE_HW_LANE (the skip-path audit seam the other
 // hardware specs document) must be picked up before the app launches.
-const OUTER_LANE_PIN = process.env.WEFTCUT_FORCE_HW_LANE as HwLane | undefined
+const OUTER_LANE_PIN = process.env.LAHZA_FORCE_HW_LANE as HwLane | undefined
 
 // Only the host's own lanes, because a leg costs a full app launch even when it
 // ends in a clean skip. The three desktop platforms are exhaustive, so `?? []`
@@ -65,7 +65,7 @@ interface Budget {
 const probe = (page: Page, layerId: string): Promise<Probe | null> =>
   page.evaluate((id) => {
     try {
-      return (window as unknown as { __weftcutTest: { activeClipProbe(id: string): Probe } }).__weftcutTest.activeClipProbe(id)
+      return (window as unknown as { __lahzaTest: { activeClipProbe(id: string): Probe } }).__lahzaTest.activeClipProbe(id)
     } catch {
       return null
     }
@@ -75,10 +75,10 @@ const budget = (page: Page): Promise<Budget> =>
   page.evaluate(() => (window as unknown as { api: { previewGpu: { budget(): Budget } } }).api.previewGpu.budget())
 
 const resourceGen = (page: Page): Promise<unknown> =>
-  page.evaluate(() => (window as unknown as { __weftcutTest?: { previewResourceProbe?: () => { generation: unknown } | undefined } }).__weftcutTest?.previewResourceProbe?.()?.generation ?? null)
+  page.evaluate(() => (window as unknown as { __lahzaTest?: { previewResourceProbe?: () => { generation: unknown } | undefined } }).__lahzaTest?.previewResourceProbe?.()?.generation ?? null)
 
 const seek = (page: Page, us: number) =>
-  page.evaluate((t) => (window as unknown as { __weftcutTest: { weftcutSeekUs(t: number): unknown } }).__weftcutTest.weftcutSeekUs(t), us)
+  page.evaluate((t) => (window as unknown as { __lahzaTest: { lahzaSeekUs(t: number): unknown } }).__lahzaTest.lahzaSeekUs(t), us)
 
 const previewPanel = (page: Page) => page.locator('.weft-dock-panel[data-panel-kind="preview"]')
 
@@ -146,9 +146,9 @@ async function expectHardwareBound(
 /// Play for `ms` and require the ring's newest PTS to advance.
 async function expectFramesAdvance(page: Page, layerId: string, ms: number, where: string) {
   const before = (await probe(page, layerId))?.ringLastPtsUs ?? -1
-  await page.evaluate(() => (window as unknown as { __weftcutTest: { transportPlay(): void } }).__weftcutTest.transportPlay())
+  await page.evaluate(() => (window as unknown as { __lahzaTest: { transportPlay(): void } }).__lahzaTest.transportPlay())
   await page.waitForTimeout(ms)
-  await page.evaluate(() => (window as unknown as { __weftcutTest: { transportPause(): void } }).__weftcutTest.transportPause())
+  await page.evaluate(() => (window as unknown as { __lahzaTest: { transportPause(): void } }).__lahzaTest.transportPause())
   const after = (await probe(page, layerId))?.ringLastPtsUs ?? -1
   expect(after, `${where}: frames did not advance during playback (before=${before} after=${after})`).toBeGreaterThan(before)
   return { before, after }
@@ -176,14 +176,14 @@ interface Harness {
 /// report `engaged: false` when the lane did not come up on this machine, so the
 /// caller can skip cleanly (preview-hw-conformance model) rather than fail.
 async function setupHardwareSession(lane: HwLane, where: string): Promise<Harness> {
-  const { app, page } = await launchApp({ env: { WEFTCUT_FORCE_HW_LANE: lane } })
+  const { app, page } = await launchApp({ env: { LAHZA_FORCE_HW_LANE: lane } })
   const rendererErrors: string[] = []
   page.on('console', (m) => {
     if (m.type() === 'error' || m.type() === 'warning') rendererErrors.push(`[${m.type()}] ${m.text()}`)
   })
   page.on('pageerror', (e) => rendererErrors.push(`[pageerror] ${String(e)}`))
 
-  await newProject(page, { parentFolder: tmpDir('weftcut-reopen-stress-'), name: `reopen-${lane}-${Date.now()}`, canvas: CANVAS })
+  await newProject(page, { parentFolder: tmpDir('lahza-reopen-stress-'), name: `reopen-${lane}-${Date.now()}`, canvas: CANVAS })
   const after = (await invokeCmd(page, 'app_settings_set', { patch: { decode_engine: 'ffmpeg' } })) as { decode_engine: string }
   expect(after.decode_engine).toBe('ffmpeg')
   const { layerId, kind } = await importAndPlaceMedia(page, { mediaAbsPath: H264 })
@@ -208,7 +208,7 @@ async function setupHardwareSession(lane: HwLane, where: string): Promise<Harnes
 }
 
 test.describe('Preview reopen + GPU-crash stress on the hardware lane (ADR 0059)', () => {
-  test.skip(process.env.WEFTCUT_DECODE_E2E !== '1', 'needs the native-decode component (WEFTCUT_DECODE_E2E=1)')
+  test.skip(process.env.LAHZA_DECODE_E2E !== '1', 'needs the native-decode component (LAHZA_DECODE_E2E=1)')
   test.skip(!existsSync(H264), `fixture missing: ${H264}`)
 
   for (const lane of LANES) {

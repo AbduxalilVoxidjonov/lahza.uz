@@ -1202,7 +1202,7 @@ describe("DockWorkspaceAdapter", () => {
 
     expect(dock.showOverlay(["Files"])).toHaveBeenCalledOnce();
     expect(
-      dock.showOverlay(["application/x-weftcut-media"]),
+      dock.showOverlay(["application/x-lahza-media"]),
     ).toHaveBeenCalledOnce();
     expect(dock.showOverlay(["text/plain"])).not.toHaveBeenCalled();
 
@@ -1300,13 +1300,13 @@ describe("DockWorkspaceAdapter", () => {
 });
 
 describe("dock drag classification", () => {
-  it("keeps OS Files and every WeftCut business payload outside docking", () => {
+  it("keeps OS Files and every Lahza business payload outside docking", () => {
     expect(isBusinessDockDrag({ types: ["Files"] })).toBe(true);
     expect(
-      isBusinessDockDrag({ types: ["application/x-weftcut-media"] }),
+      isBusinessDockDrag({ types: ["application/x-lahza-media"] }),
     ).toBe(true);
     expect(
-      isBusinessDockDrag({ types: ["application/x-weftcut-effect-order"] }),
+      isBusinessDockDrag({ types: ["application/x-lahza-effect-order"] }),
     ).toBe(true);
     expect(isBusinessDockDrag({ types: ["text/plain"] })).toBe(false);
     expect(isBusinessDockDrag(null)).toBe(false);

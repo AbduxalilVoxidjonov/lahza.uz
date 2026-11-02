@@ -9,7 +9,7 @@ test('agent panel separates views, work sessions and connection lifetime', async
   const { app, page } = await launchApp()
   const clients: Client[] = []
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-agent-panel-'), name: 'agent-panel', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-agent-panel-'), name: 'agent-panel', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
     const snapshot = () => invokeCmd<AgentActivitySnapshot>(page, 'agent_activity_snapshot', {})
     const menu = async (label: RegExp) => {
@@ -102,7 +102,7 @@ test('tacks: listed in the panel, chipped in the review lane, converted into one
   const { app, page } = await launchApp()
   let client: Client | null = null
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-agent-tacks-'), name: 'agent-tacks', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-agent-tacks-'), name: 'agent-tacks', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
     const info = await page.evaluate(() => (window as any).api.mcp.getInfo()) as { url: string; bearer_token: string }
     client = new Client({ name: 'Tack test agent', version: '1.0' })
@@ -173,7 +173,7 @@ test('changes: an agent edit is listed, highlighted and counted until reverted o
   const { app, page } = await launchApp()
   let client: Client | null = null
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-agent-changes-'), name: 'agent-changes', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-agent-changes-'), name: 'agent-changes', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     await expect(page.locator('.splash-screen')).toHaveCount(0, { timeout: 15_000 })
     const info = await page.evaluate(() => (window as any).api.mcp.getInfo()) as { url: string; bearer_token: string }
     client = new Client({ name: 'Change test agent', version: '1.0' })

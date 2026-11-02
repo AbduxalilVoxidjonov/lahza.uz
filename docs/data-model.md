@@ -1392,7 +1392,7 @@ from the project's `view.json` (ADR 0053). The fold is also why no layout
 snapshot version moves for this: the persisted shape is unchanged.
 
 **Large, app-managed, relocatable content lives under a single user-configurable
-DATA ROOT**, default `<userData>/data/`, with a fixed internal layout WeftCut
+DATA ROOT**, default `<userData>/data/`, with a fixed internal layout Lahza
 owns:
 
 ```
@@ -1453,7 +1453,7 @@ verified migration (core: `apps/desktop/src/main/dataRootMigration.ts`, pure +
 fs-injected; IPC glue on the `dataRoot:*` channels). Semantics: **copy, preserve
 original, verify, roll back, prompt-to-delete-after-success.**
 
-1. The user picks a folder. If it is already a valid WeftCut data root
+1. The user picks a folder. If it is already a valid Lahza data root
    (`motifs/`+`cache/`+`downloads/` present), it is **adopted as-is** — no copy,
    no merge. Otherwise the migration **copies** into it.
 2. Copy `motifs/` and `downloads/` (source read-only; originals untouched);

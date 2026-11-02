@@ -12,7 +12,7 @@ Explainer scenes show their idea in pictures, and words label them. The
 first example scene (ADR 0131) was all words, because nothing in a style could
 draw a picture:
 - A Motif could not show project media. The capture host blocked it, so that
-  footage and photos stayed WeftCut layers.
+  footage and photos stayed Lahza layers.
 - An image layer shows a picture as it is: no paper cut-out, no tape, no
   shadow, no entrance in the style.
 
@@ -60,7 +60,7 @@ retime and audio would be duplicated from the video layer.
   cut-out, can crop it to a region (the slide behind a speaker), and draws its
   own `art.svg` when there is none. A fork replaces the SVG with a drawing of
   its own.
-- **Where pictures come from is the agent's to say.** WeftCut calls no image
+- **Where pictures come from is the agent's to say.** Lahza calls no image
   service (ADR 0133 added a Commons search; ADR 0137 took it out again). In
   order of preference:
   1. the user's media;

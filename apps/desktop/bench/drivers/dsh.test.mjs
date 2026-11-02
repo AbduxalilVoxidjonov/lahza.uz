@@ -11,7 +11,7 @@ describe('dsh driver', () => {
     const off = patch.filter((p) => p.disabled).map((p) => p.id)
     for (const id of ['tool-bash', 'tool-web', 'tool-subagent']) assert.ok(off.includes(id), id)
     const mcp = patch.at(-1).insert[0]
-    assert.equal(mcp.config.serverName, 'weftcut')
+    assert.equal(mcp.config.serverName, 'lahza')
     assert.equal(mcp.config.url, 'http://127.0.0.1:4000/mcp')
     assert.deepEqual(mcp.config.headers, { Authorization: 'Bearer tok' })
     assert.deepEqual(modelRoute('openrouter/qwen-max'), { provider: 'openrouter', model: 'qwen-max' })

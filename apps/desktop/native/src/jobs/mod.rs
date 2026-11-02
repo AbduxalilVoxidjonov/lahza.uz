@@ -216,7 +216,7 @@ async fn verify_source(cache: &CacheLayout, media: &MediaItem) -> anyhow::Result
 
 fn source_changed(media: &MediaItem) -> String {
     format!(
-        "{} was changed outside WeftCut and no longer holds this media",
+        "{} was changed outside Lahza and no longer holds this media",
         media.path_abs.display()
     )
 }
@@ -1660,7 +1660,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            format!("{err:#}").contains("changed outside WeftCut"),
+            format!("{err:#}").contains("changed outside Lahza"),
             "{err:#}"
         );
         assert!(!tmp.path().join("c").exists());
@@ -1690,7 +1690,7 @@ mod tests {
             .await
             .unwrap_err();
         assert!(
-            format!("{err:#}").contains("changed outside WeftCut"),
+            format!("{err:#}").contains("changed outside Lahza"),
             "{err:#}"
         );
         assert!(!out.exists(), "the derivative of other bytes is removed");

@@ -105,7 +105,7 @@ function makeHandle(extra?: Partial<SourceHandleInit>): ExportSourceHandle {
   const init: SourceHandleInit = {
     layerId: "layer-1",
     mediaId: "media-1",
-    proxyAssetUrl: "weftcut-media://localhost/test.mp4",
+    proxyAssetUrl: "lahza-media://localhost/test.mp4",
     ...extra,
   };
   return new ExportSourceHandle(init);
@@ -267,7 +267,7 @@ describe("ExportSourceHandle EOS tail", () => {
       for (let i = 0; i < 4; i++) {
         const key = `phase-${i % 2}`;
         pool.retainOnly(new Set([key]));
-        const handle = pool.acquire({ layerId: `clip-${i}`, mediaId: 'media-1', handleKey: key, proxyAssetUrl: 'weftcut-media://localhost/test.mp4' });
+        const handle = pool.acquire({ layerId: `clip-${i}`, mediaId: 'media-1', handleKey: key, proxyAssetUrl: 'lahza-media://localhost/test.mp4' });
         await expect(handle.decodeRange(0, 1)).resolves.toBeUndefined();
         expect(pool.handles.size).toBe(1);
       }

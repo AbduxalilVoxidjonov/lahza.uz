@@ -117,7 +117,7 @@ before the next Application exists.
   hosted CI runners: `preview-reopen-stress.spec.ts` (this ADR's direct gate,
   the reopen + GPU-crash checks; d3d11va on Windows, videotoolbox on macOS,
   nvdec/vaapi on Linux) and the export-conformance specs. Both are
-  `WEFTCUT_DECODE_E2E`-gated and self-skip where the lane is absent, so the
+  `LAHZA_DECODE_E2E`-gated and self-skip where the lane is absent, so the
   hosted CI legs skip them; run them on a shared-texture-capable Windows box or a
   videotoolbox Mac. The export path's Face 2 freeze additionally needs the export
   specs run at multiple workers — CI runs them at one and never exercises it — so

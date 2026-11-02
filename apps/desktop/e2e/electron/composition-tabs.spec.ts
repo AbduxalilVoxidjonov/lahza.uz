@@ -160,7 +160,7 @@ test("a timeline anchor menu stays open while the pointer enters its submenu", a
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-anchor-menu-"),
+      parentFolder: tmpDir("lahza-anchor-menu-"),
       name: "anchor-menu-focus",
       canvas: CANVAS,
     });
@@ -188,7 +188,7 @@ test("a timeline anchor menu stays open while the pointer enters its submenu", a
       compositionId: initial.root_id,
     });
     await waitForHook(page, "setOpenComposition");
-    await page.evaluate((id) => (window as any).__weftcutTest.setOpenComposition(id), groupId);
+    await page.evaluate((id) => (window as any).__lahzaTest.setOpenComposition(id), groupId);
     await expect(timelineDvTab(page, groupId)).toBeVisible();
 
     await timelineDvTab(page, groupId).click({ button: "right" });
@@ -206,7 +206,7 @@ test("a timeline anchor menu stays open while the pointer enters its submenu", a
     await expect(secondPlacement).toBeVisible();
     await secondPlacement.click();
     await expect(page.locator(".app-menu-list")).toHaveCount(0);
-    await expect.poll(() => page.evaluate(() => (window as any).__weftcutTest.getOpenComposition()?.crumbs.at(-1)?.layerId)).toBe(secondPlacementId);
+    await expect.poll(() => page.evaluate(() => (window as any).__lahzaTest.getOpenComposition()?.crumbs.at(-1)?.layerId)).toBe(secondPlacementId);
 
     // Keyboard focus stays in the menu tree; Escape closes one level at a time
     // and returns focus to the tab that opened it.
@@ -264,16 +264,16 @@ interface Sample {
 
 const sample = (page: Page): Promise<Sample> =>
   page.evaluate(
-    (p) => (window as any).__weftcutTest.weftcutSampleComposite(p.x, p.y),
+    (p) => (window as any).__lahzaTest.lahzaSampleComposite(p.x, p.y),
     { x: SAMPLE_X, y: SAMPLE_Y },
   );
 
 const playheadUs = (page: Page): Promise<number> =>
-  page.evaluate(() => (window as any).__weftcutTest.getPlayheadUs());
+  page.evaluate(() => (window as any).__lahzaTest.getPlayheadUs());
 
 const openCompositionId = (page: Page): Promise<string | null> =>
   page.evaluate(
-    () => (window as any).__weftcutTest.getOpenComposition()?.id ?? null,
+    () => (window as any).__lahzaTest.getOpenComposition()?.id ?? null,
   );
 
 /// Which layer painted the sampled pixel. Dominance rather than equality: the
@@ -444,8 +444,8 @@ test.describe("many compositions, one moment", () => {
     test.setTimeout(300_000);
     // Both launches share one userData dir: the recents list that reopens the
     // project and the dock geometry both live there.
-    const userDataDir = tmpDir("weftcut-e2e-tabs-data-");
-    const parent = tmpDir("weftcut-e2e-tabs-");
+    const userDataDir = tmpDir("lahza-e2e-tabs-data-");
+    const parent = tmpDir("lahza-e2e-tabs-");
     const workspaceDir = path.join(parent, PROJECT_NAME);
 
     let rootId = "";
@@ -464,7 +464,7 @@ test.describe("many compositions, one moment", () => {
       // REQUIRED before any pointer gesture: the launch splash is a full-window
       // overlay that outlives the first timeline render.
       await expect(page.locator(".splash-screen")).toHaveCount(0, { timeout: 15_000 });
-      await waitForHook(page, "weftcutSampleComposite");
+      await waitForHook(page, "lahzaSampleComposite");
       await waitForHook(page, "getPlayheadUs");
       await waitForHook(page, "getOpenComposition");
 
@@ -839,7 +839,7 @@ const layerIdsOf = (c: WireComposition): string[] =>
 
 const selectedLayerIds = async (page: Page): Promise<string[]> => {
   const ids = (await page.evaluate(() =>
-    (window as any).__weftcutTest.getSelectedLayerIds(),
+    (window as any).__lahzaTest.getSelectedLayerIds(),
   )) as string[];
   return ids.slice().sort();
 };
@@ -903,7 +903,7 @@ test.describe("a clip crosses between two timeline Panels", () => {
     const { app, page } = await launchApp();
     try {
       await newProject(page, {
-        parentFolder: tmpDir("weftcut-e2e-cross-panel-"),
+        parentFolder: tmpDir("lahza-e2e-cross-panel-"),
         name: "e2e-cross-panel-drop",
         canvas: CANVAS,
       });

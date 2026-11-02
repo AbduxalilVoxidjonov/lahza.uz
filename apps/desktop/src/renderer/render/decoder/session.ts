@@ -24,7 +24,7 @@ export interface SourceHandleInit {
   mediaId: string;
   /// Stable clip identity when an overlap swap uses synthetic pool keys.
   hardwareEvidenceIdentity?: { layerId: string; mediaId: string };
-  /// `weftcut-media://` URL of the decode target the WebCodecs path opens —
+  /// `lahza-media://` URL of the decode target the WebCodecs path opens —
   /// preview's resolved target, or the export master proxy in export mode.
   proxyAssetUrl: string;
   /// Source color tags mapped from ffprobe (matrix/range/primaries/transfer),
@@ -79,7 +79,7 @@ export interface SourceHandleInit {
   /// the frame relay) instead of WebCodecs on the proxy. When present the export
   /// pool builds a `NativeExportSourceHandle`; the WebCodecs path never reads it.
   /// `sourcePath` is the absolute ORIGINAL file path (the napi opens a filesystem
-  /// path, not a `weftcut-media://` asset URL); `outFormat` is the CPU transport
+  /// path, not a `lahza-media://` asset URL); `outFormat` is the CPU transport
   /// format from the routing table (exportDecodeRouting.ts); `creditWindow`
   /// sizes the in-flight flow-control window.
   nativeExport?: {

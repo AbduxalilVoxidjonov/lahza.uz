@@ -9,7 +9,7 @@ test('@serial cached Motif frames survive concurrent reads and slot reuse', asyn
   const { app, page } = await launchApp({ env: { ELECTRON_RENDERER_URL: '' } })
   try {
     const sharedTextures = await supportsMotifSharedTextures(app)
-    const parent = tmpDir('weftcut-motif-transport-')
+    const parent = tmpDir('lahza-motif-transport-')
     await newProject(page, { parentFolder: parent, name: 'Transport', canvas: { width: 1920, height: 1080, fpsNum: 60, fpsDen: 1 } })
     const hash = '0123456789abcdef0123456789abcdef'
     const pngs = await page.evaluate(() => {
@@ -48,7 +48,7 @@ test('@serial cached Motif frames survive concurrent reads and slot reuse', asyn
         if (data.error || !data.bitmap) request.reject(new Error(data.error ?? 'Missing frame'))
         else request.resolve(data.bitmap)
       }
-      window.postMessage({ type: 'weftcut:motif-frame-port' }, '*', [channel.port2])
+      window.postMessage({ type: 'lahza:motif-frame-port' }, '*', [channel.port2])
       let id = 0
       const read = (frame: number) => new Promise<ImageBitmap>((resolve, reject) => {
         const requestId = ++id
@@ -85,7 +85,7 @@ test('@serial cached Motif transport stays responsive across renderer reloads', 
   const { app, page } = await launchApp({ env: { ELECTRON_RENDERER_URL: '' } })
   try {
     test.skip(!await supportsMotifSharedTextures(app), 'Requires real shared GPU textures')
-    const parent = tmpDir('weftcut-motif-reload-')
+    const parent = tmpDir('lahza-motif-reload-')
     await newProject(page, { parentFolder: parent, name: 'Reload', canvas: { width: 1920, height: 1080, fpsNum: 60, fpsDen: 1 } })
     const hash = '123456789abcdef0123456789abcdef0'
     const png = await page.evaluate(() => {
@@ -133,7 +133,7 @@ test('@serial cached Motif transport stays responsive across renderer reloads', 
           pending.get(data.id)?.(result)
           pending.delete(data.id)
         }
-        window.postMessage({ type: 'weftcut:motif-frame-port' }, '*', [channel.port2])
+        window.postMessage({ type: 'lahza:motif-frame-port' }, '*', [channel.port2])
         const read = () => new Promise<string>(resolve => {
           const requestId = ++id
           const timeout = setTimeout(() => { pending.delete(requestId); resolve('timeout') }, 3000)
@@ -155,7 +155,7 @@ test('@serial cached Motif transport stays responsive across renderer reloads', 
         channel.port1.onmessage = ({ data }) => {
           if (data.bitmap) (window as any).__motifReloadFrames.push(data.bitmap)
         }
-        window.postMessage({ type: 'weftcut:motif-frame-port' }, '*', [channel.port2])
+        window.postMessage({ type: 'lahza:motif-frame-port' }, '*', [channel.port2])
         for (let id = 1; id <= 24; id++) channel.port1.postMessage({ id, hash, frame: 1 })
       }, hash)
     }

@@ -3,10 +3,10 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { CRAFT_RULES, effectiveThreshold, renderCraftRules } from '../../shared/craft'
 
-const DOC = path.join(import.meta.dirname, '../../../../../skills/weftcut/craft/rules.md')
+const DOC = path.join(import.meta.dirname, '../../../../../skills/lahza/craft/rules.md')
 
 describe('the craft table', () => {
-  it('ships as skills/weftcut/craft/rules.md (UPDATE_CRAFT=1 rewrites it)', () => {
+  it('ships as skills/lahza/craft/rules.md (UPDATE_CRAFT=1 rewrites it)', () => {
     if (process.env.UPDATE_CRAFT) writeFileSync(DOC, renderCraftRules())
     expect(readFileSync(DOC, 'utf8')).toBe(renderCraftRules())
   })

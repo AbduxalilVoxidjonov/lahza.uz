@@ -157,7 +157,7 @@ function createMixer(): {
   const mixer = new AudioMixer(
     {
       layerId: "layer",
-      conformUrl: "weftcut-media://audio.conform",
+      conformUrl: "lahza-media://audio.conform",
       view,
       layerTStartUs: 0,
       layerTEndUs: 1_000_000,

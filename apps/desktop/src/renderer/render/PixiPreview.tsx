@@ -98,7 +98,7 @@ interface Props {
   exportSuspended?: boolean;
 }
 
-const LOG = "[weftcut/pixi]";
+const LOG = "[lahza/pixi]";
 let previewResourceSequence = 0;
 
 /// The render-target half of Playback Resolution, with the display fit folded
@@ -584,10 +584,10 @@ export const PixiPreview = forwardRef<PixiPreviewHandle, Props>(function PixiPre
       });
 
       // E2E-only: register a live bridge so the WebDriver hooks
-      // (window.__weftcutTest.weftcutSeekUs / weftcutSampleComposite) can drive
+      // (window.__lahzaTest.lahzaSeekUs / lahzaSampleComposite) can drive
       // a real seek and read pixels straight off the composited canvas. Dynamic
-      // import behind the static VITE_WEFTCUT_E2E check → stripped from prod.
-      if (import.meta.env.VITE_WEFTCUT_E2E === "1") {
+      // import behind the static VITE_LAHZA_E2E check → stripped from prod.
+      if (import.meta.env.VITE_LAHZA_E2E === "1") {
         void Promise.all([
           import("../testhook/e2eHook"),
           import("../testhook/previewRecovery"),
@@ -901,7 +901,7 @@ export const PixiPreview = forwardRef<PixiPreviewHandle, Props>(function PixiPre
       setSlotFenceBackend(null);
       // E2E-only: clear the preview bridge so seek/readback hooks don't
       // hold a stale closure over the disposed engine + compositor.
-      if (import.meta.env.VITE_WEFTCUT_E2E === "1") {
+      if (import.meta.env.VITE_LAHZA_E2E === "1") {
         void import("../testhook/e2eHook").then(({ clearPreviewBridge }) => {
           clearPreviewBridge();
         });
@@ -965,7 +965,7 @@ export const PixiPreview = forwardRef<PixiPreviewHandle, Props>(function PixiPre
           <div className="preview-spinner" />
         </div>
       )}
-      {(import.meta.env.DEV || import.meta.env.VITE_WEFTCUT_E2E === "1") && (
+      {(import.meta.env.DEV || import.meta.env.VITE_LAHZA_E2E === "1") && (
         <PerfTelemetryBridge compositorRef={compositorRef} engineRef={engineRef} />
       )}
       {unsupportedMediaId !== undefined && (

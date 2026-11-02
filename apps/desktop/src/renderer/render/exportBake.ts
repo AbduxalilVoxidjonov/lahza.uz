@@ -63,7 +63,7 @@ export function motifLayersToBake(
     if (!motif) {
       // eslint-disable-next-line no-console
       console.warn(
-        `[weftcut/export] bake: unknown motif "${view.motif_id}" ` +
+        `[lahza/export] bake: unknown motif "${view.motif_id}" ` +
           `(layer ${layer.id}) — skipping`,
       );
       return;

@@ -71,7 +71,7 @@ At the mux boundary, the ledger contained 76 MiB (64 MiB finalization plus 12 Mi
 preview) and no CPU lease before/after each attempt.
 
 Image conformance used the repository's existing Linux software-rendering values
-`WEFTCUT_E2E_SSIM_FLOOR=0.62` and `WEFTCUT_E2E_COLOR_FAITHFUL_MAX=16`; memory targets,
+`LAHZA_E2E_SSIM_FLOOR=0.62` and `LAHZA_E2E_COLOR_FAITHFUL_MAX=16`; memory targets,
 assertions and timeouts were not raised. The NVIDIA driver mismatch found in the
 original run remains an environment limitation. Windows/macOS were not executed.
 
@@ -94,11 +94,11 @@ Ignored artifacts: `apps/desktop/reports/export-finalization-2026-10-08/`.
   the two IPC/configuration cases. The atomic-file test appears in both runs.
 - `retry-trace.json`, `discard-trace.json`: attempts, reservations, memory samples,
   input paths and production counts; screenshots under `e2e-final-artifacts/`.
-- `weftcut-finalization-all-unit-verified.log`, `weftcut-finalization-all-rust.log`,
-  final typecheck/Clippy/build logs and `weftcut-finalization-doctor.json`.
+- `lahza-finalization-all-unit-verified.log`, `lahza-finalization-all-rust.log`,
+  final typecheck/Clippy/build logs and `lahza-finalization-doctor.json`.
 
 The refreshed AppImage and amd64 deb are in `apps/desktop/release/`. Native
-library/licensing/skill packaging checks passed. `linux-unpacked/WeftCut` passed
+library/licensing/skill packaging checks passed. `linux-unpacked/Lahza` passed
 isolated startup and new-project text-preview checks, without the E2E software
 rendering flag; graphics still fell back to software with the known driver
 mismatch. Packages were not installed or published. The builder's pre-existing

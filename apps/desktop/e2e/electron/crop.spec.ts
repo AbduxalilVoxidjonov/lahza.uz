@@ -8,9 +8,9 @@ const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../.
 const ffmpeg = process.env.FFMPEG ?? path.join(desktop, 'resources/ffmpeg', process.platform === 'win32' ? 'win/ffmpeg.exe' : process.platform === 'darwin' ? 'mac/ffmpeg' : 'linux/ffmpeg');
 async function sample(page: Page, x: number, y: number) {
   return page.evaluate(async ({ x, y }) => {
-    const hook = (window as any).__weftcutTest;
-    hook.weftcutSeekUs(0);
-    return hook.weftcutSampleComposite(x, y) as Promise<{ r: number; g: number; b: number; a: number }>;
+    const hook = (window as any).__lahzaTest;
+    hook.lahzaSeekUs(0);
+    return hook.lahzaSampleComposite(x, y) as Promise<{ r: number; g: number; b: number; a: number }>;
   }, { x, y });
 }
 
@@ -43,7 +43,7 @@ async function redPixels(page: Page): Promise<number> {
 
 test('crop: Quick Panel, context menu, drag/cancel, snapping and exported pixels @serial', async ({}, info) => {
   test.setTimeout(180_000);
-  const folder = tmpDir('weftcut-crop-'), media = path.join(folder, 'red.mp4');
+  const folder = tmpDir('lahza-crop-'), media = path.join(folder, 'red.mp4');
   const made = spawnSync(ffmpeg, ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=c=red:s=320x180:r=30:d=1', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', media], { encoding: 'utf8' });
   expect(made.status, made.stderr).toBe(0);
   const { app, page } = await launchApp();
@@ -53,8 +53,8 @@ test('crop: Quick Panel, context menu, drag/cancel, snapping and exported pixels
   try {
     await newProject(page, { parentFolder: folder, name: 'crop', canvas: { width: 320, height: 180, fpsNum: 30, fpsDen: 1 } });
     const { layerId } = await importAndPlaceMedia(page, { mediaAbsPath: media });
-    await waitForHook(page, 'weftcutSampleComposite');
-    await expect.poll(() => page.evaluate(() => !!(window as any).__weftcutTest.previewResourceProbe()), { timeout: 20_000 }).toBe(true);
+    await waitForHook(page, 'lahzaSampleComposite');
+    await expect.poll(() => page.evaluate(() => !!(window as any).__lahzaTest.previewResourceProbe()), { timeout: 20_000 }).toBe(true);
     await expect.poll(async () => (await sample(page, 160, 90)).r, { timeout: 20_000 }).toBeGreaterThan(200);
     const patch = (p: Record<string, unknown>) => invokeCmd(page, 'update_layer_params', { layerId, patch: { kind: 'VideoClip', ...p } });
     const stored = async () => (await summary(page)).tracks.flatMap(t => t.layers).find(l => l.id === layerId)!.params as any;
@@ -67,7 +67,7 @@ test('crop: Quick Panel, context menu, drag/cancel, snapping and exported pixels
     await patch({ crop });
     await expect.poll(async () => (await sample(page, 20, 90)).r).toBeLessThan(10);
     await expect.poll(async () => (await sample(page, 160, 90)).r).toBeGreaterThan(200);
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId);
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId);
     await expect(page.locator('.prop-section[aria-label="Crop"]')).toHaveCount(0);
     const cropTool = page.locator('[data-quick-action="editCrop"]');
     await expect(cropTool).toBeEnabled();

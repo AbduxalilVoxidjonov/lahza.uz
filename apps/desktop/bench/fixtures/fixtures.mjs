@@ -38,14 +38,14 @@ const run = promisify(execFile)
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 export const MANIFEST_PATH = path.join(HERE, 'fixtures.json')
-export const CACHE_DIR = process.env.WEFTCUT_BENCH_CACHE
-  ? path.resolve(process.env.WEFTCUT_BENCH_CACHE)
+export const CACHE_DIR = process.env.LAHZA_BENCH_CACHE
+  ? path.resolve(process.env.LAHZA_BENCH_CACHE)
   : path.join(HERE, '..', '.cache', 'fixtures')
 
-const FFMPEG = process.env.WEFTCUT_BENCH_FFMPEG || 'ffmpeg'
-const FFPROBE = process.env.WEFTCUT_BENCH_FFPROBE || 'ffprobe'
+const FFMPEG = process.env.LAHZA_BENCH_FFMPEG || 'ffmpeg'
+const FFPROBE = process.env.LAHZA_BENCH_FFPROBE || 'ffprobe'
 // Wikimedia asks for an identifying User-Agent on automated downloads.
-const USER_AGENT = 'WeftCutBench/0.1 (fixture fetch; https://github.com/UncleChair/WeftCut)'
+const USER_AGENT = 'LahzaBench/0.1 (fixture fetch; https://github.com/AbduxalilVoxidjonov/lahza.uz)'
 
 const ID_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/
 const HEX64 = /^[0-9a-f]{64}$/

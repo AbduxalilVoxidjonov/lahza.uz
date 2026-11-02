@@ -23,7 +23,7 @@ export const hardwareFailure = (error: unknown): HardwareFailure => {
 const io: LinuxHardwareIO = {
   readdir: p => fs.readdir(p), realpath: p => fs.realpath(p), readFile: p => fs.readFile(p, 'utf8'),
   async nativeMemory(devices) {
-    const native = createRequire(import.meta.url)('@weftcut/core') as { linuxGpuMemoryInfo?: (json: string) => Promise<string> };
+    const native = createRequire(import.meta.url)('@lahza/core') as { linuxGpuMemoryInfo?: (json: string) => Promise<string> };
     if (!native.linuxGpuMemoryInfo) return { devices: [], reason: 'component-unavailable' };
     nativeMemoryTask ??= native.linuxGpuMemoryInfo(JSON.stringify(devices.map(d => ({
       pciAddress: d.pci_address, renderNode: d.render_nodes[0] ?? null, driver: d.driver, vendorId: d.vendor_id,

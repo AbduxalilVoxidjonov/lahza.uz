@@ -464,7 +464,7 @@ describe('createTsActorHost — persistence-route integration', () => {
     { nextName: 'Example', removeRecent: false, closeFirst: false },
     { nextName: 'Example', removeRecent: true, closeFirst: true },
   ])('recreates a deleted workspace while the app stays open: %j', async ({ nextName, removeRecent, closeFirst }) => {
-    const parent = mkdtempSync(nodePath.join(tmpdir(), 'weftcut-deleted-project-'))
+    const parent = mkdtempSync(nodePath.join(tmpdir(), 'lahza-deleted-project-'))
     const { deps } = makeInMemoryDeps()
     const host = createTsActorHost({ ...deps, join: nodePath.join, fs: {
       exists: existsSync,

@@ -6,11 +6,11 @@ import { test } from 'node:test'
 import { assertSkillLayout, assertSkillVersions, stampSkillVersion, REQUIRED_DOCS, REQUIRED_ASSETS, REQUIRED_LAYERS } from './build-skills-lib.mjs'
 
 const SKILL = `---
-name: weftcut
-description: Drive the WeftCut video editor over its MCP tools.
+name: lahza
+description: Drive the Lahza video editor over its MCP tools.
 ---
 
-# Driving WeftCut
+# Driving Lahza
 `
 
 test('build:skills stamps the staged skill with the version of the app staging it', () => {
@@ -18,13 +18,13 @@ test('build:skills stamps the staged skill with the version of the app staging i
   assert.equal(
     out,
     `---
-name: weftcut
-description: Drive the WeftCut video editor over its MCP tools.
+name: lahza
+description: Drive the Lahza video editor over its MCP tools.
 metadata:
   version: '0.1.7'
 ---
 
-# Driving WeftCut
+# Driving Lahza
 `,
   )
 })
@@ -34,7 +34,7 @@ test('the version is quoted, so a two-part version stays a string instead of a f
 })
 
 test('a skill with no frontmatter fails the build instead of shipping unstamped', () => {
-  assert.throws(() => stampSkillVersion('# Driving WeftCut\n', '0.1.7'), /no YAML frontmatter/)
+  assert.throws(() => stampSkillVersion('# Driving Lahza\n', '0.1.7'), /no YAML frontmatter/)
 })
 
 test('an author-written metadata block fails loudly rather than being clobbered', () => {
@@ -43,8 +43,8 @@ test('an author-written metadata block fails loudly rather than being clobbered'
 })
 
 /// A staged bundle, minus whatever the caller leaves out.
-function bundle(t, { skills = ['weftcut'], docs = REQUIRED_DOCS, assets = REQUIRED_ASSETS, layers = REQUIRED_LAYERS, version = '0.1.7', skillFile = true } = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-skill-bundle-'))
+function bundle(t, { skills = ['lahza'], docs = REQUIRED_DOCS, assets = REQUIRED_ASSETS, layers = REQUIRED_LAYERS, version = '0.1.7', skillFile = true } = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-skill-bundle-'))
   t.after(() => fs.rmSync(root, { recursive: true, force: true }))
   for (const skill of skills) {
     fs.mkdirSync(path.join(root, skill), { recursive: true })
@@ -60,8 +60,8 @@ function bundle(t, { skills = ['weftcut'], docs = REQUIRED_DOCS, assets = REQUIR
 
 test('a complete bundle passes and reports the skills it holds', t => {
   const root = bundle(t)
-  assert.deepEqual(assertSkillLayout(root), ['weftcut'])
-  assert.doesNotThrow(() => assertSkillVersions(root, ['weftcut'], '0.1.7'))
+  assert.deepEqual(assertSkillLayout(root), ['lahza'])
+  assert.doesNotThrow(() => assertSkillVersions(root, ['lahza'], '0.1.7'))
 })
 
 test('an empty bundle fails the build rather than shipping a panel with nothing to offer', t => {
@@ -71,8 +71,8 @@ test('an empty bundle fails the build rather than shipping a panel with nothing 
 })
 
 test('renaming the skill folder fails the build, because two other places name it literally', t => {
-  const root = bundle(t, { skills: ['weftcut-editor'] })
-  assert.throws(() => assertSkillLayout(root), /weftcut skill is missing/)
+  const root = bundle(t, { skills: ['lahza-editor'] })
+  assert.throws(() => assertSkillLayout(root), /lahza skill is missing/)
 })
 
 test('a skill folder without SKILL.md is not a skill any client would load', t => {
@@ -104,12 +104,12 @@ test('the layers come with the skills/ tree, so staging checks them before the d
 
 test('an unstamped or mismatched skill fails: a copy that cannot name its app version is the drift hazard', t => {
   const unstamped = bundle(t, { skills: [], docs: [] })
-  fs.mkdirSync(path.join(unstamped, 'weftcut'))
-  fs.writeFileSync(path.join(unstamped, 'weftcut', 'SKILL.md'), SKILL)
-  assert.throws(() => assertSkillVersions(unstamped, ['weftcut'], '0.1.7'), /carries version nothing/)
+  fs.mkdirSync(path.join(unstamped, 'lahza'))
+  fs.writeFileSync(path.join(unstamped, 'lahza', 'SKILL.md'), SKILL)
+  assert.throws(() => assertSkillVersions(unstamped, ['lahza'], '0.1.7'), /carries version nothing/)
 
   const older = bundle(t, { version: '0.1.6' })
-  assert.throws(() => assertSkillVersions(older, ['weftcut'], '0.1.7'), /carries version 0\.1\.6/)
+  assert.throws(() => assertSkillVersions(older, ['lahza'], '0.1.7'), /carries version 0\.1\.6/)
 })
 
 test('every failure names the gate that raised it, so a pack-time one is not read as a build-time one', t => {

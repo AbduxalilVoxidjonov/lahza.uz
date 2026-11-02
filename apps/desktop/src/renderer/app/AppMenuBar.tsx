@@ -45,7 +45,7 @@ export function DevMenu({
   enabled = import.meta.env.DEV,
   onOpenPerformanceMonitor = () => {
     void openPerformanceMonitor().catch((error) => {
-      console.error("[weftcut/performance-monitor] failed to open:", error);
+      console.error("[lahza/performance-monitor] failed to open:", error);
     });
   },
 }: DevMenuProps) {

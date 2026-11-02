@@ -26,7 +26,7 @@ describe.skipIf(!nativeAvailable)('MCP-authored animation crosses the native exp
     } }))
     expect(result.ok, JSON.stringify(result)).toBe(true)
     const project = structuredClone(serializeProject(actor.snapshot()))
-    const work = mkdtempSync(path.join(tmpdir(), 'weftcut-animation-export-'))
+    const work = mkdtempSync(path.join(tmpdir(), 'lahza-animation-export-'))
     // Isolate native runtime lifetime from Vitest. This calls the same native
     // audio-conform preflight used before video encoding, with no user media.
     const probe = (input: unknown) => spawnSync(process.execPath, ['-e', `

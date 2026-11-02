@@ -1,13 +1,13 @@
 # Motif authoring contract
 
-The rules a Motif document must satisfy to render correctly in WeftCut. This is
+The rules a Motif document must satisfy to render correctly in Lahza. This is
 the authoritative authoring spec: the in-app source panel, external editors, and
 MCP agents all write against it. It is self-contained on purpose — a copy ships
-with the app to agent clients, where no other WeftCut document is reachable.
+with the app to agent clients, where no other Lahza document is reachable.
 
 A Motif is one parameterized, time-varying overlay element (a lower-third, a
 countdown, a title card), placed as a layer among the user's footage, images
-and text on the WeftCut timeline. It is authored as a real web page — one HTML
+and text on the Lahza timeline. It is authored as a real web page — one HTML
 document plus a JSON manifest — and that page is the canvas for this one
 element, not for the whole frame. Placed on the timeline, it is captured frame
 by frame by a harness that owns the clock. Any HTML/CSS/SVG/canvas/WebGL and
@@ -35,7 +35,7 @@ Anything that enters, holds and leaves on its own is still its own layer.
 
 - **No moving footage inside a Motif.** A Motif may show one still picture
   from the project's media through a `media` prop: an image, or one frame of
-  a video. Moving footage is a WeftCut video layer, and Motifs decorate or
+  a video. Moving footage is a Lahza video layer, and Motifs decorate or
   annotate it from the layers above. A video sticker is a Group of the video
   layer and a frame Motif.
 - **Plan the layers before writing code.** Overlay work with more than one

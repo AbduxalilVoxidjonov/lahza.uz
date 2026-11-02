@@ -163,17 +163,17 @@ function wireFfmpeg(env, { platform, root, hasPathFfmpeg }, notes) {
 }
 
 /** The opt-in decode gates (decode-engine, export-native-wedges,
- * export-prores-fidelity, preview-gpu-order) skip unless WEFTCUT_DECODE_E2E=1.
+ * export-prores-fidelity, preview-gpu-order) skip unless LAHZA_DECODE_E2E=1.
  * On a dev machine with the native-decode component built that opt-in is the
  * real per-platform config, so default it on. Any explicit value (including
  * "0") and CI are left alone — the workflow owns CI's opt-in policy. */
 function wireDecodeGates(env, { platform, root }, notes) {
-  if ('WEFTCUT_DECODE_E2E' in env || env.CI) return
+  if ('LAHZA_DECODE_E2E' in env || env.CI) return
   const addonFile = DECODE_ADDON_FILE[platform]
   if (!addonFile || !existsSync(path.join(root, 'native', 'decode', addonFile))) return
-  env.WEFTCUT_DECODE_E2E = '1'
+  env.LAHZA_DECODE_E2E = '1'
   notes.push(
-    'WEFTCUT_DECODE_E2E=1 (native-decode component present — set WEFTCUT_DECODE_E2E=0 to skip the decode gates)',
+    'LAHZA_DECODE_E2E=1 (native-decode component present — set LAHZA_DECODE_E2E=0 to skip the decode gates)',
   )
 }
 
@@ -190,9 +190,9 @@ function noteAnalyzerBin({ platform, root }, notes) {
   )
 }
 
-/** True when a built renderer chunk contains the `__weftcutTest` hook surface.
+/** True when a built renderer chunk contains the `__lahzaTest` hook surface.
  * The marker is absent from a production build — every reference sits behind a
- * static VITE_WEFTCUT_E2E check and is tree-shaken (verified by grepping a
+ * static VITE_LAHZA_E2E check and is tree-shaken (verified by grepping a
  * flag-less build), so its presence ⇔ an e2e-capable build. */
 function rendererHasE2EHook(rendererDir) {
   const stack = [rendererDir]
@@ -201,7 +201,7 @@ function rendererHasE2EHook(rendererDir) {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       const p = path.join(dir, entry.name)
       if (entry.isDirectory()) stack.push(p)
-      else if (entry.name.endsWith('.js') && readFileSync(p, 'utf8').includes('__weftcutTest'))
+      else if (entry.name.endsWith('.js') && readFileSync(p, 'utf8').includes('__lahzaTest'))
         return true
     }
   }
@@ -218,7 +218,7 @@ function checkE2EBuild({ root }, errors) {
   }
   if (!rendererHasE2EHook(rendererDir))
     errors.push(
-      'out/ was built without VITE_WEFTCUT_E2E=1 — window.__weftcutTest is tree-shaken out and every export spec times out in waitForHook; rebuild with `npm run build:e2e`',
+      'out/ was built without VITE_LAHZA_E2E=1 — window.__lahzaTest is tree-shaken out and every export spec times out in waitForHook; rebuild with `npm run build:e2e`',
     )
 }
 
@@ -226,8 +226,8 @@ function checkE2EBuild({ root }, errors) {
  * visible reason and a shrunken run reads as tests having gone missing. */
 function noteMatrixTier(env, notes) {
   notes.push(
-    env.WEFTCUT_E2E_FULL
-      ? 'WEFTCUT_E2E_FULL=1 — @matrix cells included (full combinatorial sweep)'
+    env.LAHZA_E2E_FULL
+      ? 'LAHZA_E2E_FULL=1 — @matrix cells included (full combinatorial sweep)'
       : '@matrix cells excluded (combinatorial + specialty-codec sweep) — pass --full to run them',
   )
 }
@@ -237,8 +237,8 @@ function noteMatrixTier(env, notes) {
  * gone missing. */
 function noteSlice(slice, platform = process.platform) {
   const os = osLabelFor(platform)
-  const { WEFTCUT_E2E_ONLY } = sliceEnv(slice, os)
-  const files = WEFTCUT_E2E_ONLY.split(',')
+  const { LAHZA_E2E_ONLY } = sliceEnv(slice, os)
+  const files = LAHZA_E2E_ONLY.split(',')
   const serial = slicesFor(os).find((s) => s.name === slice).serial
     ? 'plus the serial project, which this leg owns'
     : 'without the serial project, which another leg owns'
@@ -281,7 +281,7 @@ export function runE2E(argv = process.argv.slice(2)) {
   }
   const { env, errors, notes } = prepareE2EEnv({
     ...process.env,
-    ...(full ? { WEFTCUT_E2E_FULL: '1' } : {}),
+    ...(full ? { LAHZA_E2E_FULL: '1' } : {}),
   })
   if (slice) notes.unshift(noteSlice(slice))
   // An explicit `--project=serial` under a slice that does not own it: running

@@ -1,5 +1,5 @@
 // Per-layer buffer-scheduled audio playback (docs/audio.md §Preview mixer).
-// Chunks of conform PCM are read over weftcut-media:// Range (zero decode),
+// Chunks of conform PCM are read over lahza-media:// Range (zero decode),
 // wrapped as AudioBuffers, and scheduled
 // sample-accurately on the AudioContext clock against a play anchor.
 //
@@ -41,7 +41,7 @@ import {
 
 export interface AudioMixerInit {
   layerId: string;
-  /// weftcut-media:// URL of the layer's conform file.
+  /// lahza-media:// URL of the layer's conform file.
   conformUrl: string;
   /// The layer's audio view (gain/pan tracks, fades, src trims, mute).
   view: AudioView;
@@ -396,7 +396,7 @@ export class AudioMixer {
       if (!this.readFailedWarned) {
         this.readFailedWarned = true;
         console.warn(
-          `[weftcut/audio] conform read failed for layer ${this.layerId}; chunk muted: ${audioErrorDetail(e)}`,
+          `[lahza/audio] conform read failed for layer ${this.layerId}; chunk muted: ${audioErrorDetail(e)}`,
         );
       }
       return;
@@ -507,7 +507,7 @@ export class AudioMixer {
       // it loudly in dev consoles rather than failing silent.
       const detail = audioErrorDetail(e);
       console.warn(
-        `[weftcut/audio] envelope curve scheduling failed for layer ${this.layerId}: ${detail}`,
+        `[lahza/audio] envelope curve scheduling failed for layer ${this.layerId}: ${detail}`,
       );
     }
   }

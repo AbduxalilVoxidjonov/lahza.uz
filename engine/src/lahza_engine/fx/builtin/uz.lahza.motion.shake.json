@@ -1,0 +1,38 @@
+{
+  "schema": "lahza.fx/1",
+  "id": "uz.lahza.motion.shake",
+  "version": "1.0.0",
+  "kind": "motion",
+  "name": {
+    "uz": "Silkinish",
+    "uz-Cyrl": "Силкиниш",
+    "ru": "Тряска",
+    "en": "Shake"
+  },
+  "description": {
+    "uz": "Qo'lda olingan kamera tebranishi",
+    "uz-Cyrl": "Қўлда олинган камера тебраниши",
+    "ru": "Эффект ручной камеры",
+    "en": "Handheld camera shake"
+  },
+  "backend": "motion-keys",
+  "preset": "shake",
+  "params": [
+    {
+      "id": "kuch",
+      "type": "float",
+      "min": 0.0,
+      "max": 1.0,
+      "default": 0.35
+    },
+    {
+      "id": "chastota_hz",
+      "type": "float",
+      "min": 0.5,
+      "max": 12.0,
+      "default": 5.0
+    }
+  ],
+  "default_trigger": "on_emphasis",
+  "license": "Lahza"
+}

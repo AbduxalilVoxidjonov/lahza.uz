@@ -43,7 +43,7 @@ export function userFacingWindows(): BrowserWindow[] {
 /// leaving a live app with no window. See docs/notes/electron-chromium-behavior.md.
 ///
 /// LANDMINE: no macOS exemption, and deliberately no platform parameter to hang
-/// one on. WeftCut is a single-window app, so a Dock-resident windowless process
+/// one on. Lahza is a single-window app, so a Dock-resident windowless process
 /// would hold decode sessions and ffmpeg children alive behind nothing the user
 /// can see or close — the Electron quick-start's `platform !== 'darwin'` guard
 /// does not belong here. Rationale: docs/notes/electron-chromium-behavior.md.
@@ -67,7 +67,7 @@ export function quitIfLastUserWindowClosed(): void {
 // pop the user's browser to an arbitrary https URL via `window.open`.
 export function hardenWindow(win: BrowserWindow, opts?: { allowExternalOpen?: boolean }): void {
   const allowExternalOpen = opts?.allowExternalOpen ?? true
-  // WeftCut has no interface-scale setting. Chromium nevertheless enables its
+  // Lahza has no interface-scale setting. Chromium nevertheless enables its
   // built-in Ctrl/Cmd +/-/0 page zoom, which can accidentally shrink the whole
   // application. Consume only those keyboard accelerators; renderer-owned
   // gestures such as the timeline's Ctrl+wheel zoom continue to work.

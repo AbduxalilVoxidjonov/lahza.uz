@@ -4,7 +4,7 @@ import { installMotifFrames } from './motifFrames'
 import { MotifReadBarrier } from './motifReadBarrier'
 import { readLayoutThemeArgument } from '../shared/layout-theme'
 import type {
-  WeftcutApi,
+  LahzaApi,
   AppNotice,
   AppVersions,
   DecodeCapabilityProbeResult,
@@ -45,7 +45,7 @@ type Listener = (payload: unknown) => void
 // (Electron security guidance: expose APIs, not channels). The one generic
 // channel is `backend.invoke`, which fronts the napi/Rust command dispatcher —
 // a single controlled capability that validates its own commands.
-const api: WeftcutApi = {
+const api: LahzaApi = {
   diagnostics: {
     summary: () => ipcRenderer.invoke('diagnostics:summary'),
     exportBundle: () => ipcRenderer.invoke('diagnostics:export'),
@@ -269,7 +269,7 @@ const api: WeftcutApi = {
       // slot acks back up it (see receiveSlotAck). Setting `onmessage` also
       // starts the port, which is why nothing else has to.
       ch.port1.onmessage = (ev: MessageEvent) => { receiveSlotAck(ch.port1, ev.data) }
-      window.postMessage({ __weftcutPreviewGpu: 'port', streamId }, '*', [ch.port2])
+      window.postMessage({ __lahzaPreviewGpu: 'port', streamId }, '*', [ch.port2])
     },
     budget(): Promise<PreviewGpuBudgetSnapshot> {
       return ipcRenderer.invoke('previewGpu:budget') as Promise<PreviewGpuBudgetSnapshot>
@@ -282,7 +282,7 @@ const api: WeftcutApi = {
     },
   },
 
-  // Native SOFTWARE-decode preview — implements `WeftcutApi.previewSw`, which
+  // Native SOFTWARE-decode preview — implements `LahzaApi.previewSw`, which
   // owns the why (see shared/ipc.ts).
   previewSw: {
     open(args: { streamId: string; path: string; lane?: string | null; device?: string | null; scaleDiv?: number | null; cadenceDiv?: number | null; outFormat?: 'NV12' | 'I420P10' | null }): Promise<{ width: number; height: number }> {
@@ -305,7 +305,7 @@ const api: WeftcutApi = {
   },
 
   // Native SOFTWARE export-decode relay — the EXPORT-side mirror of previewSw.
-  // Implements `WeftcutApi.exportSw`; the single-ordered-channel contract that
+  // Implements `LahzaApi.exportSw`; the single-ordered-channel contract that
   // keeps control from overtaking frames lives on `ExportSwMsg` in
   // shared/ipc.ts.
   exportSw: {

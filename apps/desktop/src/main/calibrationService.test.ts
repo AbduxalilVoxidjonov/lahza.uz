@@ -11,7 +11,7 @@ import { PLAYBACK_CALIBRATION } from '../shared/playback-calibration'
 const cleanups: Array<() => Promise<void>> = []
 afterEach(async () => { for (const cleanup of cleanups.splice(0)) await cleanup() })
 function setup(supported = true, reserve?: () => () => void) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-calibration-test-'))
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-calibration-test-'))
   fs.writeFileSync(path.join(dir, 'h264-4k60.mp4'), 'fixture')
   fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({ codec: 'h264', fps: 60,
     width: 3840, height: 2160, durationUs: 20_000_000,

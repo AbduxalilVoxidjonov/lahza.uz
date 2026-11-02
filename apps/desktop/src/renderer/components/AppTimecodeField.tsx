@@ -30,7 +30,7 @@ function pad2(n: number): string {
   return n.toString().padStart(2, "0");
 }
 
-/// The one timecode editor for every WeftCut form. Renders SMPTE
+/// The one timecode editor for every Lahza form. Renders SMPTE
 /// `HH:MM:SS:FF` as four numeric-only segments with static `:` separators
 /// (the segmented pattern from pro NLEs), inside a single `.app-input`-skinned
 /// box. Reuses `formatTimecode`/`parseTimecode` so commits stay frame-aligned

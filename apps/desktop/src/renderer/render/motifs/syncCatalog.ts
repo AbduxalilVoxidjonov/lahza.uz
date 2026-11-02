@@ -20,7 +20,7 @@ export async function syncUserMotifsFromBackend(): Promise<void> {
     // Leave the built-in-only catalog in place; a transient IPC failure must
     // not blank the picker or the frame-math.
     // eslint-disable-next-line no-console
-    console.warn("[weftcut/motifs] syncUserMotifsFromBackend failed; keeping built-in-only catalog", e);
+    console.warn("[lahza/motifs] syncUserMotifsFromBackend failed; keeping built-in-only catalog", e);
   }
 }
 

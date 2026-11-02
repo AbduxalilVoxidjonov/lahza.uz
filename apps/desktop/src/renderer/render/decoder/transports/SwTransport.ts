@@ -148,7 +148,7 @@ export class SwTransport implements DecodeTransport {
       frame = f.format === "I420P10" ? tenBitFrameFromBytes(init) : nv12FrameFromBytes(init);
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.warn(`[weftcut/pixi] preview-sw ${this.streamId} frame wrap failed:`, e);
+      console.warn(`[lahza/pixi] preview-sw ${this.streamId} frame wrap failed:`, e);
       return;
     }
     // ptsUs is already source-normalized microseconds (Rust's shared

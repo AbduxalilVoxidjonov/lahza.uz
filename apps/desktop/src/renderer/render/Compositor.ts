@@ -701,7 +701,7 @@ export class Compositor {
       };
       // eslint-disable-next-line no-console
       console.log(
-        `[weftcut/pixi] first sprite added to stage: ` +
+        `[lahza/pixi] first sprite added to stage: ` +
           `pos=(${s.x},${s.y}) scale=(${s.scale.x},${s.scale.y}) ` +
           `alpha=${s.alpha} visible=${s.visible} ` +
           `tex=${s.texture?.orig?.width ?? "?"}×${s.texture?.orig?.height ?? "?"} ` +
@@ -992,7 +992,7 @@ export class Compositor {
           // Ordered close failed. Keep the current spill alive rather than
           // racing a replacement open against an unreleased lease.
           // eslint-disable-next-line no-console
-          console.warn("[weftcut/pixi] decode priority rebalance failed", err);
+          console.warn("[lahza/pixi] decode priority rebalance failed", err);
         });
     }
     return plan;

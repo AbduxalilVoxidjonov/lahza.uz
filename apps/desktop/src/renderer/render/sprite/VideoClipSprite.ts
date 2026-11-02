@@ -183,7 +183,7 @@ export class VideoClipSprite implements StageableSprite {
     } else {
       // eslint-disable-next-line no-console
       console.log(
-        `[weftcut/pixi] sprite ${this.layerId} first texture bound: ` +
+        `[lahza/pixi] sprite ${this.layerId} first texture bound: ` +
           `${width}×${height} ` +
           `texture.orig=${this.texture.orig.width}×${this.texture.orig.height}`,
       );

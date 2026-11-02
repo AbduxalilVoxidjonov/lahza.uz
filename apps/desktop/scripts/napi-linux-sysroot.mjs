@@ -27,7 +27,7 @@ export function linuxSysroot(env = process.env, { platform = process.platform, a
   // Native builds use the caller's host toolchain and skip the per-addon
   // glibc floor check (both wrappers gate it on args). Release defaults stay
   // portable; only the exact opt-in value enables this local workaround.
-  if (env.WEFTCUT_NATIVE_BUILD === '1') return { args: '', env: {} }
+  if (env.LAHZA_NATIVE_BUILD === '1') return { args: '', env: {} }
   // The directory napi extracts the toolchain into on first use. The package is
   // the CLI's dependency, not ours, so resolve it from where the CLI does.
   const cli = createRequire(import.meta.url).resolve('@napi-rs/cli/package.json')

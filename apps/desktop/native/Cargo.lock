@@ -1063,6 +1063,80 @@ dependencies = [
 ]
 
 [[package]]
+name = "lahza"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.23.0",
+ "blake3",
+ "bzip2",
+ "chrono",
+ "ffmpeg-sidecar",
+ "flate2",
+ "image",
+ "image-compare",
+ "imbl",
+ "insta",
+ "lahza-eval",
+ "libc",
+ "lz4_flex",
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "parking_lot",
+ "proptest",
+ "regex",
+ "reqwest",
+ "schemars",
+ "serde",
+ "serde_json",
+ "sysinfo",
+ "tar",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "unicode-normalization",
+ "uuid",
+ "windows 0.62.2",
+ "zstd",
+]
+
+[[package]]
+name = "lahza-conversion"
+version = "0.0.0"
+dependencies = [
+ "lahza-eval",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "lahza-eval"
+version = "0.0.0"
+dependencies = [
+ "libm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "lahza-native-decode"
+version = "0.0.0"
+dependencies = [
+ "ffmpeg-next",
+ "libc",
+ "napi",
+ "napi-build",
+ "napi-derive",
+ "serde_json",
+ "tracing",
+ "windows 0.62.2",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2718,80 +2792,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f5f280bbb2b287bc8e7de7e3852945a0ff50d1bbcb5ed42b6c7a568c546df171"
 dependencies = [
  "rustls-pki-types",
-]
-
-[[package]]
-name = "weftcut"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.23.0",
- "blake3",
- "bzip2",
- "chrono",
- "ffmpeg-sidecar",
- "flate2",
- "image",
- "image-compare",
- "imbl",
- "insta",
- "libc",
- "lz4_flex",
- "napi",
- "napi-build",
- "napi-derive",
- "parking_lot",
- "proptest",
- "regex",
- "reqwest",
- "schemars",
- "serde",
- "serde_json",
- "sysinfo",
- "tar",
- "tempfile",
- "thiserror",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "unicode-normalization",
- "uuid",
- "weftcut-eval",
- "windows 0.62.2",
- "zstd",
-]
-
-[[package]]
-name = "weftcut-conversion"
-version = "0.0.0"
-dependencies = [
- "serde",
- "serde_json",
- "weftcut-eval",
-]
-
-[[package]]
-name = "weftcut-eval"
-version = "0.0.0"
-dependencies = [
- "libm",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "weftcut-native-decode"
-version = "0.0.0"
-dependencies = [
- "ffmpeg-next",
- "libc",
- "napi",
- "napi-build",
- "napi-derive",
- "serde_json",
- "tracing",
- "windows 0.62.2",
 ]
 
 [[package]]

@@ -40,7 +40,7 @@ interface RingEntry {
 }
 
 /// E2E color diagnostic captured off the FIRST decoded frame of a handle.
-/// Surfaced through the export `done` perf message (`window.__weftcutExportPerf`)
+/// Surfaced through the export `done` perf message (`window.__lahzaExportPerf`)
 /// so a test can see, without Worker console access, what colorSpace we asked
 /// the decoder for vs what the decoder actually stamped on its output frames —
 /// the crux of whether Chromium/Electron's VideoDecoder propagates config.colorSpace.
@@ -483,7 +483,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
     const config = await opened.videoTrack.getDecoderConfig();
     if (this._disposed) return;
     if (!config) {
-      throw new Error(`[weftcut/export] ${this.mediaId}: no decoder config`);
+      throw new Error(`[lahza/export] ${this.mediaId}: no decoder config`);
     }
     // Match preview: offset comes from the decode target's first packet, not
     // import-time metadata (re-encoded proxies start at PTS 0).
@@ -507,7 +507,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
     }
     // eslint-disable-next-line no-console
     console.log(
-      `[weftcut/export] source ${this.mediaId} ready: codec=${config.codec} ` +
+      `[lahza/export] source ${this.mediaId} ready: codec=${config.codec} ` +
         `${config.codedWidth ?? "?"}x${config.codedHeight ?? "?"} ` +
         `startPts=${this.clock.containerUs(0)}us`,
     );
@@ -524,11 +524,11 @@ export class ExportSourceHandle implements ExportDecodeSession {
           support.set(hw, supported.supported === true);
           // eslint-disable-next-line no-console
           console.log(
-            `[weftcut/export] ${this.mediaId} isConfigSupported(${hw})=${supported.supported}`,
+            `[lahza/export] ${this.mediaId} isConfigSupported(${hw})=${supported.supported}`,
           );
         } catch (e) {
           // eslint-disable-next-line no-console
-          console.warn(`[weftcut/export] isConfigSupported(${hw}) threw:`, e);
+          console.warn(`[lahza/export] isConfigSupported(${hw}) threw:`, e);
         }
       }
       // Hosted runners may have no hardware decoder. Honor a definitive
@@ -574,7 +574,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
         if (this.outputFrameCount === 1 || this.outputFrameCount % 30 === 0) {
           // eslint-disable-next-line no-console
           console.log(
-            `[weftcut/export] ${this.mediaId} output #${this.outputFrameCount}: ` +
+            `[lahza/export] ${this.mediaId} output #${this.outputFrameCount}: ` +
               `pts=${frame.timestamp}us`,
           );
         }
@@ -594,7 +594,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
           }).catch((e: unknown) => {
             try { frame.close(); } catch { /* already closed */ }
             if (this.decoder !== dec) return;
-            const msg = `[weftcut/export] ${this.mediaId} 10-bit copyTo failed: ${String(e)}`;
+            const msg = `[lahza/export] ${this.mediaId} 10-bit copyTo failed: ${String(e)}`;
             // eslint-disable-next-line no-console
             console.error(msg);
             // A dropped frame is silent corruption and a parked-forever waiter —
@@ -612,14 +612,14 @@ export class ExportSourceHandle implements ExportDecodeSession {
         if (this.decoder !== dec) return;
         const err = e instanceof Error ? e : new Error(String(e));
         // eslint-disable-next-line no-console
-        console.error(`[weftcut/export] decoder ${this.mediaId} error:`, err.message);
+        console.error(`[lahza/export] decoder ${this.mediaId} error:`, err.message);
         const action = handleDecodeError({
           err,
           outputFrameCount: this.outputFrameCount,
           alreadyDowngraded: this.downgraded,
           mediaId: this.mediaId,
           // eslint-disable-next-line no-console
-          log: (msg) => console.warn(`[weftcut/export] ${msg}`),
+          log: (msg) => console.warn(`[lahza/export] ${msg}`),
         });
         if (action.kind === "downgrade-to-software") {
           this.downgraded = true;
@@ -639,7 +639,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
   /// (see the `preferSoftware` field for why SW is pre-configured).
   private buildConfig(): VideoDecoderConfig {
     if (!this.config) {
-      throw new Error(`[weftcut/export] ${this.mediaId}: buildConfig before ready`);
+      throw new Error(`[lahza/export] ${this.mediaId}: buildConfig before ready`);
     }
     return {
       ...this.config,
@@ -682,9 +682,9 @@ export class ExportSourceHandle implements ExportDecodeSession {
     if (!this.rangeInFlight && this.lastRange && !this._disposed) {
       const { aUs, bUs } = this.lastRange;
       // eslint-disable-next-line no-console
-      console.log(`[weftcut/export] ${this.mediaId} re-driving range pts=[${aUs}..${bUs}]us after rebuild`);
+      console.log(`[lahza/export] ${this.mediaId} re-driving range pts=[${aUs}..${bUs}]us after rebuild`);
       void this.decodeRange(aUs, bUs).catch((e: unknown) => {
-        this.ring.fail(`[weftcut/export] ${this.mediaId} post-rebuild re-drive failed: ${String(e)}`);
+        this.ring.fail(`[lahza/export] ${this.mediaId} post-rebuild re-drive failed: ${String(e)}`);
       });
     }
   }
@@ -757,7 +757,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
         // callbacks).
         // eslint-disable-next-line no-console
         console.log(
-          `[weftcut/export] ${this.mediaId} backward range pts=[${aUs}..${bUs}]us ` +
+          `[lahza/export] ${this.mediaId} backward range pts=[${aUs}..${bUs}]us ` +
             `across EOS frontier — rebuilding decoder`,
         );
         this.rebuildDecoder();
@@ -799,7 +799,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
 
       // eslint-disable-next-line no-console
       console.log(
-        `[weftcut/export] ${this.mediaId} decodeRange pts=[${aUs}..${bUs}]us ` +
+        `[lahza/export] ${this.mediaId} decodeRange pts=[${aUs}..${bUs}]us ` +
           `(start=${pkt ? this.clock.sourceUs(pkt.microsecondTimestamp) : "none"}us, ` +
           `frontier=${this.lastDispatchedPtsUs}us)`,
       );
@@ -864,7 +864,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
       }
       // eslint-disable-next-line no-console
       console.log(
-        `[weftcut/export] ${this.mediaId} decodeRange dispatched ${dispatched} ` +
+        `[lahza/export] ${this.mediaId} decodeRange dispatched ${dispatched} ` +
           `(queue=${this.decoder.decodeQueueSize})`,
       );
 
@@ -900,7 +900,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
     this.ring.beginEosDrain();
     // eslint-disable-next-line no-console
     console.log(
-      `[weftcut/export] ${this.mediaId} EOS — flushing decoder reorder buffer ` +
+      `[lahza/export] ${this.mediaId} EOS — flushing decoder reorder buffer ` +
         `(queue=${dec.decodeQueueSize}, ring=${this.ring.size()})`,
     );
     void dec
@@ -914,7 +914,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
         this.ring.finishEosDrain();
         // eslint-disable-next-line no-console
         console.log(
-          `[weftcut/export] ${this.mediaId} EOS flush drained ` +
+          `[lahza/export] ${this.mediaId} EOS flush drained ` +
             `(output #${this.outputFrameCount}, ring=${this.ring.size()})`,
         );
       })
@@ -924,7 +924,7 @@ export class ExportSourceHandle implements ExportDecodeSession {
         this.wakeCapacity(error);
         this.ring.fail(error.message);
         // eslint-disable-next-line no-console
-        console.warn(`[weftcut/export] ${this.mediaId} EOS flush errored:`, e);
+        console.warn(`[lahza/export] ${this.mediaId} EOS flush errored:`, e);
       });
     this.cursor = null;
     this.lastDispatchedPtsUs = Number.NEGATIVE_INFINITY;

@@ -26,7 +26,7 @@ interface AppSelectProps {
   ariaLabel?: string;
 }
 
-/// The one dropdown control for every WeftCut form. Replaces native
+/// The one dropdown control for every Lahza form. Replaces native
 /// `<select>`: the popup is app-styled (reusing the app-menu-list/app-menu-item
 /// chrome instead of the OS-rendered list), keyboard/typeahead behavior
 /// comes from Base UI, and the selected item shows a ✓ in the popup.

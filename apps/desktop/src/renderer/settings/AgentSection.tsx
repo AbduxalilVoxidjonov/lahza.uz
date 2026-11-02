@@ -31,7 +31,7 @@ const MASKED_TOKEN = "••••••••••••••••";
 type ClientId = "codex" | "claude" | "cursor" | "generic";
 const CLIENTS: readonly ClientId[] = ["codex", "claude", "cursor", "generic"];
 
-/// The stdio launch triple for the shim. `command` is the WeftCut binary
+/// The stdio launch triple for the shim. `command` is the Lahza binary
 /// acting as the Node runtime (ELECTRON_RUN_AS_NODE) — or the .AppImage file
 /// on Linux, where the mounted binary path dies with the session.
 interface StdioCfg {
@@ -45,7 +45,7 @@ function stdioCfgFrom(info: McpInfoView): StdioCfg | null {
   return {
     command: info.appimage ?? info.exe_path,
     args: [info.shim_path],
-    env: { ELECTRON_RUN_AS_NODE: "1", WEFTCUT_USERDATA: info.user_data },
+    env: { ELECTRON_RUN_AS_NODE: "1", LAHZA_USERDATA: info.user_data },
   };
 }
 
@@ -84,14 +84,14 @@ function buildStdioSnippet(client: ClientId, cfg: StdioCfg): string {
       .map(([k, v]) => `${JSON.stringify(k)} = ${JSON.stringify(v)}`)
       .join(", ");
     return [
-      "[mcp_servers.weftcut]",
+      "[mcp_servers.lahza]",
       `command = ${JSON.stringify(cfg.command)}`,
       `args = [${cfg.args.map((a) => JSON.stringify(a)).join(", ")}]`,
       `env = { ${env} }`,
     ].join("\n");
   }
   const server = client === "claude" ? { type: "stdio", ...cfg } : cfg;
-  return JSON.stringify({ mcpServers: { weftcut: server } }, null, 2);
+  return JSON.stringify({ mcpServers: { lahza: server } }, null, 2);
 }
 
 /// Ready-to-paste HTTP-direct config for one client (the advanced path).
@@ -112,7 +112,7 @@ function buildHttpSnippet(client: ClientId, url: string, token: string): string 
   }
   if (client === "codex") {
     return [
-      "[mcp_servers.weftcut]",
+      "[mcp_servers.lahza]",
       `url = "${url}"`,
       `http_headers = { "Authorization" = "Bearer ${token}" }`,
     ].join("\n");
@@ -121,7 +121,7 @@ function buildHttpSnippet(client: ClientId, url: string, token: string): string 
     client === "claude"
       ? { type: "http", url, headers: { Authorization: `Bearer ${token}` } }
       : { url, headers: { Authorization: `Bearer ${token}` } };
-  return JSON.stringify({ mcpServers: { weftcut: server } }, null, 2);
+  return JSON.stringify({ mcpServers: { lahza: server } }, null, 2);
 }
 
 /// Terminal one-liner that makes the client write its own config entry —
@@ -134,11 +134,11 @@ function buildStdioCli(client: ClientId, cfg: StdioCfg): string | null {
   const env = Object.entries(cfg.env).map(([k, v]) => `${k}=${v}`);
   if (client === "codex") {
     const flags = env.map((e) => `--env ${shq(e)}`).join(" ");
-    return `codex mcp add weftcut ${flags} -- ${launch}`;
+    return `codex mcp add lahza ${flags} -- ${launch}`;
   }
   if (client === "claude") {
     const flags = env.map((e) => `-e ${shq(e)}`).join(" ");
-    return `claude mcp add weftcut -s user ${flags} -- ${launch}`;
+    return `claude mcp add lahza -s user ${flags} -- ${launch}`;
   }
   return null;
 }
@@ -154,7 +154,7 @@ function buildHttpCli(
 ): string | null {
   if (client !== "claude") return null;
   const header = shq(`Authorization: Bearer ${token}`);
-  return `claude mcp add -s user -t http weftcut ${shq(url)} -H ${header}`;
+  return `claude mcp add -s user -t http lahza ${shq(url)} -H ${header}`;
 }
 
 /// The staged skill folder — the thing that gets copied, named by both the
@@ -162,7 +162,7 @@ function buildHttpCli(
 /// parent path instead of normalised: the renderer has no `path`, and the
 /// folder is shown to the user verbatim as the main process reported it.
 function skillFolder(skillsDir: string): string {
-  return `${skillsDir}${skillsDir.includes("\\") ? "\\" : "/"}weftcut`;
+  return `${skillsDir}${skillsDir.includes("\\") ? "\\" : "/"}lahza`;
 }
 
 /// MCP connection info for external agents. Two connection paths: the stdio
@@ -460,7 +460,7 @@ export function AgentSection() {
           {t(`connect.skill_fault.${skills.fault}`)}
         </p>
         {/* Offered for every fault, not just the transient-looking ones: each
-            is cleared by something outside WeftCut (a freed disk, a restored
+            is cleared by something outside Lahza (a freed disk, a restored
             quarantine, a repaired install), and only re-running the install
             can tell whether that has happened yet. */}
         <Button

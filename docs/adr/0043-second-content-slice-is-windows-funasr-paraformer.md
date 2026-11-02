@@ -55,7 +55,7 @@ organization publishes paraformer-zh on Hugging Face with license
 required, plus an unusual anti-disparagement clause with auto-termination).
 The managed-content `manifest.json` records name + upstream URL, which
 satisfies the attribution requirement; and the download manager fetches from
-upstream on the user's request, so WeftCut points at the model rather than
+upstream on the user's request, so Lahza points at the model rather than
 redistributing it.
 
 **tar.bz2 extraction happens in Rust.** sherpa-onnx publishes no zip assets

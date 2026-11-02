@@ -69,7 +69,7 @@ Rules:
 - Never force `prefer-hardware` when probing or encoding a codec that may lack a hardware encoder — omit the hint so Chromium picks hardware-if-present-else-software. (H.264 keeps `prefer-hardware` for its proven fast path.)
 - Never trust `isConfigSupported` alone, in either direction: it lies *negative* under `prefer-hardware` (this entry) and lies *positive* for some decodes (Hi10P). Confirm with a real `encode()`/`decode()` plus `flush()`.
 
-History: first hit on WebView2/Edge, but it is Chromium-wide, not Edge-specific. WeftCut's `smokeEncode` and `App.buildConfig` used to force the hint, producing a false "this machine cannot encode AV1"; fixed by omitting it for non-H.264 codecs.
+History: first hit on WebView2/Edge, but it is Chromium-wide, not Edge-specific. Lahza's `smokeEncode` and `App.buildConfig` used to force the hint, producing a false "this machine cannot encode AV1"; fixed by omitting it for non-H.264 codecs.
 
 ## EyeDropper API: sampling is screen-wide, the WIDGET is window-hosted
 
@@ -85,7 +85,7 @@ widget inside the Electron window with no system-wide mouse capture, so:
   steal) — in Chrome the same click does not transfer focus.
 
 Blockbench (Chrome's own EyeDropper showcase app) abandoned the native API in
-its Electron build over this same defect. WeftCut previously mitigated it by
+its Electron build over this same defect. Lahza previously mitigated it by
 refocusing the editor after selection. Replaced 2026-09-13 by
 `main/screenPick.ts`: desktopCapturer freezes each display before any independent
 overlay window is shown. The dedicated renderer owns magnifier/hover/input.
@@ -246,7 +246,7 @@ offscreen one is **true**, and closing the visible window does **not** emit
 `window-all-closed`. `offscreen: true` selects a paint target, not a lifecycle class.
 
 Implication: the failure this causes is a closed loop, not a missed teardown. The handler that
-destroys WeftCut's Motif capture host runs on `before-quit`, which is reached only through
+destroys Lahza's Motif capture host runs on `before-quit`, which is reached only through
 `app.quit()`, which was called only from `window-all-closed` — so the host held the
 process open and the process was the only thing that would have closed the host, leaving a
 live app with no window on screen. The quit decision therefore rides the **user-facing**
@@ -264,9 +264,9 @@ precisely so an app can choose — and the split is by app shape, not by OS. A d
 app (many windows, a `File > New Window`) stays Dock-resident with its menu bar; a
 single-window app terminates with its window.
 
-WeftCut is the second kind: one workspace, one editor window, no `File > New Window`. The
+Lahza is the second kind: one workspace, one editor window, no `File > New Window`. The
 Performance Monitor is the only secondary window, and it *is* counted, so closing the editor
-beneath it does not quit. Nothing needs a windowless WeftCut — the MCP stdio shim already
+beneath it does not quit. Nothing needs a windowless Lahza — the MCP stdio shim already
 serves an agent against a closed app — while the process such a state leaves behind is not
 idle: it holds decode sessions, GPU textures and ffmpeg children behind no window the user
 can see or close.
@@ -302,7 +302,7 @@ start under four concurrent app instances wedged six to seven of 39 export tests
 leg — each export worker's Application leaked its device the same way. The verdict is
 about ORDER, not about calling `destroy()`: the canvas swap chain and textures must be
 released on a live device, then the device destroyed, deterministically and before the
-next Application exists. WeftCut does this in the Preview host and the export worker
+next Application exists. Lahza does this in the Preview host and the export worker
 (ADR 0059). WebGL is unaffected because Pixi loses the GL context deterministically. The
 same lifecycle is clean on Electron 42 and 43.
 

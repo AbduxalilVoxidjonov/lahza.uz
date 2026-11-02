@@ -108,7 +108,7 @@ export class MotifFrameService {
     this.client = this.prewarmer ? new MotifBakeClient(
       snapshot => this.acceptSnapshot(snapshot),
       error => {
-        console.warn('[weftcut/motifs] preparation unavailable', error);
+        console.warn('[lahza/motifs] preparation unavailable', error);
         this.preparationError = String(error);
         this.resumeAfterDiskDiscovery();
       },

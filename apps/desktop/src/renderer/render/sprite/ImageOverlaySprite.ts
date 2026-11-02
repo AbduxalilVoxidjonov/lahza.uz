@@ -92,7 +92,7 @@ export class ImageOverlaySprite implements StageableSprite {
       const res = await fetch(assetUrl);
       if (!res.ok) {
         // eslint-disable-next-line no-console
-        console.error(`[weftcut/pixi] ImageOverlay ${this.layerId}: fetch ${assetUrl} → ${res.status}`);
+        console.error(`[lahza/pixi] ImageOverlay ${this.layerId}: fetch ${assetUrl} → ${res.status}`);
         return;
       }
       const blob = await res.blob();
@@ -104,7 +104,7 @@ export class ImageOverlaySprite implements StageableSprite {
       this.bindBitmap(bitmap);
     } catch (e) {
       // eslint-disable-next-line no-console
-      console.error(`[weftcut/pixi] ImageOverlay ${this.layerId}: load failed`, e);
+      console.error(`[lahza/pixi] ImageOverlay ${this.layerId}: load failed`, e);
     }
   }
 

@@ -234,7 +234,7 @@ describe('captions with word timing', () => {
     const cues = captionLayers(a)
     expect(cues.map((l) => (l.params as { content: string }).content)).toEqual(['hello there', 'second cue'])
     // The point of this tool over apply_subtitles: an SRT has nowhere to put these.
-    const timing = cues[0].metadata['weftcut.caption_timing'] as { words: Array<{ text: string }> }
+    const timing = cues[0].metadata['lahza.caption_timing'] as { words: Array<{ text: string }> }
     expect(timing.words.map((w) => w.text)).toEqual(['hello', 'there'])
   })
 

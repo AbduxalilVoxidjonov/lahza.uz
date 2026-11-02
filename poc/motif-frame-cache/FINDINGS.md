@@ -59,7 +59,7 @@ Alternating-size measurements in this harness include re-importing the pool;
 production retains pools by size/format, bounded by 128 MiB / eight pools.
 
 This is Windows evidence. Other platforms retain PNG capture and CPU LZ4
-loading. `WEFTCUT_MOTIF_CAPTURE=png` selects the previous capture output for
+loading. `LAHZA_MOTIF_CAPTURE=png` selects the previous capture output for
 diagnosis. A shared capture failure disables that output for the process and
 falls back to PNG. Deterministic time, authoring capabilities and export frame
 selection remain shared.

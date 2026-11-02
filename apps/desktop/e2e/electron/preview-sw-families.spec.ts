@@ -60,8 +60,8 @@ const coversTarget = (
 async function runFamilyConformance(c: FamilyCase, testInfo: TestInfo) {
   test.skip(!existsSync(c.fixture), `${c.label} fixture not found at ${c.fixture} — run gen-decode-bench-fixtures.mjs`)
   test.setTimeout(240_000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-preview-sw-families-proj-')
-  const OUT_DIR = tmpDir('weftcut-e2e-preview-sw-families-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-preview-sw-families-proj-')
+  const OUT_DIR = tmpDir('lahza-e2e-preview-sw-families-')
 
   const { app, page } = await launchApp()
   let toggledOn = false
@@ -78,13 +78,13 @@ async function runFamilyConformance(c: FamilyCase, testInfo: TestInfo) {
 
     await waitForHook(page, 'mediaDecodeRouteKind')
     await page.waitForFunction(
-      (id) => (window as { __weftcutTest: { mediaDecodeRouteKind(m: string): string | null } }).__weftcutTest.mediaDecodeRouteKind(id) === 'native-sw',
+      (id) => (window as { __lahzaTest: { mediaDecodeRouteKind(m: string): string | null } }).__lahzaTest.mediaDecodeRouteKind(id) === 'native-sw',
       mediaId,
       { timeout: 90_000, polling: 500 },
     )
     await page.waitForFunction(
       () => {
-        try { (window as { __weftcutTest: { activeClipProbe(id?: string): unknown } }).__weftcutTest.activeClipProbe(); return true } catch { return false }
+        try { (window as { __lahzaTest: { activeClipProbe(id?: string): unknown } }).__lahzaTest.activeClipProbe(); return true } catch { return false }
       },
       undefined,
       { timeout: 30_000, polling: 250 },
@@ -92,19 +92,19 @@ async function runFamilyConformance(c: FamilyCase, testInfo: TestInfo) {
 
     // Frame-drop floor: bind an initial frame, then seek far and confirm the
     // sprite STAYS bound (holds last) while decode catches up — never blanks.
-    await page.evaluate((us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us), 0)
+    await page.evaluate((us) => (window as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us), 0)
     await page.waitForFunction(
       (id) => {
-        const p = (window as { __weftcutTest: { activeClipProbe(id?: string): { sourceKind: string; spriteBound: boolean; ringSize: number } | null } }).__weftcutTest.activeClipProbe(id)
+        const p = (window as { __lahzaTest: { activeClipProbe(id?: string): { sourceKind: string; spriteBound: boolean; ringSize: number } | null } }).__lahzaTest.activeClipProbe(id)
         return p && p.sourceKind === 'sw' && p.spriteBound && p.ringSize > 0 ? true : null
       },
       layerId,
       { timeout: 90_000, polling: 200 },
     )
-    await page.evaluate((us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us), 50_000_000)
+    await page.evaluate((us) => (window as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us), 50_000_000)
     // Immediately (before the far frame can decode) the sprite must remain bound.
     const stillBound = await page.evaluate(
-      (id) => (window as { __weftcutTest: { activeClipProbe(id?: string): { spriteBound: boolean } | null } }).__weftcutTest.activeClipProbe(id)?.spriteBound ?? false,
+      (id) => (window as { __lahzaTest: { activeClipProbe(id?: string): { spriteBound: boolean } | null } }).__lahzaTest.activeClipProbe(id)?.spriteBound ?? false,
       layerId,
     )
     expect(stillBound, 'frame-drop floor: sprite must hold last frame on a frameAt miss').toBe(true)
@@ -121,7 +121,7 @@ async function runFamilyConformance(c: FamilyCase, testInfo: TestInfo) {
     // it, so what follows is only ever this request's own output.
     await page.waitForFunction(
       (id) => {
-        const p = (window as { __weftcutTest: { activeClipProbe(id?: string): { ringFirstPtsUs: number | null } | null } }).__weftcutTest.activeClipProbe(id)
+        const p = (window as { __lahzaTest: { activeClipProbe(id?: string): { ringFirstPtsUs: number | null } | null } }).__lahzaTest.activeClipProbe(id)
         return p && p.ringFirstPtsUs != null && p.ringFirstPtsUs >= 40_000_000 ? true : null
       },
       layerId,
@@ -129,13 +129,13 @@ async function runFamilyConformance(c: FamilyCase, testInfo: TestInfo) {
     )
 
     // Seek to the conformance target and wait until the ring holds the SEEKED frame.
-    await page.evaluate((us) => (window as { __weftcutTest: { weftcutSeekUs(us: number): void } }).__weftcutTest.weftcutSeekUs(us), c.seekUs)
+    await page.evaluate((us) => (window as { __lahzaTest: { lahzaSeekUs(us: number): void } }).__lahzaTest.lahzaSeekUs(us), c.seekUs)
     const handle = await page.waitForFunction(
       ([id, target]) => {
-        const p = (window as { __weftcutTest: { activeClipProbe(id?: string): {
+        const p = (window as { __lahzaTest: { activeClipProbe(id?: string): {
           sourceKind: string; isSoftware: boolean; ringSize: number; ringFirstPtsUs: number | null; ringLastPtsUs: number | null; spriteBound: boolean
           boundFramePtsUs: number | null; boundFrameDurationUs: number | null
-        } | null } }).__weftcutTest.activeClipProbe(id)
+        } | null } }).__lahzaTest.activeClipProbe(id)
         if (!p || p.sourceKind !== 'sw' || p.ringSize < 1 || !p.spriteBound) return null
         if (p.ringLastPtsUs == null || p.ringLastPtsUs < target) return null
         if (p.boundFramePtsUs == null || p.boundFrameDurationUs == null) return null
@@ -155,7 +155,7 @@ async function runFamilyConformance(c: FamilyCase, testInfo: TestInfo) {
     const ffmpeg = ffmpegBin()
     test.skip(ffmpeg === null, 'ffmpeg not on PATH (set FFMPEG) — SSIM step skipped')
     const capture = (await page.evaluate(
-      (id) => (window as { __weftcutTest: { capturePreviewFrame(layerId?: string): Promise<PreviewFrameCapture> } }).__weftcutTest.capturePreviewFrame(id),
+      (id) => (window as { __lahzaTest: { capturePreviewFrame(layerId?: string): Promise<PreviewFrameCapture> } }).__lahzaTest.capturePreviewFrame(id),
       layerId,
     )) as PreviewFrameCapture
     const rendered = path.join(OUT_DIR, `${c.label}-rendered.png`)

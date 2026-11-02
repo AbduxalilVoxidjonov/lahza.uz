@@ -31,9 +31,9 @@ export function recordProjectDiagnostic(payload: unknown): void {
 export function startDiagnostics(): void {
   // Bare `electron out/main/index.js` reports Electron's version from
   // app.getVersion(), so carry the application's identity in every build.
-  const version = process.env.WEFTCUT_BUILD_VERSION ?? app.getVersion()
+  const version = process.env.LAHZA_BUILD_VERSION ?? app.getVersion()
   environment = {
-    app: version, commit: process.env.WEFTCUT_BUILD_COMMIT ?? 'unknown',
+    app: version, commit: process.env.LAHZA_BUILD_COMMIT ?? 'unknown',
     electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node,
     platform: process.platform, arch: process.arch, osRelease: os.release(),
     cpu: os.cpus()[0]?.model ?? 'unknown', logicalCores: os.cpus().length,

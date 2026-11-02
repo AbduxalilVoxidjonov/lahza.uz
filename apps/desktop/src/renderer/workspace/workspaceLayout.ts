@@ -16,10 +16,10 @@ import {
   type PanelId,
 } from "./panelRegistry";
 
-/** Schema version of a WeftCut layout snapshot. Bump on any incompatible change
+/** Schema version of a Lahza layout snapshot. Bump on any incompatible change
  *  to the snapshot shape; a snapshot with a different version is discarded on
  *  read (falls through to the next fallback level) rather than misapplied. */
-export const WEFTCUT_LAYOUT_VERSION = 1;
+export const LAHZA_LAYOUT_VERSION = 1;
 
 /** Recovery metadata for reopening a Panel: the Dock Group it last lived in
  *  (as sibling ids) and its tab index there. Mirrors the adapter's in-memory
@@ -34,7 +34,7 @@ export type PanelPlacements = Partial<Record<PanelId, PanelPlacement>>;
 /** A validated, versioned Dock arrangement. Opaque to everyone but the adapter
  *  (which restores it) and this module (which produces/validates it). The `empty`
  *  discriminant makes an intentionally empty Workspace a distinct valid state. */
-export interface WeftCutLayout {
+export interface LahzaLayout {
   version: number;
   empty: boolean;
   /** The normalized Dockview tree. Null iff `empty`. */
@@ -45,7 +45,7 @@ export interface WeftCutLayout {
 
 export interface WorkspaceLayoutCandidate {
   source: "current" | "saved";
-  layout: WeftCutLayout;
+  layout: LahzaLayout;
 }
 
 // ── Internal loose tree shapes ───────────────────────────────────────────────
@@ -244,22 +244,22 @@ export interface NormalizeLayoutOptions {
 
 /**
  * Validate + normalize an untrusted persisted layout value. Returns a canonical
- * WeftCutLayout, or null when the value is missing/corrupt/unrecoverable.
+ * LahzaLayout, or null when the value is missing/corrupt/unrecoverable.
  */
 export function normalizeLayout(
   raw: unknown,
   options: NormalizeLayoutOptions = {},
-): WeftCutLayout | null {
+): LahzaLayout | null {
   if (!isRecord(raw)) return null;
-  if (raw.version !== WEFTCUT_LAYOUT_VERSION) return null;
+  if (raw.version !== LAHZA_LAYOUT_VERSION) return null;
   const readdress = readdressor(options.timelineInstance);
   const placements = normalizePlacements(raw.placements, readdress);
   if (raw.empty === true) {
-    return { version: WEFTCUT_LAYOUT_VERSION, empty: true, dockview: null, placements };
+    return { version: LAHZA_LAYOUT_VERSION, empty: true, dockview: null, placements };
   }
   const dockview = normalizeDockview(raw.dockview, readdress);
   if (!dockview) return null;
-  return { version: WEFTCUT_LAYOUT_VERSION, empty: false, dockview, placements };
+  return { version: LAHZA_LAYOUT_VERSION, empty: false, dockview, placements };
 }
 
 /**
@@ -270,7 +270,7 @@ export function normalizeLayout(
  */
 export function createEditingLayout(
   viewport: { width?: number; height?: number } = {},
-): WeftCutLayout {
+): LahzaLayout {
   const width = sizeOf(viewport.width) ?? 1_000;
   const height = sizeOf(viewport.height) ?? 720;
   const contextual: PanelId[] = ["attribute", "effect"];
@@ -303,7 +303,7 @@ export function createEditingLayout(
    * than the stack ever does. */
   const playheadHeight = Math.round(editorHeight * 0.4);
   const layout = normalizeLayout({
-    version: WEFTCUT_LAYOUT_VERSION,
+    version: LAHZA_LAYOUT_VERSION,
     empty: false,
     dockview: {
       grid: {

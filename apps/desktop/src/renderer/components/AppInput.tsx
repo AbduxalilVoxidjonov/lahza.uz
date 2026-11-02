@@ -38,7 +38,7 @@ export interface AppInputProps extends NativeInputProps {
   onCancel?: () => void;
 }
 
-/// The one text-like input for every WeftCut form. Replaces bare
+/// The one text-like input for every Lahza form. Replaces bare
 /// `<input type="text|password|search">`: one `.app-input` skin (focus ring,
 /// invalid/mono/center modifiers). Spreads remaining native input props
 /// (placeholder, maxLength, onBlur, onKeyDown, id, spellCheck…) so it is a

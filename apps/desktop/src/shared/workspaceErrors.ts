@@ -24,7 +24,7 @@ export type WorkspaceError =
   // ── project_open ──
   /** The workspace folder is gone — typically a recents entry whose folder was
    *  moved or deleted. Probed before project.json so the user is told "the
-   *  folder is gone" rather than "this isn't a WeftCut project". */
+   *  folder is gone" rather than "this isn't a Lahza project". */
   | { error: 'ProjectFolderMissing' }
   /** The folder is there but holds no project.json. */
   | { error: 'NotProjectFolder' }

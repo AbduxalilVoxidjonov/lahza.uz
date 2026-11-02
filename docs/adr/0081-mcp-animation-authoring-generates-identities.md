@@ -12,7 +12,7 @@ an ordinary two-key linear animation.
 
 ## Decision
 
-MCP authoring inputs describe time, values and optional curves. WeftCut owns
+MCP authoring inputs describe time, values and optional curves. Lahza owns
 identity allocation, using the actor's injected UUID generator. `set_param_track`
 and the temporal tracks inside `set_position` accept keys with only `t_us` and
 `value`. Defaults are Linear segments, identity Free tangents, Broken continuity

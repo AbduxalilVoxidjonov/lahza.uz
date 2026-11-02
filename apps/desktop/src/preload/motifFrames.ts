@@ -8,7 +8,7 @@ export function installMotifFrames(
   finishRead: (bitmap: ImageBitmap) => Promise<ImageBitmap>,
 ): void {
   window.addEventListener('message', (event) => {
-    if (event.source !== window || event.data?.type !== 'weftcut:motif-frame-port') return
+    if (event.source !== window || event.data?.type !== 'lahza:motif-frame-port') return
     const port = event.ports[0]
     if (!port) return
     port.onmessage = async ({ data }: MessageEvent<{ id: number; hash: string; frame: number; finalizationToken?: string; capture?: Record<string, unknown>; control?: MotifCaptureControl }>) => {

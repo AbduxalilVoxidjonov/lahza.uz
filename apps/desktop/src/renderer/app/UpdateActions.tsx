@@ -21,6 +21,10 @@ function useUpdateAction(needsDownload: boolean, unskip: boolean) {
       if (unskip) await setAppSettings({ skipped_update_version: '' })
       if (needsDownload) {
         const result = await window.api.updates.download()
+        if (result === 'opened') {
+          setStage('idle')
+          return
+        }
         if (result !== 'ready') {
           setErrorKey(result)
           setStage('idle')
@@ -67,7 +71,7 @@ export function UpdateActions({ status, onLater, leading }: { status: UpdateStat
       {leading}
       <Button size="lg" disabled={busy} onClick={onLater}>{t('updates.later')}</Button>
       <Button variant="default" size="lg" disabled={busy || (!needsDownload && status.phase !== 'ready')} onClick={run}>
-        {t(actionLabel(status.phase, stage, needsDownload))}
+        {t(status.installation === 'manual' && stage === 'idle' ? 'updates.download_installer' : actionLabel(status.phase, stage, needsDownload))}
       </Button>
     </div>
   </>

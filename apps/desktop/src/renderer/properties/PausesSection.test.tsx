@@ -210,7 +210,7 @@ describe("PausesSection", () => {
     mocks.unlisten.mockReset();
     mocks.listen.mockReset().mockResolvedValue(mocks.unlisten);
     mocks.startAudition.mockReset().mockReturnValue({ stop: vi.fn() });
-    mocks.subjectConformUrl.mockReset().mockReturnValue("weftcut-media://conform");
+    mocks.subjectConformUrl.mockReset().mockReturnValue("lahza-media://conform");
     usePausePreviewStore.setState({ preview: null });
     clearPropSectionMemory();
     vi.useFakeTimers({ shouldAdvanceTime: true });

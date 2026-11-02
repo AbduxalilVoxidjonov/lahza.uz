@@ -22,12 +22,12 @@ directory is part of the package. Its identity is a SHA-256 over every file's
 path and bytes. Built-in styles ship with the app (`src/shared/styles/builtin`,
 packed to `resources/styles/builtin`); user styles live in
 `<data root>/taste/styles/<name>/`. A built-in name cannot be shadowed. The
-app ships one, `weftcut-default`, which keeps today's untagged text look and
+app ships one, `lahza-default`, which keeps today's untagged text look and
 gives the tagged graphic roles and captions the craft timings.
 
 A project's **TASTE.md** sits in its folder: `extends: <style>[@<hash
 prefix>]`, `roles` (custom role declarations), `tokens` (overrides) and prose.
-No TASTE.md means `weftcut-default`. The app only reads it.
+No TASTE.md means `lahza-default`. The app only reads it.
 
 Tokens (schema v1) are limited to values that map onto params a layer
 already has — per-role text tokens, caption tokens, a named palette, and

@@ -32,7 +32,7 @@ vi.mock("@/bridge/ipc", () => ({
     bridge.log.push(`invoke ${cmd}`);
     return bridge.answers.get(cmd)?.(args);
   }),
-  convertFileSrc: (p: string) => `weftcut-media://${p}`,
+  convertFileSrc: (p: string) => `lahza-media://${p}`,
 }));
 
 vi.mock("@/bridge/events", () => ({

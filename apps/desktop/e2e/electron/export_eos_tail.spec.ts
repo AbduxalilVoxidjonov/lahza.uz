@@ -6,14 +6,14 @@ import { analyze } from '../lib/analyze.mjs'
 import { launchApp, newProject, driveExport, tmpDir, exportSsimFloor } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const SOURCE = path.resolve(MEDIA_DIR, 'test_1080p_30fps_eostail.mp4')
 
 // Final GOP spans chunks + 11s audio overhang vs 10s video — the EOS-tail
 // deadlock class. The export must COMPLETE (the deadlock pinned the counter),
 // plan 330 frames, and keep the drained tail frame-aligned.
 test('EOS-tail export completes and keeps the drained tail frame-aligned (Electron)', async () => {
-  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set WEFTCUT_TEST_MEDIA)`)
+  test.skip(!existsSync(SOURCE), `source media not found at ${SOURCE} (set LAHZA_TEST_MEDIA)`)
   // Cost bound only — driveExport's stall probe is what reports WHERE an export
   // wedged, the whole point of this spec, so this timeout must never preempt
   // it. A wedge in finalizing gets a 180 s stall budget, and on the Windows leg
@@ -22,8 +22,8 @@ test('EOS-tail export completes and keeps the drained tail frame-aligned (Electr
   // runs AFTER the export. Floor ~340 s.
   // See e2e/README.md §Per-test timeout budgets.
   test.setTimeout(420000)
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-eostail-proj-')
-  const OUTPUT = path.join(tmpDir('weftcut-e2e-eostail-out-'), 'weftcut-e2e-eostail-out.mp4')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-eostail-proj-')
+  const OUTPUT = path.join(tmpDir('lahza-e2e-eostail-out-'), 'lahza-e2e-eostail-out.mp4')
 
   const { app, page } = await launchApp()
   try {
@@ -35,10 +35,10 @@ test('EOS-tail export completes and keeps the drained tail frame-aligned (Electr
     const r = await driveExport(page, { mediaAbsPath: SOURCE, outputAbsPath: OUTPUT })
     if (!r.done.ok) throw new Error('exportClip failed: ' + r.done.error)
 
-    const perf = (await page.evaluate(() => (window as any).__weftcutExportPerf ?? null)) as
+    const perf = (await page.evaluate(() => (window as any).__lahzaExportPerf ?? null)) as
       | { totalFrames: number; totalDispatched: number }
       | null
-    expect(perf, '__weftcutExportPerf must be set after export (E2E build)').not.toBeNull()
+    expect(perf, '__lahzaExportPerf must be set after export (E2E build)').not.toBeNull()
     expect(perf!.totalFrames, 'audio-extended 11s composition plans 330 frames').toBe(330)
 
     // Samples 200 + 270 sit inside the EOS drain region; keep below 300 (the

@@ -47,10 +47,10 @@ const SKILLS_DIR = "C:\\ud\\skills";
 
 const INFO_SHIM = {
   ...INFO,
-  exe_path: "C:\\Program Files\\WeftCut\\WeftCut.exe",
+  exe_path: "C:\\Program Files\\Lahza\\Lahza.exe",
   appimage: null,
   user_data: "C:\\ud",
-  shim_path: "C:\\ud\\cli\\weftcut-mcp.cjs",
+  shim_path: "C:\\ud\\cli\\lahza-mcp.cjs",
   skills: { state: "installed", dir: SKILLS_DIR },
 };
 
@@ -89,7 +89,7 @@ describe("AgentSection", () => {
   it("shows the Codex TOML snippet first, with the token masked", async () => {
     render(<AgentSection />);
     const text = await snippetText();
-    expect(text).toContain('[mcp_servers.weftcut]');
+    expect(text).toContain('[mcp_servers.lahza]');
     expect(text).toContain(`url = "${INFO.url}"`);
     expect(text).toContain("Bearer •••");
     expect(text).not.toContain(INFO.bearer_token);
@@ -150,13 +150,13 @@ describe("AgentSection", () => {
 
     await userEvent.click(screen.getByRole("tab", { name: "Claude" }));
     const claude = JSON.parse((await snippetText()).trim());
-    expect(claude.mcpServers.weftcut.type).toBe("http");
-    expect(claude.mcpServers.weftcut.url).toBe(INFO.url);
+    expect(claude.mcpServers.lahza.type).toBe("http");
+    expect(claude.mcpServers.lahza.url).toBe(INFO.url);
 
     await userEvent.click(screen.getByRole("tab", { name: "Cursor" }));
     const cursor = JSON.parse((await snippetText()).trim());
-    expect(cursor.mcpServers.weftcut.url).toBe(INFO.url);
-    expect(cursor.mcpServers.weftcut.type).toBeUndefined();
+    expect(cursor.mcpServers.lahza.url).toBe(INFO.url);
+    expect(cursor.mcpServers.lahza.type).toBeUndefined();
 
     await userEvent.click(screen.getByRole("tab", { name: "Generic" }));
     const generic = await snippetText();
@@ -186,7 +186,7 @@ describe("AgentSection", () => {
     await snippetText();
     await userEvent.click(screen.getByRole("tab", { name: "Claude" }));
     expect(await cliText()).toBe(
-      `claude mcp add -s user -t http weftcut ${INFO.url} ` +
+      `claude mcp add -s user -t http lahza ${INFO.url} ` +
         '-H "Authorization: Bearer ••••••••••••••••"',
     );
 
@@ -253,7 +253,7 @@ describe("AgentSection", () => {
       screen.getByRole("button", { name: "Copy setup prompt" }),
     );
     expect(clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringContaining(`"${SKILLS_DIR}\\weftcut"`),
+      expect.stringContaining(`"${SKILLS_DIR}\\lahza"`),
     );
   });
 
@@ -290,9 +290,9 @@ describe("AgentSection with the stdio shim installed", () => {
   it("renders the stdio config as the primary snippet, with no token in it", async () => {
     render(<AgentSection />);
     const text = await snippetText();
-    expect(text).toContain("[mcp_servers.weftcut]");
+    expect(text).toContain("[mcp_servers.lahza]");
     expect(text).toContain("ELECTRON_RUN_AS_NODE");
-    expect(text).toContain("weftcut-mcp.cjs");
+    expect(text).toContain("lahza-mcp.cjs");
     expect(text).not.toContain(INFO.url);
     expect(text).not.toContain(INFO.bearer_token);
   });
@@ -302,10 +302,10 @@ describe("AgentSection with the stdio shim installed", () => {
     await snippetText();
     await userEvent.click(screen.getByRole("tab", { name: "Cursor" }));
     const cursor = JSON.parse((await snippetText()).trim());
-    expect(cursor.mcpServers.weftcut).toEqual({
+    expect(cursor.mcpServers.lahza).toEqual({
       command: INFO_SHIM.exe_path,
       args: [INFO_SHIM.shim_path],
-      env: { ELECTRON_RUN_AS_NODE: "1", WEFTCUT_USERDATA: INFO_SHIM.user_data },
+      env: { ELECTRON_RUN_AS_NODE: "1", LAHZA_USERDATA: INFO_SHIM.user_data },
     });
   });
 
@@ -319,7 +319,7 @@ describe("AgentSection with the stdio shim installed", () => {
     expect(text).toContain(INFO_SHIM.exe_path);
     expect(text).toContain(INFO_SHIM.shim_path);
     expect(text).toMatch(/^env:\s+ELECTRON_RUN_AS_NODE=1$/m);
-    expect(text).toMatch(/^env:\s+WEFTCUT_USERDATA=C:\\ud$/m);
+    expect(text).toMatch(/^env:\s+LAHZA_USERDATA=C:\\ud$/m);
   });
 
   it("gives Codex and Claude an `mcp add` one-liner with the paths quoted", async () => {
@@ -327,15 +327,15 @@ describe("AgentSection with the stdio shim installed", () => {
     // shq quotes on whitespace *or* a backslash: unquoted, a POSIX shell would
     // eat the Windows separators (C:\ud → C:ud) in Git Bash.
     const launch = `"${INFO_SHIM.exe_path}" "${INFO_SHIM.shim_path}"`;
-    const userData = `"WEFTCUT_USERDATA=${INFO_SHIM.user_data}"`;
+    const userData = `"LAHZA_USERDATA=${INFO_SHIM.user_data}"`;
 
     expect(await cliText()).toBe(
-      `codex mcp add weftcut --env ELECTRON_RUN_AS_NODE=1 --env ${userData} -- ${launch}`,
+      `codex mcp add lahza --env ELECTRON_RUN_AS_NODE=1 --env ${userData} -- ${launch}`,
     );
 
     await userEvent.click(screen.getByRole("tab", { name: "Claude" }));
     expect(await cliText()).toBe(
-      `claude mcp add weftcut -s user -e ELECTRON_RUN_AS_NODE=1 -e ${userData} -- ${launch}`,
+      `claude mcp add lahza -s user -e ELECTRON_RUN_AS_NODE=1 -e ${userData} -- ${launch}`,
     );
   });
 
@@ -358,9 +358,9 @@ describe("AgentSection with the stdio shim installed", () => {
     const prompt = clipboard.writeText.mock.calls[0]?.[0] as string;
     expect(prompt).toContain("Transport: stdio");
     expect(prompt).toContain(INFO_SHIM.exe_path);
-    expect(prompt).toContain(`WEFTCUT_USERDATA=${INFO_SHIM.user_data}`);
-    expect(prompt).toContain(`"${SKILLS_DIR}\\weftcut"`);
-    expect(prompt).toContain("~/.claude/skills/weftcut");
+    expect(prompt).toContain(`LAHZA_USERDATA=${INFO_SHIM.user_data}`);
+    expect(prompt).toContain(`"${SKILLS_DIR}\\lahza"`);
+    expect(prompt).toContain("~/.claude/skills/lahza");
     expect(prompt).not.toContain(INFO.bearer_token);
     // The skill has no second button of its own to press.
     expect(screen.queryByRole("button", { name: /Skill prompt/ })).toBeNull();
@@ -368,7 +368,7 @@ describe("AgentSection with the stdio shim installed", () => {
 
   it("names the staged skill folder in the manual section, copyable and openable", async () => {
     render(<AgentSection />);
-    const path = `${SKILLS_DIR}\\weftcut`;
+    const path = `${SKILLS_DIR}\\lahza`;
     // The prompt above hands the folder to an agent; a user installing it by
     // hand needs the same path on screen, and a way into the file manager.
     const field = (await screen.findByRole("textbox", {
@@ -397,7 +397,7 @@ describe("AgentSection with the stdio shim installed", () => {
       await screen.findByRole("button", { name: "Copy setup prompt" }),
     );
     expect(clipboard.writeText).toHaveBeenCalledWith(
-      expect.stringContaining(`"${SKILLS_DIR}\\weftcut"`),
+      expect.stringContaining(`"${SKILLS_DIR}\\lahza"`),
     );
     expect(screen.getByText(/may be older than this version/)).toBeTruthy();
     expect(screen.getByText(/free disk space/)).toBeTruthy();

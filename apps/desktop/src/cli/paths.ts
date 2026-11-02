@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-/// Discovery + config plumbing for the weftcut-mcp shim. Everything here is
+/// Discovery + config plumbing for the lahza-mcp shim. Everything here is
 /// deliberately Electron-free: the shim runs under ELECTRON_RUN_AS_NODE (the
 /// app binary acting as plain Node), so `app.getPath` does not exist and the
 /// userData directory must be rediscovered from the outside.
@@ -14,7 +14,7 @@ export interface McpAuth {
 export interface ShimEnv {
   platform: NodeJS.Platform
   env: Record<string, string | undefined>
-  /// The running executable. Packaged: the WeftCut binary itself (that is the
+  /// The running executable. Packaged: the Lahza binary itself (that is the
   /// whole ELECTRON_RUN_AS_NODE trick). Dev: a plain node binary.
   execPath: string
   /// Absolute path of the shim script (process.argv[1] resolved).
@@ -33,12 +33,12 @@ export function shimEnvFromProcess(): ShimEnv {
 }
 
 /// Last-resort userData guess. Generated configs always carry an explicit
-/// WEFTCUT_USERDATA and the installed shim finds userData as its own
+/// LAHZA_USERDATA and the installed shim finds userData as its own
 /// grandparent, so this only serves a hand-invoked shim. Electron derives the
 /// dir from the app name, which is package.json's `productName` ("Lahza Studio") in
 /// dev AND packaged: electron-builder's own productName never reaches the
 /// packaged package.json, so the two modes agree only because the key is set
-/// there. The upstream "WeftCut" and scoped-name candidates stay for profiles
+/// there. The upstream "Lahza" and scoped-name candidates stay for profiles
 /// written before the Lahza Studio rename.
 export function defaultUserDataDir(se: ShimEnv): string {
   const appData =
@@ -47,7 +47,7 @@ export function defaultUserDataDir(se: ShimEnv): string {
       : se.platform === 'darwin'
         ? path.join(se.homedir, 'Library', 'Application Support')
         : (se.env.XDG_CONFIG_HOME ?? path.join(se.homedir, '.config'))
-  const candidates = [path.join(appData, 'Lahza Studio'), path.join(appData, 'WeftCut'), path.join(appData, '@weftcut', 'desktop')]
+  const candidates = [path.join(appData, 'Lahza Studio'), path.join(appData, 'Lahza'), path.join(appData, '@lahza', 'desktop')]
   for (const c of candidates) {
     if (fs.existsSync(path.join(c, 'mcp_auth.json'))) return c
   }
@@ -55,7 +55,7 @@ export function defaultUserDataDir(se: ShimEnv): string {
 }
 
 /// userData resolution order:
-///  1. WEFTCUT_USERDATA env override (dev, tests).
+///  1. LAHZA_USERDATA env override (dev, tests).
 ///  2. Installed location: the app copies the shim to <userData>/cli/, so when
 ///     mcp_auth.json exists two levels up from the script, that IS userData.
 ///     This keeps one code path valid on all three OSes — including AppImage,
@@ -63,7 +63,7 @@ export function defaultUserDataDir(se: ShimEnv): string {
 ///     userData is stable.
 ///  3. The platform default above.
 export function resolveUserDataDir(se: ShimEnv): string {
-  const override = se.env.WEFTCUT_USERDATA
+  const override = se.env.LAHZA_USERDATA
   if (override) return override
   const grandparent = path.dirname(path.dirname(se.scriptPath))
   if (fs.existsSync(path.join(grandparent, 'mcp_auth.json'))) return grandparent
@@ -108,8 +108,8 @@ export interface BridgeTimeouts {
   requestMs: number
 }
 
-export const TOOL_TIMEOUT_ENV = 'WEFTCUT_MCP_TOOL_TIMEOUT_MS'
-export const TOOL_MAX_TOTAL_ENV = 'WEFTCUT_MCP_TOOL_MAX_TOTAL_MS'
+export const TOOL_TIMEOUT_ENV = 'LAHZA_MCP_TOOL_TIMEOUT_MS'
+export const TOOL_MAX_TOTAL_ENV = 'LAHZA_MCP_TOOL_MAX_TOTAL_MS'
 
 export const DEFAULT_BRIDGE_TIMEOUTS: BridgeTimeouts = { toolIdleMs: 300_000, requestMs: 60_000 }
 
@@ -124,8 +124,8 @@ function envMs(raw: string | undefined): number | undefined {
   return ms > 0 ? Math.min(ms, MAX_TIMER_MS) : undefined
 }
 
-/// The bridge timeouts this shim was configured with: WEFTCUT_MCP_TOOL_TIMEOUT_MS
-/// sets the tool-call idle window, WEFTCUT_MCP_TOOL_MAX_TOTAL_MS opts into a
+/// The bridge timeouts this shim was configured with: LAHZA_MCP_TOOL_TIMEOUT_MS
+/// sets the tool-call idle window, LAHZA_MCP_TOOL_MAX_TOTAL_MS opts into a
 /// total cap.
 export function bridgeTimeouts(se: ShimEnv): BridgeTimeouts {
   const toolIdleMs = envMs(se.env[TOOL_TIMEOUT_ENV]) ?? DEFAULT_BRIDGE_TIMEOUTS.toolIdleMs
@@ -137,8 +137,8 @@ export function bridgeTimeouts(se: ShimEnv): BridgeTimeouts {
   }
 }
 
-/// What `launch_weftcut` should spawn.
-///  - WEFTCUT_APP env override first (dev: point at a packaged build or
+/// What `launch_lahza` should spawn.
+///  - LAHZA_APP env override first (dev: point at a packaged build or
 ///    `electron .`-style wrapper script).
 ///  - $APPIMAGE when set: execPath is the transient mount, the .AppImage file
 ///    is the stable relaunchable thing.
@@ -146,7 +146,7 @@ export function bridgeTimeouts(se: ShimEnv): BridgeTimeouts {
 ///    ELECTRON_RUN_AS_NODE. Under plain dev node there is nothing sensible to
 ///    spawn, so that case reports unlaunchable instead of forking node.
 export function launchTarget(se: ShimEnv): { path: string; launchable: boolean } {
-  const override = se.env.WEFTCUT_APP
+  const override = se.env.LAHZA_APP
   if (override) return { path: override, launchable: true }
   const appimage = se.env.APPIMAGE
   if (appimage) return { path: appimage, launchable: true }
@@ -160,7 +160,7 @@ export function launchTarget(se: ShimEnv): { path: string; launchable: boolean }
 
 /// The client-config fragment `print-config` (and the Settings panel, via its
 /// own IPC-fed copy of the same shape) emits. No URL, no token: the shim
-/// resolves both from mcp_auth.json at connect time. WEFTCUT_USERDATA rides
+/// resolves both from mcp_auth.json at connect time. LAHZA_USERDATA rides
 /// along explicitly so discovery never depends on the name-guessing fallback.
 export function clientConfig(
   se: ShimEnv,
@@ -173,10 +173,10 @@ export function clientConfig(
   return {
     command: se.env.APPIMAGE ?? se.execPath,
     args: [se.scriptPath],
-    env: { ELECTRON_RUN_AS_NODE: '1', WEFTCUT_USERDATA: userDataDir },
+    env: { ELECTRON_RUN_AS_NODE: '1', LAHZA_USERDATA: userDataDir },
   }
 }
 
 export function clientConfigJson(se: ShimEnv, userDataDir: string): string {
-  return JSON.stringify({ mcpServers: { weftcut: clientConfig(se, userDataDir) } }, null, 2)
+  return JSON.stringify({ mcpServers: { lahza: clientConfig(se, userDataDir) } }, null, 2)
 }

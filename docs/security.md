@@ -1,6 +1,6 @@
 # Security
 
-WeftCut is a local-first desktop app: the renderer loads only the app's own bundled
+Lahza is a local-first desktop app: the renderer loads only the app's own bundled
 UI, and every window runs with Electron's isolation defaults hardened on
 (`contextIsolation`, `sandbox`, `nodeIntegration: false`, `webSecurity`). This document
 records the **Content-Security-Policy** posture — why each CSP is shaped the way it is,
@@ -33,7 +33,7 @@ server is left untouched, because HMR needs inline + eval + websockets.
   widens the eval surface but not the *content* surface — the renderer still loads no
   remote or inline `<script>`, so the practical XSS vector (the thing CSP exists to
   block here) stays closed.
-- `img-/media-/connect-src` include the app's own privileged schemes (`weftcut-media:`,
+- `img-/media-/connect-src` include the app's own privileged schemes (`lahza-media:`,
   `motif:`) plus `blob:`/`data:` — the editor legitimately fetches imported media and
   Motif assets.
 

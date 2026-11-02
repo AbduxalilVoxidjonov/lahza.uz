@@ -1,6 +1,6 @@
 /// THE frame-grid surface for the renderer, the timeline UI, and the main-process
 /// actor (via `main/state/snap.ts`). Every primitive here is the wasm-backed
-/// `weftcut-eval` leaf — the SAME crate the native audio and state code link
+/// `lahza-eval` leaf — the SAME crate the native audio and state code link
 /// natively — so there is one frame grid, not hand-mirrored copies (ADR 0025).
 /// What this module adds on top is composition-level policy: the playhead's
 /// last-frame anchor, a neighbouring boundary, layer-local indexing, and SMPTE

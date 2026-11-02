@@ -7,7 +7,7 @@ import { ensureCalibrationFixture } from './calibrationFixture';
 const directories: string[] = [];
 afterEach(() => { for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true }); });
 function setup() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-fixture-test-'));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-fixture-test-'));
   directories.push(root);
   const directory = path.join(root, 'cache');
   const tools = { ffmpeg: path.join(root, 'ffmpeg'), ffprobe: path.join(root, 'ffprobe') };

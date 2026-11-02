@@ -15,7 +15,7 @@
 //
 // content-catalog.test.ts enforces the pinning invariants over every entry.
 
-import type { ContentItem } from "./content-download";
+import type { ContentArtifact, ContentItem, ContentPlatformKey } from "./content-download";
 
 export const CONTENT_CATALOG: readonly ContentItem[] = [
   {
@@ -59,14 +59,14 @@ export const CONTENT_CATALOG: readonly ContentItem[] = [
         fields: { binary: "whisper-bin-ubuntu-x64/whisper-cli" },
       },
       // whisper.cpp publishes no macOS CLI (its only Apple asset is an
-      // xcframework), so this is WeftCut's own release asset: whisper-cli
+      // xcframework), so this is Lahza's own release asset: whisper-cli
       // v1.9.1 built from the pinned upstream commit by
       // scripts/build-whisper-cli-macos.mjs in the content-whisper-cli
       // workflow (ADR 0076). One static binary with Metal and its shader
       // library embedded — it links only system frameworks, so nothing needs
       // to sit beside it. The pin is the CI-published asset, not a local build.
       "darwin-arm64": {
-        url: "https://github.com/WeftCut/WeftCut/releases/download/content-whisper-cli-v1.9.1/whisper-cli-v1.9.1-macos-arm64.tar.gz",
+        url: "https://api.github.com/repositories/1246738326/releases/assets/583933461",
         sha256:
           "cda72d4951aa2adbcf4b109151fbfaa071be7fab0297acbf002f3cf5d007b8d1",
         bytes: 1169176,
@@ -400,4 +400,244 @@ export const CONTENT_CATALOG: readonly ContentItem[] = [
       },
     },
   },
+
+  // ---------------------------------------------------------------------------
+  // First-run components (kind tool / package / skill-pack, autoInstall).
+  // Fetched at app start when missing and the machine is online — nothing here
+  // ships in the repo or the installer. Every digest below was computed from
+  // the very bytes at the URL (or is the upstream's own published digest that
+  // was re-checked against the download), on 2026-11-02:
+  //   shasum -a 256 <downloaded file>
+  // To bump one: download the new immutable URL, recompute sha256 + `wc -c`,
+  // and add it as a NEW pinned entry (see the header rule above).
+  // ---------------------------------------------------------------------------
+  {
+    // Downloader for the "import from a URL" flow. The upstream release
+    // publishes one single-file binary per OS; the digests are GitHub's own
+    // release-asset digests (the macOS one re-verified by hashing the download).
+    // The macOS binary is a universal2 build, hence the same asset for both
+    // darwin keys. Unlicense, so redistribution of the pinned bytes is fine.
+    id: "yt-dlp",
+    kind: "tool",
+    version: "2026.10.26",
+    labelKey: "content_ytdlp",
+    autoInstall: true,
+    license: { name: "Unlicense", upstreamUrl: "https://github.com/yt-dlp/yt-dlp" },
+    platforms: {
+      "win32-x64": {
+        url: "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp.exe",
+        sha256: "f5389d3698ecde4ef06f4e6b1ce0294fe9ac1396228c8990b8d3416d6d177a7d",
+        bytes: 23575744,
+        archive: "none",
+        entryPath: "yt-dlp.exe",
+        fields: { binary: "yt-dlp.exe", entry: "yt-dlp.exe" },
+        executable: true,
+      },
+      "linux-x64": {
+        url: "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_linux",
+        sha256: "767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795",
+        bytes: 41166968,
+        archive: "none",
+        entryPath: "yt-dlp",
+        fields: { binary: "yt-dlp", entry: "yt-dlp" },
+        executable: true,
+      },
+      "darwin-arm64": ytDlpMac(),
+      "darwin-x64": ytDlpMac(),
+    },
+  },
+  {
+    // The npm tarball of Remotion's core package at an exact version (the
+    // registry's own `dist.shasum` sha1 was cross-checked against the download).
+    // Remotion is source-available under its own company license, NOT OSI open
+    // source: teams above the free-tier size need a paid license to USE it.
+    // Fetching the package is not using it, but surface the license to the user.
+    id: "remotion-core",
+    kind: "package",
+    version: "4.0.540",
+    labelKey: "content_remotion",
+    autoInstall: true,
+    license: { name: "Remotion License", upstreamUrl: "https://github.com/remotion-dev/remotion/blob/main/LICENSE.md" },
+    platforms: everywhere({
+      url: "https://registry.npmjs.org/remotion/-/remotion-4.0.540.tgz",
+      sha256: "b4516b6f9d585cb31fcd6d44597b9373874b9f4ad7c169282459a82d424e7f1f",
+      bytes: 432249,
+      archive: "tar.gz",
+      entryPath: "package/package.json",
+      fields: { entry: "package/package.json" },
+    }),
+  },
+  {
+    // HeyGen's HyperFrames CLI/runtime, npm tarball at an exact version
+    // (registry shasum 6c5e8081... matched the download). Apache-2.0.
+    id: "hyperframes",
+    kind: "package",
+    version: "0.9.3",
+    labelKey: "content_hyperframes",
+    autoInstall: true,
+    license: { name: "Apache-2.0", upstreamUrl: "https://github.com/heygen-com/hyperframes" },
+    platforms: everywhere({
+      url: "https://registry.npmjs.org/hyperframes/-/hyperframes-0.9.3.tgz",
+      sha256: "e1b050f2228fc919726455c6b9cfe48157b607bb8b577b418a6e1f52d38ff12c",
+      bytes: 7867851,
+      archive: "tar.gz",
+      entryPath: "package/package.json",
+      fields: { entry: "package/package.json" },
+    }),
+  },
+  {
+    // Remotion's agent skills, pinned to a commit (not a branch). The archive
+    // is GitHub's generated codeload tarball for that commit; GitHub does not
+    // promise byte-stable generated archives, so a digest mismatch here means
+    // "re-pin", never "ignore".
+    id: "remotion-skills",
+    kind: "skill-pack",
+    version: "c7cb2fdcacd134fb2ccb9b7a44f9ffa44e467271",
+    labelKey: "content_remotion_skills",
+    autoInstall: true,
+    license: { name: "See upstream (no SPDX declared)", upstreamUrl: "https://github.com/remotion-dev/skills" },
+    platforms: everywhere({
+      url: "https://codeload.github.com/remotion-dev/skills/tar.gz/c7cb2fdcacd134fb2ccb9b7a44f9ffa44e467271",
+      sha256: "a626ec482b4f686cda123b04b34e34fb4e08f28471ac3d98f7d2b07bcb3666cc",
+      bytes: 752738,
+      archive: "tar.gz",
+      entryPath: "skills-c7cb2fdcacd134fb2ccb9b7a44f9ffa44e467271/package.json",
+      fields: { entry: "skills-c7cb2fdcacd134fb2ccb9b7a44f9ffa44e467271/package.json" },
+    }),
+  },
+  {
+    // OpenMontage, pinned to a commit. LICENSE IS AGPL-3.0: it is downloaded
+    // as a separate user-run tool beside the app (never linked into or shipped
+    // with it), and the license is shown in the component row. Same
+    // codeload-stability caveat as remotion-skills.
+    id: "openmontage",
+    kind: "skill-pack",
+    version: "195eab24478dc9363326aec437aefc3701635ddf",
+    labelKey: "content_openmontage",
+    autoInstall: false,
+    license: { name: "AGPL-3.0", upstreamUrl: "https://github.com/calesthio/OpenMontage" },
+    platforms: everywhere({
+      url: "https://codeload.github.com/calesthio/OpenMontage/tar.gz/195eab24478dc9363326aec437aefc3701635ddf",
+      sha256: "171a1c456f12759606bb4a81483b2153cebc4b9779be38e2df7072af9222ff6f",
+      bytes: 76028900,
+      archive: "tar.gz",
+      entryPath: "OpenMontage-195eab24478dc9363326aec437aefc3701635ddf/README.md",
+      fields: { entry: "OpenMontage-195eab24478dc9363326aec437aefc3701635ddf/README.md" },
+    }),
+  },
+  // NavaiST v2 medium (Uzbek ASR), CTranslate2 / faster-whisper layout, from
+  // https://huggingface.co/abduaziz/navaistt_v2_medium_ct2 (the earlier
+  // "abduaziz/navaistt" name answered 401). Pinned to HF commit e4e78fef714aa13d1e8581cb8816ea362586d543;
+  // size and sha256 read from the HF tree API (LFS oid for model.bin) or
+  // computed with shasum -a 256 on the downloaded file (the small files).
+  // A catalog item carries ONE file, so the five files of the model directory
+  // are five sibling items sharing this revision (same approach as the Qwen3-VL
+  // model + mmproj pair). Each installs under <id>/<revision>/; there is no
+  // CTranslate2 speech backend yet, so they are kind "package" (components
+  // lane, manual opt-in) and no engine config consumes them.
+  // The model card declares NO license: usage is not granted, hence
+  // autoInstall false and an explicit license string the UI row shows.
+  {
+    id: "asr-navaistt",
+    kind: "package",
+    version: "e4e78fef714aa13d1e8581cb8816ea362586d543",
+    labelKey: "content_navaistt",
+    autoInstall: false,
+    license: { name: "Unspecified upstream — written permission required", upstreamUrl: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2" },
+    platforms: everywhere({
+      url: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2/resolve/e4e78fef714aa13d1e8581cb8816ea362586d543/model.bin?download=true",
+      sha256: "7c247983182b6eee58ab48e94183e6079fdb68d5a621ab50e69a714b45b191f0",
+      bytes: 1527906453,
+      archive: "none",
+      entryPath: "model.bin",
+      fields: { entry: "model.bin" },
+    }),
+  },
+  {
+    id: "asr-navaistt-config",
+    kind: "package",
+    version: "e4e78fef714aa13d1e8581cb8816ea362586d543",
+    labelKey: "content_navaistt_config",
+    autoInstall: false,
+    license: { name: "Unspecified upstream — written permission required", upstreamUrl: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2" },
+    platforms: everywhere({
+      url: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2/resolve/e4e78fef714aa13d1e8581cb8816ea362586d543/config.json?download=true",
+      sha256: "3622a2ddc41ec0e0fd4e68c13c6830f03b90c38d89aaad184de02c8c642cf807",
+      bytes: 2257,
+      archive: "none",
+      entryPath: "config.json",
+      fields: { entry: "config.json" },
+    }),
+  },
+  {
+    id: "asr-navaistt-preprocessor",
+    kind: "package",
+    version: "e4e78fef714aa13d1e8581cb8816ea362586d543",
+    labelKey: "content_navaistt_preprocessor",
+    autoInstall: false,
+    license: { name: "Unspecified upstream — written permission required", upstreamUrl: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2" },
+    platforms: everywhere({
+      url: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2/resolve/e4e78fef714aa13d1e8581cb8816ea362586d543/preprocessor_config.json?download=true",
+      sha256: "a6a76d28c93edb273669eb9e0b0636a2bddbb1272c3261e47b7ca6dfdbac1b8d",
+      bytes: 339,
+      archive: "none",
+      entryPath: "preprocessor_config.json",
+      fields: { entry: "preprocessor_config.json" },
+    }),
+  },
+  {
+    id: "asr-navaistt-tokenizer",
+    kind: "package",
+    version: "e4e78fef714aa13d1e8581cb8816ea362586d543",
+    labelKey: "content_navaistt_tokenizer",
+    autoInstall: false,
+    license: { name: "Unspecified upstream — written permission required", upstreamUrl: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2" },
+    platforms: everywhere({
+      url: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2/resolve/e4e78fef714aa13d1e8581cb8816ea362586d543/tokenizer.json?download=true",
+      sha256: "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+      bytes: 2480466,
+      archive: "none",
+      entryPath: "tokenizer.json",
+      fields: { entry: "tokenizer.json" },
+    }),
+  },
+  {
+    id: "asr-navaistt-vocabulary",
+    kind: "package",
+    version: "e4e78fef714aa13d1e8581cb8816ea362586d543",
+    labelKey: "content_navaistt_vocabulary",
+    autoInstall: false,
+    license: { name: "Unspecified upstream — written permission required", upstreamUrl: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2" },
+    platforms: everywhere({
+      url: "https://huggingface.co/abduaziz/navaistt_v2_medium_ct2/resolve/e4e78fef714aa13d1e8581cb8816ea362586d543/vocabulary.json?download=true",
+      sha256: "5ad28279db5e546349708b9a74736e2c018737ac5a600f1048f1f26c99b85b47",
+      bytes: 1068103,
+      archive: "none",
+      entryPath: "vocabulary.json",
+      fields: { entry: "vocabulary.json" },
+    }),
+  },
 ];
+
+/** The same platform-independent payload on every platform key, so coverage
+ *  stays an explicit per-platform entry like the rest of the catalog. */
+function everywhere(artifact: ContentArtifact): Partial<Record<ContentPlatformKey, ContentArtifact>> {
+  return {
+    "win32-x64": artifact,
+    "linux-x64": artifact,
+    "darwin-arm64": artifact,
+    "darwin-x64": artifact,
+  };
+}
+
+function ytDlpMac(): ContentArtifact {
+  return {
+    url: "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.26/yt-dlp_macos",
+    sha256: "0f922c15ccc0b83eefa1c8bc9104e434318c4bf16e408e1ee93b7745a6efe0aa",
+    bytes: 37466304,
+    archive: "none",
+    entryPath: "yt-dlp",
+    fields: { binary: "yt-dlp", entry: "yt-dlp" },
+    executable: true,
+  };
+}

@@ -55,7 +55,7 @@ export interface HandoffTimingSummary {
   /// configured for. It exists because the configured label can lie — the
   /// preload falls back from a GPU path to `readback` when WebGL2 is missing,
   /// and main resolves an unset or unrecognised mode to `rendererFence` — so a bench leg
-  /// that trusts its own `WEFTCUT_HW_BARRIER` label can report a barrier-less
+  /// that trusts its own `LAHZA_HW_BARRIER` label can report a barrier-less
   /// result that in fact ran the full barrier. A measurement whose route drifted
   /// is invalid, not slow; this is what makes the drift visible.
   ///

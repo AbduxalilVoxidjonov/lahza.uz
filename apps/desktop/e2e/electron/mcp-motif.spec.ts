@@ -27,7 +27,7 @@ test('MCP motif tools are advertised and callable', async ({ motifSession: { pag
   // add_motif_layer places into the open project; project tools refuse on the
   // start screen, so create one first.
   await test.step('Create an editable project', async () => {
-    await newProject(page, { parentFolder: tmpDir('weftcut-mcp-motif-'), name: 'mcp-motif', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-mcp-motif-'), name: 'mcp-motif', canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } })
   })
 
   await test.step('Connect the MCP client', async () => {

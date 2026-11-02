@@ -19,9 +19,9 @@ import { invokeCmd, launchApp, newProject, tmpDir, waitForHook } from './helpers
 // texture import → createImageBitmap), and asserts every delivered bitmap's
 // barcode matches its pts-derived index.
 //
-// Local-only (needs the @weftcut/native-decode component + a GPU whose HW lane
-// decodes 8-bit HEVC): gated on WEFTCUT_DECODE_E2E=1 like decode-engine.spec.
-// Requires a VITE_WEFTCUT_E2E=1 build (the __weftcutTest hook surface).
+// Local-only (needs the @lahza/native-decode component + a GPU whose HW lane
+// decodes 8-bit HEVC): gated on LAHZA_DECODE_E2E=1 like decode-engine.spec.
+// Requires a VITE_LAHZA_E2E=1 build (the __lahzaTest hook surface).
 //
 // TWO GROUPS, because one driver flag decides which transport runs and the two
 // are not the same test:
@@ -76,7 +76,7 @@ const CLIP_PIX_FMT = 'yuv420p'
 /// that same state, and the per-session barrier assertion is what proves it.
 async function enterEditorWithPreview(page: Page): Promise<void> {
   await newProject(page, {
-    parentFolder: tmpDir('weftcut-order-'),
+    parentFolder: tmpDir('lahza-order-'),
     name: `order-${Date.now()}`,
     canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 },
   })
@@ -93,8 +93,8 @@ async function enterEditorWithPreview(page: Page): Promise<void> {
         page.evaluate(
           () =>
             (window as unknown as {
-              __weftcutTest?: { previewResourceProbe?: () => unknown }
-            }).__weftcutTest?.previewResourceProbe?.() ?? null,
+              __lahzaTest?: { previewResourceProbe?: () => unknown }
+            }).__lahzaTest?.previewResourceProbe?.() ?? null,
         ),
       { timeout: 60_000, message: 'preview surface never mounted' },
     )
@@ -122,7 +122,7 @@ interface OrderCheckResult {
 /// design and without a word — and the run then certifies the fallback under the
 /// pinned variant's name. Held to the product default when the env is unset, so
 /// keep this in step with `HW_BARRIER_DEFAULT` in src/main/previewGpu.ts.
-const EXPECTED_BARRIER = process.env.WEFTCUT_HW_BARRIER ?? 'rendererFence'
+const EXPECTED_BARRIER = process.env.LAHZA_HW_BARRIER ?? 'rendererFence'
 
 function expectBarrierRan(applied: string | null | undefined, where: string): void {
   expect(
@@ -144,8 +144,8 @@ async function runOrderCheck(
   return (await page.evaluate(
     (args) =>
       (window as unknown as {
-        __weftcutTest: { decodeBenchOrderCheck(a: unknown): Promise<OrderCheckResult> }
-      }).__weftcutTest.decodeBenchOrderCheck(args),
+        __lahzaTest: { decodeBenchOrderCheck(a: unknown): Promise<OrderCheckResult> }
+      }).__lahzaTest.decodeBenchOrderCheck(args),
     {
       sourcePath: CLIP,
       strategy,
@@ -189,8 +189,8 @@ async function runConcurrentOrderCheck(page: Page, sessions: number): Promise<Co
   return (await page.evaluate(
     (args) =>
       (window as unknown as {
-        __weftcutTest: { decodeBenchConcurrentOrderCheck(a: unknown): Promise<ConcurrentOrderResult> }
-      }).__weftcutTest.decodeBenchConcurrentOrderCheck(args),
+        __lahzaTest: { decodeBenchConcurrentOrderCheck(a: unknown): Promise<ConcurrentOrderResult> }
+      }).__lahzaTest.decodeBenchConcurrentOrderCheck(args),
     { sourcePath: CLIP, sessions, ...CLIP_META },
   )) as ConcurrentOrderResult
 }
@@ -262,8 +262,8 @@ async function runHwFallbackProbe(page: Page, count: number): Promise<HwFallback
   return (await page.evaluate(
     (args) =>
       (window as unknown as {
-        __weftcutTest: { decodeBenchHwFallbackProbe(a: unknown): Promise<HwFallbackProbeResult> }
-      }).__weftcutTest.decodeBenchHwFallbackProbe(args),
+        __lahzaTest: { decodeBenchHwFallbackProbe(a: unknown): Promise<HwFallbackProbeResult> }
+      }).__lahzaTest.decodeBenchHwFallbackProbe(args),
     {
       sourcePath: CLIP,
       codec: 'hevc',
@@ -329,8 +329,8 @@ async function readLargestConcurrentForFixture(
 
 test.describe('ffmpeg engine hardware lane preview presents frames in order (Electron) @serial', () => {
   test.skip(
-    process.env.WEFTCUT_DECODE_E2E !== '1',
-    'ffmpeg hardware-lane order guard is local-only (needs the native-decode component + a GPU whose HW lane decodes 8-bit HEVC); set WEFTCUT_DECODE_E2E=1 to run',
+    process.env.LAHZA_DECODE_E2E !== '1',
+    'ffmpeg hardware-lane order guard is local-only (needs the native-decode component + a GPU whose HW lane decodes 8-bit HEVC); set LAHZA_DECODE_E2E=1 to run',
   )
   test.skip(
     !existsSync(CLIP),
@@ -395,7 +395,7 @@ test.describe('ffmpeg engine hardware lane preview presents frames in order (Ele
     //
     // Each session is asserted on its own: a merged count would let two passes
     // bury one session's reorder, and "which session" is the first thing a
-    // failure has to answer. Barrier mode comes from WEFTCUT_HW_BARRIER, same as
+    // failure has to answer. Barrier mode comes from LAHZA_HW_BARRIER, same as
     // every test here.
     test('ffmpeg hardware lane: 3 concurrent sessions each present frames in order (no reorder under contention)', async () => {
       test.setTimeout(240_000)
@@ -468,8 +468,8 @@ test.describe('ffmpeg engine hardware lane preview presents frames in order (Ele
         const r = (await page.evaluate(
           (args) =>
             (window as unknown as {
-              __weftcutTest: { decodeBenchBudgetProbe(a: unknown): Promise<{ outcomes: Array<{ index: number; ready: boolean; error: string | null; fatalReason: string | null }>; error?: string }> }
-            }).__weftcutTest.decodeBenchBudgetProbe(args),
+              __lahzaTest: { decodeBenchBudgetProbe(a: unknown): Promise<{ outcomes: Array<{ index: number; ready: boolean; error: string | null; fatalReason: string | null }>; error?: string }> }
+            }).__lahzaTest.decodeBenchBudgetProbe(args),
           {
             sourcePath: CLIP,
             width: CLIP_META.width,
@@ -597,7 +597,7 @@ test.describe('ffmpeg engine hardware lane preview presents frames in order (Ele
         )
         // Engagement, asserted rather than assumed: reaching here means the lane
         // read "hardware", and `hwLane` names WHICH one so the log says what was
-        // actually exercised (an operator can pin it with WEFTCUT_FORCE_HW_LANE).
+        // actually exercised (an operator can pin it with LAHZA_FORCE_HW_LANE).
         expect(r.hwLane, `lane reported hardware but named no HW lane:\n${report(r)}`).not.toBeNull()
         // The copy-back frame must NOT have come over the shared-texture
         // transport — that has a barrier and this does not. A non-null barrier

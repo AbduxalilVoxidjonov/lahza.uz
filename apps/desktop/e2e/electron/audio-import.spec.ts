@@ -9,7 +9,7 @@ import { launchApp, invokeCmd, newProject, rootSummary, tmpDir, type ProjectSumm
 // MPEG-4 audio and attached cover pictures must never create video media.
 test('audio imports retain their files and produce playable audio caches', async ({}, testInfo) => {
   test.setTimeout(120_000)
-  const folder = tmpDir('weftcut-audio-import-')
+  const folder = tmpDir('lahza-audio-import-')
   const encode = (args: string[], destination: string) => execFileSync('ffmpeg', [
     '-hide_banner', '-loglevel', 'error', '-y', ...args, destination,
   ], { windowsHide: true })

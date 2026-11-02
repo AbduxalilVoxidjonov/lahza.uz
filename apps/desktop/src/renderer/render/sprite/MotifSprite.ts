@@ -103,7 +103,7 @@ export class MotifSprite implements StageableSprite {
     if (!this.motif && typeof document !== "undefined") {
       // eslint-disable-next-line no-console
       console.warn(
-        `[weftcut/pixi] MotifSprite ${this.layerId}: unknown motif "${this.motifId}"`,
+        `[lahza/pixi] MotifSprite ${this.layerId}: unknown motif "${this.motifId}"`,
       );
     }
     this.sprite = new Sprite(Texture.EMPTY);
@@ -209,7 +209,7 @@ export class MotifSprite implements StageableSprite {
     );
     if (!desc) {
       // eslint-disable-next-line no-console
-      console.warn(`[weftcut/pixi] MotifSprite ${this.layerId}: canonicalize failed`);
+      console.warn(`[lahza/pixi] MotifSprite ${this.layerId}: canonicalize failed`);
       return;
     }
     this.playback.update(desc, playing);

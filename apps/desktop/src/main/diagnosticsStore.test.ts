@@ -7,7 +7,7 @@ import { DiagnosticsStore, redactDiagnosticText } from './diagnosticsStore'
 
 const roots: string[] = []
 const stores: DiagnosticsStore[] = []
-const root = () => { const p = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-diagnostics-')); roots.push(p); return p }
+const root = () => { const p = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-diagnostics-')); roots.push(p); return p }
 const start = (dir: string, alive = () => false) => {
   const s = new DiagnosticsStore(dir, '1.2.3', alive); stores.push(s); return s
 }

@@ -2,8 +2,8 @@
 //! Local least-squares cubics refine only failing spans; a final merge pass
 //! removes redundant anchors. All residuals use the playback evaluator.
 use crate::{Options, MAX_KEYS};
+use lahza_eval::{eval_precise, Extrapolation, Kf, Segment, IN_IDENTITY, OUT_IDENTITY};
 use std::collections::BTreeSet;
-use weftcut_eval::{eval_precise, Extrapolation, Kf, Segment, IN_IDENTITY, OUT_IDENTITY};
 
 pub struct Curve {
     pub keys: Vec<Kf>,
@@ -137,7 +137,7 @@ pub fn fit(
     } else {
         for &t in anchors {
             let f =
-                weftcut_eval::frame_index_round(t.round() as i64, options.fps_num, options.fps_den);
+                lahza_eval::frame_index_round(t.round() as i64, options.fps_num, options.fps_den);
             if f > options.start_frame && f < options.end_frame {
                 selected.insert(index(f));
             }
@@ -194,10 +194,8 @@ pub fn fit(
             i += 1;
             continue;
         }
-        let lo =
-            weftcut_eval::frame_index_round(times[s.a] as i64, options.fps_num, options.fps_den);
-        let hi =
-            weftcut_eval::frame_index_round(times[s.b] as i64, options.fps_num, options.fps_den);
+        let lo = lahza_eval::frame_index_round(times[s.a] as i64, options.fps_num, options.fps_den);
+        let hi = lahza_eval::frame_index_round(times[s.b] as i64, options.fps_num, options.fps_den);
         if hi - lo <= 1 {
             limit = Some("frame_grid");
             i += 1;
@@ -207,7 +205,7 @@ pub fn fit(
             limit = Some("key_limit");
             break;
         }
-        let f = weftcut_eval::frame_index_round(
+        let f = lahza_eval::frame_index_round(
             times[s.worst].round() as i64,
             options.fps_num,
             options.fps_den,

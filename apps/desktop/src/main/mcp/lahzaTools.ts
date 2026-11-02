@@ -34,7 +34,7 @@ export const LAHZA_TOOL_DEFS = [
 
 export const LAHZA_TOOLS: ReadonlySet<string> = new Set(LAHZA_TOOL_DEFS.map((d) => d.name))
 
-/** The Lahza tools that answer with no WeftCut project open. */
+/** The Lahza tools that answer with no Lahza project open. */
 export const LAHZA_APP_SCOPE_TOOLS: readonly string[] = LAHZA_TOOL_DEFS.map((d) => d.name).filter((n) => n !== 'lahza_place_highlight')
 
 /** Run one `lahza_*` tool. Throws `LahzaError` (code + message) on refusal. */

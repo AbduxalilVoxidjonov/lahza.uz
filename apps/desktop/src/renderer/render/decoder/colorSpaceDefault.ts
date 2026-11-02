@@ -5,7 +5,7 @@
 // the WebCodecs decoder then picks an implementation-defined matrix — which can
 // disagree with how ffmpeg and other players interpret the SAME bytes. The
 // media-conformance harness caught exactly this: an untagged BT.601 clip that
-// WeftCut's Chromium/Electron decoder read as BT.709, shifting every color, while ffmpeg
+// Lahza's Chromium/Electron decoder read as BT.709, shifting every color, while ffmpeg
 // read it as 601. Filling an explicit, resolution-keyed default makes decode
 // deterministic and aligned with the rest of the ecosystem (the same heuristic
 // ffmpeg/libavcodec use). Layer priority: `withDefaultColorSpace`. ADR 0014.

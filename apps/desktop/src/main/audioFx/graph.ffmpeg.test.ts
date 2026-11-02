@@ -67,7 +67,7 @@ function fixtureBytes(): Uint8Array {
 
 function runGraph(ffmpeg: string, graph: string | null, label: string): void {
   expect(graph, label).not.toBeNull()
-  const dir = mkdtempSync(join(tmpdir(), 'weftcut-audiofx-'))
+  const dir = mkdtempSync(join(tmpdir(), 'lahza-audiofx-'))
   try {
     const src = join(dir, 'in.f32')
     const dst = join(dir, 'out.f32')

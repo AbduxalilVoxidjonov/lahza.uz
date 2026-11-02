@@ -55,7 +55,7 @@ jobs:
         working-directory: .
         run: npm ci
 
-      # The vitest suite imports the napi addon (@weftcut/core), and testSetup.ts
+      # The vitest suite imports the napi addon (@lahza/core), and testSetup.ts
       # loads the eval wasm before every test file. Nothing here delivers either
       # implicitly: hooks are off under ignore-scripts, and `stryker run` drives
       # vitest through its own runner rather than `npm test`, so that script's
@@ -69,13 +69,13 @@ jobs:
           decode: false
           save: false
 
-      # WEFTCUT_PBT_RUNS=30 shrinks the property-based tests' fast-check runs for
+      # LAHZA_PBT_RUNS=30 shrinks the property-based tests' fast-check runs for
       # the mutation pass (every mutant re-runs its covering tests; fewer runs
       # keeps the matrix tractable while staying broad enough to kill mutants).
       # The mutation score (and the break threshold) live in stryker.config.mjs.
       - name: Mutation tests (Stryker)
         env:
-          WEFTCUT_PBT_RUNS: '30'
+          LAHZA_PBT_RUNS: '30'
         run: npm run pbt:stryker
 
       # Keep the HTML/JSON mutation report for inspection (gitignored locally,

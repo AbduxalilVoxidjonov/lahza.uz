@@ -25,8 +25,8 @@ const motifLayers = (s: Summary) =>
 function parseConnect(line: string): { url: string; token: string } | null {
   const m = line.match(/\[mcp\] connect: (\{.*\})/)
   if (!m) return null
-  const cfg = JSON.parse(m[1]) as { mcpServers: { weftcut: { url: string; headers: { Authorization: string } } } }
-  const s = cfg.mcpServers.weftcut
+  const cfg = JSON.parse(m[1]) as { mcpServers: { lahza: { url: string; headers: { Authorization: string } } } }
+  const s = cfg.mcpServers.lahza
   return { url: s.url, token: s.headers.Authorization.replace(/^Bearer /, '') }
 }
 
@@ -69,7 +69,7 @@ test('TS actor: MCP add_motif_layer returns the layer id + the summary reflects 
   let connect: { url: string; token: string } | null = null
   const app = await electron.launch({
     args: [...GL_SWITCHES, `--user-data-dir=${userDataDir}`, MAIN],
-    env: { ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1' } as Record<string, string>,
+    env: { ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: '1' } as Record<string, string>,
   })
   app.process().stdout!.on('data', (b: Buffer) => { const c = parseConnect(b.toString()); if (c) connect = c })
   try {

@@ -126,7 +126,7 @@ test.describe('macOS application menu', () => {
     const { app, page } = await launchApp()
     await page.waitForSelector('.startup-titlebar')
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-menu-'),
+      parentFolder: tmpDir('lahza-menu-'),
       name: 'MenuProjection',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
     })

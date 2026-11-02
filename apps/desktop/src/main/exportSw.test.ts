@@ -1,7 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { expect, it, vi } from 'vitest'
 import type { BrowserWindow } from 'electron'
-import type { NativeDecode } from '@weftcut/native-decode'
+import type { NativeDecode } from '@lahza/native-decode'
 const resources = vi.hoisted(() => ({ reserve: vi.fn() }))
 vi.mock('./resources', () => ({ reserveDecoderResources: resources.reserve }))
 import { openExportSw, closeAllExportSw } from './exportSw'

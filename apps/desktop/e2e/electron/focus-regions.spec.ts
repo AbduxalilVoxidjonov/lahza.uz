@@ -18,7 +18,7 @@ const CANVAS = { width: 640, height: 360, fpsNum: 30, fpsDen: 1 }
 /// stays COLLAPSED and its LayerBlock never mounts until revealed (see the hook's
 /// own docstring). Without it `.timeline-layer` simply never appears.
 async function projectWithClip(page: Awaited<ReturnType<typeof launchApp>>['page']) {
-  const parent = tmpDir('weftcut-focus-')
+  const parent = tmpDir('lahza-focus-')
   await newProject(page, { parentFolder: parent, name: 'focus', canvas: CANVAS })
   const layerId = await invokeCmd<string>(page, 'add_text_layer', {
     tStartUs: 0,
@@ -30,9 +30,9 @@ async function projectWithClip(page: Awaited<ReturnType<typeof launchApp>>['page
     (id) =>
       (
         window as unknown as {
-          __weftcutTest: { revealLayer(a: { layerId: string }): void }
+          __lahzaTest: { revealLayer(a: { layerId: string }): void }
         }
-      ).__weftcutTest.revealLayer({ layerId: id }),
+      ).__lahzaTest.revealLayer({ layerId: id }),
     layerId,
   )
   await expect(page.locator('.timeline-layer').first()).toBeVisible({ timeout: 20_000 })
@@ -57,7 +57,7 @@ const focusedRegion = (page: Awaited<ReturnType<typeof launchApp>>['page']) =>
 test('every open Panel is a focus region', async () => {
   const { app, page } = await launchApp()
   try {
-    const parent = tmpDir('weftcut-focus-')
+    const parent = tmpDir('lahza-focus-')
     await newProject(page, { parentFolder: parent, name: 'focus-regions', canvas: CANVAS })
 
     // One edit in the Panel renderer covers all of them; a Panel that stopped

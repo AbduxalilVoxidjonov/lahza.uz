@@ -5,13 +5,13 @@
 //! (any TTS) and a generated video, never project media.
 //!
 //! Environment (all paths):
-//! - `WEFTCUT_WHISPER_SERVER`, `WEFTCUT_WHISPER_MODEL`, `WEFTCUT_SPEECH_SHORT_WAV`
-//!   (under ten minutes) and `WEFTCUT_SPEECH_LONG_WAV` (over ten minutes); both
+//! - `LAHZA_WHISPER_SERVER`, `LAHZA_WHISPER_MODEL`, `LAHZA_SPEECH_SHORT_WAV`
+//!   (under ten minutes) and `LAHZA_SPEECH_LONG_WAV` (over ten minutes); both
 //!   WAVs end on a sentence containing "pineapple".
-//! - `WEFTCUT_LLAMA_SERVER`, `WEFTCUT_VLM_MODEL`, `WEFTCUT_VLM_MMPROJ`,
-//!   `WEFTCUT_SCENES_MP4`.
+//! - `LAHZA_LLAMA_SERVER`, `LAHZA_VLM_MODEL`, `LAHZA_VLM_MMPROJ`,
+//!   `LAHZA_SCENES_MP4`.
 //!
-//! `WEFTCUT_SCENES_MP4` shows four 16 s scenes reading APPLE, BICYCLE, CASTLE
+//! `LAHZA_SCENES_MP4` shows four 16 s scenes reading APPLE, BICYCLE, CASTLE
 //! and DOLPHIN.
 //!
 //! Run with `cargo test --lib --features test-noop -- --ignored live_endpoint`.
@@ -84,9 +84,9 @@ async fn serve(
 async fn llama_server(port: u16) -> tokio::process::Child {
     let args = [
         "-m".to_string(),
-        installed("WEFTCUT_VLM_MODEL").display().to_string(),
+        installed("LAHZA_VLM_MODEL").display().to_string(),
         "--mmproj".into(),
-        installed("WEFTCUT_VLM_MMPROJ").display().to_string(),
+        installed("LAHZA_VLM_MMPROJ").display().to_string(),
         "--host".into(),
         "127.0.0.1".into(),
         "--port".into(),
@@ -95,7 +95,7 @@ async fn llama_server(port: u16) -> tokio::process::Child {
         "16384".into(),
     ];
     serve(
-        installed("WEFTCUT_LLAMA_SERVER"),
+        installed("LAHZA_LLAMA_SERVER"),
         &args,
         &format!("http://127.0.0.1:{port}/health"),
         Duration::from_secs(600),
@@ -112,7 +112,7 @@ async fn live_endpoint_whisper_server_transcribes_short_and_long_audio() {
     };
     let args = [
         "-m".to_string(),
-        installed("WEFTCUT_WHISPER_MODEL").display().to_string(),
+        installed("LAHZA_WHISPER_MODEL").display().to_string(),
         "--host".into(),
         "127.0.0.1".into(),
         "--port".into(),
@@ -123,7 +123,7 @@ async fn live_endpoint_whisper_server_transcribes_short_and_long_audio() {
         "6".into(),
     ];
     let _server = serve(
-        installed("WEFTCUT_WHISPER_SERVER"),
+        installed("LAHZA_WHISPER_SERVER"),
         &args,
         "http://127.0.0.1:18080/",
         Duration::from_secs(120),
@@ -136,10 +136,7 @@ async fn live_endpoint_whisper_server_transcribes_short_and_long_audio() {
         None,
     );
 
-    for (var, min_pieces) in [
-        ("WEFTCUT_SPEECH_SHORT_WAV", 1),
-        ("WEFTCUT_SPEECH_LONG_WAV", 2),
-    ] {
+    for (var, min_pieces) in [("LAHZA_SPEECH_SHORT_WAV", 1), ("LAHZA_SPEECH_LONG_WAV", 2)] {
         let phases = Mutex::new(Vec::new());
         let observe = |p: ModelPhase| phases.lock().unwrap().push(p);
         let started = Instant::now();
@@ -221,7 +218,7 @@ async fn live_endpoint_llama_server_describes_jpeg_frames_and_honors_timeout() {
     let dir = tempfile::tempdir().unwrap();
     let anchors = plan_anchors(0, 16_000_000, 1.0);
     let frames = sample_frames(
-        &installed("WEFTCUT_SCENES_MP4"),
+        &installed("LAHZA_SCENES_MP4"),
         0,
         dir.path(),
         &anchors,
@@ -309,15 +306,15 @@ async fn live_local_describe_clip_chunks_a_long_window() {
         "qwen3_vl",
         serde_json::json!({
             "kind": "local",
-            "binary": installed("WEFTCUT_VLM_CLI"),
-            "model": installed("WEFTCUT_VLM_MODEL"),
-            "mmproj": installed("WEFTCUT_VLM_MMPROJ"),
+            "binary": installed("LAHZA_VLM_CLI"),
+            "model": installed("LAHZA_VLM_MODEL"),
+            "mmproj": installed("LAHZA_VLM_MMPROJ"),
         }),
     )
     .await;
 }
 
-/// Describe `WEFTCUT_SCENES_MP4` whole through `backend`, then assert each 16 s
+/// Describe `LAHZA_SCENES_MP4` whole through `backend`, then assert each 16 s
 /// scene got its own prose and that the same call again is a cache hit.
 #[cfg(feature = "mcp")]
 async fn describe_four_scenes(backend_tag: &str, backend_config: serde_json::Value) {
@@ -329,7 +326,7 @@ async fn describe_four_scenes(backend_tag: &str, backend_config: serde_json::Val
     let media = MediaItem {
         id: new_id(),
         label: None,
-        path_abs: installed("WEFTCUT_SCENES_MP4"),
+        path_abs: installed("LAHZA_SCENES_MP4"),
         path_rel: None,
         kind: MediaKind::Video,
         metadata: MediaMetadata {

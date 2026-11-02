@@ -61,11 +61,11 @@ export const DECODE_COMPONENT_PRESENT: boolean =
 /// gates probe capability instead of inferring it from the OS. Forcing software
 /// GL on Windows 11 can hang offscreen CDP capture — see the RENDERER CHOICE note
 /// in .github/workflows/electron-ci.yml.
-/// WEFTCUT_E2E_GL overrides the table (space-separated switches) so a dev
+/// LAHZA_E2E_GL overrides the table (space-separated switches) so a dev
 /// machine can reproduce a CI leg's GL stack, e.g. ubuntu's SwiftShader:
-/// WEFTCUT_E2E_GL="--use-angle=swiftshader --enable-unsafe-swiftshader"
-export const GL_SWITCHES: readonly string[] = process.env.WEFTCUT_E2E_GL
-  ? process.env.WEFTCUT_E2E_GL.split(/\s+/).filter(Boolean)
+/// LAHZA_E2E_GL="--use-angle=swiftshader --enable-unsafe-swiftshader"
+export const GL_SWITCHES: readonly string[] = process.env.LAHZA_E2E_GL
+  ? process.env.LAHZA_E2E_GL.split(/\s+/).filter(Boolean)
   : process.platform === 'linux'
     ? ['--enable-unsafe-swiftshader']
     : []
@@ -76,19 +76,19 @@ export const GL_SWITCHES: readonly string[] = process.env.WEFTCUT_E2E_GL
 /// os.tmpdir()) for EVERY launch and registers the app below; the driver
 /// removes the dir once the app's close() resolves, and a process-exit sweep
 /// kills + cleans up whatever a spec forgot to close. Specs are therefore
-/// isolated from each other and from the developer's real WeftCut profile —
+/// isolated from each other and from the developer's real Lahza profile —
 /// layout mutations and autosaves can no longer leak through the OS-default
 /// userData, and the suite is safe to run with parallel workers.
 ///
 /// A spec that must relaunch over the SAME userData (app-level state such as
 /// <userData>/workspaces.json surviving a restart) mints its own dir —
-/// `tmpDir('weftcut-e2e-')` — and passes it as `opts.userDataDir` on both
+/// `tmpDir('lahza-e2e-')` — and passes it as `opts.userDataDir` on both
 /// launches. Caller-provided dirs are never removed by close(); tmpDir's own
 /// exit sweep still reaps them.
 ///
-/// Set WEFTCUT_E2E_KEEP_TMP=1 to skip ALL dir removal (surviving apps are
+/// Set LAHZA_E2E_KEEP_TMP=1 to skip ALL dir removal (surviving apps are
 /// still killed) when debugging export outputs locally.
-const keepTmp = () => process.env.WEFTCUT_E2E_KEEP_TMP === '1'
+const keepTmp = () => process.env.LAHZA_E2E_KEEP_TMP === '1'
 
 /// Live apps → the userData dir the driver minted for them (null when the
 /// caller passed their own — then the driver still kills on exit but never
@@ -119,9 +119,9 @@ export function tmpDir(prefix: string): string {
 /// Export-fidelity SSIM floor for the 1:1 export gates. Default 0.8; a CI leg
 /// whose GL raster legitimately rounds differently (SwiftShader: pervasive
 /// ±1-2 LSB, SSIM-visible but PSNR-flat) overrides it to its measured healthy
-/// baseline minus margin via WEFTCUT_E2E_SSIM_FLOOR — see e2e/README.md.
+/// baseline minus margin via LAHZA_E2E_SSIM_FLOOR — see e2e/README.md.
 export function exportSsimFloor(dflt = 0.8): number {
-  const v = Number(process.env.WEFTCUT_E2E_SSIM_FLOOR)
+  const v = Number(process.env.LAHZA_E2E_SSIM_FLOOR)
   return Number.isFinite(v) && v > 0 ? v : dflt
 }
 
@@ -129,7 +129,7 @@ export function exportSsimFloor(dflt = 0.8): number {
 /// software raster's ±1-2 LSB chroma rounding scales through the BT.709
 /// B-channel coefficient into 7-12/255 on the worst patches.
 export function colorFaithfulMax(dflt: number): number {
-  const v = Number(process.env.WEFTCUT_E2E_COLOR_FAITHFUL_MAX)
+  const v = Number(process.env.LAHZA_E2E_COLOR_FAITHFUL_MAX)
   return Number.isFinite(v) && v > 0 ? v : dflt
 }
 
@@ -287,7 +287,7 @@ export async function launchApp(
   if (opts.userDataDir) {
     args.push(`--user-data-dir=${opts.userDataDir}`)
   } else {
-    mintedUserDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-e2e-'))
+    mintedUserDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-e2e-'))
     args.push(`--user-data-dir=${mintedUserDataDir}`)
   }
   args.push(MAIN)
@@ -297,14 +297,14 @@ export async function launchApp(
     // (often elevated) e2e/CI Electron process. `env` replaces process.env, so
     // spread it to keep PATH etc. that the app needs.
     // Caller-supplied `opts.env` is spread LAST so a spec can inject extra
-    // vars (e.g. WEFTCUT_FORCE_HW_LANE for the lane-parameterized preview-hw
+    // vars (e.g. LAHZA_FORCE_HW_LANE for the lane-parameterized preview-hw
     // conformance spec) without disturbing the locale/elevation keys above.
     env: {
       ...process.env,
       LANG: processLocale,
       LANGUAGE: `${locale.replace('-', '_')}:${localeBase}`,
       LC_ALL: processLocale,
-      WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1',
+      LAHZA_SUPPRESS_ELEVATION_NOTICE: '1',
       ...(opts.env ?? {}),
     } as Record<string, string>,
   })
@@ -314,7 +314,7 @@ export async function launchApp(
   try {
     const page = await app.firstWindow({ timeout: 60_000 })
     // Opt-in renderer console tap for wedge diagnosis (local or a CI leg).
-    if (process.env.WEFTCUT_E2E_CONSOLE === '1') {
+    if (process.env.LAHZA_E2E_CONSOLE === '1') {
       page.on('console', (msg) => console.log(`[renderer:${msg.type()}] ${msg.text()}`))
       page.on('pageerror', (err) => console.log(`[renderer:pageerror] ${err.message}`))
     }
@@ -330,11 +330,11 @@ export async function launchApp(
   }
 }
 
-/// Wait until window.__weftcutTest[name] is a function (the hook surface mounts
-/// async after the editor loads). Requires a VITE_WEFTCUT_E2E=1 build.
+/// Wait until window.__lahzaTest[name] is a function (the hook surface mounts
+/// async after the editor loads). Requires a VITE_LAHZA_E2E=1 build.
 export async function waitForHook(page: Page, name: string, timeout = 30000): Promise<void> {
   await page.waitForFunction(
-    (n) => typeof (window as unknown as { __weftcutTest?: Record<string, unknown> }).__weftcutTest?.[n] === 'function',
+    (n) => typeof (window as unknown as { __lahzaTest?: Record<string, unknown> }).__lahzaTest?.[n] === 'function',
     name,
     { timeout },
   )
@@ -352,7 +352,7 @@ export async function newProject(
   await waitForHook(page, 'newProjectAndEnter')
   const r = (await page.evaluate(
     (o) =>
-      (window as any).__weftcutTest
+      (window as any).__lahzaTest
         .newProjectAndEnter({ parentFolder: o.parentFolder, name: o.name, canvas: o.canvas })
         .then(() => ({ ok: true }))
         .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -440,7 +440,7 @@ export interface TextBoxProbe {
 export async function textBoxProbe(page: Page, layerId: string): Promise<TextBoxProbe> {
   await waitForHook(page, 'textBoxProbe')
   const p = (await page.evaluate(
-    (id) => (window as unknown as { __weftcutTest: { textBoxProbe(id: string): unknown } }).__weftcutTest.textBoxProbe(id),
+    (id) => (window as unknown as { __lahzaTest: { textBoxProbe(id: string): unknown } }).__lahzaTest.textBoxProbe(id),
     layerId,
   )) as TextBoxProbe | null
   if (!p) throw new Error('textBoxProbe: no preview has registered a gizmo probe')
@@ -461,7 +461,7 @@ export async function importAndPlaceMedia(
   try {
     const r = (await Promise.race([
       page.evaluate(
-        (a) => (window as any).__weftcutTest.importAndPlaceMedia(a)
+        (a) => (window as any).__lahzaTest.importAndPlaceMedia(a)
           .then((x: unknown) => ({ ok: true, ...(x as object) }))
           .catch((e: unknown) => ({ ok: false, error: String(e) })),
         args,
@@ -487,7 +487,7 @@ export async function placeMediaLayer(
   await waitForHook(page, 'placeMediaLayer')
   const r = (await page.evaluate(
     (a) =>
-      (window as any).__weftcutTest
+      (window as any).__lahzaTest
         .placeMediaLayer(a)
         .then((x: unknown) => ({ ok: true, ...(x as object) }))
         .catch((e: unknown) => ({ ok: false, error: String(e) })),
@@ -507,7 +507,7 @@ export interface DriveResult {
 ///
 /// `pending` is the window before the pipeline announces itself: the export
 /// HOOK's own setup (importMedia, addTrack, waitForMediaExportReady — see
-/// e2eHook.ts), during which `__weftcutExportState` is either null or STILL
+/// e2eHook.ts), during which `__lahzaExportState` is either null or STILL
 /// HOLDING THE PREVIOUS export's terminal state. That last part is why the
 /// probe's terminal test reads `__e2eExportDone` and never the state kind: a
 /// repeat-export spec would otherwise see run #1's `complete` and call run #2
@@ -526,8 +526,8 @@ type ExportPhase = 'pending' | 'starting' | 'preparing' | 'progress' | 'finalizi
 ///
 /// Both are kept — the stall probe is the detector, `opts.timeout` the backstop
 /// for a wedge that somehow keeps ticking. Scale the whole table with
-/// WEFTCUT_E2E_STALL_SCALE (a float) on a machine slower than the CI legs these
-/// were measured against; WEFTCUT_E2E_NO_STALL_PROBE=1 disables the probe and
+/// LAHZA_E2E_STALL_SCALE (a float) on a machine slower than the CI legs these
+/// were measured against; LAHZA_E2E_NO_STALL_PROBE=1 disables the probe and
 /// restores the old deadline-only wait.
 const STALL_MS: Record<ExportPhase, number> = {
   /// Bounded by the hooks' own waits — importMedia plus the readiness wait
@@ -552,7 +552,7 @@ const STALL_MS: Record<ExportPhase, number> = {
 
 /// The export hook's own pre-export readiness wait, handed to `exportClip` as
 /// `readyTimeoutMs` (see e2eHook.ts). It lives out here rather than in the
-/// renderer for one reason: WEFTCUT_E2E_STALL_SCALE is a Node-side env var, and
+/// renderer for one reason: LAHZA_E2E_STALL_SCALE is a Node-side env var, and
 /// a budget the scale knob cannot reach is a budget that fails first on every
 /// machine slower than the CI legs — which is exactly what the hardcoded 60 s
 /// did on a 4-worker macOS slice. Same value as `waitMediaExportReady`'s own
@@ -574,7 +574,7 @@ const UNRESPONSIVE_MS = 30_000
 const SAMPLE_INTERVAL_MS = 500
 
 const stallScale = (): number => {
-  const v = Number(process.env.WEFTCUT_E2E_STALL_SCALE)
+  const v = Number(process.env.LAHZA_E2E_STALL_SCALE)
   return Number.isFinite(v) && v > 0 ? v : 1
 }
 
@@ -596,11 +596,11 @@ async function sampleExport(page: Page): Promise<ExportCursor | 'no-answer'> {
       page.evaluate((): ExportCursor => {
         const w = window as unknown as {
           __e2eExportDone?: { ok: boolean; error?: string } | null
-          __weftcutExportState?: ExportState | null
+          __lahzaExportState?: ExportState | null
         }
         const done = w.__e2eExportDone ?? null
         if (done) return { phase: 'pending', cursor: 'done', done }
-        const s = w.__weftcutExportState ?? null
+        const s = w.__lahzaExportState ?? null
         switch (s?.kind) {
           case 'starting':
             return { phase: 'starting', cursor: 'starting', done: null }
@@ -636,10 +636,10 @@ async function exportDiagnostic(page: Page): Promise<string> {
       Promise.race([
         page.evaluate(() => {
           const w = window as unknown as {
-            __weftcutExportState?: { kind?: string; detail?: string }
-            __weftcutExportPerf?: unknown
+            __lahzaExportState?: { kind?: string; detail?: string }
+            __lahzaExportPerf?: unknown
           }
-          return { state: w.__weftcutExportState ?? null, perf: w.__weftcutExportPerf ?? null }
+          return { state: w.__lahzaExportState ?? null, perf: w.__lahzaExportPerf ?? null }
         }).catch(() => null),
         new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 5_000) }),
       ]),
@@ -664,7 +664,7 @@ export async function driveExport(
   const hook = opts.hook ?? 'exportClip'
   const timeout = opts.timeout ?? 170000
   // The hook's own pre-export readiness wait is the one budget that lives in
-  // the RENDERER, where WEFTCUT_E2E_STALL_SCALE cannot be read — so it is
+  // the RENDERER, where LAHZA_E2E_STALL_SCALE cannot be read — so it is
   // scaled here and passed in. Callers may still pin it explicitly.
   const args_ =
     hook === 'exportClip' && !('readyTimeoutMs' in args)
@@ -674,7 +674,7 @@ export async function driveExport(
   await page.evaluate(
     ({ h, a }) => {
       ;(window as any).__e2eExportDone = null
-      ;(window as any).__weftcutTest[h](a)
+      ;(window as any).__lahzaTest[h](a)
         .then(() => {
           ;(window as any).__e2eExportDone = { ok: true }
         })
@@ -685,18 +685,18 @@ export async function driveExport(
     { h: hook, a: args_ },
   )
   const done =
-    process.env.WEFTCUT_E2E_NO_STALL_PROBE === '1'
+    process.env.LAHZA_E2E_NO_STALL_PROBE === '1'
       ? await awaitExportByDeadline(page, timeout)
       : await awaitExportByLiveness(page, timeout)
   if (!done.ok) done.error = `${done.error ?? 'export failed'}; diag=${await exportDiagnostic(page)}`
   const st = (await page.evaluate(() => {
-    const s = (window as any).__weftcutExportState
+    const s = (window as any).__lahzaExportState
     return { kind: s?.kind ?? null, detail: s?.detail ?? null }
   })) as { kind: string | null; detail: string | null }
   // What each handle actually decoded (original vs proxy) — the readiness
   // gate's route-corrections are otherwise invisible from a green export.
   const sources = (await page.evaluate(
-    () => (window as any).__weftcutExportPerf?.sources ?? null,
+    () => (window as any).__lahzaExportPerf?.sources ?? null,
   )) as Array<{ mediaId: string; url: string }> | null
   if (sources) console.log(`[e2e] export sources: ${JSON.stringify(sources)}`)
   return { done, lastKind: st.kind, lastDetail: st.detail }
@@ -737,7 +737,7 @@ async function awaitExportByLiveness(
     } else {
       unresponsiveSince = null
       if (sample.done) {
-        if (process.env.WEFTCUT_E2E_EXPORT_TRACE === '1') {
+        if (process.env.LAHZA_E2E_EXPORT_TRACE === '1') {
           console.log(`[e2e] export ${sample.done.ok ? 'done' : 'FAILED'} at +${secs(now - startedAt)}s`)
         }
         return sample.done
@@ -745,7 +745,7 @@ async function awaitExportByLiveness(
       if (sample.phase !== phase || sample.cursor !== cursor) {
         // Trace PHASE changes only — the cursor ticks once per encoded frame,
         // which would bury the timeline in its own noise.
-        if (sample.phase !== phase && process.env.WEFTCUT_E2E_EXPORT_TRACE === '1') {
+        if (sample.phase !== phase && process.env.LAHZA_E2E_EXPORT_TRACE === '1') {
           console.log(`[e2e] export phase ${phase} -> ${sample.phase} at +${secs(now - startedAt)}s`)
         }
         phase = sample.phase
@@ -777,7 +777,7 @@ async function awaitExportByLiveness(
   }
 }
 
-/// The pre-probe wait, kept behind WEFTCUT_E2E_NO_STALL_PROBE=1: one deadline,
+/// The pre-probe wait, kept behind LAHZA_E2E_NO_STALL_PROBE=1: one deadline,
 /// no liveness. Here so a suspected probe misfire can be ruled out in one run
 /// instead of by reverting the helper.
 async function awaitExportByDeadline(

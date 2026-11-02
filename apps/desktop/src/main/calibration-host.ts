@@ -10,9 +10,9 @@ import { recordFrameReadySent } from './previewGpuTiming';
 import { hydratePerformanceSettings } from '../shared/performance-settings';
 import { PLAYBACK_CALIBRATION } from '../shared/playback-calibration';
 
-if (!process.env.WEFTCUT_CALIBRATION_INPUT) throw new Error('Use the calibration runner');
+if (!process.env.LAHZA_CALIBRATION_INPUT) throw new Error('Use the calibration runner');
 if (process.platform !== 'win32') throw new Error('The first controlled-host prototype requires Windows D3D11VA');
-const input = JSON.parse(fs.readFileSync(process.env.WEFTCUT_CALIBRATION_INPUT, 'utf8'));
+const input = JSON.parse(fs.readFileSync(process.env.LAHZA_CALIBRATION_INPUT, 'utf8'));
 if (JSON.stringify(input.protocol) !== JSON.stringify(PLAYBACK_CALIBRATION)) {
   throw new Error('Calibration build is stale: rebuild the E2E entries');
 }
@@ -22,7 +22,7 @@ let win: BrowserWindow | null = null;
 app.on('window-all-closed', () => app.quit());
 void app.whenReady().then(async () => {
   const require_ = createRequire(import.meta.url);
-  const component = loadNativeDecodeWith(() => require_('@weftcut/native-decode'), (_error, json) => {
+  const component = loadNativeDecodeWith(() => require_('@lahza/native-decode'), (_error, json) => {
     const { event, payload } = JSON.parse(json);
     if (event === 'previewGpu:frameReady') recordFrameReadySent(payload.streamId, payload.slot, performance.now());
     if (win && !win.isDestroyed()) win.webContents.send(`evt:${event}`, payload);
@@ -42,7 +42,7 @@ void app.whenReady().then(async () => {
   });
   ipcMain.handle('backend:invoke', (_e, { channel, args }: { channel: string; args?: unknown }) => {
     if (channel === 'calibration_publish') {
-      const output = process.env.WEFTCUT_CALIBRATION_OUTPUT;
+      const output = process.env.LAHZA_CALIBRATION_OUTPUT;
       if (output) {
         fs.writeFileSync(output + '.tmp', JSON.stringify(args));
         fs.renameSync(output + '.tmp', output);

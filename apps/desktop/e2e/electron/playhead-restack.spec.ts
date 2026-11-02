@@ -89,7 +89,7 @@ test('a linked Playhead clip restacks independently below empty A roll and one u
   const { app, page } = await launchApp()
   try {
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-playhead-restack-'),
+      parentFolder: tmpDir('lahza-e2e-playhead-restack-'),
       name: 'e2e-playhead-restack-' + Date.now(),
       canvas: CANVAS,
     })
@@ -188,7 +188,7 @@ test('the row context menu Bring-to-front restacks and one undo restores it', as
       win.setBounds({ x: 0, y: 0, width: 1024, height: 768 })
     })
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-playhead-menu-'),
+      parentFolder: tmpDir('lahza-e2e-playhead-menu-'),
       name: 'e2e-playhead-menu-' + Date.now(),
       canvas: CANVAS,
     })

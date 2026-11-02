@@ -1,0 +1,166 @@
+name: release
+
+# Tag-driven release: push `v<version>` (matching apps/desktop/package.json) and
+# this builds the Windows/Linux/macOS installers + latest*.yml and uploads them to
+# a DRAFT GitHub Release. It never publishes by itself: electron-updater and the
+# macOS update check ignore drafts, so nobody is updated until a person reviews the
+# draft and clicks Publish (or re-runs with `publish: true`).
+#
+# Why draft-only: the Lahza engine sidecar (resources/lahza/<os>) is built outside
+# this repo's CI and fetched by scripts/fetch-lahza-engine.mjs from repo variables;
+# where a variable is unset the build ships WITHOUT it. A published engine-less build would auto-update every user
+# into a regression.
+#
+# electron-ci.yml also has a main-push release job; both go through
+# scripts/release.mjs, which is idempotent (published versions are never touched,
+# a draft of another commit is refused), and they share one concurrency group.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to build (v<version>)'
+        type: string
+        required: true
+      publish:
+        description: 'Publish the release after upload (default: leave a draft)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    if: github.repository == 'AbduxalilVoxidjonov/lahza.uz'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+      sha: ${{ steps.v.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - name: Tag must equal the package version and sit on main
+        id: v
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          version=$(node apps/desktop/scripts/release.mjs validate | sed 's/^Release version: //')
+          [ "$TAG" = "v$version" ] || { echo "Tag $TAG does not match package version $version" >&2; exit 1; }
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main || { echo "Tag commit is not on main" >&2; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: verify
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: apps/desktop
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Linux deps (libclang for native-decode)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libclang-dev
+      - run: npm ci
+        working-directory: .
+      - name: Install Electron binary
+        env:
+          electron_config_cache: ${{ github.workspace }}/.cache/electron
+        run: npm run electron:install
+      - run: npm run ffmpeg:fetch
+      - run: npm run ffmpeg:fetch-lgpl
+      - uses: ./.github/actions/rust-artifacts
+      # Pinned engine bundle (repo variables, docs/releases.md). Publishing
+      # (workflow_dispatch publish=true) REQUIRES it; a draft build only warns.
+      - name: Fetch Lahza engine bundle
+        shell: bash
+        run: node scripts/fetch-lahza-engine.mjs
+        env:
+          LAHZA_ENGINE_REQUIRED: ${{ github.event.inputs.publish == 'true' && '1' || '0' }}
+          LAHZA_ENGINE_URL_MAC_ARM64: ${{ vars.LAHZA_ENGINE_URL_MAC_ARM64 }}
+          LAHZA_ENGINE_SHA256_MAC_ARM64: ${{ vars.LAHZA_ENGINE_SHA256_MAC_ARM64 }}
+          LAHZA_ENGINE_URL_MAC_X64: ${{ vars.LAHZA_ENGINE_URL_MAC_X64 }}
+          LAHZA_ENGINE_SHA256_MAC_X64: ${{ vars.LAHZA_ENGINE_SHA256_MAC_X64 }}
+          LAHZA_ENGINE_URL_WIN_X64: ${{ vars.LAHZA_ENGINE_URL_WIN_X64 }}
+          LAHZA_ENGINE_SHA256_WIN_X64: ${{ vars.LAHZA_ENGINE_SHA256_WIN_X64 }}
+          LAHZA_ENGINE_URL_LINUX_X64: ${{ vars.LAHZA_ENGINE_URL_LINUX_X64 }}
+          LAHZA_ENGINE_SHA256_LINUX_X64: ${{ vars.LAHZA_ENGINE_SHA256_LINUX_X64 }}
+      # Unsigned/ad-hoc: no certificate secrets ride this step (electron-builder.yml §mac).
+      - name: Package
+        run: npm run build && npx electron-builder --publish never
+      - name: Verify packaged macOS decode probe
+        if: runner.os == 'macOS'
+        run: node scripts/smoke-packaged-decode-probe.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: installer-${{ matrix.os }}
+          retention-days: 5
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.deb
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
+
+  release:
+    needs: [verify, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Same group name as electron-ci.yml's release job so the two never interleave.
+    concurrency:
+      group: electron-ci-release-publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.verify.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - run: npm ci
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: installer-*
+          path: release-assets
+          merge-multiple: true
+      - name: Validate and upload GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ needs.verify.outputs.sha }}
+          RELEASE_DRAFT_ONLY: ${{ github.event.inputs.publish == 'true' && '0' || '1' }}
+        run: node apps/desktop/scripts/release.mjs publish release-assets

@@ -1,7 +1,7 @@
 //! Sampled envelope contract — docs/audio.md §The envelope contract.
 //!
 //! `sample_gain` composes Animated gain_db (collected once via `eval_kfs` and
-//! evaluated through `weftcut_eval::eval_f64_ext` with the track's stored
+//! evaluated through `lahza_eval::eval_f64_ext` with the track's stored
 //! extrapolation) with the layer's linear fade
 //! ramps, on a fixed 10 ms grid, in LINEAR gain (10^(dB/20)). Both renderers
 //! linearly interpolate between the same points: Web Audio
@@ -69,12 +69,12 @@ impl Envelope {
     }
 }
 
-// dB→linear and the fade ramp live in the weftcut-eval leaf (shared with the
+// dB→linear and the fade ramp live in the lahza-eval leaf (shared with the
 // renderer's audio preview via wasm). Re-exported so `crate::audio::envelope`
 // callers and the golden tests keep resolving against one source.
-pub use weftcut_eval::db_to_linear;
+pub use lahza_eval::db_to_linear;
 
-pub use weftcut_eval::fade_multiplier;
+pub use lahza_eval::fade_multiplier;
 
 /// Gain envelope for one audio layer: linear(gain_db at t) × fades.
 /// Static gain + no fades short-circuits to a single point.
@@ -101,7 +101,7 @@ pub fn sample_gain(
     let base = |t: i64| -> f64 {
         match static_v {
             Some(v) => v,
-            None => weftcut_eval::eval_f64_ext(&kfs, ex, t, 0.0),
+            None => lahza_eval::eval_f64_ext(&kfs, ex, t, 0.0),
         }
     };
     let mut values = Vec::with_capacity((span_us / ENVELOPE_STEP_US) as usize + 2);
@@ -135,7 +135,7 @@ pub fn sample_pan(pan: &Animated<f64>, span_us: i64) -> Envelope {
     let mut k = 0i64;
     loop {
         let t = (k * ENVELOPE_STEP_US).min(span_us);
-        values.push(weftcut_eval::eval_f64_ext(&kfs, ex, t, 0.0).clamp(-1.0, 1.0) as f32);
+        values.push(lahza_eval::eval_f64_ext(&kfs, ex, t, 0.0).clamp(-1.0, 1.0) as f32);
         if t >= span_us {
             break;
         }
@@ -154,7 +154,7 @@ pub fn sample_pan(pan: &Animated<f64>, span_us: i64) -> Envelope {
 /// parity contract: both export and the preview matrix mixer lerp COEFFICIENTS,
 /// not the pan value. Mirrors `render/audio/panGraph.ts::panCoeffsAt`.
 pub fn pan_coeffs_at(pan: &Envelope, channels: i32, t_us: i64) -> [f32; 4] {
-    use weftcut_eval::pan_coeffs;
+    use lahza_eval::pan_coeffs;
     if pan.values.len() <= 1 {
         return pan_coeffs(*pan.values.first().unwrap_or(&0.0) as f64, channels);
     }
@@ -207,7 +207,7 @@ mod pbt {
             // from `env.values` (production round-trips f64→f32→f64), so the
             // comparison is on identical inputs — not the raw proptest f64 vec.
             // The outer loop (index/clamp/lerp) is still derived independently.
-            let coeff = |idx: usize| weftcut_eval::pan_coeffs(env.values[idx] as f64, channels);
+            let coeff = |idx: usize| lahza_eval::pan_coeffs(env.values[idx] as f64, channels);
             let last = values.len() - 1;
             let exp: [f32; 4] = if last == 0 {
                 coeff(0)

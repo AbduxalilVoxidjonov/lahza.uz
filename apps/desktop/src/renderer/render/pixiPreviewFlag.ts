@@ -2,7 +2,7 @@
 // component module so Vite's React Fast Refresh doesn't bail on
 // `PixiPreview.tsx` ("component file exports non-component values").
 //
-// Devtools hooks read the `window.__weftcut*` globals directly.
+// Devtools hooks read the `window.__lahza*` globals directly.
 
 /// Result of a successful Pixi export. The output bytes are streamed to disk
 /// via the caller's `writeChunk` during the run (not returned here) so the

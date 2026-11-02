@@ -1,5 +1,5 @@
 use super::*;
-use weftcut_eval::{Segment, IN_IDENTITY, OUT_IDENTITY};
+use lahza_eval::{Segment, IN_IDENTITY, OUT_IDENTITY};
 fn key(t_us: f64, value: f64) -> Kf {
     Kf {
         t_us,
@@ -140,7 +140,7 @@ fn fractional_fps_keys_remain_canonical() {
     for track in result.tracks {
         for k in track.keys {
             assert_eq!(
-                weftcut_eval::snap_frame_round(k.t_us as i64, 30000, 1001) as f64,
+                lahza_eval::snap_frame_round(k.t_us as i64, 30000, 1001) as f64,
                 k.t_us
             );
         }

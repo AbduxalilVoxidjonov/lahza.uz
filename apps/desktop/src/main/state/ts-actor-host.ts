@@ -222,7 +222,7 @@ export interface TsActorHost {
 }
 
 /** Mints the `project:changed` wire payload — the shape the renderer event and
- *  the `notifications/weftcut/change` relay both see. `affected` carries the
+ *  the `notifications/lahza/change` relay both see. `affected` carries the
  *  refs themselves: an agent watching the feed decides from the ids whether an
  *  edit touched its own work, which a count cannot tell it. */
 export function mapChangeEvent(e: ChangeEvent): { op_id: string; actor_kind: 'user' | 'agent'; client: string | null; summary: string; timestamp: string; affected: EntityRef[] } {

@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process'
 import { statSync } from 'node:fs'
 import path from 'node:path'
 import { launchApp, tmpDir } from './helpers/driver'
-import type { WeftcutApi } from '../../src/shared/ipc'
+import type { LahzaApi } from '../../src/shared/ipc'
 
 interface LayerRecord {
   layer_id: string
@@ -20,7 +20,7 @@ test('MCP creates, trims and moves clips, then exports the edited timeline', asy
   let client: Client | undefined
   let jobId: string | undefined
   try {
-    const info = await page.evaluate(() => (window as unknown as { api: WeftcutApi }).api.mcp.getInfo()) as {
+    const info = await page.evaluate(() => (window as unknown as { api: LahzaApi }).api.mcp.getInfo()) as {
       url: string; bearer_token: string
     }
     client = new Client({ name: 'editing-workflow-e2e', version: '1' }, { capabilities: {} })
@@ -44,7 +44,7 @@ test('MCP creates, trims and moves clips, then exports the edited timeline', asy
     // Only endpoint discovery uses the app bridge. Every project read and write
     // below travels through the real SDK client and authenticated HTTP server.
     await call('create_project', {
-      parent_folder: tmpDir('weftcut-mcp-workflow-project-'), name: 'Editing workflow',
+      parent_folder: tmpDir('lahza-mcp-workflow-project-'), name: 'Editing workflow',
       width: 640, height: 360, fps: { num: 30, den: 1 },
     })
     const track = await call<{ track_id: string }>('add_track', { label: 'Sequence' })
@@ -80,7 +80,7 @@ test('MCP creates, trims and moves clips, then exports the edited timeline', asy
       width: 640, height: 360, fps: { num: 30, den: 1 }, duration_us: 2_000_000,
     })
 
-    const output = path.join(tmpDir('weftcut-mcp-workflow-output-'), 'sequence.mp4')
+    const output = path.join(tmpDir('lahza-mcp-workflow-output-'), 'sequence.mp4')
     const started = await call<{ job_id: string }>('start_export', {
       request_id: 'editing-workflow', output_path: output, preset_id: 'builtin:match',
       settings: { encoder_engine: 'native', hw_accel: 'software', include_audio: false, fps: 30 },

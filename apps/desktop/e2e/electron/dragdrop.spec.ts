@@ -6,10 +6,10 @@ import { dockPanel, launchApp, newProject, tmpDir } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-// Prefer WEFTCUT_TEST_MEDIA from env; fall back to the bundled fixture so the
+// Prefer LAHZA_TEST_MEDIA from env; fall back to the bundled fixture so the
 // gate runs in CI without a side-channel media directory.
 const FALLBACK = path.resolve(__dirname, '../../e2e/fixtures/media/test_1080p_30fps.mp4')
-const MEDIA_PATH = process.env['WEFTCUT_TEST_MEDIA'] ?? FALLBACK
+const MEDIA_PATH = process.env['LAHZA_TEST_MEDIA'] ?? FALLBACK
 
 const mediaCount = async (page: Page): Promise<number> => {
   const s = await page.evaluate(() => (window as any).api.backend.invoke('project_summary', {}))
@@ -23,7 +23,7 @@ test('media:dropped imports the file via the external-drop pipeline', async () =
   test.skip(!fs.existsSync(MEDIA_PATH), `media fixture missing: ${MEDIA_PATH}`)
   test.setTimeout(60_000)
 
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-dragdrop-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-dragdrop-proj-')
 
   const { app, page } = await launchApp()
   try {
@@ -65,7 +65,7 @@ test('a real DOM file-drop on the media pool imports via wireFileDrop', async ()
   test.skip(!fs.existsSync(MEDIA_PATH), `media fixture missing: ${MEDIA_PATH}`)
   test.setTimeout(60_000)
 
-  const PROJECT_PARENT = tmpDir('weftcut-e2e-dragdrop-proj-')
+  const PROJECT_PARENT = tmpDir('lahza-e2e-dragdrop-proj-')
 
   const { app, page } = await launchApp()
   try {

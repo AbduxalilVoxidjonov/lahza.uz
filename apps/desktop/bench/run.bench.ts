@@ -26,8 +26,8 @@ interface Plan {
   rebuild_templates: boolean
 }
 
-const raw = process.env.WEFTCUT_BENCH_PLAN
-if (!raw) throw new Error('WEFTCUT_BENCH_PLAN is unset — start the bench with `npm run bench`, not Playwright directly')
+const raw = process.env.LAHZA_BENCH_PLAN
+if (!raw) throw new Error('LAHZA_BENCH_PLAN is unset — start the bench with `npm run bench`, not Playwright directly')
 const plan = JSON.parse(raw) as Plan
 
 /// A model id can hold `/` or `:` (provider-qualified names); keep the

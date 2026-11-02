@@ -564,7 +564,7 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let path = dir.path().join("a.bin");
         let mut f = File::create(&path).unwrap();
-        f.write_all(b"hello weftcut").unwrap();
+        f.write_all(b"hello lahza").unwrap();
         drop(f);
 
         let a = hash_and_stat(&path).unwrap();

@@ -6,7 +6,7 @@ import { analyzeColor } from '../lib/analyze.mjs'
 import { launchApp, newProject, driveExport, tmpDir, colorFaithfulMax } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const MANIFEST = path.resolve(MEDIA_DIR, 'color_manifest.json')
 const BASELINE_PATH = path.resolve(MEDIA_DIR, '..', 'color_baseline.json')
 
@@ -24,7 +24,7 @@ const BASELINE_PATH = path.resolve(MEDIA_DIR, '..', 'color_baseline.json')
 // full->limited range conversion cost only codec round-trip. ADR 0014.
 //
 // Fixtures come from global-setup; the committed baseline gates faithfulness.
-// GPU-less CI legs recalibrate the ceiling via WEFTCUT_E2E_COLOR_FAITHFUL_MAX:
+// GPU-less CI legs recalibrate the ceiling via LAHZA_E2E_COLOR_FAITHFUL_MAX:
 // the software raster's chroma rounding exceeds the real-GPU ceiling (README
 // §Export SSIM floors) without being an app color bug.
 
@@ -66,10 +66,10 @@ test.describe('color round-trip conformance (Electron)', () => {
       test.skip(!existsSync(source), `color source fixture not found at ${source}`)
       test.skip(!BASELINE?.[enc], `baseline not recorded for ${enc} in ${BASELINE_PATH}`)
       test.setTimeout(240000)
-      const output = path.join(tmpDir('weftcut-e2e-color-out-'), `color-${enc}.mp4`)
+      const output = path.join(tmpDir('lahza-e2e-color-out-'), `color-${enc}.mp4`)
 
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-color-proj-'),
+        parentFolder: tmpDir('lahza-e2e-color-proj-'),
         name: `e2e-color-${enc}-` + Date.now(),
         canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 },
       })

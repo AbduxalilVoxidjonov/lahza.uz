@@ -23,11 +23,11 @@ describe('chainSig / sig16', () => {
   it('is sha256 hex of the canonical string', () => {
     // sha256("") — pins the algorithm, not just the shape.
     expect(chainSig('')).toBe('e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
-    expect(chainSig('weftcut')).toHaveLength(64)
+    expect(chainSig('lahza')).toHaveLength(64)
   })
 
   it('sig16 is the first 16 hex chars', () => {
-    const sig = chainSig('weftcut')
+    const sig = chainSig('lahza')
     expect(sig16(sig)).toBe(sig.slice(0, 16))
     expect(sig16(sig)).toHaveLength(16)
   })

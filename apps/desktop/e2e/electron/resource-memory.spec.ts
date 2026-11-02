@@ -10,7 +10,7 @@ const addon = fileURLToPath(new URL('../../native/index.js', import.meta.url))
 test('host memory telemetry admits runtime archive extraction under default resource limits', async ({}, testInfo) => {
   // A tiny synthetic runtime archive exercises the exact native installation
   // path that failed on compressed-memory Macs, without downloading a model.
-  const dir = tmpDir('weftcut-memory-install-')
+  const dir = tmpDir('lahza-memory-install-')
   const contents = Buffer.from('synthetic runtime\n')
   const header = Buffer.alloc(512)
   header.write('runtime/cli', 0)

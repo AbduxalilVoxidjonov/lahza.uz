@@ -27,7 +27,7 @@ test('system font picker persists a preference and new text uses it through real
     await page.getByRole('option', { name: family, exact: true }).click()
     await expect.poll(async () => (await invokeCmd<AppSettings>(page, 'app_settings_get')).default_text_font).toBe(family)
     await page.keyboard.press('Escape')
-    await newProject(page, { parentFolder: tmpDir('weftcut-fonts-'), name: 'Font preference', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
+    await newProject(page, { parentFolder: tmpDir('lahza-fonts-'), name: 'Font preference', canvas: { width: 640, height: 360, fpsNum: 30, fpsDen: 1 } })
     const id = await invokeCmd<string>(page, 'add_text_layer', { tStartUs: 0 })
     const summary = await invokeCmd<ProjectSummary>(page, 'project_summary')
     const layer = summary.compositions[summary.root_id].tracks.flatMap((track) => track.layers).find((item) => item.id === id)

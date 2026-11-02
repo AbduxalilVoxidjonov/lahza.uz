@@ -8,7 +8,7 @@ test("property title commits, cancels, clears and follows undo", async () => {
   const { app, page } = await launchApp();
   try {
     await newProject(page, {
-      parentFolder: tmpDir("weftcut-e2e-properties-"),
+      parentFolder: tmpDir("lahza-e2e-properties-"),
       name: "Properties",
       canvas: { width: 1280, height: 720, fpsNum: 30, fpsDen: 1 },
     });
@@ -16,7 +16,7 @@ test("property title commits, cancels, clears and follows undo", async () => {
       tStartUs: 0, durationUs: 4_000_000, content: "A day by the sea",
     });
     await waitForHook(page, "revealLayer");
-    await page.evaluate((id) => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId);
+    await page.evaluate((id) => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId);
     const panel = page.locator(".attribute-panel");
     const title = panel.getByRole("textbox", { name: "Label", exact: true });
     const storedLabel = async () => {

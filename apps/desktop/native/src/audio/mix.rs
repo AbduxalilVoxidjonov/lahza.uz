@@ -25,10 +25,10 @@ use crate::state::Project;
 pub const MIX_SAMPLE_RATE: i64 = 48_000;
 pub const MIX_BLOCK_FRAMES: usize = 65_536;
 
-/// µs → 48 kHz frame index, round-half-up — see `weftcut_eval::us_to_frame`.
+/// µs → 48 kHz frame index, round-half-up — see `lahza_eval::us_to_frame`.
 /// `MIX_SAMPLE_RATE` is the conform rate.
 pub fn us_to_frame(us: i64) -> i64 {
-    weftcut_eval::us_to_frame(us, MIX_SAMPLE_RATE as u32)
+    lahza_eval::us_to_frame(us, MIX_SAMPLE_RATE as u32)
 }
 
 #[derive(Debug)]
@@ -84,10 +84,10 @@ pub enum PlanError {
 // (gate) and `plan_for_project` (gain fold) call these, so the logic the export
 // path runs IS the logic the cross-language golden locks
 // (`render/audio/roleGate.golden.test.ts` + `tests::golden_vectors_match_fixture`
-// share one fixture). Both sides call the same weftcut-eval leaf, so that golden
+// share one fixture). Both sides call the same lahza-eval leaf, so that golden
 // is a wasm smoke, not a hand-mirror drift guard.
 
-// The mute/solo decision + dB→linear math live in the weftcut-eval leaf (shared
+// The mute/solo decision + dB→linear math live in the lahza-eval leaf (shared
 // with the renderer's audio-preview gating via wasm). These wrappers keep the
 // `&RoleMixSettings`/iterator signatures so callers are untouched while the
 // rules stay single-sourced. `RoleMixSettings` stays in `state/audio_role.rs`.
@@ -95,14 +95,14 @@ pub enum PlanError {
 /// True iff any role in the table is soloed. Absent roles can't be soloed, so a
 /// partial/empty table answers correctly.
 pub fn any_role_solo<'a>(roles: impl IntoIterator<Item = &'a RoleMixSettings>) -> bool {
-    weftcut_eval::any_role_solo(roles.into_iter().map(|r| r.solo))
+    lahza_eval::any_role_solo(roles.into_iter().map(|r| r.solo))
 }
 
 /// `role` is the RESOLVED settings (present, or the `Project::role_mix` default
 /// for an absent role); resolving the absent case is the caller's job, matching
-/// `role_mix`. The rule itself lives on `weftcut_eval::role_audible`.
+/// `role_mix`. The rule itself lives on `lahza_eval::role_audible`.
 pub fn role_audible(role: &RoleMixSettings, any_solo: bool) -> bool {
-    weftcut_eval::role_audible(role.muted, role.solo, any_solo)
+    lahza_eval::role_audible(role.muted, role.solo, any_solo)
 }
 
 /// Linear gain for a role's `gain_db`, folded into each audible layer's gain
@@ -110,7 +110,7 @@ pub fn role_audible(role: &RoleMixSettings, any_solo: bool) -> bool {
 /// `Envelope::scale`; the TS twin computes in `f64`, so the golden compares
 /// with an f32-width tolerance (same precision the envelope golden uses).
 pub fn role_gain_linear(role: &RoleMixSettings) -> f32 {
-    weftcut_eval::role_gain_linear(role.gain_db)
+    lahza_eval::role_gain_linear(role.gain_db)
 }
 
 /// Deepest Group nesting the walk follows (root = 0). TS validation rejects

@@ -135,10 +135,10 @@ function fpsFromMs(ms: number): number {
   return ms > 0 ? Math.round(1000 / ms) : 0;
 }
 
-export const PERF_HUD_SNAPSHOT_EVENT = "weftcut://perf-hud-snapshot";
+export const PERF_HUD_SNAPSHOT_EVENT = "lahza://perf-hud-snapshot";
 /// Emitted (globally) by the monitor's reset button; the headless bridge owns
 /// the Compositor ref, so it does the actual peak reset.
-const PERF_HUD_RESET_EVENT = "weftcut://perf-hud-reset";
+const PERF_HUD_RESET_EVENT = "lahza://perf-hud-reset";
 /// Sparkline history depth (~30 s at the 500 ms emit cadence).
 const SPARK_CAP = 60;
 
@@ -676,11 +676,11 @@ export interface PerfTelemetryProbe {
 }
 
 function e2eProbe(): PerfTelemetryProbe | null {
-  if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return null;
+  if (import.meta.env.VITE_LAHZA_E2E !== "1") return null;
   const host = window as typeof window & {
-    __weftcutPerfTelemetry?: PerfTelemetryProbe;
+    __lahzaPerfTelemetry?: PerfTelemetryProbe;
   };
-  host.__weftcutPerfTelemetry ??= {
+  host.__lahzaPerfTelemetry ??= {
     active: false,
     rafActive: false,
     compositorPollActive: false,
@@ -690,7 +690,7 @@ function e2eProbe(): PerfTelemetryProbe | null {
     systemPolls: 0,
     broadcasts: 0,
   };
-  return host.__weftcutPerfTelemetry;
+  return host.__lahzaPerfTelemetry;
 }
 
 export function PerfTelemetryBridge({ compositorRef, engineRef }: TelemetryProps) {

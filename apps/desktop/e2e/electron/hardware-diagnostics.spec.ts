@@ -73,17 +73,17 @@ test('performance device display follows the actual preview decoder and clears w
   test.setTimeout(90_000);
   const { app, page } = await launchApp({ locale: 'zh-CN' });
   try {
-    await newProject(page, { parentFolder: tmpDir('weftcut-decode-status-'), name: 'Decode status',
+    await newProject(page, { parentFolder: tmpDir('lahza-decode-status-'), name: 'Decode status',
       canvas: { width: 1920, height: 1080, fpsNum: 30, fpsDen: 1 } });
     await invokeCmd(page, 'app_settings_set', { patch: { decode_engine: 'ffmpeg' } });
     const { layerId } = await importAndPlaceMedia(page, { mediaAbsPath: path.resolve('e2e/fixtures/media/test_1080p_h264.mp4') });
     await waitForHook(page, 'activeClipProbe');
     await page.waitForFunction(() => {
-      try { (window as any).__weftcutTest.activeClipProbe(); return true; } catch { return false; }
+      try { (window as any).__lahzaTest.activeClipProbe(); return true; } catch { return false; }
     });
-    await page.evaluate(() => (window as any).__weftcutTest.weftcutSeekUs(500_000));
-    await expect.poll(async () => (await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId))?.spriteBound).toBe(true);
-    const clip = await page.evaluate(id => (window as any).__weftcutTest.activeClipProbe(id), layerId);
+    await page.evaluate(() => (window as any).__lahzaTest.lahzaSeekUs(500_000));
+    await expect.poll(async () => (await page.evaluate(id => (window as any).__lahzaTest.activeClipProbe(id), layerId))?.spriteBound).toBe(true);
+    const clip = await page.evaluate(id => (window as any).__lahzaTest.activeClipProbe(id), layerId);
     const inventory = (await page.evaluate(() => window.api.performanceResources.info())).hardware?.devices ?? [];
     await page.keyboard.press(process.platform === 'darwin' ? 'Meta+Comma' : 'Control+Comma');
     await page.getByRole('tab', { name: '性能', exact: true }).click();

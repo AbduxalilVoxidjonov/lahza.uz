@@ -15,7 +15,7 @@ struct FractionWire {
 impl TryFrom<FractionWire> for Fraction {
     type Error = String;
     fn try_from(v: FractionWire) -> Result<Self, Self::Error> {
-        weftcut_eval::time_mapping::Exact::from_wire(v.num, v.den)
+        lahza_eval::time_mapping::Exact::from_wire(v.num, v.den)
             .map_err(|e| format!("invalid exact time: {e:?}"))?;
         Ok(Self {
             num: v.num,

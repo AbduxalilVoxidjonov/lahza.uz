@@ -91,7 +91,7 @@ self.onmessage = (e: MessageEvent<ExportRequest>) => {
     void runExport(req).catch((err: unknown) => {
       const msg = err instanceof Error ? err.message : String(err);
       // eslint-disable-next-line no-console
-      console.error("[weftcut/export] worker threw:", err);
+      console.error("[lahza/export] worker threw:", err);
       motifInbox.dispose(err instanceof Error ? err : new Error(String(err)));
       if (!cancelled) post({ type: "error", message: msg });
     });
@@ -373,7 +373,7 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
     for (let chunkStart = 0; chunkStart < totalFrames;) {
       if (cancelled) {
         // eslint-disable-next-line no-console
-        console.log("[weftcut/export] cancelled");
+        console.log("[lahza/export] cancelled");
         return;
       }
       let chunkEnd = Math.min(chunkStart + CHUNK_FRAMES, totalFrames);
@@ -651,7 +651,7 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
       const nFrames = chunkEnd - chunkStart;
       // eslint-disable-next-line no-console
       console.log(
-        `[weftcut/export] chunk [${chunkStart}..${chunkEnd}) done — ` +
+        `[lahza/export] chunk [${chunkStart}..${chunkEnd}) done — ` +
           `${chunkEnd}/${totalFrames} frames (~${fps} fps wall-clock) | ` +
           `setup=${decodeMs.toFixed(0)}ms ` +
           `wait=${waitMs.toFixed(0)}ms ` +
@@ -686,7 +686,7 @@ async function runExport(req: Extract<ExportRequest, { type: "start" }>) {
     const pct = (ms: number) => ((ms / totalMs) * 100).toFixed(1);
     // eslint-disable-next-line no-console
     console.log(
-      `[weftcut/export] PERF SUMMARY: ${totalFrames} frames in ${totalMs.toFixed(0)}ms ` +
+      `[lahza/export] PERF SUMMARY: ${totalFrames} frames in ${totalMs.toFixed(0)}ms ` +
         `(${overallFps.toFixed(1)} fps wall-clock)\n` +
         `  setup       ${totals.decodeMs.toFixed(0).padStart(7)}ms  (${pct(totals.decodeMs)}%)  ` +
         `← source readiness + scheduling\n` +

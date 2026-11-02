@@ -23,7 +23,7 @@ port.once('message', event => {
       finish({ type: 'failed' }, 1)
       return
     }
-    const addon = createRequire(import.meta.url)('@weftcut/native-decode') as { configureDecodeThreads(threads: number): void }
+    const addon = createRequire(import.meta.url)('@lahza/native-decode') as { configureDecodeThreads(threads: number): void }
     addon.configureDecodeThreads(1)
     // The native timeout is advisory. The parent enforces the real deadline
     // and can terminate us even when VideoToolbox never returns.

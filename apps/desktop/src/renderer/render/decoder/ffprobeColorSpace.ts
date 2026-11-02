@@ -9,7 +9,7 @@ export interface FfprobeColor {
 }
 
 // SDR-only mapping: TS's lib.dom WebCodecs unions carry no HDR/wide-gamut enum
-// values, and such sources are 10-bit and take WeftCut's proxy path anyway.
+// values, and such sources are 10-bit and take Lahza's proxy path anyway.
 // Unmapped values fall through to the resolution default.
 const MATRIX: Record<string, VideoMatrixCoefficients> = {
   bt709: "bt709",

@@ -38,7 +38,7 @@ function timedPresentFor(app: Application): () => void {
       } catch (e) {
         if (failures++ % RENDER_ERROR_LOG_EVERY === 0) {
           // eslint-disable-next-line no-console
-          console.error(`[weftcut/pixi] preview render threw (${failures}×) — keeping ticker alive:`, e);
+          console.error(`[lahza/pixi] preview render threw (${failures}×) — keeping ticker alive:`, e);
         }
       } finally {
         stageAdd(STAGE.Present, t);

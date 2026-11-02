@@ -88,7 +88,7 @@ describe("SourceDecoderPool.acquire engine routing", () => {
     const h = pool.acquire({
       layerId: "L2",
       mediaId: "m2",
-      proxyAssetUrl: "weftcut-media://p.mp4",
+      proxyAssetUrl: "lahza-media://p.mp4",
       engine: "webcodecs",
     } as never);
 
@@ -116,7 +116,7 @@ describe("SourceDecoderPool media refcounts across engines", () => {
     const web = pool.acquire({
       layerId: "L-web",
       mediaId: "shared",
-      proxyAssetUrl: "weftcut-media://p.mp4",
+      proxyAssetUrl: "lahza-media://p.mp4",
       engine: "webcodecs",
     } as never) as { media: { disposed: boolean } };
     pool.acquire({ ...ffmpegInit("L-ff"), mediaId: "shared", engine: "ffmpeg", proxyAssetUrl: "" });

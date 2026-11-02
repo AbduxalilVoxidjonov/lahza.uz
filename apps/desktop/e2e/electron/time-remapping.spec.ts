@@ -4,19 +4,19 @@ import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
 import { launchApp, newProject, tmpDir, importAndPlaceMedia, invokeCmd, summary, driveExport } from './helpers/driver';
 
-const media = path.resolve(process.env.WEFTCUT_TEST_MEDIA || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/media'), 'test_tones_10s.m4a');
+const media = path.resolve(process.env.LAHZA_TEST_MEDIA || path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../fixtures/media'), 'test_tones_10s.m4a');
 
 test('time remapping: Timing UI, undo, nested audio preparation and export', async () => {
   test.setTimeout(240_000);
   expect(existsSync(media)).toBe(true);
-  const folder = tmpDir('weftcut-retime-');
+  const folder = tmpDir('lahza-retime-');
   const { app, page } = await launchApp();
   try {
     await newProject(page, { parentFolder: folder, name: 'retime', canvas: { width: 320, height: 180, fpsNum: 30, fpsDen: 1 } });
     const { layerId } = await importAndPlaceMedia(page, { mediaAbsPath: media });
     const layer = async () => (await summary(page)).tracks.flatMap(t => t.layers).find(l => l.id === layerId)!;
     const before = await layer();
-    await page.evaluate(id => (window as any).__weftcutTest.revealLayer({ layerId: id }), layerId);
+    await page.evaluate(id => (window as any).__lahzaTest.revealLayer({ layerId: id }), layerId);
     await page.getByRole('button', { name: 'Speed', exact: true }).click();
     const rate = page.getByRole('textbox', { name: 'Speed', exact: true });
     await expect(rate).toBeVisible();
@@ -40,10 +40,10 @@ test('time remapping: Timing UI, undo, nested audio preparation and export', asy
     const pcm = readFileSync(stems[0].path);
     expect(pcm.length).toBeGreaterThan(480_000 * 2 * 4);
     expect(pcm.subarray(100_000, 110_000).some(byte => byte !== 0)).toBe(true);
-    await page.evaluate(() => (window as any).__weftcutTest.transportPlay());
-    await expect.poll(() => page.evaluate(() => (window as any).__weftcutTest.audioTransportSnapshot()?.phase), { timeout: 30_000 }).toBe('playing');
-    await expect.poll(() => page.evaluate(() => (window as any).__weftcutTest.audioTransportSnapshot()?.positionUs ?? 0)).toBeGreaterThan(100_000);
-    await page.evaluate(() => (window as any).__weftcutTest.transportPause());
+    await page.evaluate(() => (window as any).__lahzaTest.transportPlay());
+    await expect.poll(() => page.evaluate(() => (window as any).__lahzaTest.audioTransportSnapshot()?.phase), { timeout: 30_000 }).toBe('playing');
+    await expect.poll(() => page.evaluate(() => (window as any).__lahzaTest.audioTransportSnapshot()?.positionUs ?? 0)).toBeGreaterThan(100_000);
+    await page.evaluate(() => (window as any).__lahzaTest.transportPause());
     const childComp = Object.values(full.compositions as Record<string, any>).find((c: any) => c.tracks.some((t: any) => t.layers.some((l: any) => l.id === layerId))) as any;
     const isolated = await page.evaluate(({ compositionId, layerId }) => (window as any).api.backend.invoke('prepare_retimed_audio', { compositionId, layerId }), { compositionId: childComp.id, layerId });
     expect(isolated.waiting).toBe(false);
@@ -59,7 +59,7 @@ test('time remapping: Timing UI, undo, nested audio preparation and export', asy
 test('nested video rates produce the same exported frames as the equivalent flat rate', async () => {
   test.setTimeout(240_000);
   const video = path.join(path.dirname(media), 'test_1080p_30fps_6s.mp4');
-  const folder = tmpDir('weftcut-retime-video-');
+  const folder = tmpDir('lahza-retime-video-');
   const { app, page } = await launchApp();
   try {
     await newProject(page, { parentFolder: folder, name: 'retime-video', canvas: { width: 320, height: 180, fpsNum: 30, fpsDen: 1 } });

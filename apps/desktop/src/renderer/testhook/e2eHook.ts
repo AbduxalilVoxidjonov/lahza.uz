@@ -1,7 +1,7 @@
 import { activePreviewAudioEngine } from "../render/audio/previewAudioSession";
 import type { PlaybackSnapshot, AudioTransportStats } from "../render/audio/PreviewAudioEngine";
 // Dev/E2E-only control surface. Installed ONLY when
-// import.meta.env.VITE_WEFTCUT_E2E === "1" (set by the e2e build), so it is
+// import.meta.env.VITE_LAHZA_E2E === "1" (set by the e2e build), so it is
 // absent from normal production bundles (the dynamic import behind that static
 // check is dead-code-eliminated). Lets the e2e spec drive a real
 // new-project -> import -> place -> export through the SAME code paths the UI
@@ -144,15 +144,15 @@ export interface E2EHook {
     audioPatches?: AudioPatch[];
     /// How long the pre-export readiness wait may take (see
     /// waitForMediaExportReady). Driven from the Node side so it can carry
-    /// WEFTCUT_E2E_STALL_SCALE, which nothing inside the renderer can read.
+    /// LAHZA_E2E_STALL_SCALE, which nothing inside the renderer can read.
     readyTimeoutMs?: number;
   }): Promise<void>;
   /// Import `mediaAbsPath` and place it 1:1 at `tStartUs` (default 0) on a
   /// fresh track — the same IPC chain the UI uses — WITHOUT exporting.
   /// Returns the new ids plus the media's classified kind as the project
   /// store sees it. Used by the media-support specs (still images /
-  /// audio-only files) together with `weftcutSeekUs` +
-  /// `weftcutSampleComposite` for preview-level assertions.
+  /// audio-only files) together with `lahzaSeekUs` +
+  /// `lahzaSampleComposite` for preview-level assertions.
   importAndPlaceMedia(args: {
     mediaAbsPath: string;
     tStartUs?: number;
@@ -325,7 +325,7 @@ export interface E2EHook {
   /// PlaybackEngine's `seek`, which sets the clock + re-composites the frame
   /// (the same path the transport/scrubber uses). No-op until the Pixi preview
   /// has mounted (installPreviewBridge ran). Dev/e2e only.
-  weftcutSeekUs(us: number): void;
+  lahzaSeekUs(us: number): void;
   /** Stable Preview lifecycle token and presentation counters. Null while closed. */
   previewResourceProbe(): PreviewResourceProbe | null;
   previewRecovery(action: "evict-and-unload" | "throw-next-present"): Promise<{
@@ -337,7 +337,7 @@ export interface E2EHook {
   /// a 2D canvas. Returns {r,g,b,a} in [0,255]. Rejects if the preview hasn't
   /// mounted. Dev/e2e only — this is what proves the countdown's CDP pixels
   /// reach the live compositor.
-  weftcutSampleComposite(x: number, y: number): Promise<CompositeSample>;
+  lahzaSampleComposite(x: number, y: number): Promise<CompositeSample>;
   /// Preview-sw conformance: snapshot the active
   /// VideoClip's decode source + bound sprite off the LIVE Compositor. Proves
   /// the Compositor acquired a `FfmpegSource` on its software lane (native
@@ -491,7 +491,7 @@ export interface E2EHook {
   textBoxProbe(layerId: string): TextBoxProbe | null;
   /// Live Dock Workspace snapshot as plain JSON — open Panel kinds (sorted), the
   /// focused/active Panel, the maximized Panel, and whether the workspace is
-  /// empty. WeftCut-owned observability so the Electron acceptance specs can
+  /// empty. Lahza-owned observability so the Electron acceptance specs can
   /// assert focus cycling, maximize/restore, open/close, and empty recovery
   /// without reaching into Dockview's private DOM or serialized JSON. Null before
   /// the workspace controller mounts. Dev/e2e only.
@@ -504,7 +504,7 @@ export interface E2EHook {
   /// Stop real playback through the global transport. Safe no-op with no preview.
   transportPause(): void;
   /// Seek the global transport to composition-time `us`. Deliberately separate
-  /// from `weftcutSeekUs`, which bypasses the store to reach the preview
+  /// from `lahzaSeekUs`, which bypasses the store to reach the preview
   /// bridge's `engine.seek`.
   transportSeekUs(us: number): void;
   /// The product's OWN per-frame preview accounting off the live Compositor:
@@ -623,9 +623,9 @@ export interface PreviewResourceProbe {
 }
 
 function hookSlot(): Partial<E2EHook> {
-  const w = window as unknown as { __weftcutTest?: Partial<E2EHook> };
-  if (!w.__weftcutTest) w.__weftcutTest = {};
-  return w.__weftcutTest;
+  const w = window as unknown as { __lahzaTest?: Partial<E2EHook> };
+  if (!w.__lahzaTest) w.__lahzaTest = {};
+  return w.__lahzaTest;
 }
 
 const EDITOR_MOUNT_TIMEOUT_MS = 15_000;
@@ -702,7 +702,7 @@ export function installBootstrapHook(
 /// specs. `read` returns the already-serialized probe (or null before the
 /// controller mounts); App wires it to the controller's live getSnapshot so the
 /// value is always current at call time. Installing null uninstalls (controller
-/// unmounted). Guarded by the caller's static VITE_WEFTCUT_E2E check.
+/// unmounted). Guarded by the caller's static VITE_LAHZA_E2E check.
 export function installDockWorkspaceProbe(
   read: () => DockWorkspaceProbe | null,
 ): void {
@@ -713,7 +713,7 @@ export function installDockWorkspaceProbe(
 /// preview-playback bench surface. No App/export state needed — the driver owns
 /// its own private SourceDecoderPool. Called once on boot from main.tsx.
 export function installDecodeBenchHooks(): void {
-  if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
+  if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
   hookSlot().decodeBenchRun = decodeBenchRun;
   hookSlot().decodeBenchPhase = decodeBenchPhase;
   hookSlot().decodeBenchOrderCheck = decodeBenchOrderCheck;
@@ -758,7 +758,7 @@ export function installDecodeBenchHooks(): void {
 /// proxy override. Self-gated, and called from `installDecodeBenchHooks` (which
 /// main.tsx already wires on boot) so nothing lands on `window` in prod.
 export function installPlaybackBenchHooks(): void {
-  if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
+  if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
   // Playback control via the global transport store, not the preview bridge:
   // the bench needs the SAME entry point the UI's play/pause uses.
   hookSlot().transportPlay = () => transportPlay();
@@ -1072,7 +1072,7 @@ function waitForMediaExportReady(mediaId: string, timeoutMs: number): Promise<vo
 }
 
 /// Root-side: expose the Motifs capture pipeline to e2e specs.
-/// Installs `window.__weftcutTest.captureMotifFrame(...)` which drives the
+/// Installs `window.__lahzaTest.captureMotifFrame(...)` which drives the
 /// `motif_capture_frame` IPC command (offscreen Electron window
 /// + `motif:` scheme + CDP `Page.captureScreenshot` via webContents.debugger). Returns the raw
 /// base64 PNG string so the spec can compare, hash, and decode without
@@ -1107,8 +1107,8 @@ export function installMotifHook(): void {
       tEndUs: 5_000_000,
     });
   };
-  hookSlot().weftcutSeekUs = (us: number) => {
-    if (!previewBridge) throw new Error("weftcutSeekUs: preview bridge not registered");
+  hookSlot().lahzaSeekUs = (us: number) => {
+    if (!previewBridge) throw new Error("lahzaSeekUs: preview bridge not registered");
     previewBridge.seekUs(us);
   };
   hookSlot().previewResourceProbe = () => previewBridge?.resourceProbe() ?? null;
@@ -1116,8 +1116,8 @@ export function installMotifHook(): void {
     if (!previewBridge) throw new Error("previewRecovery: preview bridge not registered");
     return previewBridge.recovery(action);
   };
-  hookSlot().weftcutSampleComposite = async (x: number, y: number) => {
-    if (!previewBridge) throw new Error("weftcutSampleComposite: preview bridge not registered");
+  hookSlot().lahzaSampleComposite = async (x: number, y: number) => {
+    if (!previewBridge) throw new Error("lahzaSampleComposite: preview bridge not registered");
     return previewBridge.sampleComposite(x, y);
   };
   hookSlot().activeClipProbe = (layerId?: string) => {
@@ -1154,7 +1154,7 @@ let previewBridge: PreviewBridge | null = null;
 /// read pixels straight off the composited canvas. Re-registering replaces the
 /// prior bridge (StrictMode re-mount / project swap).
 export function installPreviewBridge(bridge: PreviewBridge): void {
-  if (import.meta.env.VITE_WEFTCUT_E2E !== "1") return;
+  if (import.meta.env.VITE_LAHZA_E2E !== "1") return;
   previewBridge = bridge;
 }
 
@@ -1207,9 +1207,9 @@ function mediaFromStore(mediaId: string) {
 function throwNoOutput(outputAbsPath: string): never {
   const state = (
     window as unknown as {
-      __weftcutExportState?: { kind?: string; detail?: string };
+      __lahzaExportState?: { kind?: string; detail?: string };
     }
-  ).__weftcutExportState;
+  ).__lahzaExportState;
   if (state?.kind === "error") {
     throw new Error(`export failed: ${state.detail ?? "(no detail)"}`);
   }
@@ -1260,7 +1260,7 @@ export function installExportHook(
     const outputExists = await exists(outputAbsPath);
     // Atomic mux preserves an older destination on failure. Existence alone
     // therefore cannot certify this run; observe the real terminal state too.
-    const state = (window as unknown as { __weftcutExportState?: { kind: string } }).__weftcutExportState;
+    const state = (window as unknown as { __lahzaExportState?: { kind: string } }).__lahzaExportState;
     if (!outputExists || state?.kind === "error") throwNoOutput(outputAbsPath);
   };
 
@@ -1364,7 +1364,7 @@ export function installExportHook(
     const outputExists = await exists(outputAbsPath);
     // Atomic mux preserves an older destination on failure. Existence alone
     // therefore cannot certify this run; observe the real terminal state too.
-    const state = (window as unknown as { __weftcutExportState?: { kind: string } }).__weftcutExportState;
+    const state = (window as unknown as { __lahzaExportState?: { kind: string } }).__lahzaExportState;
     if (!outputExists || state?.kind === "error") throwNoOutput(outputAbsPath);
   };
 
@@ -1389,7 +1389,7 @@ export function installExportHook(
     const outputExists = await exists(outputAbsPath);
     // Atomic mux preserves an older destination on failure. Existence alone
     // therefore cannot certify this run; observe the real terminal state too.
-    const state = (window as unknown as { __weftcutExportState?: { kind: string } }).__weftcutExportState;
+    const state = (window as unknown as { __lahzaExportState?: { kind: string } }).__lahzaExportState;
     if (!outputExists || state?.kind === "error") throwNoOutput(outputAbsPath);
   };
 }

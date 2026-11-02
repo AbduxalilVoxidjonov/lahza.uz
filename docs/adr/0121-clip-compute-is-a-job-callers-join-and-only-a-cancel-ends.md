@@ -11,7 +11,7 @@ unchanged; this adds a record beside them.
 ## Context
 
 `transcribe_clip` and `describe_clip` run for minutes on a long source. Called
-through the stdio shim they failed after 60 seconds with "WeftCut is not
+through the stdio shim they failed after 60 seconds with "Lahza is not
 running" while the app kept working (#67). The shim now runs tool calls under
 an idle window that app progress re-arms, but the app sent no progress, so a
 long call still looked dead.

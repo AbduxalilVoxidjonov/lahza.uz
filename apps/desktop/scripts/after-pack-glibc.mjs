@@ -22,7 +22,7 @@ const ADDONS = ['core', 'native-decode']
 export function linuxLibraries(resourcesDir) {
   const files = []
   for (const addon of ADDONS) {
-    const dir = join(resourcesDir, 'app.asar.unpacked', 'node_modules', '@weftcut', addon)
+    const dir = join(resourcesDir, 'app.asar.unpacked', 'node_modules', '@lahza', addon)
     if (!existsSync(dir)) throw new Error(`${LABEL} ${dir} is missing — the addon was not unpacked.`)
     for (const name of readdirSync(dir).sort()) {
       const isLib = name.endsWith('.node') || /\.so(\.\d+)*$/.test(name)

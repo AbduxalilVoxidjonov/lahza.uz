@@ -42,7 +42,7 @@ test('IPC and native resource entries reject numeric truncation without creating
 })
 
 test('resource intent survives an application restart and defaults use the actual host', async ({}, testInfo) => {
-  const userDataDir = tmpDir('weftcut-resource-restart-')
+  const userDataDir = tmpDir('lahza-resource-restart-')
   let { app, page } = await launchApp({ userDataDir, locale: 'zh-CN' })
   try {
     const host = await app.evaluate(async ({ app }) => {

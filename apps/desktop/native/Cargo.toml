@@ -1,21 +1,21 @@
 # The napi crate is the workspace root; members: the dependency-light
-# `weftcut-eval` leaf, offline `weftcut-conversion` (native + wasm32), and optional `weftcut-native-decode`
+# `lahza-eval` leaf, offline `lahza-conversion` (native + wasm32), and optional `lahza-native-decode`
 # component addon (the only ffmpeg-next consumer — see decode/Cargo.toml).
 [workspace]
 members = ["eval", "conversion", "decode"]
 
 [package]
-name = "weftcut"
+name = "lahza"
 version = "0.0.0"
 edition = "2021"
-description = "WeftCut desktop app"
+description = "Lahza desktop app"
 license = "MIT"
-authors = ["WeftCut"]
+authors = ["Lahza"]
 publish = false
 rust-version = "1.88"
 
 [lib]
-name = "weftcut_lib"
+name = "lahza_lib"
 crate-type = ["cdylib", "rlib"]
 
 [build-dependencies]
@@ -27,9 +27,9 @@ napi-build = "2"
 # wasm32. `serde` gives the leaf's `Interpolation` its wire shape so the napi
 # `Keyframe<T>` stays Serialize/Deserialize. `Rational` (which also needs
 # schemars, forbidden in the leaf) stays in state/time.rs.
-weftcut-eval = { path = "eval", features = ["serde"] }
+lahza-eval = { path = "eval", features = ["serde"] }
 
-# napi-rs: WeftCut's domain core is exposed to Electron as a native addon.
+# napi-rs: Lahza's domain core is exposed to Electron as a native addon.
 # `dyn-symbols` is a NAPI-RS v3 DEFAULT: the addon resolves the host's `napi_*`
 # entry points via dynamic lookup at load time rather than baking them in as hard
 # import records. It was dropped when defaults were switched off (2026-06-17)
@@ -157,7 +157,7 @@ opt-level = 1
 
 # Dependencies build without debug info in dev. Their .pdb files dominated
 # target/debug (measured ~194 GB, almost entirely dependency debug info).
-# `package."*"` applies to dependencies only, so weftcut/weftcut_lib keep the
+# `package."*"` applies to dependencies only, so lahza/lahza_lib keep the
 # [profile.dev] defaults above and stay fully debuggable (line/var backtraces).
 [profile.dev.package."*"]
 debug = false

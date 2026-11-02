@@ -68,7 +68,7 @@ function fakeEngine(over: { status?: string; clip?: Record<string, unknown>; key
 }
 
 describe('placeHighlight', () => {
-  it('turns an empty project into a Reel and lays segments, transforms and captions through WeftCut tools', async () => {
+  it('turns an empty project into a Reel and lays segments, transforms and captions through Lahza tools', async () => {
     const { host, calls } = fakeHost(project())
     const r = await placeHighlight(host, fakeEngine(), { episode_id: 'e1', clip_id: 'c1', client: 'Claude' })
 
@@ -111,11 +111,11 @@ describe('placeHighlight', () => {
     await expect(placeHighlight(closed as never, fakeEngine(), { episode_id: 'e1', clip_id: 'c1' })).rejects.toMatchObject({ code: 'NoProjectOpen' })
   })
 
-  it('a WeftCut refusal stops the placement with the editor\'s own message', async () => {
+  it('a Lahza refusal stops the placement with the editor\'s own message', async () => {
     const { host } = fakeHost(project())
     const refusing = { ...(host as object), mcpCall: (name: string) => name === 'add_video_layer'
       ? { ok: false, error: { code: 'invalid_params', message: 'paired-audio overlap' } }
       : { ok: true, result: { content: [], structuredContent: {} } } }
-    await expect(placeHighlight(refusing as never, fakeEngine(), { episode_id: 'e1', clip_id: 'c1' })).rejects.toMatchObject({ code: 'weftcut_invalid_params', message: 'add_video_layer: paired-audio overlap' })
+    await expect(placeHighlight(refusing as never, fakeEngine(), { episode_id: 'e1', clip_id: 'c1' })).rejects.toMatchObject({ code: 'lahza_invalid_params', message: 'add_video_layer: paired-audio overlap' })
   })
 })

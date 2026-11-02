@@ -73,3 +73,18 @@ apps/desktop/e2e/bench-results/
 
 # Local spec-related docs
 .scratch/
+
+# Lahza engine (Python): only engine/src sources, pyproject and scripts/*.py are tracked.
+# Venvs, caches, packaging output and the built sidecar never go in git.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+engine/build/
+engine/dist/
+build/sidecar/
+resources/lahza/

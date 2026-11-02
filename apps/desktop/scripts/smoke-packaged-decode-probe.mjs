@@ -7,14 +7,14 @@ import os from 'node:os'
 import path from 'node:path'
 import { ownProcessTree, closeProcessTree } from '../e2e/lib/process-cleanup.mjs'
 
-const executablePath = path.resolve(process.argv[2] ?? 'release/mac-arm64/WeftCut.app/Contents/MacOS/WeftCut')
+const executablePath = path.resolve(process.argv[2] ?? 'release/mac-arm64/Lahza.app/Contents/MacOS/Lahza')
 assert.equal(process.platform, 'darwin', 'Packaged VideoToolbox probe smoke requires macOS')
 assert.ok(fs.existsSync(executablePath), `Packaged executable missing: ${executablePath}`)
-const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'weftcut-packaged-probe-'))
+const profile = fs.mkdtempSync(path.join(os.tmpdir(), 'lahza-packaged-probe-'))
 let app, tree, timer
 try {
   app = await _electron.launch({ executablePath, args: [`--user-data-dir=${profile}`],
-    env: { ...process.env, WEFTCUT_SUPPRESS_ELEVATION_NOTICE: '1' }, timeout: 30_000 })
+    env: { ...process.env, LAHZA_SUPPRESS_ELEVATION_NOTICE: '1' }, timeout: 30_000 })
   tree = ownProcessTree(app.process())
   await Promise.race([
     (async () => {

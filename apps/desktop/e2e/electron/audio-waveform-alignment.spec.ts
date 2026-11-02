@@ -13,7 +13,7 @@ import {
 } from './helpers/driver'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const MEDIA_DIR = process.env.WEFTCUT_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
+const MEDIA_DIR = process.env.LAHZA_TEST_MEDIA || path.resolve(__dirname, '../fixtures/media')
 const fixture = (name: string) => path.resolve(MEDIA_DIR, name)
 
 const CASES = [
@@ -113,7 +113,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
     test(`${c.name}: known sound times agree after both background jobs load`, async () => {
       test.setTimeout(120_000)
       await newProject(page, {
-        parentFolder: tmpDir('weftcut-e2e-waveform-align-proj-'),
+        parentFolder: tmpDir('lahza-e2e-waveform-align-proj-'),
         name: `e2e-waveform-align-${c.startPtsUs}-${Date.now()}`,
         canvas: { width: 320, height: 180, fpsNum: 30, fpsDen: 1 },
       })
@@ -129,7 +129,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
       const allTimesS = [...SOUND_TIMES_S, ...SILENT_TIMES_S]
       const [waveform, conformPath] = await Promise.all([
         page.evaluate(
-          ({ id, timesUs }) => (window as any).__weftcutTest.sampleWaveformRms({ mediaId: id, timesUs }),
+          ({ id, timesUs }) => (window as any).__lahzaTest.sampleWaveformRms({ mediaId: id, timesUs }),
           { id: mediaId, timesUs: allTimesS.map((t) => t * 1_000_000) },
         ) as Promise<{ peaksPerSecond: number; rms: number[] }>,
         waitForConformPath(page, mediaId),
@@ -159,7 +159,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
     test.setTimeout(120_000)
     const c = CASES[0]!
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-waveform-slip-proj-'),
+      parentFolder: tmpDir('lahza-e2e-waveform-slip-proj-'),
       name: `e2e-waveform-slip-${Date.now()}`,
       // 30 fps: a frame is 1600 samples, so 800 samples IS half a frame — a slip that
       // simply cannot be expressed on the composition grid.
@@ -205,7 +205,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
     // it did before the timeline edit — and still agree with the conform PCM.
     const allTimesS = [...SOUND_TIMES_S, ...SILENT_TIMES_S]
     const waveform = (await page.evaluate(
-      ({ id, timesUs }) => (window as any).__weftcutTest.sampleWaveformRms({ mediaId: id, timesUs }),
+      ({ id, timesUs }) => (window as any).__lahzaTest.sampleWaveformRms({ mediaId: id, timesUs }),
       { id: mediaId, timesUs: allTimesS.map((t) => t * 1_000_000) },
     )) as { peaksPerSecond: number; rms: number[] }
 
@@ -225,7 +225,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
   test('125 s sparse markers stay aligned across coarse waveform LODs', async () => {
     test.setTimeout(180_000)
     await newProject(page, {
-      parentFolder: tmpDir('weftcut-e2e-waveform-align-proj-'),
+      parentFolder: tmpDir('lahza-e2e-waveform-align-proj-'),
       name: `e2e-waveform-align-long-${Date.now()}`,
       canvas: { width: 320, height: 180, fpsNum: 30, fpsDen: 1 },
     })
@@ -247,7 +247,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
     for (const lod of LONG_LODS) {
       const waveform = (await page.evaluate(
         ({ id, timesUs, pxPerSec }) =>
-          (window as any).__weftcutTest.sampleWaveformRms({ mediaId: id, timesUs, pxPerSec }),
+          (window as any).__lahzaTest.sampleWaveformRms({ mediaId: id, timesUs, pxPerSec }),
         {
           id: mediaId,
           timesUs: allTimesS.map((t) => t * 1_000_000),
@@ -284,7 +284,7 @@ test.describe('timeline waveform ↔ preview PCM alignment (Electron)', () => {
         }
         const boundary = (await page.evaluate(
           ({ id, timesUs, pxPerSec }) =>
-            (window as any).__weftcutTest.sampleWaveformRms({
+            (window as any).__lahzaTest.sampleWaveformRms({
               mediaId: id,
               timesUs,
               pxPerSec,

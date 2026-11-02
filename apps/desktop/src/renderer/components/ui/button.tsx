@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-// Vendored shadcn skeleton re-skinned to WeftCut's compact dark scale
+// Vendored shadcn skeleton re-skinned to Lahza's compact dark scale
 // (ADR 0018): variants/sizes expressed in tokens. Unlayered legacy context
 // rules (e.g. `.preview-transport button`) beat these utilities — delete them
 // as call sites migrate.

@@ -1,6 +1,6 @@
 // Test helper: serves HTTP Range requests against an in-memory buffer, so
 // MediaRangeSource / mediabunny can read a fixture lazily in node vitest
-// without a real weftcut-media:// server. Tracks total bytes served for laziness
+// without a real lahza-media:// server. Tracks total bytes served for laziness
 // assertions.
 
 export interface RangeFetchMock {
@@ -20,7 +20,7 @@ export interface RangeFetchMock {
 
 export interface RangeFetchMockOptions {
   /// Per-206-response body cap in bytes. Models the SHORT 206 a
-  /// `weftcut-media://` fetch is observed to return — a fixed ceiling (~1 MB)
+  /// `lahza-media://` fetch is observed to return — a fixed ceiling (~1 MB)
   /// regardless of how many bytes the `Range` header asked for; the workaround
   /// lives in `MediaRangeSource`'s `read`. When set, a request spanning more
   /// than `cap` bytes gets only `cap` bytes back (with a matching

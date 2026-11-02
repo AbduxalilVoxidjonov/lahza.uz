@@ -36,7 +36,7 @@ export interface Tangent {
 
 /// Class of the segment LEAVING a key. Only `Spline` reads the tangents; Hold /
 /// Linear / Elastic / Bounce are exactly what they were as segment-level eases.
-/// TWIN: `weftcut_eval::Segment` (serde tag "kind").
+/// TWIN: `lahza_eval::Segment` (serde tag "kind").
 export type Segment =
   | { kind: "Spline" }
   | { kind: "Hold" }
@@ -93,7 +93,7 @@ export type Animated<T> =
 /// The coordinates a side holds when its segment does not read it (Hold /
 /// Linear / procedural neighbours, the first key's `in`, the last key's `out`):
 /// the linear parametrisation's own control points. ARITHMETIC EXPRESSIONS, not
-/// decimal literals — the Rust twin (`weftcut_eval::OUT_IDENTITY` /
+/// decimal literals — the Rust twin (`lahza_eval::OUT_IDENTITY` /
 /// `IN_IDENTITY`) computes the same expressions, and the goldens compare the
 /// coordinates exactly (same rule as `BACK_Y` in easing.ts).
 export const OUT_IDENTITY: Readonly<{ x: number; y: number }> = { x: 1 / 3, y: 1 / 3 };

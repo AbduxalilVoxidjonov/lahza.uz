@@ -38,7 +38,7 @@ const canonical = (v: unknown): string => JSON.stringify(v, (_k, value: unknown)
   ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b))) : value);
 export function exportBasename(name: string): string {
   const safe = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').replace(/[. ]+$/g, '').slice(0, 120);
-  return !safe || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(safe) ? 'weftcut-export' : safe;
+  return !safe || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(safe) ? 'lahza-export' : safe;
 }
 /** A missing entry is safe to report as absent; unreadable entries are not. */
 export async function exportPathExists(file: string): Promise<boolean> {
@@ -188,8 +188,8 @@ export class ExportJobs {
       const resolved = resolveExportRequest(await this.savedSettings(h, preset), agent ? exportWire(a.settings, false) : a.settings,
         this.composition(h), (agent ? exportWire(a.range, false) : a.range) as ExportJob['range'] | undefined, !agent || a.allow_experimental_10bit === true, snapFrameRound);
       Object.assign(j.view, { settings: resolved.settings, range: resolved.range });
-      j.video = path.join(os.tmpdir(), `weftcut-export-${j.view.job_id}-video.${['prores', 'dnxhr'].includes(resolved.settings.codec) ? 'mov' : 'mp4'}`);
-      j.audio = path.join(os.tmpdir(), `weftcut-export-${j.view.job_id}-audio.${resolved.settings.audio.codec === 'opus' ? 'mka' : 'm4a'}`);
+      j.video = path.join(os.tmpdir(), `lahza-export-${j.view.job_id}-video.${['prores', 'dnxhr'].includes(resolved.settings.codec) ? 'mov' : 'mp4'}`);
+      j.audio = path.join(os.tmpdir(), `lahza-export-${j.view.job_id}-audio.${resolved.settings.audio.codec === 'opus' ? 'mka' : 'm4a'}`);
       let destination: string;
       if (a.output_path === undefined) {
         const dir = path.join(h.openedProject()!.dir, 'output');

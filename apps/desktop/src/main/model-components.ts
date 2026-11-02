@@ -49,14 +49,14 @@ async function install(cacheDir: string): Promise<void> {
     // The path is passed as data via the environment, never interpolated into shell code.
     const script = [
       "$ErrorActionPreference = 'Stop'",
-      "$signature = Get-AuthenticodeSignature -LiteralPath $env:WEFTCUT_COMPONENT_INSTALLER",
+      "$signature = Get-AuthenticodeSignature -LiteralPath $env:LAHZA_COMPONENT_INSTALLER",
       "if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notmatch '(^|,\\s*)O=Microsoft Corporation(,|$)') { throw 'Runtime installer signature is not Microsoft trusted' }",
-      "$process = Start-Process -FilePath $env:WEFTCUT_COMPONENT_INSTALLER -ArgumentList '/install','/passive','/norestart' -Verb RunAs -WindowStyle Hidden -Wait -PassThru",
+      "$process = Start-Process -FilePath $env:LAHZA_COMPONENT_INSTALLER -ArgumentList '/install','/passive','/norestart' -Verb RunAs -WindowStyle Hidden -Wait -PassThru",
       "if ($process.ExitCode -notin 0,1638,3010) { throw ('Runtime installation failed: ' + $process.ExitCode) }",
     ].join("\n");
     await execute(powershell, ["-NoProfile", "-NonInteractive", "-Command", script], {
       windowsHide: true, timeout: 600_000, maxBuffer: 256 * 1024,
-      env: { ...process.env, WEFTCUT_COMPONENT_INSTALLER: installer },
+      env: { ...process.env, LAHZA_COMPONENT_INSTALLER: installer },
     });
   } finally {
     // mkdtemp created this exact child under the supplied cache; only our installer is removed.

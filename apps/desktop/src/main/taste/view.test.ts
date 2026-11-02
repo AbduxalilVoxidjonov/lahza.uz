@@ -49,7 +49,7 @@ describe('TASTE.md over its style', () => {
   })
 
   it('overrides one field at a time and records which layer set each', () => {
-    const v = tasteView(dirs(), project('---\nextends: weftcut-default\ntokens:\n  palette: { accent: "#E04329" }\n  text:\n    title: { size_px: 110 }\n---\nOur titles run large.\n'))
+    const v = tasteView(dirs(), project('---\nextends: lahza-default\ntokens:\n  palette: { accent: "#E04329" }\n  text:\n    title: { size_px: 110 }\n---\nOur titles run large.\n'))
     expect(v.diagnostics).toEqual([])
     expect(v.taste.present).toBe(true)
     expect(v.tokens.text?.title).toMatchObject({ size_px: 110, weight: 700, intro: 'FadeIn' })
@@ -133,9 +133,9 @@ describe('user style packages', () => {
 
   it('never lets a user package shadow a built-in name', () => {
     const user = temp()
-    style(user, 'weftcut-default', 'tokens: { text: { title: { size_px: 10 } } }')
+    style(user, 'lahza-default', 'tokens: { text: { title: { size_px: 10 } } }')
     expect(tasteView(dirs(user), null).tokens.text?.title?.size_px).toBe(96)
-    expect(listStyles(dirs(user))).toEqual([{ name: 'clipping', origin: 'builtin' }, { name: 'weftcut-default', origin: 'builtin' }])
+    expect(listStyles(dirs(user))).toEqual([{ name: 'clipping', origin: 'builtin' }, { name: 'lahza-default', origin: 'builtin' }])
   })
 })
 

@@ -19,11 +19,11 @@ const SAVED = 900
 for (const complete of [false, true]) {
   test(`@serial long Motif streams a saved window while baking remains ${complete ? 'complete' : 'partial'}`, async ({}, testInfo) => {
     test.setTimeout(120_000)
-    const userDataDir = tmpDir('weftcut-partial-user-')
+    const userDataDir = tmpDir('lahza-partial-user-')
     let running = await launchApp({ userDataDir })
     try {
       await newProject(running.page, {
-        parentFolder: tmpDir('weftcut-partial-project-'), name: 'Partial',
+        parentFolder: tmpDir('lahza-partial-project-'), name: 'Partial',
         canvas: { width: 1920, height: 1080, fpsNum: 60, fpsDen: 1 },
       })
       await invokeCmd(running.page, 'app_settings_set', { patch: {
@@ -40,9 +40,9 @@ for (const complete of [false, true]) {
       const motifId = await publishMotifDraft(running.page, draft)
       await waitForHook(running.page, 'addMotifLayer')
       const layerId = await running.page.evaluate(motifId =>
-        (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.addMotifLayer({ motifId, durationUs: 30_000_000 }), motifId)
+        (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.addMotifLayer({ motifId, durationUs: 30_000_000 }), motifId)
       const cacheKey = await running.page.evaluate(layerId =>
-        (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.cacheKeyForLayer(layerId), layerId)
+        (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.cacheKeyForLayer(layerId), layerId)
       expect(cacheKey).not.toBeNull()
       const projectPath = await invokeCmd<string>(running.page, 'workspace_dir')
       const pngs = await running.page.evaluate(() => {
@@ -90,10 +90,10 @@ for (const complete of [false, true]) {
       await waitForHook(running.page, 'motifReopenProject')
       await invokeCmd(running.page, 'motif_capture_diagnostics', { reset: true })
       await running.page.evaluate(path =>
-        (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.motifReopenProject({ path }), projectPath)
+        (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.motifReopenProject({ path }), projectPath)
       await waitForHook(running.page, 'compositorPerfSnapshot')
       await expect.poll(() => running.page.evaluate(() =>
-        (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.compositorPerfSnapshot()?.motifs?.[0]?.boundFrame),
+        (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.compositorPerfSnapshot()?.motifs?.[0]?.boundFrame),
       { timeout: 30_000 }).toBe(0)
       await expect.poll(() => running.app.evaluate(() => (globalThis as any).__partialBakeStats.maxActive),
         { timeout: 15_000 }).toBe(3)
@@ -101,10 +101,10 @@ for (const complete of [false, true]) {
       // Starts the real baker; the partial case must keep writing the tail
       // while playback stays entirely within the already saved prefix.
       await running.page.evaluate(({ layerId, expectedFrames }) =>
-        (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest.prebakeLayerAndWait({ layerId, expectedFrames }),
+        (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest.prebakeLayerAndWait({ layerId, expectedFrames }),
       { layerId, expectedFrames: complete ? TOTAL : SAVED })
       const { rows, observedPlaybackPause } = await running.page.evaluate(async () => {
-        const hook = (window as unknown as { __weftcutTest: E2EHook }).__weftcutTest
+        const hook = (window as unknown as { __lahzaTest: E2EHook }).__lahzaTest
         const rows = []
         let observedPlaybackPause = false
         hook.transportPlay()
