@@ -1,3 +1,5 @@
+> **Lahza Studio:** bu repo WeftCut asosidagi Lahza Studio. Yangi kompyuterda o'rnatish va Claude'ni MCP orqali ulash — [`LAHZA.md`](LAHZA.md).
+
 <p align="center">
   <img src="apps/desktop/src/renderer/public/icons/icon.svg" alt="WeftCut" width="128" height="128" />
 </p>

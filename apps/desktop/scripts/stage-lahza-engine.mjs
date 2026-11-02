@@ -8,7 +8,9 @@
 //
 //   node scripts/stage-lahza-engine.mjs [--from <lahza.uz checkout>]
 //
-// The checkout defaults to $LAHZA_ROOT, then ../../../lahza.uz beside the repo.
+// The checkout defaults to $LAHZA_ROOT, then the in-repo lahza/ tree (the
+// engine source lives there since the merge), then ../../../lahza.uz beside
+// the repo for older side-by-side setups.
 import { cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -17,7 +19,12 @@ const here = dirname(fileURLToPath(import.meta.url))
 const desktop = resolve(here, '..')
 const osDir = process.platform === 'win32' ? 'win' : process.platform === 'darwin' ? 'mac' : 'linux'
 const flag = process.argv.indexOf('--from')
-const root = resolve(flag > 0 ? process.argv[flag + 1] : process.env.LAHZA_ROOT ?? join(desktop, '../../../lahza.uz'))
+const inRepo = join(desktop, '../../lahza')
+const root = resolve(
+  flag > 0
+    ? process.argv[flag + 1]
+    : process.env.LAHZA_ROOT ?? (existsSync(join(inRepo, 'engine')) ? inRepo : join(desktop, '../../../lahza.uz')),
+)
 
 /** The Tauri sidecar name for this host's target triple. */
 function sidecarName() {
